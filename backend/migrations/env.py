@@ -11,8 +11,8 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from app.core.config import get_settings
 from app.core.db import Base
 
-# Import model modules here as they land (P1+) so autogenerate sees them, e.g.:
-# from app.takedown import models  # noqa: F401
+# Import model modules here as they land so autogenerate sees them.
+from app.chain import models  # noqa: F401
 
 config = context.config
 
