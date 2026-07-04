@@ -93,10 +93,14 @@ const STYLE: any[] = [
 ];
 
 function withAlpha(hex: string, alpha: number): string {
-  const a = Math.round(alpha * 255)
-    .toString(16)
-    .padStart(2, "0");
-  return `${hex}${a}`;
+  // Cytoscape's style parser rejects 8-digit hex (#rrggbbaa) and throws at init.
+  // Emit spaceless rgba() so each stays a single token inside the
+  // space-separated `background-gradient-stop-colors` list.
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 export function WalletGraph({
