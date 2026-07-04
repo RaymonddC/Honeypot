@@ -36,6 +36,8 @@ export interface GraphEdge {
   isPeel?: boolean;
   /** ISO timestamp of the transfer (used to synthesize tx lists). */
   ts?: string;
+  /** On-chain tx hash — matches peeling-chain evidence hops exactly. */
+  txHash?: string;
 }
 
 export interface WalletGraph {

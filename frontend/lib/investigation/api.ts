@@ -126,6 +126,7 @@ function normalizeGraph(raw: any, address: string): WalletGraph {
       target,
       amount: Number(e.value ?? e.amount ?? 0),
       ts: e.ts ? String(e.ts) : undefined,
+      txHash: e.tx_hash ? String(e.tx_hash) : undefined,
     };
   });
 
@@ -134,25 +135,33 @@ function normalizeGraph(raw: any, address: string): WalletGraph {
 }
 
 /**
- * Highlight the peeling chain: collect from→to hop pairs out of every fired
- * peeling_chain pattern's evidence and flag matching edges.
+ * Highlight the peeling chain from every fired peeling_chain pattern's
+ * evidence hops. Edges are one-per-transfer (MultiDiGraph — parallel edges
+ * possible), so match by tx_hash when the hop carries one; fall back to
+ * from→to pairs otherwise.
  */
 function applyPeelHighlight(
   graph: WalletGraph,
   scores: Record<string, any>,
 ): void {
+  const hashes = new Set<string>();
   const pairs = new Set<string>();
   for (const risk of Object.values(scores ?? {})) {
     for (const p of risk?.patterns ?? []) {
       if (p?.name !== "peeling_chain" || !p?.fired) continue;
       for (const hop of p?.evidence?.hops ?? []) {
-        if (hop?.from && hop?.to) pairs.add(`${hop.from}->${hop.to}`);
+        if (hop?.tx_hash) hashes.add(String(hop.tx_hash));
+        else if (hop?.from && hop?.to) pairs.add(`${hop.from}->${hop.to}`);
       }
     }
   }
-  if (!pairs.size) return;
+  if (!hashes.size && !pairs.size) return;
   for (const e of graph.edges) {
-    if (pairs.has(`${e.source}->${e.target}`)) e.isPeel = true;
+    if (
+      (e.txHash && hashes.has(e.txHash)) ||
+      pairs.has(`${e.source}->${e.target}`)
+    )
+      e.isPeel = true;
   }
 }
 
