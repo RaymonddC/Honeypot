@@ -229,7 +229,7 @@ function reasoningSteps(
   confidence: number,
   firedCount: number,
 ): ReasoningStep[] {
-  const lines: string[] =
+  const lines: any[] =
     typeof raw === "string" ? [raw] : Array.isArray(raw) ? raw : [];
   const steps: ReasoningStep[] = lines.map((line, i) => {
     const text = typeof line === "string" ? line : String(line?.detail ?? line);
