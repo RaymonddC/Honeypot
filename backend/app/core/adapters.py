@@ -79,3 +79,18 @@ class ChainDataAdapter(Protocol):
     async def fetch_transfers(self, address: str, cursor: str | None = None) -> Any: ...
 
     async def balance(self, address: str) -> Any: ...
+
+
+@runtime_checkable
+class FiatDataAdapter(Protocol):
+    """Fiat boundary. POC: synthetic PT A2Z generator; LIVE: bank/QRIS feed (post-MoU).
+
+    ``load_dataset`` returns a full ``FiatDataset`` (accounts + transactions +,
+    in POC, the synthetic on-ramp deposits). Rows are stamped ``data_mode``.
+    """
+
+    data_mode: Mode
+
+    async def load_dataset(self, params: Any | None = None) -> Any: ...
+
+    async def load_transactions(self, params: Any | None = None) -> Any: ...

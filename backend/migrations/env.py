@@ -13,6 +13,7 @@ from app.core.db import Base
 
 # Import model modules here as they land so autogenerate sees them.
 from app.chain import models  # noqa: F401
+from app.fiat import models as fiat_models  # noqa: F401
 
 config = context.config
 
