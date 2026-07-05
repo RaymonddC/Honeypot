@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── ITTU design tokens (ELSA-anchored — docs/Frontend-Design.md) ────────── */
+:root {
+  --bg: #090909;               /* app ground (near-black) */
+  --sidebar: #0c0c0c;          /* left rail */
+  --card: #111214;             /* cards / panels */
+  --elevated: #141414;         /* inputs, chips, elevated fills */
+  --border: rgba(255, 255, 255, 0.06); /* hairline borders */
+  --fg: rgba(255, 255, 255, 0.88);     /* text */
+  --fg-muted: rgba(255, 255, 255, 0.34);
+  --accent: #10b981;           /* emerald — primary accent, active nav */
+  --accent-bright: #34d399;
+  --risk-low: #10b981;
+  --risk-med: #f5a524;
+  --risk-high: #ef4444;
+  --radius: 0.75rem;
+  /* Inter / JetBrains Mono in prod (vendored later); system stand-ins for now */
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Figures always tabular */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Section eyebrows — 10px uppercase, wide tracking (ELSA prose-elsa h2) */
+.eyebrow {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-muted);
+  font-weight: 600;
+}
+
+/* Thin 6px scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+/* Visible focus rings (accessibility) */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

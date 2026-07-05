@@ -21,6 +21,7 @@ phase). Source: `../PIDI Subs 2.pdf` (proposal).
 | **[Response-Dashboard.md](Response-Dashboard.md)** | Metrics screen — time-to-freeze, recovery rate. |
 | **[API-Contract.md](API-Contract.md)** | HTTP/WS surface for parallel build. |
 | **[Security-Evidence.md](Security-Evidence.md)** | RLS, chain-of-custody, explainability, legal anchors. |
+| **[Frontend-Design.md](Frontend-Design.md)** | Design system (ELSA tokens) + screen designs + [live mockup](https://claude.ai/code/artifact/d592d92c-de21-45f8-b609-ab88e7fd8661). |
 
 ---
 
