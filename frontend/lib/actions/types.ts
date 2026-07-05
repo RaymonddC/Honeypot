@@ -43,7 +43,8 @@ export interface ActionDocument {
 /* ── Multi-agency dispatch targets ─────────────────────────────────────── */
 
 export type DispatchStatus =
-  | "mock"
+  | "draft" // pre-dispatch: generated, awaiting analyst confirmation
+  | "mock" // dispatched into the POC mock sink
   | "queued"
   | "sent"
   | "failed"
@@ -81,6 +82,7 @@ export interface ActionBundle {
 /* ── Status styling (mockup .status.mock = amber) ──────────────────────── */
 
 export const STATUS_COLORS: Record<DispatchStatus, string> = {
+  draft: "rgba(255,255,255,.34)",
   mock: "#f5a524",
   queued: "#f5a524",
   sent: "#34d399",
@@ -89,6 +91,7 @@ export const STATUS_COLORS: Record<DispatchStatus, string> = {
 };
 
 export const STATUS_LABELS: Record<DispatchStatus, string> = {
+  draft: "· draft",
   mock: "● mock",
   queued: "● queued",
   sent: "● sent",

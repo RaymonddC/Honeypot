@@ -172,6 +172,24 @@ def test_metrics_range_filter():
     ).status_code == 422
 
 
+def test_metrics_cases_deduped_per_case_id():
+    # Repeated generate→dispatch runs for the same case must yield ONE row,
+    # and a live action row supersedes the baseline row for that case_id.
+    case_id = "CASE-2026-0142"  # also present in the demo baseline
+    for _ in range(3):
+        b = generate(case_id=case_id)
+        client.post(f"/api/actions/{b['id']}/dispatch")
+
+    m = client.get("/api/metrics/response", params={"range": "all"}).json()
+    rows = [c for c in m["cases"] if c["case_id"] == case_id]
+    assert len(rows) == 1
+    assert rows[0]["source"] == "action"
+    assert rows[0]["status"] == "frozen"
+    # all case_ids unique across the dashboard
+    ids = [c["case_id"] for c in m["cases"]]
+    assert len(ids) == len(set(ids))
+
+
 def test_metrics_move_after_generate_and_dispatch():
     before = client.get("/api/metrics/response").json()
     b = generate()

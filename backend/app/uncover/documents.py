@@ -19,7 +19,7 @@ audit-log entry is emitted. PDFs are built ``invariant=1`` +
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from io import BytesIO
 
 from pydantic import BaseModel, Field

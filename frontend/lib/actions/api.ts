@@ -313,7 +313,9 @@ function normalizeTargets(b: any): DispatchTarget[] {
           str(first(r?.reason, r?.action, r?.instruction)) ??
           DOC_TYPE_ACTIONS[String(r?.document_type)] ??
           "Alert",
-        status: statusByAgency.get(name) ?? "mock",
+        // Pre-dispatch nothing has been sent — targets are drafts until the
+        // analyst confirms; dispatch overlays the notification status (mock…).
+        status: statusByAgency.get(name) ?? "draft",
       };
     });
 
@@ -442,6 +444,15 @@ export async function generateActions(): Promise<ActionBundle> {
 export async function dispatchActions(
   bundle: ActionBundle,
 ): Promise<ActionBundle> {
+  // Local resolution: draft targets land in the POC mock sink.
+  const resolveLocal = (): ActionBundle => ({
+    ...bundle,
+    targets: bundle.targets.map((t) =>
+      t.status === "draft" ? { ...t, status: "mock" } : t,
+    ),
+    dispatched: true,
+  });
+
   if (bundle.source === "api" && bundle.id) {
     try {
       const raw = await request<any>(`/actions/${bundle.id}/dispatch`, {
@@ -450,11 +461,11 @@ export async function dispatchActions(
       try {
         return { ...normalizeBundle(raw), dispatched: true };
       } catch {
-        return { ...bundle, dispatched: true };
+        return resolveLocal();
       }
     } catch {
       /* fall through to local resolution (e.g. 409 already_dispatched) */
     }
   }
-  return { ...bundle, dispatched: true };
+  return resolveLocal();
 }

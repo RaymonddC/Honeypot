@@ -45,21 +45,21 @@ export const MOCK_TARGETS: DispatchTarget[] = [
     code: "BCA",
     name: "Bank BCA",
     action: "Freeze mule a/n 4881…",
-    status: "mock",
+    status: "draft",
   },
   {
     id: "tgt-idx",
     code: "IDX",
     name: "Indodax",
     action: "Flag deposit wallet",
-    status: "mock",
+    status: "draft",
   },
   {
     id: "tgt-ppt",
     code: "PPT",
     name: "PPATK",
     action: "Submit LTKM (goAML)",
-    status: "mock",
+    status: "draft",
   },
 ];
 

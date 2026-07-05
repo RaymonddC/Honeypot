@@ -1,10 +1,18 @@
 /**
- * Response Dashboard API client (docs/API-Contract.md):
+ * Response Dashboard API client (shape confirmed by P3-Backend):
  *
- *   GET /api/metrics/response?range=7d|30d|all → dashboard_metrics
+ *   GET /api/metrics/response?range=7d|30d|all → {
+ *     cases_in_progress, cases_total,
+ *     time_to_freeze: { avg_minutes, baseline_hours, improvement_factor },
+ *     funds: { at_risk_idr, frozen_idr, at_risk_usdt, frozen_usdt,
+ *              recovery_rate (fraction), baseline_recovery_rate (0.0476) },
+ *     honeypot, wallets_scored, actions,
+ *     trend: [{date, cases, frozen_idr, avg_ttf_minutes}, …oldest→newest],
+ *     cases: [{case_id, title, crime_type, status: in_progress|frozen,
+ *              at_risk_idr, frozen_idr, time_to_freeze_minutes, source}]
+ *   }
  *
- * Base URL: NEXT_PUBLIC_API_URL (default http://localhost:8000). Shapes are
- * normalized defensively (P3-Backend confirmation pending); any failure
+ * Base URL: NEXT_PUBLIC_API_URL (default http://localhost:8000). Any failure
  * falls back to the local mock (lib/response/mock.ts) so the screen stays
  * demoable standalone.
  */
@@ -18,7 +26,6 @@ import type {
   ResponseMetrics,
 } from "./types";
 import {
-  BASELINE_FREEZE,
   BASELINE_RECOVERY_PCT,
   CYAN,
   EMERALD,
@@ -53,50 +60,54 @@ const num = (v: unknown): number | null => {
 const first = (...vals: unknown[]): any =>
   vals.find((v) => v !== undefined && v !== null);
 
+/** Rates may arrive as fraction (0.4064) or percent (40.64). */
+const asPct = (v: number | null): number | null =>
+  v == null ? null : v <= 1 ? v * 100 : v;
+
 /* ── Tiles ─────────────────────────────────────────────────────────────── */
 
-function buildTiles(m: any): MetricTile[] {
-  const cases = num(
-    first(m?.cases_in_progress, m?.open_cases, m?.active_cases_count),
-  );
+function buildTiles(m: any, frozenCount: number | null): MetricTile[] {
+  const ttfObj = m?.time_to_freeze ?? {};
+  const funds = m?.funds ?? {};
+
+  const cases = num(first(m?.cases_in_progress, m?.open_cases));
   const freezeMin = num(
-    first(
-      m?.avg_time_to_freeze_minutes,
-      m?.avg_time_to_freeze_min,
-      m?.time_to_freeze_minutes,
-    ),
+    first(ttfObj?.avg_minutes, m?.avg_time_to_freeze_minutes),
   );
-  const atRisk = num(first(m?.funds_at_risk_idr, m?.funds_at_risk));
-  const frozen = num(first(m?.funds_frozen_idr, m?.funds_frozen));
-  const recovery = num(first(m?.recovery_rate_pct, m?.recovery_rate));
+  const baselineHours = num(first(ttfObj?.baseline_hours, 12));
+  const atRisk = num(first(funds?.at_risk_idr, m?.funds_at_risk_idr));
+  const frozen = num(first(funds?.frozen_idr, m?.funds_frozen_idr));
+  const recovery = asPct(
+    num(first(funds?.recovery_rate, m?.recovery_rate_pct)),
+  );
   const baseline =
-    num(first(m?.baseline_recovery_rate_pct, m?.baseline_recovery_rate)) ??
-    BASELINE_RECOVERY_PCT;
-  const freezesAcked = num(first(m?.freezes_acknowledged, m?.freezes_acked));
-  const casesDelta = num(first(m?.cases_delta_week, m?.cases_new_this_week));
+    asPct(
+      num(
+        first(funds?.baseline_recovery_rate, m?.baseline_recovery_rate_pct),
+      ),
+    ) ?? BASELINE_RECOVERY_PCT;
+  const casesTotal = num(first(m?.cases_total));
 
   const ttf = freezeMin != null ? splitMinutes(freezeMin) : null;
   const risk = atRisk != null ? splitIDR(atRisk) : null;
   const froz = frozen != null ? splitIDR(frozen) : null;
-  // recovery_rate may arrive as fraction (0.148) or percent (14.8)
-  const recPct =
-    recovery != null ? (recovery <= 1 ? recovery * 100 : recovery) : null;
 
   return [
     {
       label: "Cases in progress",
       value: cases != null ? String(cases) : "—",
-      delta:
-        casesDelta != null ? `▲ ${casesDelta} this week` : "open + active",
-      deltaUp: casesDelta != null,
+      delta: casesTotal != null ? `of ${casesTotal} total` : "open + active",
     },
     {
       label: "Avg time-to-freeze",
       value: ttf?.value ?? "—",
       suffix: ttf?.suffix,
       color: EMERALD,
-      delta: `▼ from ${BASELINE_FREEZE} baseline`,
-      deltaUp: true,
+      delta:
+        ttf != null
+          ? `▼ from ${baselineHours != null ? `${Math.round(baselineHours)}h+` : "12h+"} baseline`
+          : "no freezes in range yet",
+      deltaUp: ttf != null,
     },
     {
       label: "Funds at risk",
@@ -110,17 +121,17 @@ function buildTiles(m: any): MetricTile[] {
       suffix: froz?.suffix,
       color: CYAN,
       delta:
-        freezesAcked != null
-          ? `▲ ${freezesAcked} freezes ack’d`
+        frozenCount != null && frozenCount > 0
+          ? `▲ ${frozenCount} freeze${frozenCount > 1 ? "s" : ""} ack’d`
           : "acknowledged freezes",
-      deltaUp: freezesAcked != null,
+      deltaUp: frozenCount != null && frozenCount > 0,
     },
     {
       label: "Recovery rate",
-      value: recPct != null ? recPct.toFixed(1) : "—",
+      value: recovery != null ? recovery.toFixed(1) : "—",
       suffix: "%",
       color: EMERALD,
-      delta: `▲ vs ${baseline}% baseline`,
+      delta: `▲ vs ${baseline.toFixed(2)}% baseline`,
       deltaUp: true,
     },
   ];
@@ -129,46 +140,59 @@ function buildTiles(m: any): MetricTile[] {
 /* ── Trend ─────────────────────────────────────────────────────────────── */
 
 function normalizeTrend(m: any): number[] {
-  const raw = first(
-    m?.time_to_freeze_trend,
-    m?.trend,
-    m?.freeze_trend,
-    m?.trend_minutes,
-  );
+  const raw = first(m?.trend, m?.time_to_freeze_trend, m?.freeze_trend);
   if (!Array.isArray(raw)) return [];
   return raw
     .map((p) =>
-      num(typeof p === "object" ? first(p?.minutes, p?.value, p?.y) : p),
+      num(
+        typeof p === "object"
+          ? first(p?.avg_ttf_minutes, p?.minutes, p?.value, p?.y)
+          : p,
+      ),
     )
     .filter((v): v is number => v != null && v >= 0);
 }
 
 /* ── Cases table ───────────────────────────────────────────────────────── */
 
-function normalizeRisk(v: unknown): { risk: CaseRisk; label: string } {
-  const s = String(v ?? "").toLowerCase();
+function normalizeCaseStatus(
+  status: unknown,
+  atRiskIdr: number | null,
+): { risk: CaseRisk; label: string } {
+  const s = String(status ?? "").toLowerCase();
   if (s.includes("frozen") || s.includes("resolved"))
     return { risk: "low", label: "Frozen" };
   if (s.includes("high")) return { risk: "high", label: "High" };
   if (s.includes("med")) return { risk: "med", label: "Med" };
   if (s.includes("low")) return { risk: "low", label: "Low" };
+  // in_progress → tint by exposure (≥ Rp 30M reads high, mockup-style)
+  if (s.includes("progress") || s.includes("open") || s.includes("active"))
+    return atRiskIdr != null && atRiskIdr >= 30e6
+      ? { risk: "high", label: "High" }
+      : { risk: "med", label: "Active" };
   return { risk: "med", label: s ? s[0].toUpperCase() + s.slice(1) : "—" };
 }
 
+/** "judol_deposit" → "Judol deposit". */
+const humanize = (s: string): string => {
+  const t = s.replace(/[_-]+/g, " ").trim();
+  return t ? t[0].toUpperCase() + t.slice(1) : "—";
+};
+
 function normalizeCases(m: any): ActiveCase[] {
-  const items: any[] = first(m?.active_cases, m?.cases, m?.items, []) ?? [];
+  const items: any[] = first(m?.cases, m?.active_cases, m?.items, []) ?? [];
   return items.map((c, i): ActiveCase => {
     const atRisk = num(first(c?.at_risk_idr, c?.funds_at_risk_idr, c?.at_risk));
-    const { risk, label } = normalizeRisk(
+    const { risk, label } = normalizeCaseStatus(
       first(c?.status, c?.risk_level, c?.risk),
+      atRisk,
     );
     const ref = String(
-      first(c?.ref, c?.case_ref, c?.title, c?.id, `case-${i}`),
-    );
+      first(c?.case_id, c?.ref, c?.case_ref, c?.id, `case-${i}`),
+    ).replace(/^CASE-/i, "");
     return {
-      // Long UUIDs → short mono ref
-      ref: ref.length > 12 ? `${ref.slice(0, 8)}…` : ref,
-      type: String(first(c?.crime_type, c?.type, "—")),
+      ref: ref.length > 12 ? `${ref.slice(0, 9)}…` : ref,
+      type: humanize(String(first(c?.crime_type, c?.type, "—"))),
       atRisk: atRisk != null ? formatIDRShort(atRisk) : "—",
       risk,
       statusLabel: label,
@@ -189,17 +213,28 @@ export async function fetchResponseMetrics(
     const raw = await request<any>(`/metrics/response?range=${range}`);
     const m = first(raw?.metrics, raw?.data, raw) ?? {};
 
-    const tiles = buildTiles(m);
+    const cases = normalizeCases(m);
+    const frozenCount = cases.length
+      ? cases.filter((c) => c.statusLabel === "Frozen").length
+      : null;
+
+    const tiles = buildTiles(m, frozenCount);
     if (tiles.every((t) => t.value === "—"))
       throw new Error("empty metrics from API");
 
     const trend = normalizeTrend(m);
     const last = trend.length ? trend[trend.length - 1] : null;
-    const firstV = trend.length ? trend[0] : null;
+
+    // Improvement vs baseline: backend factor when present, else derived.
+    const factor = num(m?.time_to_freeze?.improvement_factor);
+    const baselineMin =
+      (num(m?.time_to_freeze?.baseline_hours) ?? 12) * 60;
     const dropPct =
-      last != null && firstV != null && firstV > 0
-        ? Math.round((1 - last / firstV) * 100)
-        : null;
+      factor != null && factor > 1
+        ? Math.round((1 - 1 / factor) * 100)
+        : last != null && baselineMin > 0
+          ? Math.round((1 - last / baselineMin) * 100)
+          : null;
 
     return {
       tiles,
@@ -208,8 +243,11 @@ export async function fetchResponseMetrics(
         last != null
           ? `${splitMinutes(last).value} ${splitMinutes(last).suffix}`
           : "—",
-      trendTag: dropPct != null ? `↓ ${dropPct}% vs baseline` : "trend",
-      cases: normalizeCases(m),
+      trendTag:
+        dropPct != null && dropPct > 0
+          ? `↓ ${dropPct}% vs baseline`
+          : "weekly avg",
+      cases,
       range,
       source: "api",
     };

@@ -148,6 +148,23 @@ def _action_rows(now: datetime) -> list[CaseRow]:
     return rows
 
 
+def _combined_rows(now: datetime) -> list[CaseRow]:
+    """One row per case_id. A live action row supersedes the baseline row for
+    the same case (dispatching flips the case to frozen — no duplicates);
+    repeated bundles for one case collapse to the best/newest row."""
+    best_action: dict[str, CaseRow] = {}
+    for r in _action_rows(now):
+        cur = best_action.get(r.case_id)
+        if cur is None:
+            best_action[r.case_id] = r
+            continue
+        # prefer a frozen row over in_progress; otherwise keep the newest
+        if (r.status == "frozen", r.opened_at) > (cur.status == "frozen", cur.opened_at):
+            best_action[r.case_id] = r
+    baseline = [r for r in _baseline_rows(now) if r.case_id not in best_action]
+    return baseline + list(best_action.values())
+
+
 def _trend(rows: list[CaseRow], now: datetime, weeks: int = 6) -> list[TrendPoint]:
     points: list[TrendPoint] = []
     for w in range(weeks - 1, -1, -1):
@@ -166,7 +183,7 @@ def _trend(rows: list[CaseRow], now: datetime, weeks: int = 6) -> list[TrendPoin
 
 def compute_metrics(range_key: RangeKey = "30d") -> ResponseMetrics:
     now = datetime.now(timezone.utc)
-    rows = _baseline_rows(now) + _action_rows(now)
+    rows = _combined_rows(now)
 
     days = RANGE_DAYS[range_key]
     if days is not None:

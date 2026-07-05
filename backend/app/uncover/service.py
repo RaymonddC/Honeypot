@@ -274,8 +274,8 @@ async def assemble_context(
         f"{len(wallets)} crypto wallet(s) and {len(accounts)} bank account(s) involved in a "
         f"suspected {docs.CRIME_TYPE_LABELS.get(req.crime_type, req.crime_type)} scheme. "
         + (f"On-chain typology detectors fired: {', '.join(fired)}. " if fired else "")
-        + (f"Fiat-side analysis links the flagged account(s) to mule aggregation and "
-           f"crypto on-ramp conversion. " if accounts else "")
+        + ("Fiat-side analysis links the flagged account(s) to mule aggregation and "
+           "crypto on-ramp conversion. " if accounts else "")
         + f"Estimated funds at risk: {at_risk_usdt:,.2f} USDT "
           f"(≈ Rp {at_risk_idr:,.0f}). All findings carry Glass Box reasoning and are "
           f"custody-hashed for evidentiary integrity."

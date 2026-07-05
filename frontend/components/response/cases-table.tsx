@@ -33,9 +33,10 @@ export function CasesTable({ cases }: { cases: ActiveCase[] }) {
             </tr>
           </thead>
           <tbody>
-            {cases.map((c) => (
+            {cases.map((c, i) => (
               <tr
-                key={c.ref}
+                // Refs can repeat (several actions on one case) — index-key
+                key={`${c.ref}-${i}`}
                 className="group border-b border-line last:border-b-0"
               >
                 <td className="px-3.5 py-[11px] font-mono text-white/60 group-hover:bg-white/[.015]">
