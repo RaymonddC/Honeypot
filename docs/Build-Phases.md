@@ -4,6 +4,13 @@
 > self-contained + shippable. Resume any time from this doc — no re-derivation needed.
 > Design refs: `docs/*` (all module designs + `Frontend-Design.md` + mockup).
 
+## Status (2026-07-05) — branch `build/p0-scaffold`
+✅ **P0** scaffold (`9bd3f8d`) · ✅ **P1** TAKEDOWN/Investigation (`ccce5d7`, Cytoscape fix `1f33213`) ·
+✅ **P2** TRACE/Bridge (`897d113` + tests `7bc86ab`) · ✅ **P3** UNCOVER Action Panel + Dashboard
+(`23fc5cc` + live-align/fixes `6c4eef1`). **70 backend tests green; all 4 screens built + live-verified.**
+⬜ **P4** INFILTRATE Honeypot · ⬜ **P5** auth/RLS + integration + LIVE toggles · ⬜ #1 node-styling polish.
+Lesson baked in: after each phase, do a frontend↔backend live field-alignment pass (bit us on P1 + P3).
+
 ## Execution strategy (usage-conserving)
 - **Opus (lead)** = plan, review, integrate, tricky logic. **Fable agents** (`model: fable`) = bulk
   mechanical build (scaffold, boilerplate, port). Background agents keep output out of lead context.

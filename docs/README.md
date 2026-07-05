@@ -1,8 +1,10 @@
 # ITTU — Plan & Design Index
 
 **ITTU** (Infiltrate, Trace, Takedown & Uncover) — AI-powered financial-crime forensics platform for
-Indonesia. This folder is the complete planning + design set. Greenfield; **no app code yet** (design
-phase). Source: `../PIDI Subs 2.pdf` (proposal).
+Indonesia. This folder is the complete planning + design set. **Build in progress on branch
+`build/p0-scaffold`:** P0–P3 done (Investigation, Bridge, Action Panel, Response Dashboard; **70
+backend tests green**, all 4 screens live-verified @ `6c4eef1`); **P4** (Honeypot) + **P5** (auth/RLS/
+integration) remain. See `Build-Phases.md` for the phase tracker. Source: `../PIDI Subs 2.pdf`.
 
 ---
 
