@@ -35,3 +35,9 @@ Thumbs.db
 
 # Proposal PDFs — not committed
 *.pdf
+
+# Graphify structural index (generated)
+graphify-out/
+
+# Local agent tooling / installed skills
+.agents/

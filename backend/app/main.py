@@ -21,6 +21,11 @@ async def lifespan(app: FastAPI):
     # Startup: settings are resolved, the adapter registry is populated by
     # module imports, and the async DB engine is ready (pool connects lazily).
     # Later phases: warm caches, verify LIVE credentials, contract checks.
+    # Seed one POC honeypot replay so the Honeypot console shows the live
+    # demo narrative on first load (no manual POST needed). POC-only, idempotent.
+    from app.infiltrate.service import seed_demo_session
+
+    await seed_demo_session()
     yield
     # Shutdown
     await engine.dispose()
