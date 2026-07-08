@@ -15,6 +15,7 @@ from app.core.db import Base
 from app.action import models as action_models  # noqa: F401
 from app.chain import models  # noqa: F401
 from app.fiat import models as fiat_models  # noqa: F401
+from app.intel import models as intel_models  # noqa: F401
 
 config = context.config
 
