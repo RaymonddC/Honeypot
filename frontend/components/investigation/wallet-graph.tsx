@@ -7,9 +7,16 @@
  */
 
 import cytoscape, { type Core, type EventObject } from "cytoscape";
+import dagre from "cytoscape-dagre";
 import { useEffect, useRef, useState } from "react";
 import type { RiskLevel, WalletGraph as WalletGraphData } from "@/lib/investigation/types";
 import { RISK_COLORS, RISK_LABELS } from "@/lib/investigation/types";
+
+// Register the dagre layout once (guard survives HMR re-imports).
+if (!(globalThis as { __ittuDagre?: boolean }).__ittuDagre) {
+  cytoscape.use(dagre);
+  (globalThis as { __ittuDagre?: boolean }).__ittuDagre = true;
+}
 
 interface Tooltip {
   x: number;
@@ -161,22 +168,21 @@ export function WalletGraph({
     ];
 
     const hasPositions = graph.nodes.every((n) => n.position);
-    const mainId = graph.nodes.find((n) => n.isMain)?.id;
     const cy = cytoscape({
       container,
       elements,
       style: STYLE,
-      // Preset when the API sends coords; otherwise a directed tree rooted at the
-      // source — money-flow reads far cleaner than a force-directed blob.
+      // Preset when the API sends coords; otherwise a left→right directed (dagre)
+      // layout so the money-flow reads like the mockup, not a blob.
       layout: hasPositions
         ? { name: "preset", fit: true, padding: 36 }
         : ({
-            name: "breadthfirst",
-            directed: true,
-            roots: mainId ? "#" + mainId : undefined,
-            spacingFactor: 1.1,
+            name: "dagre",
+            rankDir: "LR",
+            nodeSep: 20,
+            rankSep: 60,
             fit: true,
-            padding: 44,
+            padding: 40,
             animate: false,
           } as any),
       minZoom: 0.3,

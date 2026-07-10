@@ -9,8 +9,10 @@
   },
   "dependencies": {
     "cytoscape": "^3.34.0",
+    "cytoscape-dagre": "^4.0.0",
     "d3-sankey": "^0.12.3",
     "d3-shape": "^3.2.0",
+    "dagre": "^0.8.5",
     "next": "^16.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
@@ -19,6 +21,7 @@
     "@types/cytoscape": "^3.21.9",
     "@types/d3-sankey": "^0.12.5",
     "@types/d3-shape": "^3.1.8",
+    "@types/dagre": "^0.7.54",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
