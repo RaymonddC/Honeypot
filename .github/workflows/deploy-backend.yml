@@ -1,0 +1,28 @@
+name: Deploy backend (Fly.io)
+
+# Auto-deploys the FastAPI backend on every push to main.
+# Prerequisites (one-time):
+#   1. `cd backend && fly launch`  → creates backend/fly.toml
+#   2. Add a repo secret FLY_API_TOKEN (`fly tokens create deploy`)
+# Until FLY_API_TOKEN is set, this job is skipped (so CI stays green).
+# (The Vercel frontend redeploys automatically — no workflow needed.)
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: fly deploy
+    if: ${{ secrets.FLY_API_TOKEN != '' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy
+        run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
