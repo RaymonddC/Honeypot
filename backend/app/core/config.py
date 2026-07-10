@@ -35,6 +35,13 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://ittu:ittu@localhost:5432/ittu"
     redis_url: str = "redis://localhost:6379/0"
 
+    # CORS: browser origins allowed to call the API. For deploy, add the frontend
+    # domain, e.g. ITTU_CORS_ORIGINS='["https://ittu.vercel.app"]'
+    cors_origins: list[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+
     # --- Auth (P5) — we always mint OUR OWN JWT {sub, agency_id, role, exp} ---
     # Dev-only default (≥32 bytes for HS256); override via ITTU_JWT_SECRET in prod.
     jwt_secret: str = "ittu-dev-only-secret-change-me-in-prod-0123"
