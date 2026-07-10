@@ -8,6 +8,7 @@ Env vars use the ``ITTU_`` prefix, e.g.::
     ITTU_REDIS_URL=redis://localhost:6379/0
 """
 
+import json
 from functools import lru_cache
 from typing import Literal
 
@@ -35,12 +36,13 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://ittu:ittu@localhost:5432/ittu"
     redis_url: str = "redis://localhost:6379/0"
 
-    # CORS: browser origins allowed to call the API. For deploy, add the frontend
-    # domain, e.g. ITTU_CORS_ORIGINS='["https://ittu.vercel.app"]'
-    cors_origins: list[str] = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ]
+    # CORS: origins allowed to call the API. Kept as a STRING (not list[str]) so
+    # pydantic-settings never tries to JSON-decode the env var and crash on deploy.
+    # ITTU_CORS_ORIGINS accepts any of:
+    #   "https://a.vercel.app"                  (single bare origin)
+    #   "https://a.com,https://b.com"           (comma-separated)
+    #   '["https://a.vercel.app"]'              (JSON list)
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
     # --- Auth (P5) — we always mint OUR OWN JWT {sub, agency_id, role, exp} ---
     # Dev-only default (≥32 bytes for HS256); override via ITTU_JWT_SECRET in prod.
@@ -49,6 +51,19 @@ class Settings(BaseSettings):
     jwt_ttl_seconds: int = 8 * 3600
     # LIVE Google OAuth: expected `aud` of the verified id_token.
     google_client_id: str = ""
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        """Parse cors_origins → list, accepting JSON, comma-separated, or a single origin."""
+        raw = self.cors_origins.strip()
+        if not raw:
+            return []
+        if raw.startswith("["):
+            try:
+                return [str(o).strip() for o in json.loads(raw) if str(o).strip()]
+            except json.JSONDecodeError:
+                pass
+        return [o.strip() for o in raw.split(",") if o.strip()]
 
 
 class ModeResolver:

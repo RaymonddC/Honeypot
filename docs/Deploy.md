@@ -49,8 +49,8 @@ back to 8000 locally.
 > Free tier sleeps after ~15 min idle → the first request cold-starts (~30–60s) and
 > re-runs the lifespan seed. Hit it once to warm it right before a live demo.
 
-*(Alternative: Fly.io — `cd backend && fly launch` + the included `.github/workflows/
-deploy-backend.yml` with a `FLY_API_TOKEN` secret.)*
+*(Alternative: Fly.io — `cd backend && fly launch && fly deploy`; set the same env via
+`fly secrets set ITTU_CORS_ORIGINS=... ITTU_JWT_SECRET=...`.)*
 
 ## 3. Environment variables (reference)
 
