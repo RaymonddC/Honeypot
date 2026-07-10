@@ -30,13 +30,12 @@ const STYLE: any[] = [
     style: {
       width: "data(size)",
       height: "data(size)",
-      "background-fill": "radial-gradient",
-      "background-gradient-stop-colors": "data(stops)",
-      // Small solid center dot (0–26%) → translucent body (30–100%), matching the
-      // SVG mockup (fill-opacity ~0.16 + a bright center pip). No underlay: Cytoscape
-      // draws underlays as rounded RECTANGLES, which showed up as dark boxes.
-      "background-gradient-stop-positions": "0 26 30 100",
-      "border-width": 1.5,
+      // Translucent risk-colored disc + crisp ring (the mockup's node look).
+      // Cytoscape ignores alpha in gradient stops, so translucency comes from
+      // background-opacity; no underlay (it renders as a rounded box).
+      "background-color": "data(color)",
+      "background-opacity": 0.2,
+      "border-width": 2,
       "border-color": "data(color)",
       "transition-property": "border-width, border-color",
       "transition-duration": "0.2s",
@@ -50,7 +49,10 @@ const STYLE: any[] = [
       "overlay-opacity": 0,
     },
   },
-  { selector: "node[risk='exchange']", style: { color: RISK_COLORS.exchange } },
+  {
+    selector: "node[risk='exchange']",
+    style: { color: RISK_COLORS.exchange, "background-opacity": 0.3 },
+  },
   {
     selector: "node[?isMain]",
     style: { "border-width": 2 },
@@ -159,13 +161,24 @@ export function WalletGraph({
     ];
 
     const hasPositions = graph.nodes.every((n) => n.position);
+    const mainId = graph.nodes.find((n) => n.isMain)?.id;
     const cy = cytoscape({
       container,
       elements,
       style: STYLE,
+      // Preset when the API sends coords; otherwise a directed tree rooted at the
+      // source — money-flow reads far cleaner than a force-directed blob.
       layout: hasPositions
         ? { name: "preset", fit: true, padding: 36 }
-        : ({ name: "cose", fit: true, padding: 36, animate: false } as any),
+        : ({
+            name: "breadthfirst",
+            directed: true,
+            roots: mainId ? "#" + mainId : undefined,
+            spacingFactor: 1.1,
+            fit: true,
+            padding: 44,
+            animate: false,
+          } as any),
       minZoom: 0.3,
       maxZoom: 3,
       wheelSensitivity: 0.2,
