@@ -20,7 +20,8 @@ interface Tooltip {
   volume?: string;
 }
 
-const edgeWidth = (amount: number) => 1 + Math.min(2.2, amount / 22000);
+// Thin edges like the mockup (≈1, up to ~1.8 for the biggest flows); peel = 2.
+const edgeWidth = (amount: number) => 1 + Math.min(0.8, amount / 90000);
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const STYLE: any[] = [
@@ -31,13 +32,14 @@ const STYLE: any[] = [
       height: "data(size)",
       "background-fill": "radial-gradient",
       "background-gradient-stop-colors": "data(stops)",
-      "background-gradient-stop-positions": "0 20 44 100",
-      "border-width": 1.6,
+      // Small solid center dot (0–26%) → translucent body (30–100%), matching the
+      // SVG mockup (fill-opacity ~0.16 + a bright center pip). No underlay: Cytoscape
+      // draws underlays as rounded RECTANGLES, which showed up as dark boxes.
+      "background-gradient-stop-positions": "0 26 30 100",
+      "border-width": 1.5,
       "border-color": "data(color)",
-      // soft risk-tinted glow around every node — depth, matches the mockup
-      "underlay-color": "data(color)",
-      "underlay-opacity": 0.15,
-      "underlay-padding": 4,
+      "transition-property": "border-width, border-color",
+      "transition-duration": "0.2s",
       label: "data(label)",
       "font-size": 10,
       "font-family": "ui-monospace, SFMono-Regular, Menlo, monospace",
@@ -51,12 +53,7 @@ const STYLE: any[] = [
   { selector: "node[risk='exchange']", style: { color: RISK_COLORS.exchange } },
   {
     selector: "node[?isMain]",
-    style: {
-      "border-width": 2.2,
-      "underlay-color": RISK_COLORS.high,
-      "underlay-opacity": 0.18,
-      "underlay-padding": 13,
-    },
+    style: { "border-width": 2 },
   },
   {
     selector: "node.sel",
@@ -71,7 +68,7 @@ const STYLE: any[] = [
     style: {
       "curve-style": "bezier",
       width: "data(width)",
-      "line-color": "rgba(255,255,255,.10)",
+      "line-color": "rgba(255,255,255,.07)",
       "target-arrow-shape": "triangle",
       "target-arrow-color": "rgba(255,255,255,.28)",
       "arrow-scale": 0.75,
@@ -87,7 +84,8 @@ const STYLE: any[] = [
   {
     selector: "edge.peel",
     style: {
-      "line-color": "rgba(239,68,68,.7)",
+      width: 2,
+      "line-color": "rgba(239,68,68,.85)",
       "target-arrow-color": "#ef4444",
     },
   },
@@ -137,7 +135,7 @@ export function WalletGraph({
             id: n.id,
             label: n.label ?? "",
             color,
-            stops: `${color} ${color} ${withAlpha(color, n.risk === "exchange" ? 0.26 : 0.22)} ${withAlpha(color, n.risk === "exchange" ? 0.14 : 0.11)}`,
+            stops: `${color} ${color} ${withAlpha(color, n.risk === "exchange" ? 0.18 : 0.16)} ${withAlpha(color, n.risk === "exchange" ? 0.18 : 0.16)}`,
             size: n.size,
             risk: n.risk,
             score: n.score,
