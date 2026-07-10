@@ -7,6 +7,7 @@ from fastapi.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.auth.router import router as auth_router
 from app.core.config import get_settings
 from app.core.db import engine
 from app.infiltrate.router import router as infiltrate_router
@@ -55,13 +56,18 @@ def create_app() -> FastAPI:
         detail = exc.detail if isinstance(exc.detail, dict) else {
             "code": "http_error", "message": str(exc.detail),
         }
-        return JSONResponse(status_code=exc.status_code, content={"error": detail})
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": detail},
+            headers=exc.headers,  # e.g. WWW-Authenticate: Bearer on 401s
+        )
 
     @app.get("/health")
     async def health() -> dict[str, str]:
         return {"status": "ok", "mode": settings.mode}
 
     for router in (
+        auth_router,
         infiltrate_router,
         trace_router,
         takedown_router,

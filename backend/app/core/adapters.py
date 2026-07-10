@@ -20,6 +20,21 @@ from app.core.config import Mode, Settings, get_mode_resolver, get_settings
 # (boundary, mode) -> adapter class
 _REGISTRY: dict[tuple[str, str], type] = {}
 
+# Which module's MODE governs each boundary (docs/Adapter-MODE-Framework.md).
+# Used by GET /api/config to report which impl is active per boundary.
+BOUNDARY_MODULE: dict[str, str] = {
+    "llm": "infiltrate",
+    "channel": "infiltrate",
+    "channel_text": "infiltrate",
+    "channel_voice": "infiltrate",
+    "stt": "infiltrate",
+    "tts": "infiltrate",
+    "blockchain": "takedown",
+    "tags": "takedown",
+    "fiat": "trace",
+    "notification": "uncover",
+}
+
 
 class AdapterNotRegisteredError(LookupError):
     """No implementation registered for (boundary, mode)."""

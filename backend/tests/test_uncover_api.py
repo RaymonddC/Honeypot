@@ -6,9 +6,10 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.uncover import service
 from app.uncover.notifications import MockNotificationSink
-from tests.conftest import SOURCE
+from tests.conftest import SOURCE, bearer
 
 client = TestClient(app)
+client.headers.update(bearer())  # P5: generate/dispatch require auth (+dispatch role)
 
 
 @pytest.fixture(autouse=True)

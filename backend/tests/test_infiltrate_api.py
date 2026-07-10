@@ -10,8 +10,10 @@ from fastapi.testclient import TestClient
 from app.infiltrate import service
 from app.infiltrate.channels import DEMO_BCA_ACCOUNT, DEMO_TRON_WALLET
 from app.main import app
+from tests.conftest import bearer
 
 client = TestClient(app)
+client.headers.update(bearer())  # P5: POST /sessions + entity review require auth
 
 
 @pytest.fixture(autouse=True)

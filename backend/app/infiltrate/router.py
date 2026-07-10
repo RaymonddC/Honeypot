@@ -15,9 +15,10 @@ mirrors P1–P3). LIVE channel/LLM adapters fail loudly — never silent network
 
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
+from app.core.auth import AuthContext, get_current_user
 from app.infiltrate import service
 from app.infiltrate.channels import ChannelAdapter
 from app.infiltrate.gateway import LLMGateway
@@ -63,6 +64,7 @@ async def post_session(
     body: StartSessionRequest | None = None,
     channel: ChannelAdapter = ChannelDep,
     gateway: LLMGateway = GatewayDep,
+    _auth: AuthContext = Depends(get_current_user),  # honeypot ops need identity
 ) -> SessionOut:
     """Start a session: POC replays the scripted scam convo through the agent
     loop, hash-chains every message, extracts + reconciles entities, classifies
@@ -97,7 +99,11 @@ async def get_entities(
 
 
 @router.post("/entities/{entity_id}/review", response_model=EntityOut)
-async def post_entity_review(entity_id: str, body: ReviewRequest) -> EntityOut:
+async def post_entity_review(
+    entity_id: str,
+    body: ReviewRequest,
+    _auth: AuthContext = Depends(get_current_user),  # human-in-the-loop = named human
+) -> EntityOut:
     """Analyst review — confirm/reject/flag-poisoned (human-in-the-loop)."""
     entity = service.review_entity(entity_id, body.status)
     if entity is None:

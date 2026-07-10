@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { AppShell } from "@/components/app-shell";
+import { AuthProvider } from "@/components/auth/auth-provider";
+import { AppGate } from "@/components/auth/app-gate";
 
 export const metadata: Metadata = {
   title: "ITTU — Financial Crime Forensics",
@@ -14,7 +15,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="bg-bg text-fg antialiased">
-        <AppShell>{children}</AppShell>
+        <AuthProvider>
+          <AppGate>{children}</AppGate>
+        </AuthProvider>
       </body>
     </html>
   );

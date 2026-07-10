@@ -11,9 +11,10 @@ P1/P2). Generation is automatic; **dispatch requires an explicit call** —
 irreversible outward actions are never auto-fired.
 """
 
-from fastapi import APIRouter, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from app.core.adapters import ChainDataAdapter, FiatDataAdapter
+from app.core.auth import DISPATCH_ROLES, AuthContext, get_current_user, require_role
 from app.uncover import service
 from app.uncover.metrics import RangeKey, ResponseMetrics, compute_metrics
 from app.uncover.notifications import NotificationSink
@@ -41,6 +42,7 @@ async def post_generate(
     body: GenerateRequest,
     chain: ChainDataAdapter = ChainAdapterDep,
     fiat: FiatDataAdapter = FiatAdapterDep,
+    _auth: AuthContext = Depends(get_current_user),  # any authenticated role
 ) -> ActionBundle:
     """One click → many artifacts: freeze PDF + LTKM/STR draft + evidence pack.
 
@@ -61,10 +63,15 @@ async def get_action(action_id: str) -> ActionBundle:
 
 @router.post("/actions/{action_id}/dispatch", response_model=ActionBundle)
 async def post_dispatch(
-    action_id: str, sink: NotificationSink = SinkDep
+    action_id: str,
+    sink: NotificationSink = SinkDep,
+    _auth: AuthContext = Depends(require_role(DISPATCH_ROLES)),
 ) -> ActionBundle:
     """Human-gated dispatch. POC: mock sink — notifications record
-    status='mock' ("would dispatch to …"); nothing leaves the system."""
+    status='mock' ("would dispatch to …"); nothing leaves the system.
+
+    Role-gated: irreversible outward action → investigator/analyst/admin only
+    (bank/exchange compliance can generate but not dispatch)."""
     try:
         bundle = await service.dispatch_bundle(action_id, sink)
     except AlreadyDispatchedError:
@@ -82,7 +89,11 @@ async def post_dispatch(
 
 @router.get("/documents/{document_id}")
 async def get_document(document_id: str) -> Response:
-    """Download the generated PDF (bytes verified against its custody hash)."""
+    """Download the generated PDF (bytes verified against its custody hash).
+
+    Deliberately unauthenticated in POC: the frontend uses plain <a href>
+    links, which cannot carry a Bearer header. LIVE hardening: short-lived
+    signed URLs (or frontend blob-fetch) before real evidence is served."""
     doc = service.get_document(document_id)
     if doc is None:
         raise _not_found("document", document_id)
