@@ -26,18 +26,31 @@ offline mode) if no backend is up.
 screen renders on demo data with an `● offline` badge, and login offers
 "Continue offline — demo session". So you can ship the Vercel URL *today* with no backend.
 
-## 2. Backend → Fly.io (optional, for LIVE data)
+## 2. Backend → Render (recommended — always-on container)
 
-`backend/Dockerfile` already exists.
-```bash
-cd backend
-fly launch            # detects the Dockerfile; pick a name e.g. ittu-api
-fly secrets set ITTU_CORS_ORIGINS='["https://<your-app>.vercel.app"]'   # allow the frontend
-fly secrets set ITTU_JWT_SECRET='<a long random string>'
-fly deploy
-```
-Then set the frontend's `NEXT_PUBLIC_API_URL` to the Fly URL and redeploy Vercel.
-(Render works the same way: New Web Service → repo → root `backend` → Docker.)
+⚠️ Don't put this backend on Vercel: it's **stateful in-memory** (POC), and Vercel's
+stateless serverless functions break the multi-step flows (Action Panel generate→
+dispatch→document, and the honeypot lifespan seed). Render runs a real container, so
+in-memory state + FastAPI lifespan behave exactly like local.
+
+**One-time via the Blueprint (`render.yaml` at repo root):**
+1. Render → **New → Blueprint** → connect this repo → **Apply**. It reads `render.yaml`
+   (Docker web service, region Singapore, health check `/health`, `autoDeploy: true`).
+2. After the first deploy, set the env var **`ITTU_CORS_ORIGINS`** to your Vercel origin,
+   e.g. `["https://honeypot-brown.vercel.app"]` (Render dashboard → the service → Environment).
+   `ITTU_JWT_SECRET` is auto-generated; `ITTU_MODE=poc` is preset.
+3. Copy the service URL (e.g. `https://ittu-api.onrender.com`) → set it as
+   **`NEXT_PUBLIC_API_URL`** in Vercel → redeploy the frontend.
+
+**Auto-deploy:** `autoDeploy: true` means Render rebuilds on every push to the connected
+branch — no GitHub Action needed. The Dockerfile binds `$PORT` (Render-injected), falls
+back to 8000 locally.
+
+> Free tier sleeps after ~15 min idle → the first request cold-starts (~30–60s) and
+> re-runs the lifespan seed. Hit it once to warm it right before a live demo.
+
+*(Alternative: Fly.io — `cd backend && fly launch` + the included `.github/workflows/
+deploy-backend.yml` with a `FLY_API_TOKEN` secret.)*
 
 ## 3. Environment variables (reference)
 
