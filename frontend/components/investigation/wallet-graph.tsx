@@ -31,9 +31,13 @@ const STYLE: any[] = [
       height: "data(size)",
       "background-fill": "radial-gradient",
       "background-gradient-stop-colors": "data(stops)",
-      "background-gradient-stop-positions": "0 24 32 100",
-      "border-width": 1.4,
+      "background-gradient-stop-positions": "0 20 44 100",
+      "border-width": 1.6,
       "border-color": "data(color)",
+      // soft risk-tinted glow around every node — depth, matches the mockup
+      "underlay-color": "data(color)",
+      "underlay-opacity": 0.15,
+      "underlay-padding": 4,
       label: "data(label)",
       "font-size": 10,
       "font-family": "ui-monospace, SFMono-Regular, Menlo, monospace",
@@ -48,9 +52,10 @@ const STYLE: any[] = [
   {
     selector: "node[?isMain]",
     style: {
+      "border-width": 2.2,
       "underlay-color": RISK_COLORS.high,
-      "underlay-opacity": 0.12,
-      "underlay-padding": 9,
+      "underlay-opacity": 0.18,
+      "underlay-padding": 13,
     },
   },
   {
@@ -132,7 +137,7 @@ export function WalletGraph({
             id: n.id,
             label: n.label ?? "",
             color,
-            stops: `${color} ${color} ${withAlpha(color, n.risk === "exchange" ? 0.2 : 0.16)} ${withAlpha(color, n.risk === "exchange" ? 0.2 : 0.16)}`,
+            stops: `${color} ${color} ${withAlpha(color, n.risk === "exchange" ? 0.26 : 0.22)} ${withAlpha(color, n.risk === "exchange" ? 0.14 : 0.11)}`,
             size: n.size,
             risk: n.risk,
             score: n.score,

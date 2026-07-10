@@ -20,6 +20,15 @@ def fixture_transfers() -> list[Transfer]:
     return list(_load_fixture_transfers())
 
 
+def bearer(role: str = "police-investigator", agency: str = "bareskrim") -> dict[str, str]:
+    """Authorization header for a demo user (P5 auth) — no HTTP round-trip."""
+    from app.core.auth import find_agency, mint_token, upsert_demo_user
+
+    user = upsert_demo_user(find_agency(agency), role)
+    token, _ = mint_token(user)
+    return {"Authorization": f"Bearer {token}"}
+
+
 def make_transfer(frm: str, to: str, value: float, ts: str, i: int = 0) -> Transfer:
     """Hand-rolled transfer for detector unit tests."""
     return Transfer(

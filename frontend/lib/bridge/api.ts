@@ -24,9 +24,7 @@ import type {
 } from "./types";
 import { AMBER, CYAN, formatIDR, formatMinutes, formatUSD } from "./types";
 
-const BASE = (
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
-).replace(/\/$/, "");
+import { apiFetch } from "@/lib/http";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -38,7 +36,7 @@ async function request<T>(
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch(`${BASE}/api${path}`, {
+    const res = await apiFetch(path, {
       ...init,
       signal: ctrl.signal,
     });

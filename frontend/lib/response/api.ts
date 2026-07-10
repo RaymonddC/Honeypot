@@ -34,9 +34,7 @@ import {
   splitMinutes,
 } from "./types";
 
-const BASE = (
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
-).replace(/\/$/, "");
+import { apiFetch } from "@/lib/http";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -44,7 +42,7 @@ async function request<T>(path: string, timeoutMs = 6000): Promise<T> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch(`${BASE}/api${path}`, { signal: ctrl.signal });
+    const res = await apiFetch(path, { signal: ctrl.signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as T;
   } finally {
