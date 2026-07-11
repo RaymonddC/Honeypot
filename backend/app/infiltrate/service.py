@@ -13,6 +13,7 @@ Adapters (channel + llm) are resolved through the MODE registry via FastAPI
 
 import uuid
 from datetime import datetime, timedelta, timezone
+from typing import Literal
 
 from fastapi import Depends
 from pydantic import BaseModel, Field
@@ -22,8 +23,9 @@ from app.infiltrate import classifier, extraction
 from app.infiltrate.agent import AgentRun, run_session
 from app.infiltrate.channels import ChannelAdapter
 from app.infiltrate.custody import GENESIS, MessageChain
-from app.infiltrate.gateway import LLMGateway
+from app.infiltrate.gateway import LLMGateway, ScriptedLLMGateway
 from app.infiltrate.personas import Persona, all_personas, get_persona
+from app.infiltrate.voice import VOICE_SCRIPT, TTSAdapter, estimate_duration
 
 MODULE = "infiltrate"
 
@@ -41,8 +43,19 @@ def get_llm_gateway() -> LLMGateway:
     return get_adapter("llm", MODULE)
 
 
+def get_voice_channel_adapter() -> ChannelAdapter:
+    """Voice transport (POC: call replay; LIVE: PSTN bridge, fails loud)."""
+    return get_adapter("channel_voice", MODULE)
+
+
+def get_tts_adapter() -> TTSAdapter:
+    """TTS boundary (POC: voice marks; LIVE: ITTU_TTS_PROVIDER, fails loud)."""
+    return get_adapter("tts", MODULE)
+
+
 ChannelDep = Depends(get_channel_adapter)
 GatewayDep = Depends(get_llm_gateway)
+TTSDep = Depends(get_tts_adapter)
 
 
 # --------------------------------------------------------------------------- #
@@ -160,6 +173,7 @@ class SessionOut(BaseModel):
 class StartSessionRequest(BaseModel):
     persona_id: str | None = None
     channel: str | None = "telegram"
+    channel_type: Literal["text", "voice"] = "text"
     case_id: str | None = None
 
 
@@ -212,12 +226,18 @@ def _entity_out(
     )
 
 
-def _build_session(run: AgentRun, persona: Persona, req: StartSessionRequest) -> SessionOut:
+def _build_session(
+    run: AgentRun, persona: Persona, req: StartSessionRequest,
+    channel_type: str = "text",
+) -> SessionOut:
     """Turn a completed AgentRun into custody-hashed messages + reconciled entities."""
     session_id = f"sess_{uuid.uuid4().hex[:12]}"
     # Deterministic timeline (no Date.now dependency in the hash content itself).
     base_ts = datetime(2026, 7, 7, 12, 0, 0, tzinfo=timezone.utc)
     chain = MessageChain(session_id)
+    # Voice sessions carry per-line timing meta for the call timeline/captions.
+    is_voice = channel_type == "voice"
+    offset_seconds = 0.0
 
     # Layer-B hints keyed by turn (covert record_entity calls).
     hints_by_turn: dict[int, list[dict]] = {}
@@ -234,8 +254,27 @@ def _build_session(run: AgentRun, persona: Persona, req: StartSessionRequest) ->
         ts_in = base_ts + timedelta(seconds=tr.turn * 2)
         ts_out = base_ts + timedelta(seconds=tr.turn * 2 + 1)
 
+        in_meta = dict(tr.inbound.meta)
+        out_meta = dict(tr.outbound.meta)
+        if is_voice:
+            # Voice marks: who speaks the line, for how long, starting when.
+            in_dur = estimate_duration(tr.inbound.content)
+            in_meta.update({
+                "speaker": "scammer",
+                "duration_seconds": in_dur,
+                "offset_seconds": round(offset_seconds, 1),
+            })
+            offset_seconds += in_dur
+            out_dur = estimate_duration(tr.outbound.content)
+            out_meta.update({
+                "speaker": "persona",
+                "duration_seconds": out_dur,
+                "offset_seconds": round(offset_seconds, 1),
+            })
+            offset_seconds += out_dur
+
         # Inbound (scammer) — custody + Layer-A extraction reconciled w/ Layer-B.
-        cm_in = chain.append("inbound", tr.inbound.content, ts_in, tr.inbound.meta)
+        cm_in = chain.append("inbound", tr.inbound.content, ts_in, in_meta)
         in_id = f"msg_{uuid.uuid4().hex[:12]}"
         transcript_parts.append(tr.inbound.content)
 
@@ -261,7 +300,7 @@ def _build_session(run: AgentRun, persona: Persona, req: StartSessionRequest) ->
         ))
 
         # Outbound (persona) — custody only; carries the covert tool_calls (Glass Box).
-        cm_out = chain.append("outbound", tr.outbound.content, ts_out, tr.outbound.meta)
+        cm_out = chain.append("outbound", tr.outbound.content, ts_out, out_meta)
         out_id = f"msg_{uuid.uuid4().hex[:12]}"
         messages.append(MessageOut(
             id=out_id, session_id=session_id, seq=cm_out.seq, direction="outbound",
@@ -302,7 +341,7 @@ def _build_session(run: AgentRun, persona: Persona, req: StartSessionRequest) ->
             id=persona.id, name=persona.name, age=persona.age,
             occupation=persona.occupation.split(" (")[0], region=persona.region,
         ),
-        channel_type="text",
+        channel_type=channel_type,
         channel=run.channel,
         channel_ref=run.channel_ref,
         status="escalated" if run.escalated else "closed",
@@ -381,8 +420,15 @@ async def start_session(
     req: StartSessionRequest, channel: ChannelAdapter, gateway: LLMGateway
 ) -> SessionOut:
     persona = get_persona(req.persona_id)
+    if req.channel_type == "voice":
+        # Voice transport swaps in; the agent loop / extraction / custody /
+        # classifier / clustering downstream are reused verbatim. LIVE resolves
+        # the PSTN stub and fails loud (never silently degrades to POC).
+        channel = get_voice_channel_adapter()
+        if getattr(channel, "data_mode", "poc") == "poc":
+            gateway = ScriptedLLMGateway(script=VOICE_SCRIPT)
     run = await run_session(persona, channel, gateway)
-    return _build_session(run, persona, req)
+    return _build_session(run, persona, req, channel_type=req.channel_type)
 
 
 async def seed_demo_session() -> SessionOut | None:
@@ -414,6 +460,14 @@ def get_session(session_id: str) -> SessionOut | None:
 
 def get_messages(session_id: str) -> list[MessageOut] | None:
     return _MESSAGES.get(session_id)
+
+
+def get_message(session_id: str, seq: int) -> MessageOut | None:
+    """One message by its custody sequence number (for the audio endpoint)."""
+    messages = _MESSAGES.get(session_id)
+    if messages is None:
+        return None
+    return next((m for m in messages if m.seq == seq), None)
 
 
 def list_entities(session_id: str | None = None, status: str | None = None) -> list[EntityOut]:

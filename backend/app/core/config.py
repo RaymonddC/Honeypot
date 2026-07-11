@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     #   '["https://a.vercel.app"]'              (JSON list)
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
+    # --- Voice (P4b) — LIVE TTS provider behind the TTSAdapter Protocol -------
+    # POC ignores this (browser SpeechSynthesis + deterministic voice marks).
+    # LIVE: ITTU_TTS_PROVIDER selects google | higgsfield | elevenlabs —
+    # swapping providers is this env var + one adapter class, nothing else.
+    tts_provider: str = "google"
+
     # --- Auth (P5) — we always mint OUR OWN JWT {sub, agency_id, role, exp} ---
     # Dev-only default (≥32 bytes for HS256); override via ITTU_JWT_SECRET in prod.
     jwt_secret: str = "ittu-dev-only-secret-change-me-in-prod-0123"

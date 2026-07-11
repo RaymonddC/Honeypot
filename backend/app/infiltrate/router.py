@@ -5,6 +5,8 @@ GET  /api/sessions                       → [scam_session]
 POST /api/sessions                       → scam_session   # start POC replay, runs loop+extraction
 GET  /api/sessions/{id}                  → scam_session
 GET  /api/sessions/{id}/messages         → [message]      # hash-chained log (+ inline entities)
+GET  /api/sessions/{id}/audio/{seq}      → voice marks    # POC: marks (browser speaks);
+                                                          # LIVE: provider audio; text → 204
 GET  /api/entities?session=&status=      → [entity]       # extracted, confidence-scored
 POST /api/entities/{id}/review {status}  → entity         # confirm/reject/poisoned
 GET  /api/syndicates                     → [syndicate]
@@ -15,7 +17,7 @@ mirrors P1–P3). LIVE channel/LLM adapters fail loudly — never silent network
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel
 
 from app.core.auth import AuthContext, get_current_user
@@ -31,7 +33,9 @@ from app.infiltrate.service import (
     SessionOut,
     StartSessionRequest,
     SyndicateOut,
+    TTSDep,
 )
+from app.infiltrate.voice import TTSAdapter, VoiceMarkOut
 
 router = APIRouter(tags=["infiltrate"])
 
@@ -87,6 +91,43 @@ async def get_session_messages(session_id: str) -> list[MessageOut]:
     if messages is None:
         raise _not_found("session", session_id)
     return messages
+
+
+@router.get(
+    "/sessions/{session_id}/audio/{seq}",
+    response_model=VoiceMarkOut,
+    responses={204: {"description": "Text-channel message — no audio"}},
+)
+async def get_session_audio(
+    session_id: str,
+    seq: int,
+    tts: TTSAdapter = TTSDep,
+) -> VoiceMarkOut | Response:
+    """Audio for one voice-session line. POC: per-line voice marks (speaker +
+    est. duration, ``audio_url=null`` — the browser's SpeechSynthesis speaks
+    it). LIVE: the configured ``ITTU_TTS_PROVIDER`` streams real audio.
+    Text-session messages have no audio → 204."""
+    session = service.get_session(session_id)
+    if session is None:
+        raise _not_found("session", session_id)
+    message = service.get_message(session_id, seq)
+    if message is None:
+        raise _not_found("message", f"{session_id}#{seq}")
+    if session.channel_type != "voice":
+        return Response(status_code=204)
+    result = await tts.synthesize(
+        message.content, voice=message.meta.get("speaker", "persona")
+    )
+    return VoiceMarkOut(
+        session_id=session_id,
+        seq=seq,
+        speaker=message.meta.get("speaker", "persona"),
+        text=result.text,
+        duration_seconds=message.meta.get("duration_seconds", result.duration_seconds),
+        offset_seconds=message.meta.get("offset_seconds", 0.0),
+        audio_url=result.audio_url,
+        provider=result.provider,
+    )
 
 
 @router.get("/entities", response_model=list[EntityOut])
