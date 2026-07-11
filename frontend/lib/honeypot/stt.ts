@@ -93,6 +93,10 @@ export class MicTranscriber {
   private rec: SpeechRecognitionLike | null = null;
   private running = false;
   private restartTimer: ReturnType<typeof setTimeout> | null = null;
+  // Web Speech STT needs the browser's cloud service (Chrome/Edge). Chromium,
+  // Brave, Arc etc. throw repeated `network` errors — retry a couple times,
+  // then fall back to typing instead of looping forever.
+  private netErrors = 0;
 
   constructor(private readonly opts: MicTranscriberOptions) {}
 
@@ -144,6 +148,7 @@ export class MicTranscriber {
     rec.onspeechstart = () => this.opts.onSpeechStart?.();
 
     rec.onresult = (e) => {
+      this.netErrors = 0; // a result means the service is reachable
       let interim = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const result = e.results[i];
@@ -167,22 +172,37 @@ export class MicTranscriber {
     };
 
     rec.onerror = (e) => {
+      const err = e.error || "";
       const kind: SttErrorKind =
-        e.error === "not-allowed" || e.error === "service-not-allowed"
+        err === "not-allowed" || err === "service-not-allowed"
           ? "permission"
-          : e.error === "network"
+          : err === "network"
             ? "network"
-            : e.error === "audio-capture"
+            : err === "audio-capture"
               ? "audio"
               : "other";
       if (kind === "permission" || kind === "audio") {
         // Unrecoverable — stop the restart loop, surface to the UI.
         this.running = false;
         this.opts.onListeningChange?.(false);
-        this.opts.onError?.(kind, e.message ?? e.error);
-      } else if (e.error !== "no-speech" && e.error !== "aborted") {
+        this.opts.onError?.(kind, e.message || err);
+      } else if (kind === "network") {
+        // Retry a couple times (transient blip), then give up and route the
+        // operator to the text-input fallback — no infinite "retrying" loop.
+        this.netErrors += 1;
+        if (this.netErrors > 2) {
+          this.running = false;
+          this.opts.onListeningChange?.(false);
+          this.opts.onError?.(
+            "unsupported",
+            "Live speech isn't available in this browser (it needs Chrome or Edge). Type as the scammer below instead.",
+          );
+        } else {
+          this.opts.onError?.("network", e.message || err);
+        }
+      } else if (err !== "no-speech" && err !== "aborted") {
         // no-speech/aborted are routine (silence, our own abort) — skip.
-        this.opts.onError?.(kind, e.message ?? e.error);
+        this.opts.onError?.(kind, e.message || err);
       }
     };
 

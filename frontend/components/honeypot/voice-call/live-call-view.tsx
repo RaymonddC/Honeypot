@@ -372,8 +372,15 @@ export function LiveCallView({
         } else if (kind === "audio") {
           setMicStatus("denied");
           setNotice("No microphone found — type as the scammer below.");
+        } else if (kind === "unsupported") {
+          // Persistent network failure = STT unusable here → text fallback.
+          setMicStatus("unsupported");
+          setNotice(
+            message ||
+              "Live speech isn't available in this browser — type as the scammer below.",
+          );
         } else if (kind === "network") {
-          setNotice(`Speech service error (${message}) — retrying…`);
+          setNotice("Reconnecting to the speech service…");
         }
       },
       onListeningChange: (listening) => {
