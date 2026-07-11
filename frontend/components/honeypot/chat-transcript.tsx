@@ -25,9 +25,9 @@ function Bubble({ msg }: { msg: HpMessage }) {
         {msg.who}
       </div>
       {msg.text}
-      {msg.extractions.map((ex) => (
+      {msg.extractions.map((ex, i) => (
         <div
-          key={`${msg.id}-${ex.label}`}
+          key={`${msg.id}-${ex.label}-${i}`}
           className="mt-[7px] flex items-center gap-1.5 border-t border-dashed border-accent/[.22] pt-[7px] font-mono text-[10px] text-accent-bright"
         >
           ◇ extracted · {ex.label} · conf {formatConf(ex.confidence)}
