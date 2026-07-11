@@ -79,3 +79,40 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ── Voice-call view (P4b) — waveform bars + caption reveal ─────────────── */
+@keyframes hp-wave {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.hp-wave-bar {
+  animation: hp-wave 1s ease-in-out infinite;
+  transform-origin: center;
+  will-change: transform;
+}
+
+@keyframes hp-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.hp-fade-up {
+  animation: hp-fade-up 0.35s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hp-wave-bar,
+  .hp-fade-up {
+    animation: none; /* waveform renders static, captions appear instantly */
+  }
+}

@@ -41,7 +41,7 @@ async function request<T>(path: string, timeoutMs = 6000): Promise<T> {
 
 /* ── Raw backend payloads (P4-Backend-confirmed, snake_case) ──────────── */
 
-interface RawPersona {
+export interface RawPersona {
   id: string;
   name: string;
   age: number | null;
@@ -49,14 +49,14 @@ interface RawPersona {
   region?: string | null;
 }
 
-interface RawCustody {
+export interface RawCustody {
   messages_logged: number;
   chain_intact: boolean;
   genesis: string;
   head_sha256: string;
 }
 
-interface RawSession {
+export interface RawSession {
   id: string;
   persona: RawPersona;
   channel_type: "text" | "voice";
@@ -73,7 +73,7 @@ interface RawSession {
   syndicate_id: string | null;
 }
 
-interface RawEntity {
+export interface RawEntity {
   id: string;
   session_id: string;
   message_id: string | null;
@@ -88,7 +88,7 @@ interface RawEntity {
   review_status: "unverified" | "confirmed" | "rejected" | "poisoned";
 }
 
-interface RawMessage {
+export interface RawMessage {
   id: string;
   session_id: string;
   seq: number;
@@ -100,7 +100,7 @@ interface RawMessage {
   entities: RawEntity[]; // extracted from THIS message
 }
 
-interface RawSyndicate {
+export interface RawSyndicate {
   id: string;
   label: string;
   session_ids: string[];
@@ -116,13 +116,13 @@ const CRIME_LABELS: Record<string, string> = {
   romance: "romance scam",
 };
 
-const crimeLabel = (t: string | null): string =>
+export const crimeLabel = (t: string | null): string =>
   t ? (CRIME_LABELS[t] ?? t.replace(/_/g, " ")) : "—";
 
 const cap = (s: string): string =>
   s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 
-function normalizeSession(raw: RawSession): HpSession {
+export function normalizeSession(raw: RawSession): HpSession {
   return {
     id: raw.id,
     channel: cap(raw.channel),
@@ -145,7 +145,7 @@ function pickSession(sessions: RawSession[]): RawSession {
 
 /* ── Entities ─────────────────────────────────────────────────────────── */
 
-function entitySubtitle(e: RawEntity): string {
+export function entitySubtitle(e: RawEntity): string {
   if (e.type === "crypto_wallet" && e.chain) return chainLabel(e.chain);
   if (e.type === "bank_account" && e.bank_name) {
     if (!e.context) return e.bank_name;
@@ -158,7 +158,7 @@ function entitySubtitle(e: RawEntity): string {
 }
 
 /** Display value: wallets truncated; phones/urls prefer normalized form. */
-function entityValue(e: RawEntity): string {
+export function entityValue(e: RawEntity): string {
   if (e.type === "crypto_wallet") return truncateValue(e.value);
   if (e.type === "phone" || e.type === "url")
     return e.normalized_value ?? e.value;
@@ -184,7 +184,7 @@ function normalizeEntities(raw: RawEntity[]): HpEntity[] {
 
 /* ── Messages (inline entities → extraction badges) ───────────────────── */
 
-const extractionLabel = (e: RawEntity): string =>
+export const extractionLabel = (e: RawEntity): string =>
   e.chain ? `${e.type} (${e.chain.toUpperCase()})` : e.type;
 
 function normalizeMessages(
@@ -211,7 +211,7 @@ function normalizeMessages(
 
 /* ── Chain of custody (session.custody, message-derived fallback) ─────── */
 
-function deriveCustody(
+export function deriveCustody(
   session: RawSession,
   messages: RawMessage[],
   syndicateLabel: string | null,

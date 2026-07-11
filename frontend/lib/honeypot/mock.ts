@@ -15,6 +15,9 @@ import type {
   HpSession,
   VoiceStatus,
 } from "./types";
+// Type-only import — erased at compile time, so no runtime cycle with
+// voice.ts (which imports buildMockVoiceCall from here).
+import type { VoiceCallSession, VoiceEntity, VoiceLine } from "./voice";
 
 export const MOCK_SESSION: HpSession = {
   id: "hp-session-0417",
@@ -124,6 +127,151 @@ export function buildMockHoneypot(): HoneypotData {
     voice: MOCK_VOICE,
     composerNote:
       "agent drafting reply · human-in-the-loop armed for disclosure turn…",
+    source: "mock",
+  };
+}
+
+/* ══ P4b — voice-call fallback (phone-framed scam, spoken Bahasa cadence) ══
+ *
+ * Discloses the P1 fixture wallet TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6 + the BCA
+ * mule account so the demo still links honeypot-call → Investigation, and
+ * includes the persona's read-back confirmation turn (natural voice beat).
+ */
+
+export const MOCK_VOICE_CALLER = "+62 812-8841-4471";
+
+const P1_WALLET = "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6";
+
+/** Raw beats: [speaker, text, durationSec, extractions, disclosure]. */
+const VOICE_BEATS: Array<
+  [
+    VoiceLine["speaker"],
+    string,
+    number,
+    VoiceLine["extractions"],
+    boolean,
+  ]
+> = [
+  [
+    "scammer",
+    "Halo, selamat siang, dengan Ibu Sari? Saya Andi dari divisi investasi resmi, terdaftar OJK. Ibu terpilih untuk program profit harian tiga puluh persen, slotnya terbatas hari ini saja.",
+    11,
+    [],
+    false,
+  ],
+  [
+    "persona",
+    "Oh iya halo Pak… maaf ya suara saya kecil, saya lagi di dapur. Program apa ya Pak? Saya kurang paham soal begituan…",
+    9,
+    [],
+    false,
+  ],
+  [
+    "scammer",
+    "Gampang sekali Bu. Ibu catat ya — transfer dana awal ke rekening BCA, empat delapan delapan satu, dua nol tujuh, tujuh tiga empat, atas nama PT Maju Jaya. Nanti saya yang proses.",
+    12,
+    [{ label: "bank_account", confidence: 0.97 }],
+    false,
+  ],
+  [
+    "persona",
+    "Sebentar Pak, saya ambil pulpen dulu… BCA… empat delapan delapan satu… dua nol tujuh… tujuh tiga empat, atas nama PT Maju Jaya. Betul ya Pak?",
+    11,
+    [],
+    false,
+  ],
+  [
+    "scammer",
+    "Betul sekali Bu, pintar. Atau kalau anak Ibu punya kripto, lebih cepat — kirim USDT ke dompet saya, jaringan TRC dua puluh: T X t R sembilan d Q p R tujuh m K dua v N delapan f L b Y tiga w Z a Q empat p J enam.",
+    14,
+    [{ label: "crypto_wallet (TRON)", confidence: 0.99 }],
+    true,
+  ],
+  [
+    "persona",
+    "Aduh panjang sekali Pak… nanti saya minta tolong anak saya ya. Nomor Bapak yang ini kan yang bisa saya hubungi lagi?",
+    9,
+    [],
+    false,
+  ],
+  [
+    "scammer",
+    "Iya Bu, nomor ini saja, jangan ke nomor lain. Kalau sudah transfer langsung kabari, profitnya saya cairkan hari ini juga.",
+    9,
+    [],
+    false,
+  ],
+];
+
+export const MOCK_VOICE_LINES: VoiceLine[] = (() => {
+  let offset = 0;
+  return VOICE_BEATS.map(
+    ([speaker, text, durationSec, extractions, disclosure], i) => {
+      const line: VoiceLine = {
+        id: `vl${i + 1}`,
+        seq: i + 1,
+        speaker,
+        who: speaker === "scammer" ? "Scammer" : "Honeypot · Bu Sari",
+        text,
+        durationSec,
+        offsetSec: offset,
+        extractions,
+        disclosure,
+      };
+      offset += durationSec;
+      return line;
+    },
+  );
+})();
+
+export const MOCK_VOICE_ENTITIES: VoiceEntity[] = [
+  {
+    id: "ve1",
+    type: "phone",
+    value: MOCK_VOICE_CALLER,
+    subtitle: "caller ID · operator",
+    confidence: 0.95,
+    reviewStatus: "confirmed",
+    revealAtLine: 0,
+  },
+  {
+    id: "ve2",
+    type: "bank_account",
+    value: "4881207734",
+    subtitle: "BCA · PT Maju Jaya (mule)",
+    confidence: 0.97,
+    reviewStatus: "confirmed",
+    revealAtLine: 2,
+  },
+  {
+    id: "ve3",
+    type: "crypto_wallet",
+    value: `${P1_WALLET.slice(0, 6)}…${P1_WALLET.slice(-6)}`,
+    subtitle: "USDT-TRC20",
+    confidence: 0.99,
+    reviewStatus: "confirmed",
+    revealAtLine: 4,
+  },
+];
+
+export function buildMockVoiceCall(): VoiceCallSession {
+  const last = MOCK_VOICE_LINES[MOCK_VOICE_LINES.length - 1];
+  return {
+    id: "hp-voice-0417",
+    callerId: MOCK_VOICE_CALLER,
+    persona: "Bu Sari, 54",
+    modeTag: "POC · replay",
+    status: "active",
+    lines: MOCK_VOICE_LINES,
+    entities: MOCK_VOICE_ENTITIES,
+    custody: {
+      messagesLogged: `${MOCK_VOICE_LINES.length} · hash-chained`,
+      crimeClass: "invest. scam",
+      syndicateLink: "SYN-14",
+      intact: true,
+    },
+    disclosureIndex: MOCK_VOICE_LINES.findIndex((l) => l.disclosure),
+    totalDurationSec: Math.round(last.offsetSec + last.durationSec),
     source: "mock",
   };
 }
