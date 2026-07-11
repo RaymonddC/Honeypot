@@ -9,6 +9,7 @@ Env vars use the ``ITTU_`` prefix, e.g.::
 """
 
 import json
+import os
 from functools import lru_cache
 from typing import Literal
 
@@ -44,11 +45,22 @@ class Settings(BaseSettings):
     #   '["https://a.vercel.app"]'              (JSON list)
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
-    # --- Voice (P4b) — LIVE TTS provider behind the TTSAdapter Protocol -------
-    # POC ignores this (browser SpeechSynthesis + deterministic voice marks).
-    # LIVE: ITTU_TTS_PROVIDER selects google | higgsfield | elevenlabs —
-    # swapping providers is this env var + one adapter class, nothing else.
-    tts_provider: str = "google"
+    # --- Voice (P4b/#15) — TTS provider behind the TTSAdapter Protocol --------
+    # "browser" (default) = POC voice marks: no server audio, the browser's
+    # SpeechSynthesis speaks the line. A real provider name (elevenlabs |
+    # google | higgsfield) upgrades to natural server-side audio — MODE-
+    # independent, so the deployed POC demo can get the real voice with just
+    # this env var + the provider's key. Fail-loud if selected without a key.
+    tts_provider: str = "browser"
+    # Real-voice provider keys (booleans only ever leave the API — never the key).
+    elevenlabs_api_key: str = ""          # ITTU_ELEVENLABS_API_KEY
+    google_tts_api_key: str = ""          # ITTU_GOOGLE_TTS_API_KEY
+
+    # --- LLM (live brain, paid + opt-in) --------------------------------------
+    # Engaged only when INFILTRATE MODE=live or a session is started with
+    # interactive=true AND a key is present. POC stays scripted + keyless.
+    llm_model: str = "claude-haiku-4-5"   # ITTU_LLM_MODEL (fast/cheap for voice latency)
+    llm_api_key: str = ""                 # ITTU_LLM_API_KEY (fallback: ANTHROPIC_API_KEY)
 
     # --- Auth (P5) — we always mint OUR OWN JWT {sub, agency_id, role, exp} ---
     # Dev-only default (≥32 bytes for HS256); override via ITTU_JWT_SECRET in prod.
@@ -57,6 +69,11 @@ class Settings(BaseSettings):
     jwt_ttl_seconds: int = 8 * 3600
     # LIVE Google OAuth: expected `aud` of the verified id_token.
     google_client_id: str = ""
+
+    @property
+    def effective_llm_api_key(self) -> str:
+        """Live-LLM key: ITTU_LLM_API_KEY, falling back to ANTHROPIC_API_KEY."""
+        return self.llm_api_key or os.environ.get("ANTHROPIC_API_KEY", "")
 
     @property
     def cors_origin_list(self) -> list[str]:

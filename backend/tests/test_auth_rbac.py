@@ -130,3 +130,38 @@ def test_config_reflects_module_mode_override():
         assert fiat["poc"]["active"] is True          # trace still POC
     finally:
         settings.module_modes.pop("takedown", None)
+
+
+def test_config_voice_section_has_no_secrets():
+    """#15: GET /api/config exposes the TTS provider + which providers/keys are
+    wired — as booleans/labels only. The raw key values must never appear,
+    even when they ARE configured server-side."""
+    settings = get_settings()
+    settings.elevenlabs_api_key = "sk-el-super-secret-12345"
+    settings.google_tts_api_key = "AIzaSy-super-secret-67890"
+    settings.llm_api_key = "sk-ant-super-secret-abcde"
+    try:
+        r = client.get("/api/config")
+        assert r.status_code == 200
+        body = r.json()
+
+        assert body["tts_provider"] == "browser"
+        assert set(body["tts_providers"]) >= {"google", "higgsfield", "elevenlabs"}
+        assert body["live_keys"] == {"elevenlabs": True, "google": True, "llm": True}
+        assert set(body["voice_defaults"]) == {"caller_number", "greeting"}
+
+        # The secret values themselves must never leave the API.
+        raw = r.text
+        assert "sk-el-super-secret-12345" not in raw
+        assert "AIzaSy-super-secret-67890" not in raw
+        assert "sk-ant-super-secret-abcde" not in raw
+    finally:
+        settings.elevenlabs_api_key = ""
+        settings.google_tts_api_key = ""
+        settings.llm_api_key = ""
+
+
+def test_config_voice_keys_absent_by_default(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)  # fallback llm key source
+    body = client.get("/api/config").json()
+    assert body["live_keys"] == {"elevenlabs": False, "google": False, "llm": False}

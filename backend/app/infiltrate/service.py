@@ -19,15 +19,31 @@ from fastapi import Depends
 from pydantic import BaseModel, Field
 
 from app.core.adapters import get_adapter
+from app.core.config import get_settings
 from app.infiltrate import classifier, extraction
-from app.infiltrate.agent import AgentRun, run_session
+from app.infiltrate.agent import COVERT_TOOLS, AgentRun, _dispatch_tools, run_session
 from app.infiltrate.channels import ChannelAdapter
 from app.infiltrate.custody import GENESIS, MessageChain
-from app.infiltrate.gateway import LLMGateway, ScriptedLLMGateway
+from app.infiltrate.gateway import (
+    InteractiveScriptedGateway,
+    LiteLLMGateway,
+    LLMGateway,
+    ScriptedLLMGateway,
+)
 from app.infiltrate.personas import Persona, all_personas, get_persona
-from app.infiltrate.voice import VOICE_SCRIPT, TTSAdapter, estimate_duration
+from app.infiltrate.voice import (
+    LIVE_TTS_PROVIDERS,
+    VOICE_CALLER_NUMBER,
+    VOICE_GREETING,
+    VOICE_SCRIPT,
+    TTSAdapter,
+    estimate_duration,
+)
 
 MODULE = "infiltrate"
+
+# Fixed, deterministic session epoch (no Date.now dependency in hash content).
+_BASE_TS = datetime(2026, 7, 7, 12, 0, 0, tzinfo=timezone.utc)
 
 
 # --------------------------------------------------------------------------- #
@@ -49,7 +65,19 @@ def get_voice_channel_adapter() -> ChannelAdapter:
 
 
 def get_tts_adapter() -> TTSAdapter:
-    """TTS boundary (POC: voice marks; LIVE: ITTU_TTS_PROVIDER, fails loud)."""
+    """TTS boundary — the real-voice upgrade (#15) is MODE-independent.
+
+    ``ITTU_TTS_PROVIDER=browser`` (default) → POC voice marks (the browser
+    speaks). Naming a live provider (elevenlabs | google | higgsfield) selects
+    its adapter even while INFILTRATE stays POC — it fails loudly at
+    construction without its key (never a silent downgrade). Under
+    INFILTRATE MODE=live the registry's live factory resolves as before.
+    """
+    settings = get_settings()
+    provider = settings.tts_provider.strip().lower()
+    impl = LIVE_TTS_PROVIDERS.get(provider)
+    if impl is not None:
+        return impl(settings)
     return get_adapter("tts", MODULE)
 
 
@@ -175,6 +203,32 @@ class StartSessionRequest(BaseModel):
     channel: str | None = "telegram"
     channel_type: Literal["text", "voice"] = "text"
     case_id: str | None = None
+    # Tier-B live call: start an OPEN session (persona greets, then waits for
+    # POST /sessions/{id}/turn) instead of running the scripted replay.
+    interactive: bool = False
+
+
+class TurnRequest(BaseModel):
+    """One live inbound utterance (the scammer's transcribed speech).
+
+    Field is ``text`` (not ``content``) to match the live-mic call client
+    (``frontend/lib/honeypot/live.ts postLiveTurn``).
+    """
+
+    text: str = Field(min_length=1)
+
+
+class TurnOut(BaseModel):
+    """Result of one live agent turn (POST /sessions/{id}/turn)."""
+
+    session_id: str
+    turn: int                                     # 0-based turn index executed
+    messages: list[MessageOut]                    # [inbound, outbound persona]
+    entities: list[EntityOut] = Field(default_factory=list)   # new this turn
+    classification: ClassificationOut | None = None
+    status: str
+    model: str                                    # which brain replied
+    custody: CustodyOut | None = None
 
 
 # --------------------------------------------------------------------------- #
@@ -187,11 +241,45 @@ _ENTITIES: dict[str, EntityOut] = {}              # entity_id -> entity
 _SYNDICATES: dict[str, SyndicateOut] = {}
 
 
+class _LiveState:
+    """Mutable per-session conversation state for live ``/turn`` calls.
+
+    Holds what the finished-replay read models can't reconstruct: the LLM
+    conversation history, the open custody chain, the running call-timeline
+    offset and the next turn index. Registered for every session (replay
+    sessions can be continued live too).
+    """
+
+    __slots__ = (
+        "persona", "conversation", "chain", "offset_seconds",
+        "next_turn", "channel", "channel_ref", "is_voice", "interactive",
+    )
+
+    def __init__(
+        self, persona: Persona, conversation: list[dict], chain: MessageChain,
+        offset_seconds: float, next_turn: int, channel: str, channel_ref: str,
+        is_voice: bool, interactive: bool,
+    ) -> None:
+        self.persona = persona
+        self.conversation = conversation
+        self.chain = chain
+        self.offset_seconds = offset_seconds
+        self.next_turn = next_turn
+        self.channel = channel
+        self.channel_ref = channel_ref
+        self.is_voice = is_voice
+        self.interactive = interactive
+
+
+_LIVE_STATES: dict[str, _LiveState] = {}          # session_id -> live state
+
+
 def reset_stores() -> None:  # test hook
     _SESSIONS.clear()
     _MESSAGES.clear()
     _ENTITIES.clear()
     _SYNDICATES.clear()
+    _LIVE_STATES.clear()
 
 
 # --------------------------------------------------------------------------- #
@@ -420,6 +508,11 @@ async def start_session(
     req: StartSessionRequest, channel: ChannelAdapter, gateway: LLMGateway
 ) -> SessionOut:
     persona = get_persona(req.persona_id)
+    if req.interactive:
+        # Tier-B live call (docs/Live-Voice-Calls.md): open a session with just
+        # the persona's greeting and wait for POST /sessions/{id}/turn — no
+        # scripted replay. Works for voice (mic) or text (typed) live demos.
+        return _start_interactive_session(req, persona)
     if req.channel_type == "voice":
         # Voice transport swaps in; the agent loop / extraction / custody /
         # classifier / clustering downstream are reused verbatim. LIVE resolves
@@ -429,6 +522,208 @@ async def start_session(
             gateway = ScriptedLLMGateway(script=VOICE_SCRIPT)
     run = await run_session(persona, channel, gateway)
     return _build_session(run, persona, req, channel_type=req.channel_type)
+
+
+def _start_interactive_session(req: StartSessionRequest, persona: Persona) -> SessionOut:
+    """Open an interactive (Tier-B) session: persona greets, then waits.
+
+    No agent-loop turns run yet — just custody message #1 (the greeting).
+    Registers a ``_LiveState`` so ``run_one_turn`` can continue the
+    conversation turn-by-turn from ``POST /sessions/{id}/turn``.
+    """
+    session_id = f"sess_{uuid.uuid4().hex[:12]}"
+    is_voice = req.channel_type == "voice"
+    channel = "voice" if is_voice else (req.channel or "telegram")
+    channel_ref = VOICE_CALLER_NUMBER if is_voice else ""
+    greeting = VOICE_GREETING if is_voice else "halo, ini dengan siapa ya?"
+
+    chain = MessageChain(session_id)
+    offset_seconds = 0.0
+    meta: dict = {"turn": 0}
+    if is_voice:
+        dur = estimate_duration(greeting)
+        meta.update({"speaker": "persona", "duration_seconds": dur, "offset_seconds": 0.0})
+        offset_seconds = dur
+
+    cm = chain.append("outbound", greeting, _BASE_TS, meta)
+    msg_id = f"msg_{uuid.uuid4().hex[:12]}"
+    message = MessageOut(
+        id=msg_id, session_id=session_id, seq=cm.seq, direction="outbound",
+        content=cm.content, ts=cm.ts, sha256=cm.sha256, prev_sha256=cm.prev_sha256,
+        meta=cm.meta, entities=[],
+    )
+
+    session = SessionOut(
+        id=session_id,
+        case_id=req.case_id,
+        persona=PersonaOut(
+            id=persona.id, name=persona.name, age=persona.age,
+            occupation=persona.occupation.split(" (")[0], region=persona.region,
+        ),
+        channel_type=req.channel_type,
+        channel=channel,
+        channel_ref=channel_ref,
+        status="active",
+        crime_type=None,
+        classification=None,
+        data_mode="poc",
+        started_at=_BASE_TS,
+        ended_at=None,
+        message_count=1,
+        entity_count=0,
+        custody=CustodyOut(
+            messages_logged=len(chain.messages()), chain_intact=chain.verify(), head_sha256=chain.head,
+        ),
+    )
+
+    _SESSIONS[session_id] = session
+    _MESSAGES[session_id] = [message]
+    _LIVE_STATES[session_id] = _LiveState(
+        persona=persona,
+        conversation=[{"role": "system", "content": persona.system_prompt()}],
+        chain=chain,
+        offset_seconds=offset_seconds,
+        next_turn=0,
+        channel=channel,
+        channel_ref=channel_ref,
+        is_voice=is_voice,
+        interactive=True,
+    )
+    return session
+
+
+def _resolve_turn_gateway(settings) -> LLMGateway:
+    """Brain for one live ``/turn`` call: real LLM if a key is configured,
+    otherwise the deterministic keyless stall persona (never 500s)."""
+    if settings.effective_llm_api_key:
+        try:
+            return LiteLLMGateway(settings)
+        except NotImplementedError:
+            pass  # fall through to the keyless persona
+    return InteractiveScriptedGateway(settings)
+
+
+async def run_one_turn(session_id: str, text: str) -> TurnOut | None:
+    """One live inbound utterance → persona reply, reusing the pipeline:
+    agent turn (LLM + covert tools) → Layer-A/B extraction → custody append →
+    reclassify. Returns ``None`` if ``session_id`` has no open live state
+    (unknown session, or a finished scripted-replay session)."""
+    state = _LIVE_STATES.get(session_id)
+    session = _SESSIONS.get(session_id)
+    if state is None or session is None:
+        return None
+
+    settings = get_settings()
+    gateway = _resolve_turn_gateway(settings)
+    turn = state.next_turn
+    ts_in = _BASE_TS + timedelta(seconds=(turn + 1) * 2)
+    ts_out = ts_in + timedelta(seconds=1)
+
+    # --- inbound (scammer/operator utterance) — custody + extraction --------
+    in_meta: dict = {"turn": turn}
+    if state.is_voice:
+        in_dur = estimate_duration(text)
+        in_meta.update({
+            "speaker": "scammer", "duration_seconds": in_dur,
+            "offset_seconds": round(state.offset_seconds, 1),
+        })
+        state.offset_seconds += in_dur
+    cm_in = state.chain.append("inbound", text, ts_in, in_meta)
+    in_id = f"msg_{uuid.uuid4().hex[:12]}"
+
+    state.conversation.append({"role": "user", "content": text})
+    resp = await gateway.complete(state.conversation, tools=COVERT_TOOLS, turn=turn)
+
+    # Covert side-effects (record_entity/flag_scam_signal/escalate_to_analyst)
+    # for this turn only — reuses the same dispatcher as the scripted loop.
+    hint_run = AgentRun(
+        persona_id=state.persona.id, channel=state.channel,
+        channel_ref=state.channel_ref, data_mode=gateway.data_mode,
+    )
+    _dispatch_tools(hint_run, resp.tool_calls, turn)
+
+    layer_a = extraction.extract_layer_a(text)
+    for e in layer_a:
+        e.turn = turn
+    layer_b = [
+        vb for h in hint_run.entity_hints
+        if (vb := extraction.validate_layer_b_hint(h)) is not None
+    ]
+    reconciled = extraction.reconcile(layer_a, layer_b)
+    new_entities = [_entity_out(e, session_id, in_id, cm_in.sha256, ts_in) for e in reconciled]
+    for ne in new_entities:
+        _ENTITIES[ne.id] = ne
+
+    inbound_msg = MessageOut(
+        id=in_id, session_id=session_id, seq=cm_in.seq, direction="inbound",
+        content=cm_in.content, ts=cm_in.ts, sha256=cm_in.sha256,
+        prev_sha256=cm_in.prev_sha256, meta=cm_in.meta, entities=new_entities,
+    )
+
+    # --- outbound (persona reply) — custody only -----------------------------
+    out_meta: dict = {
+        "turn": turn + 1, "model": resp.model,
+        "tool_calls": [tc.model_dump() for tc in resp.tool_calls],
+    }
+    if state.is_voice:
+        out_dur = estimate_duration(resp.content)
+        out_meta.update({
+            "speaker": "persona", "duration_seconds": out_dur,
+            "offset_seconds": round(state.offset_seconds, 1),
+        })
+        state.offset_seconds += out_dur
+    cm_out = state.chain.append("outbound", resp.content, ts_out, out_meta)
+    out_id = f"msg_{uuid.uuid4().hex[:12]}"
+    outbound_msg = MessageOut(
+        id=out_id, session_id=session_id, seq=cm_out.seq, direction="outbound",
+        content=cm_out.content, ts=cm_out.ts, sha256=cm_out.sha256,
+        prev_sha256=cm_out.prev_sha256, meta=cm_out.meta, entities=[],
+    )
+    state.conversation.append({"role": "assistant", "content": resp.content})
+    state.next_turn += 1
+
+    # --- fold into the session read model + reclassify -----------------------
+    all_msgs = _MESSAGES.setdefault(session_id, [])
+    all_msgs.extend([inbound_msg, outbound_msg])
+    session.message_count = len(all_msgs)
+    session.entity_count += len(new_entities)
+
+    for esc in hint_run.escalations:
+        session.escalations.append(EscalationOut(
+            reason=esc.get("reason", ""), detail=esc.get("detail", ""),
+            message_id=in_id, ts=ts_in,
+        ))
+    for sig in hint_run.scam_signals:
+        session.scam_signals.append(SignalOut(
+            signal=sig.get("signal", ""), detail=sig.get("detail", ""), message_id=in_id,
+        ))
+    if hint_run.escalations:
+        session.status = "escalated"
+
+    transcript = " ".join(m.content for m in all_msgs if m.direction == "inbound")
+    session_entities = list_entities(session_id=session_id)
+    cls = classifier.classify(
+        transcript,
+        scam_signals=[s.model_dump() for s in session.scam_signals],
+        entity_types=[e.type for e in session_entities],
+    )
+    classification = ClassificationOut(
+        crime_type=cls.crime_type, confidence=cls.confidence,
+        model_version=cls.model_version, signals=cls.signals,
+    )
+    session.classification = classification
+    session.crime_type = cls.crime_type
+    session.custody = CustodyOut(
+        messages_logged=len(state.chain.messages()),
+        chain_intact=state.chain.verify(),
+        head_sha256=state.chain.head,
+    )
+
+    return TurnOut(
+        session_id=session_id, turn=turn, messages=[inbound_msg, outbound_msg],
+        entities=new_entities, classification=classification, status=session.status,
+        model=resp.model, custody=session.custody,
+    )
 
 
 async def seed_demo_session() -> SessionOut | None:

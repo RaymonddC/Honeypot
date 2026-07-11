@@ -30,8 +30,10 @@ LIVE (clean stubs, fail loud, never silently degrade):
   session assembly, or UI.
 """
 
+import base64
 from typing import Protocol
 
+import httpx
 from pydantic import BaseModel
 
 from app.core.adapters import register
@@ -68,6 +70,11 @@ def estimate_duration(text: str) -> float:
 
 VOICE_CALLER_NUMBER = "+62 858-7766-1122"
 VOICE_SCAMMER_NAME = "Pak Dimas"
+
+# Interactive (Tier-B) sessions: the persona answers the call with this line —
+# custody message #1. Not fed to the LLM history (Anthropic-style providers
+# require the first non-system message to be the user's).
+VOICE_GREETING = "halo, selamat siang.. dengan ibu Sari di sini. ini siapa ya nak?"
 
 VOICE_SCRIPT: list[ScriptTurn] = [
     ScriptTurn(
@@ -361,13 +368,17 @@ class WhisperSTTAdapter:
 
 class TTSResult(BaseModel):
     """Normalized synthesis result. POC = voice marks only (``audio_url=None``,
-    the browser's SpeechSynthesis speaks the line); LIVE = provider audio."""
+    the browser's SpeechSynthesis speaks the line); LIVE = provider audio —
+    either raw ``audio_bytes`` (streamed by the audio endpoint) or a hosted
+    ``audio_url``."""
 
     provider: str
     voice: str
     text: str
     duration_seconds: float
     audio_url: str | None = None
+    audio_bytes: bytes | None = None
+    mime_type: str = "audio/mpeg"
 
 
 class VoiceMarkOut(BaseModel):
@@ -441,25 +452,104 @@ class _LiveTTSStub:
         raise NotImplementedError
 
 
-class GoogleTTSAdapter(_LiveTTSStub):
-    """LIVE stub — Google Cloud Text-to-Speech (WaveNet id-ID voices)."""
+_TTS_TIMEOUT_SECONDS = 30.0
 
+
+class ElevenLabsTTSAdapter:
+    """LIVE — ElevenLabs natural-voice synthesis (#15, real audio bytes).
+
+    Key: ``ITTU_ELEVENLABS_API_KEY`` — fails loudly at construction without it;
+    the key is only ever sent as the ``xi-api-key`` request header, never
+    returned in any API response.
+    """
+
+    data_mode: Mode = "live"
+    provider = "elevenlabs"
+    # Multilingual prebuilt voices: warm older female (persona) vs male (scammer).
+    _VOICE_IDS = {
+        "persona": "21m00Tcm4TlvDq8ikWAM",   # Rachel
+        "scammer": "pNInz6obpgDQGcFmaJgB",   # Adam
+    }
+    _MODEL_ID = "eleven_multilingual_v2"      # id-ID capable
+
+    def __init__(self, settings: Settings | None = None):
+        settings = settings or get_settings()
+        self._api_key = settings.elevenlabs_api_key
+        if not self._api_key:
+            raise NotImplementedError(
+                "LIVE ElevenLabsTTSAdapter is not usable in this build: no key is "
+                "configured. Set ITTU_ELEVENLABS_API_KEY, or set "
+                "ITTU_TTS_PROVIDER=browser for the keyless POC voice."
+            )
+
+    async def synthesize(self, text: str, voice: str = "persona") -> TTSResult:
+        voice_id = self._VOICE_IDS.get(voice, self._VOICE_IDS["persona"])
+        async with httpx.AsyncClient(timeout=_TTS_TIMEOUT_SECONDS) as client:
+            resp = await client.post(
+                f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+                headers={"xi-api-key": self._api_key, "accept": "audio/mpeg"},
+                json={"text": text, "model_id": self._MODEL_ID},
+            )
+            resp.raise_for_status()
+            audio = resp.content
+        return TTSResult(
+            provider=self.provider, voice=voice, text=text,
+            duration_seconds=estimate_duration(text),
+            audio_bytes=audio, mime_type="audio/mpeg",
+        )
+
+
+class GoogleTTSAdapter:
+    """LIVE — Google Cloud Text-to-Speech (WaveNet id-ID voices, real audio).
+
+    Key: ``ITTU_GOOGLE_TTS_API_KEY`` (a Cloud API key with the TTS API
+    enabled) — fails loudly at construction without it. The key is only ever
+    sent as a query param to Google, never returned in any API response.
+    """
+
+    data_mode: Mode = "live"
     provider = "google"
-    _requires = "Google Cloud TTS credentials (GOOGLE_APPLICATION_CREDENTIALS)"
+    _VOICE_NAMES = {
+        "persona": "id-ID-Wavenet-A",   # female
+        "scammer": "id-ID-Wavenet-B",   # male
+    }
+
+    def __init__(self, settings: Settings | None = None):
+        settings = settings or get_settings()
+        self._api_key = settings.google_tts_api_key
+        if not self._api_key:
+            raise NotImplementedError(
+                "LIVE GoogleTTSAdapter is not usable in this build: no key is "
+                "configured. Set ITTU_GOOGLE_TTS_API_KEY, or set "
+                "ITTU_TTS_PROVIDER=browser for the keyless POC voice."
+            )
+
+    async def synthesize(self, text: str, voice: str = "persona") -> TTSResult:
+        name = self._VOICE_NAMES.get(voice, self._VOICE_NAMES["persona"])
+        async with httpx.AsyncClient(timeout=_TTS_TIMEOUT_SECONDS) as client:
+            resp = await client.post(
+                "https://texttospeech.googleapis.com/v1/text:synthesize",
+                params={"key": self._api_key},
+                json={
+                    "input": {"text": text},
+                    "voice": {"languageCode": "id-ID", "name": name},
+                    "audioConfig": {"audioEncoding": "MP3"},
+                },
+            )
+            resp.raise_for_status()
+            audio = base64.b64decode(resp.json()["audioContent"])
+        return TTSResult(
+            provider=self.provider, voice=voice, text=text,
+            duration_seconds=estimate_duration(text),
+            audio_bytes=audio, mime_type="audio/mpeg",
+        )
 
 
 class HiggsfieldTTSAdapter(_LiveTTSStub):
-    """LIVE stub — Higgsfield speech synthesis."""
+    """LIVE stub — Higgsfield speech synthesis (not wired yet, fails loud)."""
 
     provider = "higgsfield"
     _requires = "a Higgsfield API key"
-
-
-class ElevenLabsTTSAdapter(_LiveTTSStub):
-    """LIVE stub — ElevenLabs natural-voice synthesis."""
-
-    provider = "elevenlabs"
-    _requires = "an ElevenLabs API key (ELEVENLABS_API_KEY)"
 
 
 # Provider registry: adding a provider later = one class + one entry here.

@@ -93,10 +93,10 @@ function normalizeMe(raw: any): AuthMe {
   };
 }
 
-const asMode = (v: unknown): Mode =>
+export const asMode = (v: unknown): Mode =>
   String(v ?? "").toLowerCase() === "live" ? "LIVE" : "POC";
 
-function normalizeModules(raw: any): ModuleMode[] {
+export function normalizeModules(raw: any): ModuleMode[] {
   const mods = first(raw?.modules, raw?.module_modes, raw?.per_module);
   if (Array.isArray(mods)) {
     return mods.map((m: any) => ({

@@ -34,6 +34,8 @@ from app.infiltrate.service import (
     StartSessionRequest,
     SyndicateOut,
     TTSDep,
+    TurnOut,
+    TurnRequest,
 )
 from app.infiltrate.voice import TTSAdapter, VoiceMarkOut
 
@@ -74,6 +76,23 @@ async def post_session(
     loop, hash-chains every message, extracts + reconciles entities, classifies
     the crime, and clusters a syndicate — returned as a finished session."""
     return await service.start_session(body or StartSessionRequest(), channel, gateway)
+
+
+@router.post("/sessions/{session_id}/turn", response_model=TurnOut)
+async def post_session_turn(
+    session_id: str,
+    body: TurnRequest,
+    _auth: AuthContext = Depends(get_current_user),  # live engagement needs identity
+) -> TurnOut:
+    """One live inbound utterance (Tier-B interactive session, mic or typed)
+    → one agent turn: persona reply + Layer-A/B extraction + custody append +
+    reclassify. 404 if ``session_id`` has no open interactive session (unknown
+    id, or a finished scripted-replay session — start one with
+    ``POST /sessions {\"interactive\": true}``)."""
+    result = await service.run_one_turn(session_id, body.text)
+    if result is None:
+        raise _not_found("session", session_id)
+    return result
 
 
 @router.get("/sessions/{session_id}", response_model=SessionOut)

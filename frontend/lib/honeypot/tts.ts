@@ -3,18 +3,24 @@
  *
  * The call view depends on this INTERFACE only, never on `speechSynthesis`
  * directly, so upgrading from the free browser voice to a paid natural one
- * (Google / Higgsfield / ElevenLabs served by the backend) is an env flip +
- * one provider implementation — the captions/sync/UI are untouched:
+ * (Google / Higgsfield / ElevenLabs served by the backend) is a settings flip +
+ * one provider implementation — the captions/sync/UI are untouched.
  *
- *   NEXT_PUBLIC_VOICE_PROVIDER=browser  → BrowserTTSProvider (Web Speech API)
- *   NEXT_PUBLIC_VOICE_PROVIDER=backend  → BackendAudioProvider
- *                                          (GET /api/sessions/{id}/audio/{seq})
+ * Provider selection (Control Panel `voiceProvider`, localStorage override of
+ * the NEXT_PUBLIC_VOICE_PROVIDER build default — lib/settings.ts):
+ *
+ *   browser            → BrowserTTSProvider (free Web Speech API)
+ *   elevenlabs|google  → BackendAudioProvider
+ *                         (GET /api/sessions/{id}/audio/{seq} — real audio
+ *                          when the backend TTS adapter is LIVE; degrades to
+ *                          the duration-timer path on poc voice-marks)
  *
  * Browsers require a user gesture before audio — the call view's "Start call"
  * button provides it.
  */
 
 import { API_BASE, apiFetch } from "@/lib/http";
+import { getSettings, type VoiceProviderSetting } from "@/lib/settings";
 
 /* ── Contract ──────────────────────────────────────────────────────────── */
 
@@ -293,22 +299,26 @@ export class BackendAudioProvider implements VoiceProvider {
   }
 }
 
-/* ── Provider selection (env-driven — the swap point) ───────────────────── */
+/* ── Provider selection (settings-driven — the swap point) ──────────────── */
 
 export type VoiceProviderKind = "browser" | "backend";
 
-/** Which provider the build is configured for (badge/debug display). */
+/** The analyst's Control Panel choice (localStorage over env default). */
+export function voiceProviderSetting(): VoiceProviderSetting {
+  return getSettings().voiceProvider;
+}
+
+/** Which playback path is active (badge/debug display). */
 export function voiceProviderKind(): VoiceProviderKind {
-  return (process.env.NEXT_PUBLIC_VOICE_PROVIDER ?? "browser").toLowerCase() ===
-    "backend"
-    ? "backend"
-    : "browser";
+  return voiceProviderSetting() === "browser" ? "browser" : "backend";
 }
 
 /**
- * Create the configured VoiceProvider for a session.
- * Default `browser` (free Web Speech API); `backend` streams provider audio
- * from `GET /api/sessions/{id}/audio/{seq}` (LIVE Google/Higgsfield/ElevenLabs).
+ * Create the configured VoiceProvider for a session — read at call start so
+ * a Control Panel change applies to the next call, no rebuild needed.
+ * `browser` → free Web Speech API; `elevenlabs`/`google` → backend-served
+ * audio from `GET /api/sessions/{id}/audio/{seq}` (which itself degrades to
+ * duration-timer voice-marks while the server adapter is still poc).
  */
 export function createVoiceProvider(sessionId: string): VoiceProvider {
   return voiceProviderKind() === "backend"

@@ -61,16 +61,22 @@ export function Captions({
   lines,
   currentIndex,
   state,
+  interim = null,
+  emptyNote,
 }: {
   lines: VoiceLine[];
   currentIndex: number;
   state: CallState;
+  /** Live-mic mode: the operator's not-yet-final transcript (ghost bubble). */
+  interim?: { who: string; text: string } | null;
+  /** Live-mic mode: replaces the idle placeholder copy. */
+  emptyNote?: string;
 }) {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [currentIndex]);
+  }, [currentIndex, interim?.text]);
 
   const visible = state === "idle" ? [] : lines.slice(0, currentIndex + 1);
 
@@ -81,10 +87,11 @@ export function Captions({
       aria-label="Live call captions"
       className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4"
     >
-      {visible.length === 0 ? (
+      {visible.length === 0 && !interim ? (
         <div className="grid flex-1 place-items-center text-center text-[11px] text-muted">
           {state === "idle"
-            ? "Captions appear here as the call is spoken — press Start call to answer."
+            ? (emptyNote ??
+              "Captions appear here as the call is spoken — press Start call to answer.")
             : "Connecting…"}
         </div>
       ) : (
@@ -95,6 +102,15 @@ export function Captions({
             speaking={i === currentIndex && state === "live"}
           />
         ))
+      )}
+      {interim && interim.text && (
+        <div className="max-w-[78%] self-start rounded-xl rounded-bl-[4px] border border-dashed border-white/15 bg-elevated/60 px-3 py-[9px] text-xs leading-relaxed text-fg/70">
+          <div className="mb-[3px] flex items-center gap-2 text-[9.5px] uppercase tracking-[.06em] opacity-60">
+            {interim.who} · hearing…
+            <Waveform active bars={5} tone="neutral" className="!h-3" />
+          </div>
+          {interim.text}
+        </div>
       )}
       <div ref={endRef} aria-hidden />
     </div>

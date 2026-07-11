@@ -76,14 +76,14 @@ export interface VoiceCallSession {
 
 /* ── Raw voice meta (MessageOut.meta for channel_type="voice") ─────────── */
 
-interface RawVoiceMeta {
+export interface RawVoiceMeta {
   speaker?: string;
   duration_seconds?: number;
   offset_seconds?: number;
   disclosure?: boolean;
 }
 
-type RawVoiceMessage = RawMessage & { meta?: RawVoiceMeta | null };
+export type RawVoiceMessage = RawMessage & { meta?: RawVoiceMeta | null };
 
 /* ── Fetch plumbing (same pattern as api.ts request) ───────────────────── */
 
@@ -106,10 +106,10 @@ async function request<T>(
 /* ── Normalization ─────────────────────────────────────────────────────── */
 
 /** Rough spoken-Bahasa pace (~2.3 words/s) when the backend sends no marks. */
-const estimateDurationSec = (text: string): number =>
+export const estimateDurationSec = (text: string): number =>
   Math.min(20, Math.max(2.4, text.trim().split(/\s+/).length / 2.3));
 
-function normalizeLines(
+export function normalizeLines(
   raw: RawVoiceMessage[],
   personaDisplay: string,
 ): VoiceLine[] {
@@ -158,7 +158,7 @@ function normalizeLines(
     });
 }
 
-function normalizeVoiceEntities(
+export function normalizeVoiceEntities(
   raw: RawEntity[],
   lines: VoiceLine[],
 ): VoiceEntity[] {

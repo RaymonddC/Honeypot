@@ -100,6 +100,11 @@ class ConfigResponse(BaseModel):
     mode: str  # global default MODE
     modules: dict[str, str]  # effective MODE per module (override or global)
     adapters: list[AdapterInfo]
+    # --- Voice (#15) — read-only, no secrets: presence booleans only ---------
+    tts_provider: str = "browser"  # effective ITTU_TTS_PROVIDER
+    tts_providers: list[str] = []  # known live providers (voice.LIVE_TTS_PROVIDERS)
+    live_keys: dict[str, bool] = {}  # provider slug -> is a LIVE key configured
+    voice_defaults: dict[str, str] = {}  # caller number / greeting (POC fixture)
 
 
 # --- Helpers ---------------------------------------------------------------------
@@ -284,7 +289,24 @@ async def get_config() -> ConfigResponse:
             )
         )
 
-    return ConfigResponse(mode=settings.mode, modules=modules, adapters=adapters)
+    # Voice (#15): NEVER return the key values — only whether one is set.
+    from app.infiltrate.voice import LIVE_TTS_PROVIDERS, VOICE_CALLER_NUMBER, VOICE_GREETING
+
+    live_keys = {
+        "elevenlabs": bool(settings.elevenlabs_api_key),
+        "google": bool(settings.google_tts_api_key),
+        "llm": bool(settings.effective_llm_api_key),
+    }
+
+    return ConfigResponse(
+        mode=settings.mode,
+        modules=modules,
+        adapters=adapters,
+        tts_provider=settings.tts_provider,
+        tts_providers=sorted(LIVE_TTS_PROVIDERS),
+        live_keys=live_keys,
+        voice_defaults={"caller_number": VOICE_CALLER_NUMBER, "greeting": VOICE_GREETING},
+    )
 
 
 # Re-export for tests / discoverability.

@@ -176,8 +176,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </ul>
         </nav>
 
-        <div className="border-t border-line px-4 py-3">
-          <span className="eyebrow">P5 · auth</span>
+        <div className="border-t border-line px-2 py-2">
+          <Link
+            href="/settings"
+            aria-current={pathname.startsWith("/settings") ? "page" : undefined}
+            className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
+              pathname.startsWith("/settings")
+                ? "bg-accent/10 font-medium text-accent-bright"
+                : "text-muted hover:bg-white/[.04] hover:text-fg"
+            }`}
+          >
+            <span className="w-4 text-center text-xs" aria-hidden>
+              ⚙
+            </span>
+            Control Panel
+          </Link>
+          <span className="eyebrow mt-1 block px-3">P5 · auth</span>
         </div>
       </aside>
 
