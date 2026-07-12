@@ -20,6 +20,9 @@ dependencies = [
     "numpy>=2.0",
     "reportlab>=4.2",
     "pyjwt>=2.8",
+    # Pinned below 1.92: 1.92.0 ships no wheel for some platforms (py3.13/Windows)
+    # and its sdist build needs Rust. 1.91.2 has a ready py3-none-any wheel.
+    "litellm>=1.91.2,<1.92",
 ]
 
 [project.optional-dependencies]

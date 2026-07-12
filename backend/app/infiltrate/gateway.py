@@ -161,6 +161,7 @@ class LiteLLMGateway:
         self._model = settings.llm_model
         self.model_version = self._model
         self._api_key = settings.effective_llm_api_key
+        self._api_base = settings.llm_api_base or None
         if not self._api_key:
             raise NotImplementedError(
                 "LIVE LiteLLM gateway is not usable in this build: no API key is "
@@ -177,6 +178,7 @@ class LiteLLMGateway:
             messages=messages,
             tools=tools or None,
             api_key=self._api_key,
+            api_base=self._api_base,  # None unless ITTU_LLM_API_BASE is set
             max_tokens=1024,
             temperature=0.8,
         )

@@ -11,6 +11,7 @@ Env vars use the ``ITTU_`` prefix, e.g.::
 import json
 import os
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -20,11 +21,16 @@ Mode = Literal["poc", "live"]
 # `auth` is a cross-cutting module: POC = demo login, LIVE = Google OAuth.
 MODULES = ("infiltrate", "trace", "takedown", "uncover", "intel", "auth")
 
+# Absolute path to backend/.env (this file is backend/app/core/config.py), so the
+# .env is found no matter which directory uvicorn is launched from. A relative
+# "./.env" is also checked (harmless if missing) for any other layout.
+_BACKEND_DIR = Path(__file__).resolve().parents[2]
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="ITTU_",
-        env_file=".env",
+        env_file=(str(_BACKEND_DIR / ".env"), ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -61,6 +67,10 @@ class Settings(BaseSettings):
     # interactive=true AND a key is present. POC stays scripted + keyless.
     llm_model: str = "claude-haiku-4-5"   # ITTU_LLM_MODEL (fast/cheap for voice latency)
     llm_api_key: str = ""                 # ITTU_LLM_API_KEY (fallback: ANTHROPIC_API_KEY)
+    # Optional base URL for an OpenAI-compatible gateway (e.g. OpenRouter). Usually
+    # unneeded — a model prefixed "openrouter/..." routes automatically — but set
+    # ITTU_LLM_API_BASE to force any custom endpoint.
+    llm_api_base: str = ""                # ITTU_LLM_API_BASE
 
     # --- Auth (P5) — we always mint OUR OWN JWT {sub, agency_id, role, exp} ---
     # Dev-only default (≥32 bytes for HS256); override via ITTU_JWT_SECRET in prod.
