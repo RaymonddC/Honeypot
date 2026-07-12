@@ -11,6 +11,7 @@ Adapters (channel + llm) are resolved through the MODE registry via FastAPI
 ``Depends`` — POC gives the offline replay + scripted persona, LIVE fails loud.
 """
 
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Literal
@@ -632,7 +633,28 @@ async def run_one_turn(session_id: str, text: str) -> TurnOut | None:
     in_id = f"msg_{uuid.uuid4().hex[:12]}"
 
     state.conversation.append({"role": "user", "content": text})
-    resp = await gateway.complete(state.conversation, tools=COVERT_TOOLS, turn=turn)
+    try:
+        resp = await gateway.complete(state.conversation, tools=COVERT_TOOLS, turn=turn)
+    except Exception as exc:
+        # Live LLM/provider failed mid-call (e.g. a 9Router provider fallback
+        # error, timeout, or malformed response) — degrade to the deterministic
+        # keyless persona so an interactive /turn never 500s. Log the reason so a
+        # silent fallback is diagnosable (why the persona went scripted).
+        logging.getLogger("uvicorn.error").warning(
+            "live LLM turn failed on %s (%s: %s) — using scripted fallback",
+            getattr(gateway, "model_version", "?"), type(exc).__name__, exc,
+            exc_info=True,
+        )
+        gateway = InteractiveScriptedGateway(settings)
+        resp = await gateway.complete(state.conversation, tools=COVERT_TOOLS, turn=turn)
+
+    # A model given tools may answer with ONLY a tool-call and no text — keep the
+    # persona from going silent by borrowing an in-character stall line.
+    if not (resp.content or "").strip():
+        stall = await InteractiveScriptedGateway(settings).complete(
+            state.conversation, turn=turn
+        )
+        resp.content = stall.content
 
     # Covert side-effects (record_entity/flag_scam_signal/escalate_to_analyst)
     # for this turn only — reuses the same dispatcher as the scripted loop.

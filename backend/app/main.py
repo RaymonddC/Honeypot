@@ -1,5 +1,6 @@
 """ITTU API — app factory + lifespan (P0 scaffold)."""
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -26,6 +27,15 @@ async def lifespan(app: FastAPI):
     # demo narrative on first load (no manual POST needed). POC-only, idempotent.
     from app.infiltrate.service import seed_demo_session
 
+    # Print the live-LLM state on startup so it's obvious whether the interactive
+    # persona will improvise (real key loaded) or fall back to the scripted stall.
+    s = get_settings()
+    logging.getLogger("uvicorn.error").warning(
+        "ITTU live LLM: %s | model=%s | base=%s",
+        "LIVE (real improv)" if s.effective_llm_api_key else "SCRIPTED fallback (no key loaded)",
+        s.llm_model,
+        s.llm_api_base or "(provider default)",
+    )
     await seed_demo_session()
     yield
     # Shutdown

@@ -15,6 +15,29 @@ MULE1 = "TMu01eA9kQvXr4NpLd8YcJt5BsFhG2aWn"[:34]
 VICTIM1 = "TN3xKp8VqYmWdR5tJcE2sLbHnG9aQfU4Zw"
 
 
+@pytest.fixture(autouse=True)
+def _hermetic_provider_keys(monkeypatch):
+    """Keep tests independent of the developer's real backend/.env credentials.
+
+    The settings now load backend/.env by absolute path (so uvicorn finds it from
+    any cwd), which means a real ITTU_LLM_API_KEY / TTS key would leak into the
+    suite and break the keyless/fail-loud assertions. Clear those live keys before
+    every test; tests exercising the live path set their own key.
+    """
+    from app.core.config import get_settings
+
+    for var in (
+        "ANTHROPIC_API_KEY", "ITTU_LLM_API_KEY",
+        "ITTU_ELEVENLABS_API_KEY", "ITTU_GOOGLE_TTS_API_KEY",
+    ):
+        monkeypatch.delenv(var, raising=False)
+    s = get_settings()
+    saved = (s.llm_api_key, s.elevenlabs_api_key, s.google_tts_api_key)
+    s.llm_api_key = s.elevenlabs_api_key = s.google_tts_api_key = ""
+    yield
+    s.llm_api_key, s.elevenlabs_api_key, s.google_tts_api_key = saved
+
+
 @pytest.fixture(scope="session")
 def fixture_transfers() -> list[Transfer]:
     return list(_load_fixture_transfers())
