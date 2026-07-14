@@ -471,6 +471,11 @@ class ElevenLabsTTSAdapter:
         "scammer": "pNInz6obpgDQGcFmaJgB",   # Adam
     }
     _MODEL_ID = "eleven_multilingual_v2"      # id-ID capable
+    # https://elevenlabs.io/docs/api-reference/text-to-speech/convert — default
+    # output_format the API itself uses; set explicitly rather than relying on
+    # the provider default (belt-and-braces against a future default change).
+    _OUTPUT_FORMAT = "mp3_44100_128"
+    _VOICE_SETTINGS = {"stability": 0.5, "similarity_boost": 0.75}
 
     def __init__(self, settings: Settings | None = None):
         settings = settings or get_settings()
@@ -487,8 +492,13 @@ class ElevenLabsTTSAdapter:
         async with httpx.AsyncClient(timeout=_TTS_TIMEOUT_SECONDS) as client:
             resp = await client.post(
                 f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+                params={"output_format": self._OUTPUT_FORMAT},
                 headers={"xi-api-key": self._api_key, "accept": "audio/mpeg"},
-                json={"text": text, "model_id": self._MODEL_ID},
+                json={
+                    "text": text,
+                    "model_id": self._MODEL_ID,
+                    "voice_settings": self._VOICE_SETTINGS,
+                },
             )
             resp.raise_for_status()
             audio = resp.content
