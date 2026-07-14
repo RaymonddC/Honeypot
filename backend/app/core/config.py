@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://ittu:ittu@localhost:5432/ittu"
     redis_url: str = "redis://localhost:6379/0"
 
+    # Blockchain LIVE (takedown module): optional TRONSCAN key for higher rate
+    # limits. The public API works keyless; set ITTU_TRONSCAN_API_KEY in prod.
+    tronscan_api_key: str = ""
+
     # CORS: origins allowed to call the API. Kept as a STRING (not list[str]) so
     # pydantic-settings never tries to JSON-decode the env var and crash on deploy.
     # ITTU_CORS_ORIGINS accepts any of:

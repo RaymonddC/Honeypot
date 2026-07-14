@@ -97,18 +97,36 @@ class TronscanAdapter:
             self._redis = aioredis.from_url(self._settings.redis_url, decode_responses=True)
         return self._redis
 
+    async def _cache_get(self, key: str) -> dict | None:
+        """Best-effort read — Redis is an accelerator, never a hard requirement."""
+        try:
+            if raw := await (await self._cache()).get(key):
+                return json.loads(raw)
+        except Exception:
+            self._redis = None  # drop a broken client; retry lazily next call
+        return None
+
+    async def _cache_set(self, key: str, data: dict) -> None:
+        try:
+            await (await self._cache()).set(key, json.dumps(data), ex=CACHE_TTL_SECONDS)
+        except Exception:
+            self._redis = None
+
+    def _auth_headers(self) -> dict[str, str]:
+        """Optional TRON-PRO-API-KEY → higher TRONSCAN rate limits in prod."""
+        key = getattr(self._settings, "tronscan_api_key", "") or ""
+        return {"TRON-PRO-API-KEY": key} if key else {}
+
     async def fetch_transfers(self, address: str, cursor: str | None = None) -> TransferPage:
         start = int(cursor or 0)
         cache_key = f"trc20:{address}:{start}"
-        cache = await self._cache()
-        if cached := await cache.get(cache_key):
-            data = json.loads(cached)
-        else:
+        data = await self._cache_get(cache_key)
+        if data is None:
             try:
                 data = await self._fetch_tronscan(address, start)
             except httpx.HTTPError:
                 data = await self._fetch_trongrid(address)
-            await cache.set(cache_key, json.dumps(data), ex=CACHE_TTL_SECONDS)
+            await self._cache_set(cache_key, data)
 
         items = [Transfer(**row, data_mode="live") for row in data["transfers"]]
         next_cursor = str(start + PAGE_SIZE) if len(items) == PAGE_SIZE else None
@@ -125,22 +143,26 @@ class TronscanAdapter:
                 "limit": PAGE_SIZE,
                 "direction": 0,  # both
             },
+            headers=self._auth_headers(),
         )
         resp.raise_for_status()
         payload = resp.json()
+        # Live TRONSCAN row keys: from/to/block_timestamp/hash/amount/decimals/
+        # block/contract_ret. Skip reverted transfers (never real value movement).
         return {
             "transfers": [
                 {
                     "tx_hash": row["hash"],
-                    "from_addr": row["transferFromAddress"],
-                    "to_addr": row["transferToAddress"],
-                    "value": int(row["amount"]) / 10**6,  # USDT has 6 decimals
+                    "from_addr": row["from"],
+                    "to_addr": row["to"],
+                    "value": int(row["amount"]) / 10 ** int(row.get("decimals", 6)),
                     "token_symbol": "USDT",
                     "token_contract": USDT_TRC20,
-                    "ts": row["timestamp"],  # epoch ms — pydantic coerces
+                    "ts": row["block_timestamp"],  # epoch ms — pydantic v2 coerces
                     "block_number": row.get("block"),
                 }
                 for row in payload.get("data", [])
+                if row.get("contract_ret", "SUCCESS") == "SUCCESS"
             ]
         }
 
