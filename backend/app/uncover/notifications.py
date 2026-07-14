@@ -19,6 +19,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Literal, Protocol, runtime_checkable
 
+import httpx
 from pydantic import BaseModel, Field
 
 # Importing app.workers sets the Dramatiq Redis broker before @actor binds.
@@ -124,6 +125,9 @@ def route_targets(
     return plan
 
 
+_WEBHOOK_TIMEOUT_SECONDS = 15.0
+
+
 # --------------------------------------------------------------------------- #
 # Notification sink adapters (POC mock / LIVE stub)
 # --------------------------------------------------------------------------- #
@@ -177,20 +181,52 @@ class MockNotificationSink:
 
 @register("notification", "live")
 class LiveNotificationSink:
-    """LIVE: secure webhook/email + goAML submission + IASC freeze (Phase-5).
+    """LIVE: operator-owned webhook dispatch (+ goAML/IASC integrations, Phase-5).
 
-    Fails loudly — a LIVE deployment without real channels must never
-    silently degrade to a mock (Adapter-MODE principle #3).
+    Today's wired channel is a generic webhook: ``ITTU_NOTIFICATION_WEBHOOK_URL``
+    receives every dispatch packet as a JSON POST — no third-party account
+    needed, the operator points it at their own endpoint (their own goAML
+    bridge, a Slack/Teams incoming webhook, an internal case-management
+    ingest, etc.). Without a configured URL this fails loudly — a LIVE
+    deployment must never silently degrade to a mock (Adapter-MODE
+    principle #3).
     """
 
     data_mode: Mode = "live"
+    channel = "webhook"
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
     async def dispatch(self, packet: dict) -> NotificationOut:
-        raise NotImplementedError(
-            "LIVE notification dispatch (goAML/IASC/webhook) is a Phase-5 integration."
+        url = self._settings.notification_webhook_url
+        if not url:
+            raise NotImplementedError(
+                "LIVE notification dispatch has no channel configured: set "
+                "ITTU_NOTIFICATION_WEBHOOK_URL to the operator's webhook endpoint "
+                "(goAML bridge / Slack / case-management ingest), or run UNCOVER "
+                "in POC mode (ITTU_MODE=poc)."
+            )
+
+        sent_at = datetime.now(timezone.utc)
+        try:
+            async with httpx.AsyncClient(timeout=_WEBHOOK_TIMEOUT_SECONDS) as client:
+                resp = await client.post(url, json=packet)
+            status: Literal["sent", "failed"] = "sent" if resp.is_success else "failed"
+        except httpx.HTTPError:
+            status = "failed"
+
+        return NotificationOut(
+            id=f"ntf_{uuid.uuid4().hex[:12]}",
+            action_id=packet.get("action_id", ""),
+            case_id=packet.get("case_id", ""),
+            target_agency=packet.get("agency", "unknown"),
+            agency_type=packet.get("agency_type", "regulator"),
+            channel=self.channel,
+            status=status,
+            data_mode=self.data_mode,
+            sent_at=sent_at,
+            payload={k: v for k, v in packet.items() if k not in ("agency", "agency_type")},
         )
 
 

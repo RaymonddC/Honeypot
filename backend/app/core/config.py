@@ -47,6 +47,11 @@ class Settings(BaseSettings):
     # limits. The public API works keyless; set ITTU_TRONSCAN_API_KEY in prod.
     tronscan_api_key: str = ""
 
+    # Notification LIVE (uncover module): operator-owned webhook URL that
+    # receives each dispatch packet as JSON POST. Empty = fail loud (no
+    # silent mock fallback — Adapter-MODE principle #3).
+    notification_webhook_url: str = ""    # ITTU_NOTIFICATION_WEBHOOK_URL
+
     # CORS: origins allowed to call the API. Kept as a STRING (not list[str]) so
     # pydantic-settings never tries to JSON-decode the env var and crash on deploy.
     # ITTU_CORS_ORIGINS accepts any of:
