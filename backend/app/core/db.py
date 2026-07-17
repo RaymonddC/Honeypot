@@ -74,6 +74,30 @@ async def _tenant_scoped_session(auth: AuthContext) -> AsyncGenerator[AsyncSessi
         yield session
 
 
+async def get_optional_session() -> AsyncGenerator[AsyncSession | None, None]:
+    """FastAPI dependency: a PLAIN (non-RLS-scoped) session, but ONLY under
+    Postgres — same persistence-first-check invariant as
+    ``get_optional_tenant_session`` (under "memory" this yields ``None`` and
+    never touches the engine).
+
+    Unlike ``get_optional_tenant_session``, this does NOT require an
+    authenticated identity: it exists for the login boundary (P-4b,
+    docs/Persistence-Plan.md P-4), which by definition runs BEFORE there's a
+    verified identity to scope a tenant session to. No ``app.current_agency/
+    user/role`` vars are set on this session — callers must only use it to
+    invoke the ``core.login_*`` ``SECURITY DEFINER`` functions (migration
+    20260717_09), which read/write ``core.users`` bypassing RLS themselves,
+    precisely so a normal RLS-scoped session (which login can't have yet
+    anyway) is never needed here.
+    """
+    settings = get_settings()
+    if settings.persistence != "postgres":
+        yield None
+        return
+    async with SessionLocal() as session, session.begin():
+        yield session
+
+
 async def get_optional_tenant_session(
     auth: AuthContext | None = Depends(_get_optional_current_user),
 ) -> AsyncGenerator[AsyncSession | None, None]:
