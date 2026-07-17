@@ -6,15 +6,16 @@ POST /api/actions/generate, POST /api/actions/{id}/dispatch, and — as of P-4a
 GET /api/sessions(/{id}(/messages|/audio/{seq})?)?, GET /api/entities,
 GET /api/syndicates. P-3 adds GET /api/actions/{id} to that list (UNCOVER's
 one read route with a per-agency identity — see the module for the deliberate
-exceptions below).
+exceptions below). P-5 adds GET /api/documents/{id}: the frontend now fetches
+the PDF with JS (Bearer attached) and builds a blob URL, so the old "plain
+<a href> can't carry a header" excuse is gone and the route is protected like
+every other repo-backed read route.
 Dispatch is additionally role-gated (403 for bank/exchange compliance).
 Other read-only demo endpoints (GET /api/personas, /api/metrics/response,
-/api/bridge/sankey, /api/config) stay open — GET /api/documents/{id} and GET
-/api/metrics/response deliberately so even post-P-3 (see their docstrings in
-app/uncover/router.py for why: plain <a href> downloads can't carry a Bearer,
-and metrics is a cross-agency demo view — both still 401 under
-persistence=postgres via the repo factory itself, just not via an explicit
-route-level Depends).
+/api/bridge/sankey, /api/config) stay open — GET /api/metrics/response
+deliberately so even post-P-3 (see its docstring in app/uncover/router.py for
+why: it's a cross-agency demo view — still 401s under persistence=postgres
+via the repo factory itself, just not via an explicit route-level Depends).
 """
 
 import pytest
@@ -91,6 +92,33 @@ def test_uncover_get_action_requires_auth():
         r2 = client.get(f"/api/actions/{action_id}", headers=headers)
         assert r2.status_code == 200
         assert r2.json()["id"] == action_id
+    finally:
+        service.reset_stores()
+        MockNotificationSink.reset()
+
+
+def test_uncover_get_document_requires_auth():
+    """P-5: GET /api/documents/{id} touches the repo, so it now requires
+    identity too (mirrors P-4a / P-3) — 401 with no Bearer, 200 once one is
+    presented."""
+    from app.uncover import service
+    from app.uncover.notifications import MockNotificationSink
+
+    service.reset_stores()
+    MockNotificationSink.reset()
+    try:
+        headers = bearer()
+        gen = client.post("/api/actions/generate", json=GENERATE_BODY, headers=headers)
+        assert gen.status_code == 201, gen.text
+        doc = gen.json()["documents"][0]
+
+        r = client.get(doc["download_url"])
+        assert r.status_code == 401
+        assert r.json()["error"]["code"] == "missing_token"
+
+        r2 = client.get(doc["download_url"], headers=headers)
+        assert r2.status_code == 200
+        assert r2.headers["content-type"] == "application/pdf"
     finally:
         service.reset_stores()
         MockNotificationSink.reset()

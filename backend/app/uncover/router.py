@@ -96,23 +96,20 @@ async def post_dispatch(
 
 
 @router.get("/documents/{document_id}")
-async def get_document(document_id: str, repo: UncoverRepository = RepoDep) -> Response:
+async def get_document(
+    document_id: str,
+    repo: UncoverRepository = RepoDep,
+    _auth: AuthContext = Depends(get_current_user),  # P-5: read route needs identity
+) -> Response:
     """Download the generated PDF (bytes verified against its custody hash).
 
-    Deliberately unauthenticated in POC: the frontend uses plain <a href>
-    links, which cannot carry a Bearer header. LIVE hardening: short-lived
-    signed URLs (or frontend blob-fetch) before real evidence is served.
-
-    **Known P-3 gap (confirmed with the persistence lead, not fixed here):**
-    under ``settings.persistence == "postgres"`` this still goes through
-    ``RepoDep`` -> ``get_optional_tenant_session``, which requires a verified
-    identity to scope an RLS session to. Without a Bearer, that raises 401
-    here too — i.e. document download silently stops working the moment
-    postgres persistence is turned on, until the frontend fetches the PDF via
-    JS with the bearer and builds a blob URL (removes the <a href>
-    constraint). That frontend change is a P-5 cutover prerequisite, not
-    this route's job — deliberately NOT worked around by bypassing RLS to
-    serve the document anonymously, which would be worse."""
+    P-5: the frontend now fetches this with JS (``apiFetch`` attaches the
+    Bearer), builds a blob from the response, and triggers the save from
+    that blob — the old plain ``<a href>`` link (which couldn't carry a
+    header) is gone, so this route is protected like every other read route
+    that touches the repo (mirrors P-4a's INFILTRATE routes / P-3's
+    ``GET /api/actions/{id}``). Under ``settings.persistence == "postgres"``
+    this identity is what scopes the RLS-backed tenant session."""
     doc = await service.get_document(document_id, repo=repo)
     if doc is None:
         raise _not_found("document", document_id)
