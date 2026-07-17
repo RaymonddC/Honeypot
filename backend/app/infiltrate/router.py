@@ -64,7 +64,7 @@ async def get_personas() -> list[PersonaOut]:
 @router.get("/sessions", response_model=list[SessionOut])
 async def get_sessions(repo: InfiltrateRepository = RepoDep) -> list[SessionOut]:
     """All engaged honeypot sessions (RLS-scoped in LIVE)."""
-    return service.list_sessions(repo=repo)
+    return await service.list_sessions(repo=repo)
 
 
 @router.post("/sessions", response_model=SessionOut, status_code=201)
@@ -101,7 +101,7 @@ async def post_session_turn(
 
 @router.get("/sessions/{session_id}", response_model=SessionOut)
 async def get_session(session_id: str, repo: InfiltrateRepository = RepoDep) -> SessionOut:
-    session = service.get_session(session_id, repo=repo)
+    session = await service.get_session(session_id, repo=repo)
     if session is None:
         raise _not_found("session", session_id)
     return session
@@ -112,7 +112,7 @@ async def get_session_messages(
     session_id: str, repo: InfiltrateRepository = RepoDep,
 ) -> list[MessageOut]:
     """The hash-chained transcript; each message carries its inline extracted entities."""
-    messages = service.get_messages(session_id, repo=repo)
+    messages = await service.get_messages(session_id, repo=repo)
     if messages is None:
         raise _not_found("session", session_id)
     return messages
@@ -133,10 +133,10 @@ async def get_session_audio(
     est. duration, ``audio_url=null`` — the browser's SpeechSynthesis speaks
     it). LIVE: the configured ``ITTU_TTS_PROVIDER`` streams real audio.
     Text-session messages have no audio → 204."""
-    session = service.get_session(session_id, repo=repo)
+    session = await service.get_session(session_id, repo=repo)
     if session is None:
         raise _not_found("session", session_id)
-    message = service.get_message(session_id, seq, repo=repo)
+    message = await service.get_message(session_id, seq, repo=repo)
     if message is None:
         raise _not_found("message", f"{session_id}#{seq}")
     if session.channel_type != "voice":
@@ -163,7 +163,7 @@ async def get_entities(
     repo: InfiltrateRepository = RepoDep,
 ) -> list[EntityOut]:
     """Extracted, confidence-scored entities (Layer-A validated + Layer-B reconciled)."""
-    return service.list_entities(session_id=session, status=status, repo=repo)
+    return await service.list_entities(session_id=session, status=status, repo=repo)
 
 
 @router.post("/entities/{entity_id}/review", response_model=EntityOut)
@@ -174,7 +174,7 @@ async def post_entity_review(
     _auth: AuthContext = Depends(get_current_user),  # human-in-the-loop = named human
 ) -> EntityOut:
     """Analyst review — confirm/reject/flag-poisoned (human-in-the-loop)."""
-    entity = service.review_entity(entity_id, body.status, repo=repo)
+    entity = await service.review_entity(entity_id, body.status, repo=repo)
     if entity is None:
         raise _not_found("entity", entity_id)
     return entity
@@ -183,7 +183,7 @@ async def post_entity_review(
 @router.get("/syndicates", response_model=list[SyndicateOut])
 async def get_syndicates(repo: InfiltrateRepository = RepoDep) -> list[SyndicateOut]:
     """Syndicate profiles clustered from extracted entities."""
-    return service.list_syndicates(repo=repo)
+    return await service.list_syndicates(repo=repo)
 
 
 @router.get("/infiltrate/ping")

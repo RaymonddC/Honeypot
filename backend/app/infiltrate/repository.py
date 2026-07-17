@@ -28,52 +28,64 @@ class InfiltrateRepository(Protocol):
     Returns/accepts the SAME Pydantic models the service already builds
     (``SessionOut``/``MessageOut``/``EntityOut``/``SyndicateOut``); the
     contract at the service boundary does not change.
+
+    Every read/write method is ``async`` (P-2b): the Postgres impl does real
+    I/O over an ``AsyncSession``, and a Protocol can't have one impl awaiting
+    and another not. ``InMemoryInfiltrateRepository``'s methods are ``async``
+    too — trivial 1-line coroutines wrapping the same dict ops, no behavior
+    change — so both impls satisfy one signature. ``reset()`` stays sync: it's
+    a memory-only test hook (``service.reset_stores`` calls the singleton
+    directly, never through this Protocol — see its docstring).
     """
 
     # -- sessions ----------------------------------------------------------- #
-    def save_session(self, session: "SessionOut") -> None: ...
+    async def save_session(self, session: "SessionOut") -> None: ...
 
-    def get_session(self, session_id: str) -> "SessionOut | None": ...
+    async def get_session(self, session_id: str) -> "SessionOut | None": ...
 
-    def list_sessions(self) -> list["SessionOut"]: ...
+    async def list_sessions(self) -> list["SessionOut"]: ...
 
     # -- messages (keyed by session_id) -------------------------------------- #
-    def save_messages(self, session_id: str, messages: list["MessageOut"]) -> None:
+    async def save_messages(self, session_id: str, messages: list["MessageOut"]) -> None:
         """Set/replace the full message list for a session (first assembly)."""
         ...
 
-    def append_messages(self, session_id: str, messages: list["MessageOut"]) -> None:
+    async def append_messages(self, session_id: str, messages: list["MessageOut"]) -> None:
         """Add messages to an existing session's transcript (live ``/turn``)."""
         ...
 
-    def get_messages(self, session_id: str) -> list["MessageOut"] | None: ...
+    async def get_messages(self, session_id: str) -> list["MessageOut"] | None: ...
 
     # -- entities ------------------------------------------------------------- #
-    def save_entity(self, entity: "EntityOut") -> None:
+    async def save_entity(self, entity: "EntityOut") -> None:
         """Insert a new entity, or persist in-place edits (e.g. review-status
         updates — the service mutates the returned object, then re-saves)."""
         ...
 
-    def get_entity(self, entity_id: str) -> "EntityOut | None": ...
+    async def get_entity(self, entity_id: str) -> "EntityOut | None": ...
 
-    def list_entities(
+    async def list_entities(
         self, session_id: str | None = None, status: str | None = None
     ) -> list["EntityOut"]: ...
 
     # -- syndicates ------------------------------------------------------------ #
-    def save_syndicate(self, syndicate: "SyndicateOut") -> None: ...
+    async def save_syndicate(self, syndicate: "SyndicateOut") -> None: ...
 
-    def list_syndicates(self) -> list["SyndicateOut"]: ...
+    async def list_syndicates(self) -> list["SyndicateOut"]: ...
 
     # -- test/seed hook ---------------------------------------------------------- #
     def reset(self) -> None:
-        """Clear all stored state — existing test hook (``service.reset_stores``)."""
+        """Clear all stored state — existing test hook (``service.reset_stores``).
+        Sync, memory-only (see class docstring)."""
         ...
 
 
 class InMemoryInfiltrateRepository:
     """POC impl — the 4 module-level dicts that used to live in service.py,
-    unchanged in behavior, moved behind ``InfiltrateRepository``."""
+    unchanged in behavior, moved behind ``InfiltrateRepository``.
+
+    Methods are ``async`` to satisfy the Protocol (P-2b) — trivial coroutines
+    around the same synchronous dict ops, no actual I/O, no behavior change."""
 
     def __init__(self) -> None:
         self._sessions: dict[str, "SessionOut"] = {}
@@ -81,31 +93,31 @@ class InMemoryInfiltrateRepository:
         self._entities: dict[str, "EntityOut"] = {}
         self._syndicates: dict[str, "SyndicateOut"] = {}
 
-    def save_session(self, session: "SessionOut") -> None:
+    async def save_session(self, session: "SessionOut") -> None:
         self._sessions[session.id] = session
 
-    def get_session(self, session_id: str) -> "SessionOut | None":
+    async def get_session(self, session_id: str) -> "SessionOut | None":
         return self._sessions.get(session_id)
 
-    def list_sessions(self) -> list["SessionOut"]:
+    async def list_sessions(self) -> list["SessionOut"]:
         return list(self._sessions.values())
 
-    def save_messages(self, session_id: str, messages: list["MessageOut"]) -> None:
+    async def save_messages(self, session_id: str, messages: list["MessageOut"]) -> None:
         self._messages[session_id] = messages
 
-    def append_messages(self, session_id: str, messages: list["MessageOut"]) -> None:
+    async def append_messages(self, session_id: str, messages: list["MessageOut"]) -> None:
         self._messages.setdefault(session_id, []).extend(messages)
 
-    def get_messages(self, session_id: str) -> list["MessageOut"] | None:
+    async def get_messages(self, session_id: str) -> list["MessageOut"] | None:
         return self._messages.get(session_id)
 
-    def save_entity(self, entity: "EntityOut") -> None:
+    async def save_entity(self, entity: "EntityOut") -> None:
         self._entities[entity.id] = entity
 
-    def get_entity(self, entity_id: str) -> "EntityOut | None":
+    async def get_entity(self, entity_id: str) -> "EntityOut | None":
         return self._entities.get(entity_id)
 
-    def list_entities(
+    async def list_entities(
         self, session_id: str | None = None, status: str | None = None
     ) -> list["EntityOut"]:
         items = list(self._entities.values())
@@ -115,10 +127,10 @@ class InMemoryInfiltrateRepository:
             items = [e for e in items if e.review_status == status]
         return items
 
-    def save_syndicate(self, syndicate: "SyndicateOut") -> None:
+    async def save_syndicate(self, syndicate: "SyndicateOut") -> None:
         self._syndicates[syndicate.id] = syndicate
 
-    def list_syndicates(self) -> list["SyndicateOut"]:
+    async def list_syndicates(self) -> list["SyndicateOut"]:
         return list(self._syndicates.values())
 
     def reset(self) -> None:
