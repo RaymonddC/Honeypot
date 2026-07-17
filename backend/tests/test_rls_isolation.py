@@ -111,10 +111,14 @@ async def seeded_sessions(app_role_uri):
             for agency_id in (AGENCY_A, AGENCY_B):
                 await conn.execute(
                     sa.text(
-                        "INSERT INTO intel.scam_sessions (id, agency_id, channel_type) "
-                        "VALUES (gen_random_uuid(), :agency_id, 'text')"
+                        "INSERT INTO intel.scam_sessions (id, public_id, agency_id, channel_type) "
+                        "VALUES (gen_random_uuid(), :public_id, :agency_id, 'text')"
                     ),
-                    {"agency_id": agency_id},
+                    # public_id (migration 20260716_07): NOT NULL + UNIQUE now that
+                    # P-2b's Postgres repo looks sessions up by the app-issued id,
+                    # not the surrogate uuid PK. Any distinct value works here —
+                    # this fixture only asserts on agency_id.
+                    {"public_id": f"sess_rls_test_{agency_id}", "agency_id": agency_id},
                 )
     finally:
         await engine.dispose()

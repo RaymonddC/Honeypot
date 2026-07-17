@@ -13,6 +13,14 @@ Every data-producing table carries ``data_mode ∈ {poc, live}`` for evidentiary
 isolation — LIVE evidence views never read POC rows. P4 endpoints compute
 in-memory from the replay adapter (same POC pattern as P1–P3); these tables
 are the persistence target for later phases.
+
+``personas``/``scam_sessions``/``messages``/``entities``/``syndicates`` each
+carry a ``public_id`` (migration 20260716_07): the opaque, prefixed string id
+(``"sess_..."``/``"msg_..."``/etc) ``app/infiltrate/service.py`` actually mints
+and returns over the API. The ``id uuid`` PK is a surrogate — FK plumbing
+only, never returned to a client. ``scam_sessions.persona_snapshot`` is an
+immutable copy of the persona as it was at session time (see migration
+20260716_07 for why a snapshot beats a live join).
 """
 
 import uuid
@@ -38,6 +46,7 @@ class Persona(Base):
     __table_args__ = ({"schema": SCHEMA},)
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=_uuid)
+    public_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)  # e.g. "per_busari"
     name: Mapped[str] = mapped_column(Text, nullable=False)
     # {age, occupation, tech_literacy, region, dialect, financial_situation,
     #  backstory, register}
@@ -55,6 +64,7 @@ class ScamSession(Base):
     __table_args__ = ({"schema": SCHEMA},)
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=_uuid)
+    public_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)  # e.g. "sess_..."
     case_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, index=True)  # may pre-date case
     agency_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("core.agencies.id"), index=True
@@ -62,6 +72,10 @@ class ScamSession(Base):
     persona_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey(f"{SCHEMA}.personas.id"), index=True
     )
+    # Immutable persona-at-session-time copy (name/age/occupation/region) —
+    # court reproducibility, same reasoning as core.evidence_manifest; see
+    # migration 20260716_07.
+    persona_snapshot: Mapped[dict | None] = mapped_column(JSONB)
     channel_type: Mapped[str] = mapped_column(Text, nullable=False, default="text")  # text|voice
     channel: Mapped[str | None] = mapped_column(Text)  # telegram|whatsapp|forum|pstn|wa_call
     channel_ref: Mapped[str | None] = mapped_column(Text)  # scammer handle/number (itself intel)
@@ -81,6 +95,7 @@ class Message(Base):
     __table_args__ = ({"schema": SCHEMA},)
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=_uuid)
+    public_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)  # e.g. "msg_..."
     session_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey(f"{SCHEMA}.scam_sessions.id"), index=True, nullable=False
     )
@@ -107,6 +122,7 @@ class Entity(Base):
     __table_args__ = ({"schema": SCHEMA},)
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=_uuid)
+    public_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)  # e.g. "ent_..."
     session_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey(f"{SCHEMA}.scam_sessions.id"), index=True
     )
@@ -140,6 +156,7 @@ class Syndicate(Base):
     __table_args__ = ({"schema": SCHEMA},)
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=_uuid)
+    public_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)  # e.g. "syn_..."
     agency_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("core.agencies.id"), index=True
     )
