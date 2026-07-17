@@ -1,9 +1,13 @@
 """RBAC gating on sensitive endpoints + GET /api/config shape (P5).
 
 Protected (401 without Bearer): POST /api/sessions, POST /api/entities/{id}/review,
-POST /api/actions/generate, POST /api/actions/{id}/dispatch.
+POST /api/actions/generate, POST /api/actions/{id}/dispatch, and — as of P-4a
+(docs/Persistence-Plan.md) — the INFILTRATE read routes that touch the repo:
+GET /api/sessions(/{id}(/messages|/audio/{seq})?)?, GET /api/entities,
+GET /api/syndicates.
 Dispatch is additionally role-gated (403 for bank/exchange compliance).
-Read-only demo endpoints stay open.
+Other read-only demo endpoints (GET /api/personas, /api/metrics/response,
+/api/bridge/sankey, /api/config) stay open.
 """
 
 import pytest
@@ -42,9 +46,20 @@ def test_protected_endpoints_401_without_token(method, path, body):
 
 
 def test_read_endpoints_stay_open():
-    for path in ("/api/sessions", "/api/personas", "/api/syndicates",
-                 "/api/metrics/response", "/api/bridge/sankey", "/api/config"):
+    for path in ("/api/personas", "/api/metrics/response",
+                 "/api/bridge/sankey", "/api/config"):
         assert client.get(path).status_code == 200, path
+
+
+def test_infiltrate_read_endpoints_require_auth():
+    """P-4a: INFILTRATE read routes that touch the repo now require identity —
+    401 with no Bearer, 200 once one is presented."""
+    for path in ("/api/sessions", "/api/syndicates"):
+        r = client.get(path)
+        assert r.status_code == 401, path
+        assert r.json()["error"]["code"] == "missing_token", path
+        r2 = client.get(path, headers=bearer())
+        assert r2.status_code == 200, path
 
 
 # --- role gating: dispatch --------------------------------------------------------

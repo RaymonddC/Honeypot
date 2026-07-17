@@ -134,8 +134,30 @@ def test_startup_seeds_a_live_session():
     """Lifespan seeds one POC replay so the console shows live data (no manual POST)."""
     service.reset_stores()
     with TestClient(app) as seeded_client:      # `with` triggers lifespan startup
-        sessions = seeded_client.get("/api/sessions").json()
+        sessions = seeded_client.get("/api/sessions", headers=bearer()).json()
         assert len(sessions) == 1
         assert sessions[0]["crime_type"] == "investment_scam"
         assert sessions[0]["entity_count"] == 5
     service.reset_stores()
+
+
+def test_read_routes_require_auth():
+    """P-4a: INFILTRATE read routes that touch the repo now require identity —
+    401 with no Bearer, 200/204 once one is presented (docs/Persistence-Plan.md P-4)."""
+    s = start()
+    anon = TestClient(app)  # no bearer header
+    protected = [
+        "/api/sessions",
+        f"/api/sessions/{s['id']}",
+        f"/api/sessions/{s['id']}/messages",
+        f"/api/sessions/{s['id']}/audio/1",
+        "/api/entities",
+        "/api/syndicates",
+    ]
+    for path in protected:
+        r = anon.get(path)
+        assert r.status_code == 401, path
+        assert r.json()["error"]["code"] == "missing_token", path
+    for path in protected:
+        r = client.get(path)  # module client carries the bearer header
+        assert r.status_code in (200, 204), path

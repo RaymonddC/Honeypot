@@ -62,7 +62,10 @@ async def get_personas() -> list[PersonaOut]:
 
 
 @router.get("/sessions", response_model=list[SessionOut])
-async def get_sessions(repo: InfiltrateRepository = RepoDep) -> list[SessionOut]:
+async def get_sessions(
+    repo: InfiltrateRepository = RepoDep,
+    _auth: AuthContext = Depends(get_current_user),  # P-4a: read routes need identity
+) -> list[SessionOut]:
     """All engaged honeypot sessions (RLS-scoped in LIVE)."""
     return await service.list_sessions(repo=repo)
 
@@ -100,7 +103,11 @@ async def post_session_turn(
 
 
 @router.get("/sessions/{session_id}", response_model=SessionOut)
-async def get_session(session_id: str, repo: InfiltrateRepository = RepoDep) -> SessionOut:
+async def get_session(
+    session_id: str,
+    repo: InfiltrateRepository = RepoDep,
+    _auth: AuthContext = Depends(get_current_user),  # P-4a: read routes need identity
+) -> SessionOut:
     session = await service.get_session(session_id, repo=repo)
     if session is None:
         raise _not_found("session", session_id)
@@ -109,7 +116,9 @@ async def get_session(session_id: str, repo: InfiltrateRepository = RepoDep) -> 
 
 @router.get("/sessions/{session_id}/messages", response_model=list[MessageOut])
 async def get_session_messages(
-    session_id: str, repo: InfiltrateRepository = RepoDep,
+    session_id: str,
+    repo: InfiltrateRepository = RepoDep,
+    _auth: AuthContext = Depends(get_current_user),  # P-4a: read routes need identity
 ) -> list[MessageOut]:
     """The hash-chained transcript; each message carries its inline extracted entities."""
     messages = await service.get_messages(session_id, repo=repo)
@@ -128,6 +137,7 @@ async def get_session_audio(
     seq: int,
     tts: TTSAdapter = TTSDep,
     repo: InfiltrateRepository = RepoDep,
+    _auth: AuthContext = Depends(get_current_user),  # P-4a: read routes need identity
 ) -> VoiceMarkOut | Response:
     """Audio for one voice-session line. POC: per-line voice marks (speaker +
     est. duration, ``audio_url=null`` — the browser's SpeechSynthesis speaks
@@ -161,6 +171,7 @@ async def get_entities(
     session: str | None = Query(default=None, description="filter by session id"),
     status: str | None = Query(default=None, description="filter by review_status"),
     repo: InfiltrateRepository = RepoDep,
+    _auth: AuthContext = Depends(get_current_user),  # P-4a: read routes need identity
 ) -> list[EntityOut]:
     """Extracted, confidence-scored entities (Layer-A validated + Layer-B reconciled)."""
     return await service.list_entities(session_id=session, status=status, repo=repo)
@@ -181,7 +192,10 @@ async def post_entity_review(
 
 
 @router.get("/syndicates", response_model=list[SyndicateOut])
-async def get_syndicates(repo: InfiltrateRepository = RepoDep) -> list[SyndicateOut]:
+async def get_syndicates(
+    repo: InfiltrateRepository = RepoDep,
+    _auth: AuthContext = Depends(get_current_user),  # P-4a: read routes need identity
+) -> list[SyndicateOut]:
     """Syndicate profiles clustered from extracted entities."""
     return await service.list_syndicates(repo=repo)
 
