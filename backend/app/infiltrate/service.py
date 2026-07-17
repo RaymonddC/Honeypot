@@ -32,6 +32,7 @@ from app.infiltrate.gateway import (
     ScriptedLLMGateway,
 )
 from app.infiltrate.personas import Persona, all_personas, get_persona
+from app.infiltrate.repository import InfiltrateRepository, get_infiltrate_repository
 from app.infiltrate.voice import (
     LIVE_TTS_PROVIDERS,
     VOICE_CALLER_NUMBER,
@@ -85,6 +86,7 @@ def get_tts_adapter() -> TTSAdapter:
 ChannelDep = Depends(get_channel_adapter)
 GatewayDep = Depends(get_llm_gateway)
 TTSDep = Depends(get_tts_adapter)
+RepoDep = Depends(get_infiltrate_repository)
 
 
 # --------------------------------------------------------------------------- #
@@ -233,13 +235,11 @@ class TurnOut(BaseModel):
 
 
 # --------------------------------------------------------------------------- #
-# In-memory POC stores
+# Persistence — sessions/messages/entities/syndicates live behind
+# InfiltrateRepository (docs/Persistence-Plan.md P-2); resolved per-request via
+# RepoDep (FastAPI Depends) or directly via get_infiltrate_repository() for
+# non-request callers (lifespan seeding, the reset_stores() test hook).
 # --------------------------------------------------------------------------- #
-
-_SESSIONS: dict[str, SessionOut] = {}
-_MESSAGES: dict[str, list[MessageOut]] = {}       # session_id -> messages
-_ENTITIES: dict[str, EntityOut] = {}              # entity_id -> entity
-_SYNDICATES: dict[str, SyndicateOut] = {}
 
 
 class _LiveState:
@@ -272,14 +272,11 @@ class _LiveState:
         self.interactive = interactive
 
 
-_LIVE_STATES: dict[str, _LiveState] = {}          # session_id -> live state
+_LIVE_STATES: dict[str, _LiveState] = {}          # session_id -> live state (ephemeral, no table)
 
 
 def reset_stores() -> None:  # test hook
-    _SESSIONS.clear()
-    _MESSAGES.clear()
-    _ENTITIES.clear()
-    _SYNDICATES.clear()
+    get_infiltrate_repository().reset()
     _LIVE_STATES.clear()
 
 
@@ -317,7 +314,7 @@ def _entity_out(
 
 def _build_session(
     run: AgentRun, persona: Persona, req: StartSessionRequest,
-    channel_type: str = "text",
+    channel_type: str = "text", *, repo: InfiltrateRepository,
 ) -> SessionOut:
     """Turn a completed AgentRun into custody-hashed messages + reconciled entities."""
     session_id = f"sess_{uuid.uuid4().hex[:12]}"
@@ -380,7 +377,7 @@ def _build_session(
         ]
         entities.extend(msg_ents)
         for me in msg_ents:
-            _ENTITIES[me.id] = me
+            repo.save_entity(me)
 
         messages.append(MessageOut(
             id=in_id, session_id=session_id, seq=cm_in.seq, direction="inbound",
@@ -454,10 +451,10 @@ def _build_session(
     syndicate = _cluster_syndicate(session, entities)
     if syndicate is not None:
         session.syndicate_id = syndicate.id
-        _SYNDICATES[syndicate.id] = syndicate
+        repo.save_syndicate(syndicate)
 
-    _SESSIONS[session_id] = session
-    _MESSAGES[session_id] = messages
+    repo.save_session(session)
+    repo.save_messages(session_id, messages)
     return session
 
 
@@ -506,14 +503,15 @@ def _cluster_syndicate(session: SessionOut, entities: list[EntityOut]) -> Syndic
 
 
 async def start_session(
-    req: StartSessionRequest, channel: ChannelAdapter, gateway: LLMGateway
+    req: StartSessionRequest, channel: ChannelAdapter, gateway: LLMGateway,
+    repo: InfiltrateRepository,
 ) -> SessionOut:
     persona = get_persona(req.persona_id)
     if req.interactive:
         # Tier-B live call (docs/Live-Voice-Calls.md): open a session with just
         # the persona's greeting and wait for POST /sessions/{id}/turn — no
         # scripted replay. Works for voice (mic) or text (typed) live demos.
-        return _start_interactive_session(req, persona)
+        return _start_interactive_session(req, persona, repo)
     if req.channel_type == "voice":
         # Voice transport swaps in; the agent loop / extraction / custody /
         # classifier / clustering downstream are reused verbatim. LIVE resolves
@@ -522,10 +520,12 @@ async def start_session(
         if getattr(channel, "data_mode", "poc") == "poc":
             gateway = ScriptedLLMGateway(script=VOICE_SCRIPT)
     run = await run_session(persona, channel, gateway)
-    return _build_session(run, persona, req, channel_type=req.channel_type)
+    return _build_session(run, persona, req, channel_type=req.channel_type, repo=repo)
 
 
-def _start_interactive_session(req: StartSessionRequest, persona: Persona) -> SessionOut:
+def _start_interactive_session(
+    req: StartSessionRequest, persona: Persona, repo: InfiltrateRepository,
+) -> SessionOut:
     """Open an interactive (Tier-B) session: persona greets, then waits.
 
     No agent-loop turns run yet — just custody message #1 (the greeting).
@@ -577,8 +577,8 @@ def _start_interactive_session(req: StartSessionRequest, persona: Persona) -> Se
         ),
     )
 
-    _SESSIONS[session_id] = session
-    _MESSAGES[session_id] = [message]
+    repo.save_session(session)
+    repo.save_messages(session_id, [message])
     _LIVE_STATES[session_id] = _LiveState(
         persona=persona,
         conversation=[{"role": "system", "content": persona.system_prompt()}],
@@ -604,13 +604,15 @@ def _resolve_turn_gateway(settings) -> LLMGateway:
     return InteractiveScriptedGateway(settings)
 
 
-async def run_one_turn(session_id: str, text: str) -> TurnOut | None:
+async def run_one_turn(
+    session_id: str, text: str, repo: InfiltrateRepository,
+) -> TurnOut | None:
     """One live inbound utterance → persona reply, reusing the pipeline:
     agent turn (LLM + covert tools) → Layer-A/B extraction → custody append →
     reclassify. Returns ``None`` if ``session_id`` has no open live state
     (unknown session, or a finished scripted-replay session)."""
     state = _LIVE_STATES.get(session_id)
-    session = _SESSIONS.get(session_id)
+    session = repo.get_session(session_id)
     if state is None or session is None:
         return None
 
@@ -674,7 +676,7 @@ async def run_one_turn(session_id: str, text: str) -> TurnOut | None:
     reconciled = extraction.reconcile(layer_a, layer_b)
     new_entities = [_entity_out(e, session_id, in_id, cm_in.sha256, ts_in) for e in reconciled]
     for ne in new_entities:
-        _ENTITIES[ne.id] = ne
+        repo.save_entity(ne)
 
     inbound_msg = MessageOut(
         id=in_id, session_id=session_id, seq=cm_in.seq, direction="inbound",
@@ -705,8 +707,8 @@ async def run_one_turn(session_id: str, text: str) -> TurnOut | None:
     state.next_turn += 1
 
     # --- fold into the session read model + reclassify -----------------------
-    all_msgs = _MESSAGES.setdefault(session_id, [])
-    all_msgs.extend([inbound_msg, outbound_msg])
+    repo.append_messages(session_id, [inbound_msg, outbound_msg])
+    all_msgs = repo.get_messages(session_id) or []
     session.message_count = len(all_msgs)
     session.entity_count += len(new_entities)
 
@@ -723,7 +725,7 @@ async def run_one_turn(session_id: str, text: str) -> TurnOut | None:
         session.status = "escalated"
 
     transcript = " ".join(m.content for m in all_msgs if m.direction == "inbound")
-    session_entities = list_entities(session_id=session_id)
+    session_entities = list_entities(session_id=session_id, repo=repo)
     cls = classifier.classify(
         transcript,
         scam_signals=[s.model_dump() for s in session.scam_signals],
@@ -740,6 +742,7 @@ async def run_one_turn(session_id: str, text: str) -> TurnOut | None:
         chain_intact=state.chain.verify(),
         head_sha256=state.chain.head,
     )
+    repo.save_session(session)  # persist the in-place mutations above
 
     return TurnOut(
         session_id=session_id, turn=turn, messages=[inbound_msg, outbound_msg],
@@ -754,8 +757,13 @@ async def seed_demo_session() -> SessionOut | None:
     Idempotent + POC-only: if a session already exists (or INFILTRATE is LIVE),
     do nothing. Lets the Honeypot console show the demo narrative on first load
     without a manual POST — the ``● live api`` path instead of the mock fallback.
+
+    Called directly from ``main.py`` lifespan (not FastAPI ``Depends``), so it
+    resolves its own repo the same way it already resolves the channel/gateway
+    adapters below.
     """
-    if _SESSIONS:
+    repo = get_infiltrate_repository()
+    if repo.list_sessions():
         return None
     try:
         channel = get_channel_adapter()
@@ -764,54 +772,55 @@ async def seed_demo_session() -> SessionOut | None:
         return None  # LIVE adapters fail loud → skip seeding, never crash boot
     if getattr(gateway, "data_mode", "poc") != "poc":
         return None
-    return await start_session(StartSessionRequest(), channel, gateway)
+    return await start_session(StartSessionRequest(), channel, gateway, repo)
 
 
-def list_sessions() -> list[SessionOut]:
-    return list(_SESSIONS.values())
+def list_sessions(*, repo: InfiltrateRepository) -> list[SessionOut]:
+    return repo.list_sessions()
 
 
-def get_session(session_id: str) -> SessionOut | None:
-    return _SESSIONS.get(session_id)
+def get_session(session_id: str, *, repo: InfiltrateRepository) -> SessionOut | None:
+    return repo.get_session(session_id)
 
 
-def get_messages(session_id: str) -> list[MessageOut] | None:
-    return _MESSAGES.get(session_id)
+def get_messages(session_id: str, *, repo: InfiltrateRepository) -> list[MessageOut] | None:
+    return repo.get_messages(session_id)
 
 
-def get_message(session_id: str, seq: int) -> MessageOut | None:
+def get_message(session_id: str, seq: int, *, repo: InfiltrateRepository) -> MessageOut | None:
     """One message by its custody sequence number (for the audio endpoint)."""
-    messages = _MESSAGES.get(session_id)
+    messages = repo.get_messages(session_id)
     if messages is None:
         return None
     return next((m for m in messages if m.seq == seq), None)
 
 
-def list_entities(session_id: str | None = None, status: str | None = None) -> list[EntityOut]:
-    items = list(_ENTITIES.values())
-    if session_id is not None:
-        items = [e for e in items if e.session_id == session_id]
-    if status is not None:
-        items = [e for e in items if e.review_status == status]
-    return items
+def list_entities(
+    session_id: str | None = None, status: str | None = None,
+    *, repo: InfiltrateRepository,
+) -> list[EntityOut]:
+    return repo.list_entities(session_id=session_id, status=status)
 
 
-def get_entity(entity_id: str) -> EntityOut | None:
-    return _ENTITIES.get(entity_id)
+def get_entity(entity_id: str, *, repo: InfiltrateRepository) -> EntityOut | None:
+    return repo.get_entity(entity_id)
 
 
-def review_entity(entity_id: str, status: str) -> EntityOut | None:
-    ent = _ENTITIES.get(entity_id)
+def review_entity(
+    entity_id: str, status: str, *, repo: InfiltrateRepository,
+) -> EntityOut | None:
+    ent = repo.get_entity(entity_id)
     if ent is None:
         return None
     ent.review_status = status
     if status == "confirmed":
         ent.method = "human"  # analyst confirmation is the highest provenance
+    repo.save_entity(ent)
     return ent
 
 
-def list_syndicates() -> list[SyndicateOut]:
-    return list(_SYNDICATES.values())
+def list_syndicates(*, repo: InfiltrateRepository) -> list[SyndicateOut]:
+    return repo.list_syndicates()
 
 
 def list_personas() -> list[PersonaOut]:
