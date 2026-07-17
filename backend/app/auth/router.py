@@ -13,7 +13,7 @@ path fails closed when the module is POC (never a silent fallthrough).
 
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.core.adapters import BOUNDARY_MODULE, registered
@@ -26,12 +26,10 @@ from app.core.auth import (
     _user_id,
     find_agency,
     find_agency_by_type,
-    find_user_by_email,
     mint_token,
-    register_user,
-    upsert_demo_user,
 )
 from app.core.config import MODULES, get_mode_resolver, get_settings
+from app.core.user_repository import UserRepository, get_user_repository, resolve_demo_user
 
 router = APIRouter(tags=["auth"])
 
@@ -137,10 +135,16 @@ def _token_response(user: SeedUser, agency: SeedAgency) -> TokenResponse:
 
 
 @router.post("/auth/login", response_model=TokenResponse)
-async def post_login(body: LoginRequest | None = None) -> TokenResponse:
+async def post_login(
+    body: LoginRequest | None = None,
+    repo: UserRepository = Depends(get_user_repository),
+) -> TokenResponse:
     """POC demo login: seeded agency (+role) → our JWT. No external dependency.
 
     Disabled when the auth module runs LIVE — Google OAuth is the LIVE path.
+    User lookup/mint goes through ``UserRepository`` (P-4b) — memory or
+    Postgres, selected by ``settings.persistence``; the endpoint itself
+    doesn't know or care which.
     """
     if _auth_mode() != "poc":
         raise HTTPException(
@@ -176,16 +180,21 @@ async def post_login(body: LoginRequest | None = None) -> TokenResponse:
         agency = find_agency("bareskrim")
 
     role = body.role or DEFAULT_ROLE_BY_AGENCY_TYPE[agency.type]
-    user = upsert_demo_user(agency, role)
+    user = await resolve_demo_user(repo, agency, role)
     return _token_response(user, agency)
 
 
 @router.post("/auth/google", response_model=TokenResponse)
-async def post_google_login(body: GoogleLoginRequest) -> TokenResponse:
+async def post_google_login(
+    body: GoogleLoginRequest,
+    repo: UserRepository = Depends(get_user_repository),
+) -> TokenResponse:
     """LIVE login: verify a Google OAuth ``id_token`` → mint our JWT.
 
     Fails closed in POC (403); 501 when google-auth isn't installed (stub).
     Users must be provisioned (seeded/registered) — no self-service signup.
+    User lookup/refresh goes through ``UserRepository`` (P-4b) — same
+    memory/Postgres toggle as the demo path.
     """
     if _auth_mode() != "live":
         raise HTTPException(
@@ -220,7 +229,7 @@ async def post_google_login(body: GoogleLoginRequest) -> TokenResponse:
         )
 
     email = info.get("email", "")
-    user = find_user_by_email(email)
+    user = await repo.find_by_email(email)
     if user is None:
         raise HTTPException(
             status_code=403,
@@ -230,7 +239,7 @@ async def post_google_login(body: GoogleLoginRequest) -> TokenResponse:
             },
         )
     # Refresh name from Google profile; keep provisioned agency + role.
-    user = register_user(
+    user = await repo.upsert(
         SeedUser(
             id=_user_id(user.email),
             agency_id=user.agency_id,

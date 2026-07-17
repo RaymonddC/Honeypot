@@ -6,6 +6,7 @@ LIVE path fails closed in POC and is stubbed (501) when google-auth is absent.
 
 import importlib.util
 import time
+from unittest.mock import patch
 
 import jwt as pyjwt
 import pytest
@@ -174,3 +175,73 @@ def test_google_login_live_stub_or_verify(auth_live):
     else:  # lib present: bogus token must fail verification, never mint a JWT
         assert r.status_code == 401
         assert r.json()["error"]["code"] == "invalid_google_token"
+
+
+# --- Google OAuth (P-4b) — id_token verification mocked; no real Google client ---
+#
+# There is no Google OAuth client ID or a real id_token available in this
+# environment, so `google.oauth2.id_token.verify_oauth2_token` (the one call
+# that actually talks to Google — fetching certs + verifying the JWT
+# signature/aud/exp) is mocked at its import site. Everything past that call
+# — provisioning lookup, JWT minting — is real, unmocked code.
+_HAS_GOOGLE_AUTH = _has_google_auth()
+_needs_google_auth = pytest.mark.skipif(
+    not _HAS_GOOGLE_AUTH, reason="google-auth not installed"
+)
+
+
+@_needs_google_auth
+def test_google_login_valid_token_provisioned_user_gets_jwt(auth_live):
+    """A verified id_token for a provisioned email mints our JWT with that
+    user's real (agency, role) — never a self-service default."""
+    with patch("google.oauth2.id_token.verify_oauth2_token") as mock_verify:
+        mock_verify.return_value = {
+            "email": "budi@bareskrim.polri.go.id",
+            "name": "Budi Santoso (Google)",
+        }
+        r = client.post("/api/auth/google", json={"id_token": "mock-valid-token"})
+
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["user"]["email"] == "budi@bareskrim.polri.go.id"
+    assert body["user"]["name"] == "Budi Santoso (Google)"  # refreshed from the Google profile
+    assert body["role"] == "police-investigator"
+    assert body["agency"]["slug"] == "bareskrim"
+    claims = pyjwt.decode(body["token"], options={"verify_signature": False})
+    assert claims["role"] == "police-investigator"
+    assert claims["agency_id"] == BARESKRIM_ID
+
+
+@_needs_google_auth
+def test_google_login_unknown_email_403(auth_live):
+    """A verified token for an email nobody provisioned is rejected — no
+    self-service signup, matching the demo-login-only provisioning model."""
+    with patch("google.oauth2.id_token.verify_oauth2_token") as mock_verify:
+        mock_verify.return_value = {"email": "nobody@nowhere.example", "name": "Nobody"}
+        r = client.post("/api/auth/google", json={"id_token": "mock-valid-token"})
+
+    assert r.status_code == 403
+    assert r.json()["error"]["code"] == "user_not_provisioned"
+
+
+@_needs_google_auth
+def test_google_login_bad_token_401(auth_live):
+    """Verification failure (bad signature/expired/wrong aud/malformed) never
+    mints a JWT — 401, not a silent fallthrough."""
+    with patch(
+        "google.oauth2.id_token.verify_oauth2_token",
+        side_effect=ValueError("Token expired"),
+    ):
+        r = client.post("/api/auth/google", json={"id_token": "expired-token"})
+
+    assert r.status_code == 401
+    assert r.json()["error"]["code"] == "invalid_google_token"
+
+
+def test_google_login_disabled_in_poc_even_with_a_would_be_valid_token():
+    """MODE gate is checked BEFORE verification even runs — POC never mints a
+    JWT from a Google token, valid or not (no mock needed: the route 403s
+    before it ever imports google-auth)."""
+    r = client.post("/api/auth/google", json={"id_token": "irrelevant"})
+    assert r.status_code == 403
+    assert r.json()["error"]["code"] == "google_login_disabled"

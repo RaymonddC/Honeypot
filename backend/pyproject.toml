@@ -23,6 +23,11 @@ dependencies = [
     # Pinned below 1.92: 1.92.0 ships no wheel for some platforms (py3.13/Windows)
     # and its sdist build needs Rust. 1.91.2 has a ready py3-none-any wheel.
     "litellm>=1.91.2,<1.92",
+    # LIVE auth (P-4b): verifies Google OAuth id_tokens (app/auth/router.py
+    # POST /api/auth/google). app/auth/router.py still tolerates it being
+    # absent (501 stub) — a real dependency here, not an optional extra, since
+    # LIVE Google login is a production path, not a dev/test-only tool.
+    "google-auth>=2.28",
 ]
 
 [project.optional-dependencies]
