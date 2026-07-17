@@ -17,6 +17,7 @@ from sqlalchemy.orm import DeclarativeBase
 
 from app.core.auth import AuthContext
 from app.core.auth import get_current_user as _get_current_user
+from app.core.auth import get_optional_current_user as _get_optional_current_user
 from app.core.config import get_settings
 
 
@@ -51,6 +52,15 @@ async def get_tenant_session(
     docs/Security-Evidence.md §2). Runtime verification needs a Postgres
     instance; POC module endpoints stay in-memory and don't use this yet.
     """
+    async for session in _tenant_scoped_session(auth):
+        yield session
+
+
+async def _tenant_scoped_session(auth: AuthContext) -> AsyncGenerator[AsyncSession, None]:
+    """Shared body: open one transaction, set the RLS vars, yield. Factored out
+    of ``get_tenant_session`` so ``get_optional_tenant_session`` (below) can
+    reuse it without going through FastAPI's ``Depends(get_current_user)`` —
+    it resolves auth itself, conditionally, per the persistence toggle."""
     async with SessionLocal() as session, session.begin():
         for var, value in (
             ("app.current_agency", str(auth.agency.id)),
@@ -61,4 +71,32 @@ async def get_tenant_session(
                 text("SELECT set_config(:var, :value, true)"),
                 {"var": var, "value": value},
             )
+        yield session
+
+
+async def get_optional_tenant_session(
+    auth: AuthContext | None = Depends(_get_optional_current_user),
+) -> AsyncGenerator[AsyncSession | None, None]:
+    """FastAPI dependency: an RLS-scoped session, but ONLY under Postgres.
+
+    ``settings.persistence`` is checked FIRST, before anything DB-shaped runs —
+    under "memory" (default) this yields ``None`` and never touches the engine,
+    not even a connection attempt. That's the hard invariant: the POC must run
+    with NO database. A repository factory keyed off this dependency can select
+    the in-memory singleton without ever paying for (or requiring) a session.
+
+    Under "postgres" it needs a verified identity to scope the session to —
+    same 401 behavior as ``get_current_user`` (via ``get_optional_current_user``,
+    which only makes "no token" soft; a bad/expired one still raises). Routes
+    that don't carry auth today (P-2b scope guard — adding it is P-4) simply
+    can't use the Postgres path yet; that's expected, not a bug here.
+    """
+    settings = get_settings()
+    if settings.persistence != "postgres":
+        yield None
+        return
+    if auth is None:
+        await _get_current_user(None)  # raises the same 401 get_current_user would
+        return  # pragma: no cover - unreachable, _get_current_user always raises
+    async for session in _tenant_scoped_session(auth):
         yield session

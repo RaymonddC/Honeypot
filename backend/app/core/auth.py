@@ -231,6 +231,23 @@ async def get_current_user(
 CurrentUser = Annotated[AuthContext, Depends(get_current_user)]
 
 
+async def get_optional_current_user(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+) -> AuthContext | None:
+    """Soft variant of ``get_current_user``: no ``Authorization`` header → ``None``
+    (not a 401). A *present but invalid/expired* token still raises — only "no
+    attempt made" is soft.
+
+    Exists for dependencies that must stay usable on today's unauthenticated
+    read routes (docs/Persistence-Plan.md P-2b scope guard — adding hard auth
+    to those routes is P-4) while still being able to tell a caller "here's the
+    verified identity, if any" without forcing a 401 on every request.
+    """
+    if credentials is None:
+        return None
+    return await get_current_user(credentials)
+
+
 def require_role(roles: Sequence[str]):
     """Dependency factory: 403 unless the JWT role is in the allow-list."""
     allowed = frozenset(roles)
