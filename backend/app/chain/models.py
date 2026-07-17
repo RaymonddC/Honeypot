@@ -152,3 +152,28 @@ class AddressTag(Base):
     added_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow, nullable=False
     )
+
+
+class GraphSnapshot(Base):
+    """Cached per-case subgraph export. Agency-scoped (RLS, migration 20260715_06)
+    — unlike the raw-ledger tables above, a graph export reveals which
+    entities/wallets an agency is investigating, so it's agency-owned, not a
+    shared public-ledger fact.
+    """
+
+    __tablename__ = "graph_snapshots"
+    __table_args__ = ({"schema": SCHEMA},)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=_uuid)
+    case_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, index=True)
+    agency_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("core.agencies.id"), index=True
+    )
+    spec: Mapped[dict | None] = mapped_column(JSONB)  # projection params (depth, node types…)
+    content_ref: Mapped[str | None] = mapped_column(Text)  # object-store key
+    node_count: Mapped[int | None] = mapped_column(Integer)
+    edge_count: Mapped[int | None] = mapped_column(Integer)
+    data_mode: Mapped[str] = mapped_column(Text, nullable=False, default="poc")
+    built_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+    )

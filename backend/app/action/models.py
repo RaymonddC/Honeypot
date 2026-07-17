@@ -14,7 +14,7 @@ these tables are the persistence target for later phases.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, LargeBinary, Text, Uuid
+from sqlalchemy import DateTime, ForeignKey, LargeBinary, Text, Uuid
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -35,7 +35,9 @@ class ActionDocument(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=_uuid)
     case_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, index=True)
-    agency_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, index=True)
+    agency_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("core.agencies.id"), index=True
+    )
     type: Mapped[str] = mapped_column(Text, nullable=False)  # account_blocking|str_report|summary
     format: Mapped[str | None] = mapped_column(Text)  # ppatk_str | iasc | generic
     content_ref: Mapped[str | None] = mapped_column(Text)  # object-store key (ReportLab PDF)
@@ -58,6 +60,9 @@ class Notification(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=_uuid)
     case_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, index=True)
+    agency_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("core.agencies.id"), index=True
+    )  # owning/dispatching agency (RLS) — distinct from the recipient below
     target_agency_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, index=True)
     channel: Mapped[str | None] = mapped_column(Text)  # goaml|iasc|webhook|email|mock
     payload: Mapped[dict | None] = mapped_column(JSONB)

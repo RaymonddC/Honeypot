@@ -151,3 +151,34 @@ class AuditLog(Base):
     seq: Mapped[int | None] = mapped_column(BigInteger)
     sha256: Mapped[bytes | None] = mapped_column(BYTEA)
     prev_sha256: Mapped[bytes | None] = mapped_column(BYTEA)
+
+
+class EvidenceManifest(Base):
+    """Per-session/case reproducibility manifest for court explainability
+    (docs/Data-Model.md) — model/prompt/pipeline versions + hashes, RLS-scoped
+    (migration 20260715_06; not in the app.core.db.get_tenant_session write path yet).
+    """
+
+    __tablename__ = "evidence_manifest"
+    __table_args__ = ({"schema": SCHEMA},)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=_uuid)
+    session_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("intel.scam_sessions.id"), index=True
+    )
+    case_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey(f"{SCHEMA}.cases.id"), index=True
+    )
+    agency_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey(f"{SCHEMA}.agencies.id"), index=True
+    )
+    model_versions: Mapped[dict | None] = mapped_column(
+        JSONB
+    )  # {orchestrator, extractor, classifier, stt, tts}
+    prompt_versions: Mapped[dict | None] = mapped_column(JSONB)
+    pipeline_config: Mapped[dict | None] = mapped_column(JSONB)
+    hashes: Mapped[dict | None] = mapped_column(JSONB)  # {"transcript_sha256": "...", ...}
+    data_mode: Mapped[str] = mapped_column(Text, nullable=False, default="poc")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+    )

@@ -60,10 +60,45 @@ back to 8000 locally.
 `ITTU_MODULE_MODES` (e.g. `{"takedown":"live"}`). Postgres/Redis URLs only matter once
 RLS/persistence goes LIVE (add `ITTU_DATABASE_URL` = a Neon connection string then).
 
+## 4. Postgres + RLS: the non-superuser app role (required once persistence goes LIVE)
+
+Row-Level Security (migrations `20260708_05`, `20260715_06`) restricts every agency-scoped
+table to `agency_id = app.current_agency()`. **RLS is bypassed by table owners and
+superusers** — so the app must connect as a role that did *not* create the tables.
+
+1. Run migrations as your normal owning/admin role (`alembic upgrade head`) — this creates
+   the schemas, tables, and RLS policies.
+2. Create the app role and grant it table access (not ownership):
+   ```
+   psql "$MIGRATION_DATABASE_URL" -v app_role_password='<a-strong-password>' \
+        -f backend/scripts/create_app_role.sql
+   ```
+   This creates `ittu_app` (LOGIN only) with `USAGE` on the 5 schemas (`core`, `intel`,
+   `chain`, `fiat`, `action`) and `SELECT/INSERT/UPDATE/DELETE` on their tables — enough to
+   read/write rows, but RLS still filters *which* rows within those grants.
+3. Point the app at `ittu_app`, **not** the owning role:
+   ```
+   ITTU_DATABASE_URL=postgresql+asyncpg://ittu_app:<password>@<host>/<db>
+   ```
+
+**⚠️ Neon caveat:** the connection string Neon's dashboard gives you by default uses the role
+that *owns* every table (whichever role ran the migrations) — that role **bypasses RLS
+entirely**. If `ITTU_DATABASE_URL` uses it, every RLS policy silently becomes a no-op: the
+app sees *all* agencies' rows regardless of `app.current_agency`, with no error to signal it.
+You must run `create_app_role.sql` against the Neon database and set `ITTU_DATABASE_URL` to
+`ittu_app`'s connection string (same host/db, different role+password) — never the
+Neon-provided owner role. There is no way to verify this from the app process alone; the
+isolation test in `backend/tests/test_rls_isolation.py` is the way to prove it end-to-end
+against a real Postgres before trusting a deployment.
+
 ## Notes
 - **CORS:** the backend now reads allowed origins from `ITTU_CORS_ORIGINS` — set it to the
   Vercel domain or the browser will block API calls.
 - **RLS/persistence:** LIVE auth-isolation needs a real Postgres (Neon free tier); the POC
-  demo does not. See the migration `20260708_05` + `db.py` docstrings for the runtime check.
+  demo does not. See the migration `20260708_05` + `db.py` docstrings for the runtime check,
+  and §4 above for the app-role setup RLS actually depends on.
+- **Persistence toggle:** `ITTU_PERSISTENCE` (`memory`/`postgres`, default `memory`) gates
+  whether any repository reads/writes Postgres at all — `memory` keeps today's in-memory POC
+  behavior unchanged even once `ITTU_DATABASE_URL` is set. See `app/core/config.py`.
 - **Data sovereignty:** regulator/on-prem deployments use K3s with the same OCI images — not
   the free cloud tiers above (those are for the hackathon demo).

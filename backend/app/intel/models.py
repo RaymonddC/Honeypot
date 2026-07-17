@@ -56,7 +56,9 @@ class ScamSession(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=_uuid)
     case_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, index=True)  # may pre-date case
-    agency_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, index=True)
+    agency_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("core.agencies.id"), index=True
+    )
     persona_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey(f"{SCHEMA}.personas.id"), index=True
     )
@@ -81,6 +83,9 @@ class Message(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=_uuid)
     session_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey(f"{SCHEMA}.scam_sessions.id"), index=True, nullable=False
+    )
+    agency_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("core.agencies.id"), index=True
     )
     seq: Mapped[int] = mapped_column(Integer, nullable=False)  # per-session ordering
     direction: Mapped[str] = mapped_column(Text, nullable=False)  # inbound|outbound
@@ -108,7 +113,9 @@ class Entity(Base):
     message_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey(f"{SCHEMA}.messages.id"), index=True
     )
-    agency_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    agency_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("core.agencies.id"), index=True
+    )
     type: Mapped[str] = mapped_column(Text, nullable=False)
     value: Mapped[str] = mapped_column(Text, nullable=False)
     normalized_value: Mapped[str | None] = mapped_column(Text)  # E.164, checksummed wallet…
@@ -133,7 +140,9 @@ class Syndicate(Base):
     __table_args__ = ({"schema": SCHEMA},)
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=_uuid)
-    agency_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    agency_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("core.agencies.id"), index=True
+    )
     label: Mapped[str] = mapped_column(Text, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
     linguistic_fingerprint: Mapped[dict | None] = mapped_column(JSONB)
@@ -168,6 +177,9 @@ class CrimeClassification(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=_uuid)
     session_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey(f"{SCHEMA}.scam_sessions.id"), index=True, nullable=False
+    )
+    agency_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("core.agencies.id"), index=True
     )
     crime_type: Mapped[str] = mapped_column(Text, nullable=False)
     confidence: Mapped[float | None] = mapped_column(Numeric(4, 3))

@@ -43,6 +43,12 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://ittu:ittu@localhost:5432/ittu"
     redis_url: str = "redis://localhost:6379/0"
 
+    # Persistence toggle (docs/Persistence-Plan.md P-1). "memory" is the safe
+    # default — the POC runs with NO database, exactly today's behavior. Flipping
+    # to "postgres" (ITTU_PERSISTENCE=postgres) is a P-2+ concern: it only takes
+    # effect once repositories actually read this flag (not wired here).
+    persistence: Literal["memory", "postgres"] = "memory"
+
     # Blockchain LIVE (takedown module): optional TRONSCAN key for higher rate
     # limits. The public API works keyless; set ITTU_TRONSCAN_API_KEY in prod.
     tronscan_api_key: str = ""
@@ -88,6 +94,11 @@ class Settings(BaseSettings):
     jwt_ttl_seconds: int = 8 * 3600
     # LIVE Google OAuth: expected `aud` of the verified id_token.
     google_client_id: str = ""
+
+    @property
+    def persistence_enabled(self) -> bool:
+        """True once persistence is flipped to Postgres (ITTU_PERSISTENCE=postgres)."""
+        return self.persistence == "postgres"
 
     @property
     def effective_llm_api_key(self) -> str:
