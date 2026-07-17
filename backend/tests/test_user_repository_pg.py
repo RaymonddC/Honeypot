@@ -19,6 +19,7 @@ Skips cleanly (not a failure) if ``pgserver`` isn't installed or can't start a
 Postgres instance here — same as the other pgserver-backed test files.
 """
 
+import importlib.util
 import os
 import tempfile
 import uuid
@@ -32,6 +33,9 @@ from app.core.user_repository import PostgresUserRepository
 from app.core.auth import SeedUser
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
+MIGRATION_09_PATH = (
+    BACKEND_DIR / "migrations" / "versions" / "20260717_09_user_login_helpers.py"
+)
 
 APP_ROLE_PASSWORD = "ittu-test-role-pw-3"  # noqa: S105 - ephemeral, throwaway DB only
 
@@ -90,6 +94,44 @@ async def test_resolve_demo_user_finds_canonical_seeded_user_not_a_placeholder()
     user = await resolve_demo_user(repo, agency, "police-investigator")
     assert user.email == BUDI_EMAIL
     assert str(user.id) == BUDI_ID
+
+
+def test_migration_09_seed_ids_match_the_actual_auth_source_of_truth():
+    """The 6 seed rows in migration 09 were hand-computed offline (uuid5 of a
+    fixed namespace + email) and hardcoded as migration literals — the same
+    style migration 05 uses for AGENCIES/ROLES, and for the same reason
+    (``alembic upgrade head --sql`` must render with no Postgres running, so
+    the migration can't import app code at all).
+
+    That means nothing stops the two from drifting: if ``app/core/auth.py``'s
+    id scheme ever changes, or a digit was mistyped when these were computed,
+    a green test suite would never catch it — demo login would silently
+    start minting a phantom (non-canonical) user for a seeded (agency, role)
+    pair instead of the real person, exactly the bug this migration exists to
+    prevent. This test is the tripwire: it loads migration 09's ``SEED_USERS``
+    constant by path (its filename starts with a digit, so it can't be a
+    normal import) and asserts every row against ``app.core.auth.SEED_USERS``
+    — the ACTUAL ``_user_id(email)``/``_agency_id(slug)`` computation, not a
+    restated constant."""
+    from app.core.auth import SEED_USERS as AUTH_SEED_USERS
+
+    spec = importlib.util.spec_from_file_location("_migration_09", MIGRATION_09_PATH)
+    migration_09 = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration_09)
+
+    auth_by_email = {u.email: u for u in AUTH_SEED_USERS}
+    migration_rows = migration_09.SEED_USERS
+    assert len(migration_rows) == len(AUTH_SEED_USERS)
+
+    for user_id, agency_id, email, name, role in migration_rows:
+        truth = auth_by_email.get(email)
+        assert truth is not None, f"migration 09 seeds {email!r} — not in app.core.auth.SEED_USERS"
+        assert user_id == str(truth.id), f"{email}: migration id {user_id} != _user_id() {truth.id}"
+        assert agency_id == str(truth.agency_id), (
+            f"{email}: migration agency_id {agency_id} != {truth.agency_id}"
+        )
+        assert name == truth.name
+        assert role == truth.role
 
 
 @pytest.fixture(scope="session")
