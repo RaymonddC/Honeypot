@@ -6,8 +6,9 @@ SHA-256 hash + store (in-memory object store, POC) + audit-log → return a
 draft bundle. **Dispatch is separate and human-gated** — generation never
 auto-fires an outward action.
 
-Endpoints compute in-memory from fixtures/generators (POC pattern, mirrors
-P1/P2); ``action.*`` tables are the persistence target for later phases.
+Stores are persisted behind ``UncoverRepository`` (docs/Persistence-Plan.md
+P-3) — an in-memory impl backs the POC + existing tests unchanged; a Postgres
+impl backs ``settings.persistence == "postgres"`` against ``action.*``.
 """
 
 import uuid
@@ -29,6 +30,11 @@ from app.uncover.notifications import (
     NotificationSink,
     RoutingTarget,
     route_targets,
+)
+from app.uncover.repository import (
+    UncoverRepository,
+    _memory_repository,
+    get_uncover_repository,
 )
 
 MODULE = "uncover"
@@ -53,6 +59,7 @@ def get_fiat_adapter() -> FiatDataAdapter:
 SinkDep = Depends(get_notification_sink)
 ChainAdapterDep = Depends(get_chain_adapter)
 FiatAdapterDep = Depends(get_fiat_adapter)
+RepoDep = Depends(get_uncover_repository)
 
 
 # --------------------------------------------------------------------------- #
@@ -124,18 +131,16 @@ class AlreadyDispatchedError(Exception):
     pass
 
 
-# In-memory stores (POC object store — action.* tables are the LIVE target).
-_ACTIONS: dict[str, ActionBundle] = {}
-_DOCUMENTS: dict[str, docs.GeneratedDocument] = {}
-
-
 def reset_stores() -> None:  # test hook
-    _ACTIONS.clear()
-    _DOCUMENTS.clear()
+    """Sync test hook — resets the in-memory singleton directly (NOT through
+    ``get_uncover_repository``, which is a FastAPI dependency under P-3 and
+    Postgres-aware). Tests only ever run against the memory store, same
+    pattern as ``infiltrate.service.reset_stores``."""
+    _memory_repository().reset()
 
 
-def get_bundle(action_id: str) -> ActionBundle | None:
-    bundle = _ACTIONS.get(action_id)
+async def get_bundle(action_id: str, *, repo: UncoverRepository) -> ActionBundle | None:
+    bundle = await repo.get_bundle(action_id)
     if bundle is None:
         return None
     # Refresh the audit view (dispatch appends entries after generation).
@@ -143,12 +148,12 @@ def get_bundle(action_id: str) -> ActionBundle | None:
     return bundle
 
 
-def get_document(document_id: str) -> docs.GeneratedDocument | None:
-    return _DOCUMENTS.get(document_id)
+async def get_document(document_id: str, *, repo: UncoverRepository) -> docs.GeneratedDocument | None:
+    return await repo.get_document(document_id)
 
 
-def all_bundles() -> list[ActionBundle]:
-    return list(_ACTIONS.values())
+async def all_bundles(*, repo: UncoverRepository) -> list[ActionBundle]:
+    return await repo.list_bundles()
 
 
 def _bundle_audit(bundle: ActionBundle) -> list[AuditEntry]:
@@ -314,6 +319,8 @@ async def generate_bundle(
     req: GenerateRequest,
     chain_adapter: ChainDataAdapter,
     fiat_adapter: FiatDataAdapter,
+    *,
+    repo: UncoverRepository,
 ) -> ActionBundle:
     """One click → many artifacts. Generates + hashes + stores, returns a draft."""
     outputs = list(dict.fromkeys(req.outputs)) or list(DEFAULT_OUTPUTS)
@@ -351,9 +358,12 @@ async def generate_bundle(
         created_at=ctx.generated_at,
     )
 
+    # Bundle first (its uuid is the FK target for each document row), then
+    # the documents (each references the bundle's public_id — repository
+    # resolves the FK). No-op ordering distinction for the in-memory impl.
+    await repo.save_bundle(bundle)
     for d in generated:
-        _DOCUMENTS[d.id] = d
-    _ACTIONS[bundle.id] = bundle
+        await repo.save_document(bundle.id, d)
 
     audit_log.record(
         action="action.bundle.generated",
@@ -371,14 +381,16 @@ async def generate_bundle(
     return bundle
 
 
-async def dispatch_bundle(action_id: str, sink: NotificationSink) -> ActionBundle | None:
+async def dispatch_bundle(
+    action_id: str, sink: NotificationSink, *, repo: UncoverRepository
+) -> ActionBundle | None:
     """Human-gated dispatch: route the draft bundle to each planned agency.
 
     POC → mock sink (status='mock', nothing leaves). LIVE → real channels via
     the Dramatiq actor. Documents move draft → issued; the bundle records
     ``dispatched_at`` (feeds the Response Dashboard time-to-freeze).
     """
-    bundle = _ACTIONS.get(action_id)
+    bundle = await repo.get_bundle(action_id)
     if bundle is None:
         return None
     if bundle.status == "dispatched":
@@ -405,11 +417,11 @@ async def dispatch_bundle(action_id: str, sink: NotificationSink) -> ActionBundl
     now = datetime.now(timezone.utc)
     for d in bundle.documents:
         d.status = "issued"
-        if d.id in _DOCUMENTS:
-            _DOCUMENTS[d.id].status = "issued"
+        await repo.update_document_status(d.id, "issued")
     bundle.notifications = notifications
     bundle.status = "dispatched"
     bundle.dispatched_at = now
+    await repo.save_bundle(bundle)  # persists the envelope + the notifications above
 
     audit_log.record(
         action="action.bundle.dispatched",

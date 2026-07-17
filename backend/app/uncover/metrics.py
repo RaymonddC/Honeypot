@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from app.chain.adapters import _load_fixture_transfers
 from app.fiat.generator import IDR_PER_USDT
 from app.uncover import service
+from app.uncover.repository import UncoverRepository
 
 RangeKey = Literal["7d", "30d", "all"]
 RANGE_DAYS: dict[str, int | None] = {"7d": 7, "30d": 30, "all": None}
@@ -126,10 +127,10 @@ def _baseline_rows(now: datetime) -> list[CaseRow]:
     ]
 
 
-def _action_rows(now: datetime) -> list[CaseRow]:
+async def _action_rows(now: datetime, *, repo: UncoverRepository) -> list[CaseRow]:
     """Every generated action bundle surfaces as a live case row."""
     rows = []
-    for b in service.all_bundles():
+    for b in await service.all_bundles(repo=repo):
         dispatched = b.status == "dispatched" and b.dispatched_at is not None
         ttf = (
             max((b.dispatched_at - b.created_at).total_seconds() / 60.0, 0.05)
@@ -148,12 +149,12 @@ def _action_rows(now: datetime) -> list[CaseRow]:
     return rows
 
 
-def _combined_rows(now: datetime) -> list[CaseRow]:
+async def _combined_rows(now: datetime, *, repo: UncoverRepository) -> list[CaseRow]:
     """One row per case_id. A live action row supersedes the baseline row for
     the same case (dispatching flips the case to frozen — no duplicates);
     repeated bundles for one case collapse to the best/newest row."""
     best_action: dict[str, CaseRow] = {}
-    for r in _action_rows(now):
+    for r in await _action_rows(now, repo=repo):
         cur = best_action.get(r.case_id)
         if cur is None:
             best_action[r.case_id] = r
@@ -181,9 +182,9 @@ def _trend(rows: list[CaseRow], now: datetime, weeks: int = 6) -> list[TrendPoin
     return points
 
 
-def compute_metrics(range_key: RangeKey = "30d") -> ResponseMetrics:
+async def compute_metrics(range_key: RangeKey = "30d", *, repo: UncoverRepository) -> ResponseMetrics:
     now = datetime.now(timezone.utc)
-    rows = _combined_rows(now)
+    rows = await _combined_rows(now, repo=repo)
 
     days = RANGE_DAYS[range_key]
     if days is not None:
@@ -196,7 +197,7 @@ def compute_metrics(range_key: RangeKey = "30d") -> ResponseMetrics:
     at_risk = sum(r.at_risk_idr for r in rows)
     frozen = sum(r.frozen_idr for r in rows)
 
-    bundles = service.all_bundles()
+    bundles = await service.all_bundles(repo=repo)
     dispatched = [b for b in bundles if b.status == "dispatched"]
     fixture_wallets = {
         a for t in _load_fixture_transfers() for a in (t.from_addr, t.to_addr)
