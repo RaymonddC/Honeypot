@@ -769,9 +769,17 @@ async def seed_demo_session() -> SessionOut | None:
 
     Called directly from ``main.py`` lifespan (not FastAPI ``Depends``), so it
     resolves its own repo the same way it already resolves the channel/gateway
-    adapters below.
+    adapters below. Under ``persistence=="postgres"`` there's no request/JWT
+    to derive an agency + RLS-scoped session from here, so that case is
+    delegated to ``_seed_demo_session_postgres`` instead of going through
+    ``get_infiltrate_repository()`` (a FastAPI dependency that would otherwise
+    see its ``session``/``auth`` params as unresolved ``Depends(...)``
+    sentinels when called bare, outside FastAPI's DI).
     """
-    repo = get_infiltrate_repository()
+    settings = get_settings()
+    if settings.persistence == "postgres":
+        return await _seed_demo_session_postgres(settings)
+    repo = await get_infiltrate_repository()
     if await repo.list_sessions():
         return None
     try:
@@ -782,6 +790,40 @@ async def seed_demo_session() -> SessionOut | None:
     if getattr(gateway, "data_mode", "poc") != "poc":
         return None
     return await start_session(StartSessionRequest(), channel, gateway, repo)
+
+
+async def _seed_demo_session_postgres(settings) -> SessionOut | None:
+    """Postgres seeding path (P-2b): opens its OWN session (``SessionLocal``,
+    not FastAPI DI — the lifespan has no request/JWT to resolve an
+    ``AuthContext`` from) and seeds under the demo agency, Bareskrim Polri —
+    its uuid5 id is already seeded by migration ``20260708_05`` and matches
+    ``app.core.auth.SEED_AGENCIES``, so a demo JWT for that agency sees the
+    seeded session immediately. Idempotent per agency, same as the memory path."""
+    from sqlalchemy import text as sa_text
+
+    from app.core.auth import SEED_AGENCIES
+    from app.core.db import SessionLocal
+    from app.infiltrate.repository import PostgresInfiltrateRepository
+
+    bareskrim = next(a for a in SEED_AGENCIES if a.slug == "bareskrim")
+    async with SessionLocal() as session, session.begin():
+        await session.execute(
+            sa_text("SELECT set_config('app.current_agency', :v, true)"),
+            {"v": str(bareskrim.id)},
+        )
+        repo = PostgresInfiltrateRepository(
+            session, agency_id=bareskrim.id, data_mode=settings.mode
+        )
+        if await repo.list_sessions():
+            return None
+        try:
+            channel = get_channel_adapter()
+            gateway = get_llm_gateway()
+        except Exception:
+            return None  # LIVE adapters fail loud → skip seeding, never crash boot
+        if getattr(gateway, "data_mode", "poc") != "poc":
+            return None
+        return await start_session(StartSessionRequest(), channel, gateway, repo)
 
 
 async def list_sessions(*, repo: InfiltrateRepository) -> list[SessionOut]:
