@@ -18,12 +18,14 @@ from app.core.auth import DISPATCH_ROLES, AuthContext, get_current_user, require
 from app.uncover import service
 from app.uncover.metrics import RangeKey, ResponseMetrics, compute_metrics
 from app.uncover.notifications import NotificationSink
+from app.uncover.repository import UncoverRepository
 from app.uncover.service import (
     ActionBundle,
     AlreadyDispatchedError,
     ChainAdapterDep,
     FiatAdapterDep,
     GenerateRequest,
+    RepoDep,
     SinkDep,
 )
 
@@ -42,6 +44,7 @@ async def post_generate(
     body: GenerateRequest,
     chain: ChainDataAdapter = ChainAdapterDep,
     fiat: FiatDataAdapter = FiatAdapterDep,
+    repo: UncoverRepository = RepoDep,
     _auth: AuthContext = Depends(get_current_user),  # any authenticated role
 ) -> ActionBundle:
     """One click → many artifacts: freeze PDF + LTKM/STR draft + evidence pack.
@@ -49,13 +52,17 @@ async def post_generate(
     Documents are generated, SHA-256 hashed, audit-chained, and returned as a
     **draft** bundle with the routing plan. Nothing is dispatched.
     """
-    return await service.generate_bundle(body, chain, fiat)
+    return await service.generate_bundle(body, chain, fiat, repo=repo)
 
 
 @router.get("/actions/{action_id}", response_model=ActionBundle)
-async def get_action(action_id: str) -> ActionBundle:
+async def get_action(
+    action_id: str,
+    repo: UncoverRepository = RepoDep,
+    _auth: AuthContext = Depends(get_current_user),  # P-3: read routes need identity
+) -> ActionBundle:
     """The bundle: documents (+hashes), status, routing plan, notifications, audit."""
-    bundle = service.get_bundle(action_id)
+    bundle = await service.get_bundle(action_id, repo=repo)
     if bundle is None:
         raise _not_found("action", action_id)
     return bundle
@@ -65,6 +72,7 @@ async def get_action(action_id: str) -> ActionBundle:
 async def post_dispatch(
     action_id: str,
     sink: NotificationSink = SinkDep,
+    repo: UncoverRepository = RepoDep,
     _auth: AuthContext = Depends(require_role(DISPATCH_ROLES)),
 ) -> ActionBundle:
     """Human-gated dispatch. POC: mock sink — notifications record
@@ -73,7 +81,7 @@ async def post_dispatch(
     Role-gated: irreversible outward action → investigator/analyst/admin only
     (bank/exchange compliance can generate but not dispatch)."""
     try:
-        bundle = await service.dispatch_bundle(action_id, sink)
+        bundle = await service.dispatch_bundle(action_id, sink, repo=repo)
     except AlreadyDispatchedError:
         raise HTTPException(
             status_code=409,
@@ -88,13 +96,24 @@ async def post_dispatch(
 
 
 @router.get("/documents/{document_id}")
-async def get_document(document_id: str) -> Response:
+async def get_document(document_id: str, repo: UncoverRepository = RepoDep) -> Response:
     """Download the generated PDF (bytes verified against its custody hash).
 
     Deliberately unauthenticated in POC: the frontend uses plain <a href>
     links, which cannot carry a Bearer header. LIVE hardening: short-lived
-    signed URLs (or frontend blob-fetch) before real evidence is served."""
-    doc = service.get_document(document_id)
+    signed URLs (or frontend blob-fetch) before real evidence is served.
+
+    **Known P-3 gap (confirmed with the persistence lead, not fixed here):**
+    under ``settings.persistence == "postgres"`` this still goes through
+    ``RepoDep`` -> ``get_optional_tenant_session``, which requires a verified
+    identity to scope an RLS session to. Without a Bearer, that raises 401
+    here too — i.e. document download silently stops working the moment
+    postgres persistence is turned on, until the frontend fetches the PDF via
+    JS with the bearer and builds a blob URL (removes the <a href>
+    constraint). That frontend change is a P-5 cutover prerequisite, not
+    this route's job — deliberately NOT worked around by bypassing RLS to
+    serve the document anonymously, which would be worse."""
+    doc = await service.get_document(document_id, repo=repo)
     if doc is None:
         raise _not_found("document", document_id)
     return Response(
@@ -112,10 +131,20 @@ async def get_document(document_id: str) -> Response:
 @router.get("/metrics/response", response_model=ResponseMetrics)
 async def get_response_metrics(
     range: RangeKey = Query(default="30d", description="7d | 30d | all"),
+    repo: UncoverRepository = RepoDep,
 ) -> ResponseMetrics:
     """Response Dashboard read-model: cases, time-to-freeze vs the >12h manual
-    baseline, funds at risk/frozen, recovery rate vs the 4.76% IASC baseline."""
-    return compute_metrics(range)
+    baseline, funds at risk/frozen, recovery rate vs the 4.76% IASC baseline.
+
+    Deliberately left OPEN (no ``Depends(get_current_user)``) — it's a
+    cross-agency demo/ops view today (``all_bundles()`` was never
+    agency-scoped even in memory mode), and ``test_auth_rbac.py`` pins it as
+    a "stays open" endpoint alongside personas/sankey/config. It still goes
+    through ``RepoDep``, so under postgres persistence a request with no
+    Bearer 401s the same way ``get_document`` above does — this route
+    degrades, rather than silently exposing another agency's action data
+    without RLS."""
+    return await compute_metrics(range, repo=repo)
 
 
 @router.get("/uncover/ping")

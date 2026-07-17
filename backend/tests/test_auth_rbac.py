@@ -4,10 +4,17 @@ Protected (401 without Bearer): POST /api/sessions, POST /api/entities/{id}/revi
 POST /api/actions/generate, POST /api/actions/{id}/dispatch, and — as of P-4a
 (docs/Persistence-Plan.md) — the INFILTRATE read routes that touch the repo:
 GET /api/sessions(/{id}(/messages|/audio/{seq})?)?, GET /api/entities,
-GET /api/syndicates.
+GET /api/syndicates. P-3 adds GET /api/actions/{id} to that list (UNCOVER's
+one read route with a per-agency identity — see the module for the deliberate
+exceptions below).
 Dispatch is additionally role-gated (403 for bank/exchange compliance).
 Other read-only demo endpoints (GET /api/personas, /api/metrics/response,
-/api/bridge/sankey, /api/config) stay open.
+/api/bridge/sankey, /api/config) stay open — GET /api/documents/{id} and GET
+/api/metrics/response deliberately so even post-P-3 (see their docstrings in
+app/uncover/router.py for why: plain <a href> downloads can't carry a Bearer,
+and metrics is a cross-agency demo view — both still 401 under
+persistence=postgres via the repo factory itself, just not via an explicit
+route-level Depends).
 """
 
 import pytest
@@ -60,6 +67,33 @@ def test_infiltrate_read_endpoints_require_auth():
         assert r.json()["error"]["code"] == "missing_token", path
         r2 = client.get(path, headers=bearer())
         assert r2.status_code == 200, path
+
+
+def test_uncover_get_action_requires_auth():
+    """P-3: GET /api/actions/{id} touches the repo, so it now requires
+    identity too (mirrors P-4a) — 401 with no Bearer, 200 once one is
+    presented."""
+    from app.uncover import service
+    from app.uncover.notifications import MockNotificationSink
+
+    service.reset_stores()
+    MockNotificationSink.reset()
+    try:
+        headers = bearer()
+        gen = client.post("/api/actions/generate", json=GENERATE_BODY, headers=headers)
+        assert gen.status_code == 201, gen.text
+        action_id = gen.json()["id"]
+
+        r = client.get(f"/api/actions/{action_id}")
+        assert r.status_code == 401
+        assert r.json()["error"]["code"] == "missing_token"
+
+        r2 = client.get(f"/api/actions/{action_id}", headers=headers)
+        assert r2.status_code == 200
+        assert r2.json()["id"] == action_id
+    finally:
+        service.reset_stores()
+        MockNotificationSink.reset()
 
 
 # --- role gating: dispatch --------------------------------------------------------
