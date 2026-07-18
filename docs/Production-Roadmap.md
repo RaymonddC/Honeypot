@@ -23,7 +23,7 @@ MODE. So this roadmap is mostly "fill in the LIVE adapters + turn on persistence
 | **Address tags** | takedown | tag feed | 🔴 stub | OFAC/Arkham/chainabuse feed |
 | **Fiat feed** | trace | `BankFeedAdapter` | 🔴 institutional | bank / PPATK partnership |
 | **Persistence** | all | Postgres | 🔴 in-memory | wire stores → `intel.*` tables |
-| **Auth** | auth | Google OAuth | 🔴 demo login | real OAuth + RLS enforcement |
+| **Auth** | auth | Google OAuth + RLS | 🟢 **OAuth hardened, RLS live** | Keycloak IdP + delegated-admin roster → F3 |
 
 Legend: ✅ live · 🟢 built/near · 🟠 easy stub · 🔴 to build/gated.
 
@@ -46,6 +46,18 @@ this is real. These two are the difference between a *demo* and a *product*.
 - **Target:** real Google OAuth (`ITTU_GOOGLE_CLIENT_ID`), verified id_token → our JWT `{sub, agency_id, role}`; Postgres **RLS** isolates rows per `agency_id` + `data_mode`.
 - **Work:** OAuth callback, verify `aud`, session issuance; turn on RLS policies once F1 lands; contract-test the isolation (Bareskrim can't read PPATK's rows).
 - **Effort:** M. **Depends on F1.**
+- **Status:** ✅ Persistence + RLS live on Neon; Google OAuth hardened (audience verification, `ITTU_OAUTH_PROVISION` operator allowlist). The IdP/admin *evolution* beyond this is **F3**.
+
+### F3 — Identity & access hardening (IdP + delegated admin) · 🔴 planned
+The real multi-agency model. Full design: [`Identity-Access-Architecture.md`](Identity-Access-Architecture.md).
+- **Already done (F2):** RBAC roles + `require_role`; Postgres RLS isolation (tested); Google OAuth with audience verification + operator-allowlist provisioning.
+- **Planned (real deployment — not needed for the POC/demo):**
+  - **Keycloak as identity broker** behind a pluggable IdP boundary — Google kept *behind* it; agency AD/Entra federated later; self-hosted (Keycloak/Zitadel) for data sovereignty. MODE-selected: cloud verifies Google, on-prem verifies Keycloak.
+  - **Admin-managed roster** — `core.users` gains `status` (invited/active/disabled); provisioning becomes a pre-created row, demoting `ITTU_OAUTH_PROVISION` to bootstrap-only.
+  - **Role-mapping table** — upstream group → default ITTU role, low-privilege default + per-user override, authored in ITTU.
+  - **Delegated administration** — platform-admin → agency-admin (agency-scoped via RLS) → employees; agencies self-manage their people.
+  - **Consented cross-agency case-sharing** — the owning agency shares a specific case with a specific user, time-boxed + audited; an ACL layer *over* RLS, never a hole in it.
+- **Effort:** L. **Depends on F1/F2.** Real-deployment increment.
 
 ---
 
@@ -128,6 +140,7 @@ this is real. These two are the difference between a *demo* and a *product*.
 | 6 | **A2 Telegram channel** | real inbound infiltration | M | Polri |
 | 7 | **B2+B3 STT + Twilio** | real phone calls | L | Polri |
 | 8 | **A3 tags / C2 fiat** | enrichment / institutional | M–L | partner |
+| — | **F3 Identity & access hardening** | Keycloak IdP + delegated admin + cross-agency sharing | L | real multi-agency deployment |
 
 **Parallelize:** the legal/institutional gates (§7) are the slow ones — start those
 conversations *now*, in parallel with the foundation work (1–5), which needs no
