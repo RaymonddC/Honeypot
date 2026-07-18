@@ -36,8 +36,10 @@ dev = [
     "pytest>=8",
     "pytest-asyncio>=0.23",
     # In-process throwaway Postgres for the RLS isolation tests (no Docker needed) —
-    # see tests/test_rls_isolation.py.
-    "pgserver>=0.1",
+    # see tests/test_rls_isolation.py. No Windows wheel exists (it bundles a POSIX
+    # Postgres binary), so scope it off Windows — those tests already skip cleanly
+    # via importorskip when it's absent, and `pip install -e .[dev]` then works there.
+    "pgserver>=0.1; platform_system != 'Windows'",
 ]
 
 [build-system]
