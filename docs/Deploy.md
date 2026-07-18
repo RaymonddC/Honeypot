@@ -91,6 +91,35 @@ Neon-provided owner role. There is no way to verify this from the app process al
 isolation test in `backend/tests/test_rls_isolation.py` is the way to prove it end-to-end
 against a real Postgres before trusting a deployment.
 
+## 5. Automated deploys (no manual redeploy, no manual migrations)
+
+**Auto-migrate on deploy.** The container entrypoint (`backend/scripts/start.sh`, wired as the
+Dockerfile `CMD`) runs `alembic upgrade head` *before* uvicorn — but **only** when
+`ITTU_PERSISTENCE=postgres` **and** `ITTU_MIGRATION_DATABASE_URL` is set. Migrations run as the
+**owning** role (via `ITTU_MIGRATION_DATABASE_URL`), since the app's `ITTU_DATABASE_URL`
+(`ittu_app`) can't run DDL. `alembic upgrade` is idempotent, so it's a fast no-op once at head;
+a failed migration aborts startup on purpose (never serve code against an un-migrated schema).
+So a schema change ships by just deploying the new code — no separate migrate step.
+
+Set on Render (in addition to §4's vars):
+```
+ITTU_PERSISTENCE=postgres
+ITTU_MIGRATION_DATABASE_URL=postgresql+asyncpg://<owner>@<host>/<db>?ssl=require   # owner role
+```
+Under `ITTU_PERSISTENCE=memory` (POC) the entrypoint skips migrations entirely — no DB needed.
+
+**Reliable auto-deploy.** Render's native auto-deploy webhook is frequently missed (hence the
+Manual Deploys). `.github/workflows/render-deploy.yml` triggers a deploy on every push to `main`
+via the service's **Deploy Hook** instead. One-time setup:
+1. Render → `ittu-api` → Settings → **Deploy Hook** → copy the URL.
+2. GitHub → repo Settings → Secrets and variables → Actions → new secret
+   `RENDER_DEPLOY_HOOK_URL` = that URL.
+3. (Optional) turn OFF Render's native Auto-Deploy so this workflow is the single trigger
+   (avoids double builds).
+
+**Note:** asyncpg speaks `?ssl=require`, not libpq's `?sslmode=require` — a raw Neon URL must be
+converted (scheme → `postgresql+asyncpg://`, `sslmode`→`ssl`).
+
 ## Notes
 - **CORS:** the backend now reads allowed origins from `ITTU_CORS_ORIGINS` — set it to the
   Vercel domain or the browser will block API calls.

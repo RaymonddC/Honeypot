@@ -49,6 +49,14 @@ class Settings(BaseSettings):
     # effect once repositories actually read this flag (not wired here).
     persistence: Literal["memory", "postgres"] = "memory"
 
+    # Owner/migration DB URL — used by the container's entrypoint to run
+    # `alembic upgrade head` on deploy. The app's ITTU_DATABASE_URL is the
+    # NON-owning ittu_app role (RLS-subject) which can't run DDL, so migrations
+    # must connect as the OWNING role via this var. Empty = auto-migration is
+    # skipped (the DB is assumed already at head). Same asyncpg URL form as
+    # ITTU_DATABASE_URL (postgresql+asyncpg://…?ssl=require).
+    migration_database_url: str = ""
+
     # Blockchain LIVE (takedown module): optional TRONSCAN key for higher rate
     # limits. The public API works keyless; set ITTU_TRONSCAN_API_KEY in prod.
     tronscan_api_key: str = ""

@@ -23,7 +23,12 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", get_settings().database_url)
+# Migrations run as the OWNING role (ITTU_MIGRATION_DATABASE_URL) when set — the
+# app's ITTU_DATABASE_URL is the non-owning ittu_app role that can't run DDL.
+_settings = get_settings()
+config.set_main_option(
+    "sqlalchemy.url", _settings.migration_database_url or _settings.database_url
+)
 
 target_metadata = Base.metadata
 

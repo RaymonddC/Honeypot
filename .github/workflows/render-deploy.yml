@@ -1,0 +1,38 @@
+name: Deploy backend to Render
+
+# Render's native auto-deploy webhook is unreliable (frequently missed → a
+# Manual Deploy was needed every time). This triggers a deploy explicitly on
+# every push to main via the service's Deploy Hook, which is reliable.
+#
+# One-time setup:
+#   Render dashboard → ittu-api → Settings → Deploy Hook → copy the URL, then
+#   GitHub repo → Settings → Secrets and variables → Actions → New secret:
+#     name  = RENDER_DEPLOY_HOOK_URL
+#     value = <the Deploy Hook URL>
+# (Optional: turn OFF Render's native Auto-Deploy to avoid double builds — this
+#  workflow becomes the single, reliable trigger.)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "render.yaml"
+      - ".github/workflows/render-deploy.yml"
+  workflow_dispatch: {} # allow a manual run from the Actions tab
+
+jobs:
+  trigger-render-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy hook
+        env:
+          HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$HOOK_URL" ]; then
+            echo "::warning::RENDER_DEPLOY_HOOK_URL secret is not set — skipping. See this workflow's header for setup."
+            exit 0
+          fi
+          echo "Triggering Render deploy…"
+          curl -fsS -X POST "$HOOK_URL"
+          echo "Render deploy triggered for $(git rev-parse --short HEAD)."
