@@ -23,11 +23,19 @@ BARESKRIM_ID = "a190a9ca-d827-5c3a-a625-b788d9ab03c9"
 
 @pytest.fixture
 def auth_live():
-    """Flip the auth module to LIVE for one test (per-module MODE override)."""
+    """Flip the auth module to LIVE for one test (per-module MODE override).
+
+    LIVE Google login requires ITTU_GOOGLE_CLIENT_ID (else it fails loud, so the
+    id_token audience is never left unverified), so set a stand-in aud here — the
+    verifier itself is mocked in these tests, so the value only needs to be present.
+    """
     settings = get_settings()
     settings.module_modes["auth"] = "live"
+    prior_client_id = settings.google_client_id
+    settings.google_client_id = "test-client-id.apps.googleusercontent.com"
     yield
     settings.module_modes.pop("auth", None)
+    settings.google_client_id = prior_client_id
 
 
 # --- demo login ---------------------------------------------------------------
@@ -245,3 +253,73 @@ def test_google_login_disabled_in_poc_even_with_a_would_be_valid_token():
     r = client.post("/api/auth/google", json={"id_token": "irrelevant"})
     assert r.status_code == 403
     assert r.json()["error"]["code"] == "google_login_disabled"
+
+
+@_needs_google_auth
+def test_google_login_live_without_client_id_fails_loud():
+    """LIVE without ITTU_GOOGLE_CLIENT_ID must fail loud, NOT verify with
+    audience=None — otherwise google-auth skips the aud check and an id_token
+    minted for any other OAuth client would be accepted. No mock: the route
+    must reject before it ever calls the verifier."""
+    settings = get_settings()
+    settings.module_modes["auth"] = "live"
+    prior_client_id = settings.google_client_id
+    settings.google_client_id = ""
+    try:
+        with patch("google.oauth2.id_token.verify_oauth2_token") as mock_verify:
+            r = client.post("/api/auth/google", json={"id_token": "would-be-valid"})
+        mock_verify.assert_not_called()  # never reach verification with no aud
+    finally:
+        settings.module_modes.pop("auth", None)
+        settings.google_client_id = prior_client_id
+
+    assert r.status_code == 500
+    assert r.json()["error"]["code"] == "google_client_id_unset"
+
+
+@_needs_google_auth
+def test_google_login_allowlisted_email_gets_provisioned(auth_live):
+    """An email NOT seeded but listed in ITTU_OAUTH_PROVISION logs in with the
+    env-declared (agency, role) — the operator-allowlist path for real Google
+    identities (still no self-service signup)."""
+    from app.core.auth import _USERS, _user_id
+
+    settings = get_settings()
+    prior = settings.oauth_provision
+    settings.oauth_provision = (
+        '[{"email":"tester@gmail.com","agency":"ppatk","role":"regulator-analyst"}]'
+    )
+    try:
+        with patch("google.oauth2.id_token.verify_oauth2_token") as mock_verify:
+            mock_verify.return_value = {"email": "tester@gmail.com", "name": "Live Tester"}
+            r = client.post("/api/auth/google", json={"id_token": "mock-valid-token"})
+    finally:
+        settings.oauth_provision = prior
+        _USERS.pop(str(_user_id("tester@gmail.com")), None)  # don't leak into other tests
+
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["user"]["email"] == "tester@gmail.com"
+    assert body["user"]["name"] == "Live Tester"  # taken from the Google profile
+    assert body["role"] == "regulator-analyst"
+    assert body["agency"]["slug"] == "ppatk"
+
+
+@_needs_google_auth
+def test_google_login_allowlist_unknown_agency_fails_loud(auth_live):
+    """A typo'd agency in ITTU_OAUTH_PROVISION is a 500, never a silent
+    downgrade to 'user_not_provisioned' — the operator must see the misconfig."""
+    settings = get_settings()
+    prior = settings.oauth_provision
+    settings.oauth_provision = (
+        '[{"email":"tester2@gmail.com","agency":"not-an-agency","role":"regulator-analyst"}]'
+    )
+    try:
+        with patch("google.oauth2.id_token.verify_oauth2_token") as mock_verify:
+            mock_verify.return_value = {"email": "tester2@gmail.com", "name": "X"}
+            r = client.post("/api/auth/google", json={"id_token": "mock-valid-token"})
+    finally:
+        settings.oauth_provision = prior
+
+    assert r.status_code == 500
+    assert r.json()["error"]["code"] == "provision_agency_unknown"

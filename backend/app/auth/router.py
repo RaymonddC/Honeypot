@@ -131,6 +131,38 @@ def _token_response(user: SeedUser, agency: SeedAgency) -> TokenResponse:
     )
 
 
+def _provisioned_from_allowlist(email: str, settings) -> SeedUser | None:
+    """Resolve an operator-allowlisted email → an unpersisted ``SeedUser``, or
+    ``None`` if it isn't listed. Raises 500 (fail loud) on a malformed allowlist
+    entry — a typo in agency/role must not silently degrade to "not provisioned".
+    """
+    spec = next(
+        (e for e in settings.oauth_provision_list if e["email"] == email.lower()), None
+    )
+    if spec is None:
+        return None
+    agency = find_agency(spec["agency"])
+    if agency is None:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "code": "provision_agency_unknown",
+                "message": f"ITTU_OAUTH_PROVISION lists unknown agency {spec['agency']!r}",
+            },
+        )
+    if spec["role"] not in ROLES:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "code": "provision_role_unknown",
+                "message": f"ITTU_OAUTH_PROVISION lists unknown role {spec['role']!r}",
+            },
+        )
+    return SeedUser(
+        id=_user_id(email), agency_id=agency.id, email=email, name=email, role=spec["role"]
+    )
+
+
 # --- Endpoints --------------------------------------------------------------------
 
 
@@ -218,9 +250,22 @@ async def post_google_login(
         )
 
     settings = get_settings()
+    if not settings.google_client_id:
+        # Fail loud (Adapter-MODE principle #3, docs/Security-Evidence.md): passing
+        # audience=None makes google-auth SKIP the aud check, so an id_token minted
+        # for ANY other OAuth client would verify and be accepted for a provisioned
+        # email. Never verify a token without our expected audience.
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "code": "google_client_id_unset",
+                "message": "ITTU_GOOGLE_CLIENT_ID is required for LIVE Google login "
+                "(the id_token audience cannot be verified without it)",
+            },
+        )
     try:
         info = google_id_token.verify_oauth2_token(
-            body.id_token, google_requests.Request(), settings.google_client_id or None
+            body.id_token, google_requests.Request(), settings.google_client_id
         )
     except ValueError:
         raise HTTPException(
@@ -231,6 +276,11 @@ async def post_google_login(
     email = info.get("email", "")
     user = await repo.find_by_email(email)
     if user is None:
+        # Not a seeded user — allow ONLY if an operator listed this email in
+        # ITTU_OAUTH_PROVISION (still no self-service signup; the allowlist IS
+        # the provisioning act). First login materializes the row below.
+        user = _provisioned_from_allowlist(email, settings)
+    if user is None:
         raise HTTPException(
             status_code=403,
             detail={
@@ -238,7 +288,8 @@ async def post_google_login(
                 "message": f"{email} is not provisioned for any agency",
             },
         )
-    # Refresh name from Google profile; keep provisioned agency + role.
+    # Refresh name from Google profile; keep provisioned agency + role. This
+    # upsert also creates the row on an allowlisted user's first login.
     user = await repo.upsert(
         SeedUser(
             id=_user_id(user.email),

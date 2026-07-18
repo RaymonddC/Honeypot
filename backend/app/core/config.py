@@ -102,6 +102,13 @@ class Settings(BaseSettings):
     jwt_ttl_seconds: int = 8 * 3600
     # LIVE Google OAuth: expected `aud` of the verified id_token.
     google_client_id: str = ""
+    # LIVE Google OAuth operator provisioning (no self-service signup): a JSON
+    # allowlist mapping real Google emails → an agency (slug) + role. An email
+    # can log in via POST /api/auth/google ONLY if it's a seeded user OR listed
+    # here. Kept as a STRING (parsed in `oauth_provision_list`) so pydantic never
+    # tries to JSON-decode the env var and crash on deploy. Example:
+    #   ITTU_OAUTH_PROVISION=[{"email":"you@gmail.com","agency":"bareskrim","role":"police-investigator"}]
+    oauth_provision: str = ""
 
     @property
     def persistence_enabled(self) -> bool:
@@ -112,6 +119,32 @@ class Settings(BaseSettings):
     def effective_llm_api_key(self) -> str:
         """Live-LLM key: ITTU_LLM_API_KEY, falling back to ANTHROPIC_API_KEY."""
         return self.llm_api_key or os.environ.get("ANTHROPIC_API_KEY", "")
+
+    @property
+    def oauth_provision_list(self) -> list[dict[str, str]]:
+        """Parse ITTU_OAUTH_PROVISION → [{email, agency, role}, ...].
+
+        Malformed JSON / bad entries yield an empty list (fail CLOSED — no email
+        gets provisioned rather than silently mis-provisioned). Emails are
+        lower-cased for case-insensitive matching.
+        """
+        raw = self.oauth_provision.strip()
+        if not raw:
+            return []
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            return []
+        out: list[dict[str, str]] = []
+        for entry in data if isinstance(data, list) else []:
+            if not isinstance(entry, dict):
+                continue
+            email, agency, role = entry.get("email"), entry.get("agency"), entry.get("role")
+            if email and agency and role:
+                out.append(
+                    {"email": str(email).lower(), "agency": str(agency), "role": str(role)}
+                )
+        return out
 
     @property
     def cors_origin_list(self) -> list[str]:

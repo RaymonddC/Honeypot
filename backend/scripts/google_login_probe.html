@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ITTU — Google OAuth live probe</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root { color-scheme: dark; }
+  body { font: 15px/1.5 ui-monospace, "SF Mono", Menlo, monospace;
+         background: #07100c; color: #cdefdd; margin: 0; padding: 2rem;
+         max-width: 820px; margin-inline: auto; }
+  h1 { color: #34d399; font-size: 1.25rem; }
+  label { display: block; margin: .9rem 0 .25rem; color: #8fd8b4; }
+  input { width: 100%; box-sizing: border-box; padding: .55rem .7rem;
+          background: #0c1a13; border: 1px solid #1f4634; border-radius: 7px;
+          color: #e6fff2; font: inherit; }
+  button { margin-top: 1rem; padding: .55rem 1rem; background: #10241a;
+           border: 1px solid #2f7d57; color: #6ee7b7; border-radius: 7px;
+           cursor: pointer; font: inherit; }
+  button:hover { background: #143224; }
+  #gbtn { margin-top: 1rem; }
+  pre { background: #0a1611; border: 1px solid #163527; border-radius: 8px;
+        padding: 1rem; overflow-x: auto; white-space: pre-wrap; word-break: break-word; }
+  .ok { color: #34d399; } .err { color: #f87171; } .muted { color: #6b9280; }
+  .step { border-left: 2px solid #1f4634; padding-left: 1rem; margin: 1.5rem 0; }
+</style>
+</head>
+<body>
+  <h1>ITTU — Google OAuth live probe</h1>
+  <p class="muted">
+    Proves the real Google round-trip end-to-end: signs you in with Google Identity
+    Services, sends the <code>id_token</code> to <code>POST /api/auth/google</code>, and
+    shows ITTU's minted JWT + <code>/api/auth/me</code>. See
+    <code>docs/OAuth-Live-Validation.md</code> for the one-time setup.
+  </p>
+
+  <div class="step">
+    <label for="backend">Backend base URL</label>
+    <input id="backend" placeholder="http://localhost:8000  (or https://honeypot-aa88.onrender.com)" />
+    <label for="client">Google OAuth Client ID (must match the backend's ITTU_GOOGLE_CLIENT_ID)</label>
+    <input id="client" placeholder="1234-abc.apps.googleusercontent.com" />
+    <button id="init">1 · Load Google button →</button>
+    <p class="muted">This page's origin must be an <b>Authorized JavaScript origin</b> on that
+      OAuth client. Serve it (don't open as a file): <code>python -m http.server 5500</code>
+      then visit <code>http://localhost:5500/google_login_probe.html</code>.</p>
+  </div>
+
+  <div id="gbtn"></div>
+  <pre id="out" class="muted">Awaiting sign-in…</pre>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const out = $("out");
+  const show = (obj, cls) => { out.className = cls || ""; out.textContent =
+    typeof obj === "string" ? obj : JSON.stringify(obj, null, 2); };
+
+  // Prefill from ?backend=&client= for convenience.
+  const q = new URLSearchParams(location.search);
+  $("backend").value = q.get("backend") || "";
+  $("client").value = q.get("client") || "";
+
+  const decodeJwt = (t) => {
+    try { return JSON.parse(atob(t.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))); }
+    catch { return { note: "could not decode" }; }
+  };
+
+  async function onCredential(resp) {
+    const backend = $("backend").value.replace(/\/+$/, "");
+    show("Verifying with the ITTU backend…", "muted");
+    let r, body;
+    try {
+      r = await fetch(backend + "/api/auth/google", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id_token: resp.credential }),
+      });
+      body = await r.json();
+    } catch (e) {
+      return show("Network error hitting " + backend + "/api/auth/google\n" + e +
+        "\n\nCheck the backend URL, that it's running, and CORS (ITTU_CORS_ORIGINS must include this page's origin).", "err");
+    }
+    if (!r.ok) {
+      return show({ status: r.status, response: body,
+        hint: "403 user_not_provisioned → add your email to ITTU_OAUTH_PROVISION. " +
+              "500 google_client_id_unset → set ITTU_GOOGLE_CLIENT_ID. " +
+              "403 google_login_disabled → set the auth module to LIVE." }, "err");
+    }
+    // Success: show ITTU's JWT + verify it via /api/auth/me.
+    let me = null;
+    try {
+      const mr = await fetch(backend + "/api/auth/me", {
+        headers: { Authorization: "Bearer " + body.token },
+      });
+      me = { status: mr.status, body: await mr.json() };
+    } catch (e) { me = { error: String(e) }; }
+    show({ ok: true, login: { status: r.status, user: body.user, agency: body.agency,
+      role: body.role, expires_in: body.expires_in },
+      ittu_jwt_claims: decodeJwt(body.token), auth_me: me }, "ok");
+  }
+
+  $("init").onclick = () => {
+    const clientId = $("client").value.trim();
+    if (!clientId) return show("Enter the Google OAuth Client ID first.", "err");
+    if (!window.google || !google.accounts) return show("Google script not loaded yet — retry in a second.", "err");
+    google.accounts.id.initialize({ client_id: clientId, callback: onCredential });
+    google.accounts.id.renderButton($("gbtn"), { theme: "filled_black", size: "large", text: "signin_with" });
+    show("Google button ready — click it to sign in.", "muted");
+  };
+</script>
+</body>
+</html>
