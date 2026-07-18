@@ -8,6 +8,9 @@
   (reuse ELSA's OAuth→JWT login UX; do NOT use Firebase Auth). Sessions revocable.
 - **RBAC roles:** `regulator-analyst`, `police-investigator`, `bank-compliance`,
   `exchange-compliance`, `agency-admin`, `platform-admin`. Enforced via FastAPI dependencies.
+- **Target IdP / provisioning / delegated-admin model** (Keycloak broker, role-mapping table,
+  cross-agency case-sharing): see [Identity-Access-Architecture.md](Identity-Access-Architecture.md).
+  Nothing there changes this RBAC + RLS core — only where identity and role assignment originate.
 
 ## 2. Multi-agency isolation — Postgres RLS (the hard backstop)
 - RLS enabled on **every** agency-scoped table (day one). Middleware sets `app.current_agency` /

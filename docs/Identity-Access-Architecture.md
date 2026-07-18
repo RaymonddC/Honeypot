@@ -16,20 +16,15 @@ Every request passes through three independent gates. None can cover for the oth
 | **RBAC / Authorization** | Is this action allowed for your role? | ITTU — `require_role(...)` on endpoints | Done |
 | **RLS / Data isolation** | Which rows may you touch? | Postgres — `agency_id = current_agency()` policies | Done |
 
-```
- Budi logs in
-   │
- [ IdP ]   Google/Keycloak verifies him → "this is Budi, verified"        ← WHO ARE YOU
-   │
- ITTU mints its OWN JWT: { sub, agency_id: bareskrim, role: police-investigator, exp }
-   │
- [ RBAC ]  may a police-investigator perform this action?                 ← WHAT MAY YOU DO
-   │
- ITTU sets DB "current agency = bareskrim" for the request
-   │
- [ RLS ]   Postgres returns ONLY bareskrim rows for every query           ← WHICH DATA
-   │
- Budi sees his cases. PPATK's data was never fetched.
+```mermaid
+flowchart TD
+    U["Budi logs in"] --> IDP["<b>IdP</b> — Google / Keycloak<br/>verifies identity &nbsp;·&nbsp; WHO ARE YOU"]
+    IDP --> JWT["ITTU mints its OWN JWT<br/>{ sub, agency_id: bareskrim, role: police-investigator }"]
+    JWT --> RBAC{"<b>RBAC</b> — may this role<br/>do this action? &nbsp;·&nbsp; WHAT MAY YOU DO"}
+    RBAC -->|denied| DENY["403 forbidden"]
+    RBAC -->|allowed| SET["ITTU sets current_agency = bareskrim"]
+    SET --> RLS[("<b>RLS</b> — Postgres returns ONLY<br/>bareskrim rows &nbsp;·&nbsp; WHICH DATA")]
+    RLS --> OUT["Budi sees his cases;<br/>PPATK data never fetched"]
 ```
 
 **Design payoff:** ITTU always verifies an external identity and then mints *its own* JWT (`{sub,
@@ -48,11 +43,14 @@ delegate authentication to it instead of handling passwords themselves.
 - **Target: Keycloak as an identity *broker*.** ITTU integrates with **one** IdP (Keycloak); Keycloak
   fans out to many upstream sources:
 
-  ```
-  user ─► ITTU ─► Keycloak ─┬─► Google (social / external users)
-        (one OIDC)           ├─► Bareskrim Active Directory / Entra
-                             ├─► PPATK / OJK IdP (SAML/OIDC)
-                             └─► local users Keycloak hosts itself
+  ```mermaid
+  flowchart LR
+      U["user"] --> ITTU["ITTU"]
+      ITTU -->|"one OIDC integration"| KC["Keycloak<br/>identity broker"]
+      KC --> G["Google<br/>(social / external users)"]
+      KC --> AD["Bareskrim<br/>Active Directory / Entra"]
+      KC --> PO["PPATK / OJK IdP<br/>(SAML / OIDC)"]
+      KC --> LOC["local users<br/>Keycloak hosts itself"]
   ```
 
   Adding a new agency's login = a Keycloak config change, **zero ITTU code**. Self-hosted (Keycloak or the
@@ -97,14 +95,13 @@ for validation, demoted to bootstrapping the first admin once the table exists.
 Admin authority is tiered and **agency-scoped** — enforced for free by RLS (an agency-admin's writes are
 constrained to their own `agency_id`; they physically cannot touch another agency's users).
 
-```
-Platform-admin  (ITTU owner)
-   ├─ manages agencies, creates each agency's first admin, owns the global role-mapping table
-   │
-   ├─ Bareskrim agency-admin ─► manages ONLY Bareskrim users + roles
-   ├─ PPATK agency-admin     ─► manages ONLY PPATK users + roles
-   └─ OJK agency-admin        ─► manages ONLY OJK users + roles
-          └─ investigators / analysts / compliance  (no admin powers)
+```mermaid
+flowchart TD
+    PA["<b>Platform-admin</b> (ITTU owner)<br/>agencies · each agency's first admin · global role-mapping"]
+    PA --> BA["Bareskrim agency-admin<br/>manages ONLY Bareskrim users + roles"]
+    PA --> PP["PPATK agency-admin<br/>manages ONLY PPATK users + roles"]
+    PA --> OJ["OJK agency-admin<br/>manages ONLY OJK users + roles"]
+    BA --> EMP["investigators / analysts / compliance<br/>(no admin powers)"]
 ```
 
 **Bootstrap chain:** platform-admin (seeded/bootstrapped) → creates each agency + its first agency-admin →
