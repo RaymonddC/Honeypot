@@ -6,9 +6,31 @@
  * path — visually present, disabled in POC (docs/Security-Evidence.md §1).
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Script from "next/script";
 import { useAuth } from "./auth-provider";
 import { AGENCIES, roleLabel } from "@/lib/auth/types";
+
+// Minimal ambient shape for the Google Identity Services client (loaded at
+// runtime from https://accounts.google.com/gsi/client). Only the two calls we use.
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: {
+            client_id: string;
+            callback: (resp: { credential: string }) => void;
+          }) => void;
+          renderButton: (
+            parent: HTMLElement,
+            options: Record<string, unknown>,
+          ) => void;
+        };
+      };
+    };
+  }
+}
 
 function GoogleMark() {
   return (
@@ -34,12 +56,51 @@ function GoogleMark() {
 }
 
 export function LoginForm() {
-  const { login, loginOffline } = useAuth();
+  const { login, loginWithGoogle, loginOffline } = useAuth();
   const [agencyId, setAgencyId] = useState(AGENCIES[0].id);
   const [role, setRole] = useState(AGENCIES[0].roles[0]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [offlineOffer, setOfflineOffer] = useState(false);
+
+  // Google Identity Services: the button is real only when a client ID is
+  // configured for the browser (same value as the backend's ITTU_GOOGLE_CLIENT_ID).
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const googleBtnRef = useRef<HTMLDivElement>(null);
+  const [gsiReady, setGsiReady] = useState(false);
+
+  // Already loaded (remount / prior navigation) → skip waiting on the Script.
+  useEffect(() => {
+    if (window.google) setGsiReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!googleClientId || !gsiReady || !googleBtnRef.current) return;
+    const g = window.google;
+    if (!g) return;
+    g.accounts.id.initialize({
+      client_id: googleClientId,
+      callback: async (resp) => {
+        setError(null);
+        try {
+          await loginWithGoogle(resp.credential);
+        } catch (e) {
+          setError(
+            e instanceof Error && e.message
+              ? `Google sign-in failed — ${e.message}`
+              : "Google sign-in failed",
+          );
+        }
+      },
+    });
+    googleBtnRef.current.innerHTML = ""; // avoid a stacked button on re-run
+    g.accounts.id.renderButton(googleBtnRef.current, {
+      theme: "filled_black",
+      size: "large",
+      text: "signin_with",
+      width: 320,
+    });
+  }, [googleClientId, gsiReady, loginWithGoogle]);
 
   const agency = useMemo(
     () => AGENCIES.find((a) => a.id === agencyId) ?? AGENCIES[0],
@@ -203,19 +264,31 @@ export function LoginForm() {
         <span className="h-px flex-1 bg-line" />
       </div>
 
-      {/* Google (LIVE path — disabled stub in POC) */}
-      <button
-        type="button"
-        disabled
-        title="Google OAuth is the LIVE-mode sign-in — disabled in POC deployment"
-        className="flex w-full items-center justify-center gap-2.5 rounded-lg border border-line bg-elevated px-4 py-2.5 text-[13px] text-muted opacity-60"
-      >
-        <GoogleMark />
-        Continue with Google
-        <span className="rounded border border-line px-1 py-px font-mono text-[9px] tracking-widest">
-          LIVE
-        </span>
-      </button>
+      {/* Google (LIVE path). Real GIS button when a client ID is configured;
+          otherwise the disabled stub with a hint. */}
+      {googleClientId ? (
+        <>
+          <Script
+            src="https://accounts.google.com/gsi/client"
+            strategy="afterInteractive"
+            onLoad={() => setGsiReady(true)}
+          />
+          <div ref={googleBtnRef} className="flex min-h-[44px] justify-center" />
+        </>
+      ) : (
+        <button
+          type="button"
+          disabled
+          title="Set NEXT_PUBLIC_GOOGLE_CLIENT_ID to enable Google sign-in"
+          className="flex w-full items-center justify-center gap-2.5 rounded-lg border border-line bg-elevated px-4 py-2.5 text-[13px] text-muted opacity-60"
+        >
+          <GoogleMark />
+          Continue with Google
+          <span className="rounded border border-line px-1 py-px font-mono text-[9px] tracking-widest">
+            LIVE
+          </span>
+        </button>
+      )}
     </div>
   );
 }

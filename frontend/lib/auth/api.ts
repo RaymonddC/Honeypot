@@ -155,6 +155,26 @@ export async function demoLogin(
   return { jwt, me };
 }
 
+/**
+ * LIVE login: exchange a Google Identity Services `id_token` for our JWT via
+ * POST /api/auth/google. Same response shape as demoLogin ({token, user,
+ * agency, role}); the readable backend error (`user_not_provisioned`,
+ * `google_login_disabled`, …) surfaces via `request`'s thrown message.
+ */
+export async function googleLogin(
+  idToken: string,
+): Promise<{ jwt: string; me: AuthMe | null }> {
+  const raw = await request<any>("/auth/google", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id_token: idToken }),
+  });
+  const jwt = str(first(raw?.jwt, raw?.access_token, raw?.token));
+  if (!jwt) throw new Error("login response carried no token");
+  const me = raw?.user || raw?.agency ? normalizeMe(raw) : null;
+  return { jwt, me };
+}
+
 /** GET /api/auth/me — requires the Bearer token to already be stored. */
 export async function fetchMe(): Promise<AuthMe> {
   const raw = await request<any>("/auth/me");

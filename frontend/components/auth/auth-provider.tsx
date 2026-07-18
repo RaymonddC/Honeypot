@@ -33,6 +33,7 @@ import {
   demoLogin,
   fetchConfig,
   fetchMe,
+  googleLogin,
   mintOfflineToken,
 } from "@/lib/auth/api";
 import type { AppConfig, AuthMe } from "@/lib/auth/types";
@@ -48,6 +49,8 @@ interface AuthContextValue {
   /** true once /api/auth/me confirmed the session against the live backend. */
   liveVerified: boolean;
   login: (agencyId: string, role: string) => Promise<void>;
+  /** LIVE login — exchange a Google id_token for our JWT (POST /api/auth/google). */
+  loginWithGoogle: (idToken: string) => Promise<void>;
   /** Offline demo session — locally minted token, mock data everywhere. */
   loginOffline: (agencyId: string, role: string) => void;
   logout: () => void;
@@ -146,6 +149,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [hydrateMe, router],
   );
 
+  const loginWithGoogle = useCallback(
+    async (idToken: string) => {
+      const { jwt, me: loginMe } = await googleLogin(idToken);
+      setToken(jwt);
+      setMe(loginMe ?? meFromClaims(jwt));
+      setStatus("authed");
+      void hydrateMe(jwt);
+      fetchConfig().then(setConfig);
+      router.replace("/investigation");
+    },
+    [hydrateMe, router],
+  );
+
   const loginOffline = useCallback(
     (agencyId: string, role: string) => {
       const jwt = mintOfflineToken(agencyId, role);
@@ -159,8 +175,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ status, me, config, liveVerified, login, loginOffline, logout }),
-    [status, me, config, liveVerified, login, loginOffline, logout],
+    () => ({
+      status,
+      me,
+      config,
+      liveVerified,
+      login,
+      loginWithGoogle,
+      loginOffline,
+      logout,
+    }),
+    [status, me, config, liveVerified, login, loginWithGoogle, loginOffline, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
