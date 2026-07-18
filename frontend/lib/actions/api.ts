@@ -67,6 +67,54 @@ const str = (v: unknown): string | undefined =>
 export const documentUrl = (docId: string): string =>
   `${BASE}/api/documents/${encodeURIComponent(docId)}`;
 
+/** Best-effort filename out of a `Content-Disposition` header value. */
+function filenameFromContentDisposition(value: string | null): string | null {
+  if (!value) return null;
+  const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(value);
+  if (utf8) {
+    try {
+      return decodeURIComponent(utf8[1]);
+    } catch {
+      /* malformed encoding — fall through to the plain filename form */
+    }
+  }
+  const quoted = /filename="([^"]+)"/i.exec(value);
+  if (quoted) return quoted[1];
+  const bare = /filename=([^;]+)/i.exec(value);
+  return bare ? bare[1].trim() : null;
+}
+
+/**
+ * Download a generated document's PDF (GET /api/documents/{id}) with the
+ * analyst's Bearer attached (via `apiFetch`) — the route requires identity
+ * once postgres persistence is on, which a plain `<a href>` link can't
+ * carry. Fetches the bytes, builds a blob URL, and triggers a save-to-disk
+ * via a programmatic `<a download>`; throws on a non-2xx response so the
+ * caller can surface the error (never fails silently).
+ */
+export async function downloadDocument(doc: ActionDocument): Promise<void> {
+  const url = doc.downloadUrl ?? documentUrl(doc.id);
+  const res = await apiFetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const blob = await res.blob();
+  const filename =
+    filenameFromContentDisposition(res.headers.get("content-disposition")) ??
+    `${doc.title.trim().replace(/\s+/g, "-").toLowerCase() || "document"}.pdf`;
+
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const a = window.document.createElement("a");
+    a.href = objectUrl;
+    a.download = filename;
+    window.document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } finally {
+    // Deferred so the browser has started reading the blob before it's freed.
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  }
+}
+
 /** Shorten a long hex hash / address to the mockup's "7c4d…9ffa" form. */
 const short = (h: string | undefined, keep = 6): string | undefined =>
   h && h.length > 2 * keep + 1 ? `${h.slice(0, keep)}…${h.slice(-keep)}` : h;
