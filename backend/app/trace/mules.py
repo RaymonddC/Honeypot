@@ -10,7 +10,6 @@ by the algorithms.
 """
 
 import uuid
-from datetime import datetime
 
 import networkx as nx
 import numpy as np

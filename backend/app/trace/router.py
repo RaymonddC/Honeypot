@@ -13,7 +13,7 @@ default deterministic demo (seed 4656 — the case's account count).
 from collections import Counter
 
 from fastapi import APIRouter, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from app.chain.schemas import Transfer
 from app.core.adapters import ChainDataAdapter, FiatDataAdapter

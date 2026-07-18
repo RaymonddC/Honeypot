@@ -142,12 +142,12 @@ def build_sankey(
             value_usdt=round(lk.value_usdt, 2) if lk.value_usdt is not None else None,
             kind=lk.kind,
         )
-        for lk in sorted(links.values(), key=lambda l: (l.source, l.target))
+        for lk in sorted(links.values(), key=lambda link: (link.source, link.target))
     ]
 
     stage_totals = {
-        STAGES[s]: round(sum(l.value for l in link_list
-                             if nodes[l.source].stage == s))
+        STAGES[s]: round(sum(link.value for link in link_list
+                             if nodes[link.source].stage == s))
         for s in range(4)
     }
     return SankeyOut(
