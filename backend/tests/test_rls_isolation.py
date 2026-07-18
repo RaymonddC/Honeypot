@@ -79,7 +79,12 @@ def app_role_uri(pg_cluster):
     owner_async_uri = owner_uri.replace("postgresql://", "postgresql+asyncpg://", 1)
 
     prior_env = os.environ.get("ITTU_DATABASE_URL")
+    prior_mig = os.environ.get("ITTU_MIGRATION_DATABASE_URL")
     os.environ["ITTU_DATABASE_URL"] = owner_async_uri
+    # env.py prefers ITTU_MIGRATION_DATABASE_URL — a developer .env may point it at
+    # a real Neon owner URL, which would send alembic THERE instead of this
+    # ephemeral cluster. Pin it here so migrations run against the pgserver.
+    os.environ["ITTU_MIGRATION_DATABASE_URL"] = owner_async_uri
     get_settings.cache_clear()
     try:
         cfg = Config(str(BACKEND_DIR / "alembic.ini"))
@@ -93,6 +98,10 @@ def app_role_uri(pg_cluster):
             os.environ.pop("ITTU_DATABASE_URL", None)
         else:
             os.environ["ITTU_DATABASE_URL"] = prior_env
+        if prior_mig is None:
+            os.environ.pop("ITTU_MIGRATION_DATABASE_URL", None)
+        else:
+            os.environ["ITTU_MIGRATION_DATABASE_URL"] = prior_mig
         get_settings.cache_clear()
 
     host_part = owner_uri.split("@", 1)[1]  # "postgres?host=<socket_dir>"
