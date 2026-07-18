@@ -29,8 +29,8 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.core.auth import SEED_USERS, SeedUser
 from app.core.user_repository import PostgresUserRepository
-from app.core.auth import SeedUser
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 MIGRATION_09_PATH = (
@@ -39,12 +39,19 @@ MIGRATION_09_PATH = (
 
 APP_ROLE_PASSWORD = "ittu-test-role-pw-3"  # noqa: S105 - ephemeral, throwaway DB only
 
-# Real seeded agency/user ids (migration 20260708_05 / 20260717_09, app.core.auth).
-AGENCY_A = "a190a9ca-d827-5c3a-a625-b788d9ab03c9"  # Bareskrim Polri
-AGENCY_B = "84cb96f6-6dfb-5e5f-9fbd-d06ce68e7772"  # PPATK
-BUDI_ID = "9f79eb96-3e3a-57b1-a617-311a785553a1"
-BUDI_EMAIL = "budi@bareskrim.polri.go.id"
-SARI_EMAIL = "sari@ppatk.go.id"
+# NOT hardcoded literals — computed from app.core.auth.SEED_USERS (the actual
+# _user_id(email)/_agency_id(slug) computation) so this file has exactly ONE
+# source for these ids, same as the rest of the suite. A literal here would be
+# a fourth copy of the same UUID that could silently drift from the code —
+# precisely the risk test_migration_09_seed_ids_match_the_actual_auth_source_of_truth
+# and test_seeded_users_in_postgres_match_computed_ids below exist to catch.
+_BUDI = next(u for u in SEED_USERS if u.email == "budi@bareskrim.polri.go.id")
+_SARI = next(u for u in SEED_USERS if u.email == "sari@ppatk.go.id")
+AGENCY_A = str(_BUDI.agency_id)  # Bareskrim Polri
+AGENCY_B = str(_SARI.agency_id)  # PPATK
+BUDI_ID = str(_BUDI.id)
+BUDI_EMAIL = _BUDI.email
+SARI_EMAIL = _SARI.email
 
 
 # --------------------------------------------------------------------------- #
@@ -203,6 +210,48 @@ async def test_login_lookup_finds_seeded_user_without_any_rls_context(app_role_u
             assert str(by_role.id) == BUDI_ID
 
             assert await repo.find_by_email("nobody@nowhere.example") is None
+        finally:
+            await session.close()
+    finally:
+        await engine.dispose()
+
+
+async def test_seeded_users_in_postgres_match_computed_ids(app_role_uri):
+    """THE strongest form of the parity check (review's ask): compute the id
+    the CODE would mint for each seeded demo user — ``_user_id(email)`` — and
+    assert it equals the id migration 09 ACTUALLY persisted into
+    ``core.users``, read back live from a real Postgres. Not a comparison
+    between two Python source files (that's
+    ``test_migration_09_seed_ids_match_the_actual_auth_source_of_truth``,
+    which stays as a fast, pgserver-free first line of defense) — this one
+    proves the seeded ROW itself, so a bug in the migration's INSERT
+    statements (not just a wrong literal) would also be caught."""
+    from app.core.auth import _user_id
+
+    _owner, app_uri = app_role_uri
+    engine = create_async_engine(app_uri)
+    try:
+        session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)()
+        try:
+            repo = PostgresUserRepository(session)
+            for seed in SEED_USERS:
+                computed_id = _user_id(seed.email)
+                assert computed_id == seed.id  # sanity: SeedUser.id IS _user_id(email)
+
+                row = await repo.find_by_email(seed.email)
+                assert row is not None, (
+                    f"{seed.email} not found in core.users — migration 09 seed "
+                    "missing, renamed, or never ran"
+                )
+                assert row.id == computed_id, (
+                    f"{seed.email}: core.users row id {row.id} != "
+                    f"_user_id({seed.email!r}) = {computed_id} — id scheme drifted "
+                    "from migration 09's seed"
+                )
+                assert row.agency_id == seed.agency_id, (
+                    f"{seed.email}: core.users row agency_id {row.agency_id} != "
+                    f"{seed.agency_id}"
+                )
         finally:
             await session.close()
     finally:
