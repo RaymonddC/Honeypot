@@ -65,17 +65,33 @@ export function LoginForm() {
 
   // Google Identity Services: the button is real only when a client ID is
   // configured for the browser (same value as the backend's ITTU_GOOGLE_CLIENT_ID).
+  // We render GIS's own (required) button INVISIBLE and overlay it on top of our
+  // ELSA-styled button, so the credential click is captured but our design shows.
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
   const googleBtnRef = useRef<HTMLDivElement>(null);
+  const googleWrapRef = useRef<HTMLDivElement>(null);
   const [gsiReady, setGsiReady] = useState(false);
+  const [overlayWidth, setOverlayWidth] = useState(0);
 
   // Already loaded (remount / prior navigation) → skip waiting on the Script.
   useEffect(() => {
     if (window.google) setGsiReady(true);
   }, []);
 
+  // Measure the visual button so the invisible GIS button covers its full
+  // clickable width (else edge clicks miss). Track resizes too.
   useEffect(() => {
-    if (!googleClientId || !gsiReady || !googleBtnRef.current) return;
+    const el = googleWrapRef.current;
+    if (!googleClientId || !el) return;
+    const measure = () => setOverlayWidth(el.offsetWidth);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [googleClientId]);
+
+  useEffect(() => {
+    if (!googleClientId || !gsiReady || !overlayWidth || !googleBtnRef.current) return;
     const g = window.google;
     if (!g) return;
     g.accounts.id.initialize({
@@ -94,13 +110,15 @@ export function LoginForm() {
       },
     });
     googleBtnRef.current.innerHTML = ""; // avoid a stacked button on re-run
+    // GIS clamps width to 200–400px; match the visual button within that range.
+    const width = Math.min(400, Math.max(200, Math.round(overlayWidth)));
     g.accounts.id.renderButton(googleBtnRef.current, {
       theme: "filled_black",
       size: "large",
       text: "signin_with",
-      width: 320,
+      width,
     });
-  }, [googleClientId, gsiReady, loginWithGoogle]);
+  }, [googleClientId, gsiReady, overlayWidth, loginWithGoogle]);
 
   const agency = useMemo(
     () => AGENCIES.find((a) => a.id === agencyId) ?? AGENCIES[0],
@@ -265,7 +283,9 @@ export function LoginForm() {
       </div>
 
       {/* Google (LIVE path). Real GIS button when a client ID is configured;
-          otherwise the disabled stub with a hint. */}
+          otherwise the disabled stub with a hint. GIS requires its OWN rendered
+          button to capture the click, so we render it invisible and overlay it on
+          top of our ELSA-styled button (which shows through, aria-hidden). */}
       {googleClientId ? (
         <>
           <Script
@@ -273,7 +293,25 @@ export function LoginForm() {
             strategy="afterInteractive"
             onLoad={() => setGsiReady(true)}
           />
-          <div ref={googleBtnRef} className="flex min-h-[44px] justify-center" />
+          <div ref={googleWrapRef} className="group relative cursor-pointer">
+            {/* Visual button (ELSA), enabled look — the real click target is
+                Google's transparent button overlaid on top. */}
+            <div
+              aria-hidden
+              className="flex w-full items-center justify-center gap-2.5 rounded-lg border border-line bg-elevated px-4 py-2.5 text-[13px] text-fg transition-colors group-hover:border-white/15 group-hover:bg-white/[.04]"
+            >
+              <GoogleMark />
+              Continue with Google
+              <span className="rounded border border-line px-1 py-px font-mono text-[9px] tracking-widest text-muted">
+                LIVE
+              </span>
+            </div>
+            {/* Invisible GIS button — captures the actual credential click. */}
+            <div
+              ref={googleBtnRef}
+              className="absolute inset-0 z-10 flex items-center justify-center opacity-0"
+            />
+          </div>
         </>
       ) : (
         <button
