@@ -32,14 +32,23 @@ def _hermetic_provider_keys(monkeypatch):
     ):
         monkeypatch.delenv(var, raising=False)
     s = get_settings()
-    saved = (s.llm_api_key, s.elevenlabs_api_key, s.google_tts_api_key, s.persistence)
+    saved = (
+        s.llm_api_key, s.elevenlabs_api_key, s.google_tts_api_key,
+        s.persistence, s.mode, s.module_modes,
+    )
     s.llm_api_key = s.elevenlabs_api_key = s.google_tts_api_key = ""
-    # POC/memory is the default posture. A developer .env with
-    # ITTU_PERSISTENCE=postgres (e.g. after a Neon cutover) must NOT flip every
-    # test into DB mode — the pgserver tests opt into postgres themselves.
+    # POC is the default posture. A developer .env that flips modes/persistence
+    # for LIVE testing (ITTU_PERSISTENCE=postgres, ITTU_MODULE_MODES={"auth":
+    # "live"}, ITTU_MODE=live, …) must NOT flip every test out of POC — the
+    # pgserver/auth-live tests opt into those themselves (see auth_live fixture).
     s.persistence = "memory"
+    s.mode = "poc"
+    s.module_modes = {}
     yield
-    s.llm_api_key, s.elevenlabs_api_key, s.google_tts_api_key, s.persistence = saved
+    (
+        s.llm_api_key, s.elevenlabs_api_key, s.google_tts_api_key,
+        s.persistence, s.mode, s.module_modes,
+    ) = saved
 
 
 @pytest.fixture(scope="session")

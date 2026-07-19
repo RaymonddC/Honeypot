@@ -3,6 +3,7 @@
 import logging
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI
 from fastapi.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -71,6 +72,27 @@ def create_app() -> FastAPI:
             content={"error": detail},
             headers=exc.headers,  # e.g. WWW-Authenticate: Bearer on 401s
         )
+
+    @app.exception_handler(httpx.HTTPError)
+    async def upstream_provider_error(request, exc: httpx.HTTPError):
+        # Any upstream data-provider failure (TRONSCAN/TronGrid, etc.) → clean
+        # envelope, never a 500 stack trace. A 429 is a transient rate-limit
+        # (retryable); anything else is treated as a provider outage.
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        if status == 429:
+            code, message, http_status = (
+                "provider_rate_limited",
+                "The blockchain data provider is rate-limiting requests (free-tier "
+                "limit). Retry shortly, or set ITTU_TRONSCAN_API_KEY for higher limits.",
+                503,
+            )
+        else:
+            code, message, http_status = (
+                "provider_unavailable",
+                "The upstream blockchain data provider is currently unavailable.",
+                502,
+            )
+        return JSONResponse(status_code=http_status, content={"error": {"code": code, "message": message}})
 
     @app.get("/health")
     async def health() -> dict[str, str]:
