@@ -6,6 +6,9 @@ the call it received. Payload shape below is the REAL TRONSCAN
 the original from/to/block_timestamp field-name bug.
 """
 
+import httpx
+import pytest
+
 from app.chain.adapters import USDT_TRC20, TronscanAdapter
 from app.core.config import Settings
 
@@ -118,3 +121,55 @@ async def test_fetch_tronscan_omits_api_key_header_when_unset():
 
     call = adapter._client.calls[0]
     assert "TRON-PRO-API-KEY" not in call["headers"]
+
+
+class _StatusErrorResponse:
+    """A response whose raise_for_status() raises like httpx does for a bad status."""
+
+    def __init__(self, status: int) -> None:
+        self.status_code = status
+
+    def raise_for_status(self) -> None:
+        request = httpx.Request("GET", "https://example.test")
+        response = httpx.Response(self.status_code, request=request)
+        raise httpx.HTTPStatusError(f"{self.status_code}", request=request, response=response)
+
+    def json(self) -> dict:  # pragma: no cover — never reached (raise_for_status first)
+        return {}
+
+
+class _AllStatusClient:
+    """Every provider call fails with the same HTTP status (both TRONSCAN + TronGrid)."""
+
+    def __init__(self, status: int) -> None:
+        self._status = status
+
+    async def get(self, url, params=None, headers=None):
+        return _StatusErrorResponse(self._status)
+
+
+def _adapter_with(status: int) -> TronscanAdapter:
+    adapter = TronscanAdapter(Settings())
+    adapter._client = _AllStatusClient(status)
+    adapter._redis = DeadRedis()
+    return adapter
+
+
+async def test_bad_address_400_from_both_providers_degrades_to_empty_not_500():
+    """A malformed/unknown address (e.g. a truncated paste) makes both providers
+    400 — the adapter must return an empty page so the investigation 404s, not 500."""
+    adapter = _adapter_with(400)
+
+    page = await adapter.fetch_transfers("TMuA6YqfCeX8EhbfYEg5y7S4DqzSJireY")  # truncated
+
+    assert page.items == []
+    assert page.next_cursor is None
+
+
+async def test_non_400_upstream_error_still_raises():
+    """A real upstream failure (5xx) must NOT be masked as 'no activity' — it
+    surfaces as an error rather than silently returning an empty investigation."""
+    adapter = _adapter_with(503)
+
+    with pytest.raises(httpx.HTTPStatusError):
+        await adapter.fetch_transfers("TNXoiAJ3dct8Fjg4M9fkLFh9S2v9TXc32G")

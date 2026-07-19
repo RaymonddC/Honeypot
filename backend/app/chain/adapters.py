@@ -125,7 +125,17 @@ class TronscanAdapter:
             try:
                 data = await self._fetch_tronscan(address, start)
             except httpx.HTTPError:
-                data = await self._fetch_trongrid(address)
+                try:
+                    data = await self._fetch_trongrid(address)
+                except httpx.HTTPStatusError as exc:
+                    # Both providers rejected the lookup. A 400 means the address
+                    # is malformed or unknown (e.g. a truncated paste) — degrade to
+                    # "no activity" so the investigation comes back empty (→ 404),
+                    # never a 500. Other statuses (auth, rate-limit, 5xx) still
+                    # surface as real errors rather than a silent empty result.
+                    if exc.response.status_code != 400:
+                        raise
+                    data = {"transfers": []}
             await self._cache_set(cache_key, data)
 
         items = [Transfer(**row, data_mode="live") for row in data["transfers"]]
