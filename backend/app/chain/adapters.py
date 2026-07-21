@@ -178,10 +178,12 @@ class TronscanAdapter:
 
     async def _fetch_trongrid(self, address: str) -> dict:
         """TronGrid backup: /v1/accounts/{address}/transactions/trc20."""
+        # TronGrid is a SEPARATE provider with its own API keys — the TRONSCAN key
+        # 401s here — so the fallback stays anonymous (wire ITTU_TRONGRID_API_KEY
+        # only if a real TronGrid key is ever added).
         resp = await self._client.get(
             f"{TRONGRID_BASE}/v1/accounts/{address}/transactions/trc20",
             params={"contract_address": USDT_TRC20, "limit": PAGE_SIZE},
-            headers=self._auth_headers(),  # TronGrid honors TRON-PRO-API-KEY too
         )
         resp.raise_for_status()
         payload = resp.json()
@@ -202,9 +204,7 @@ class TronscanAdapter:
         }
 
     async def balance(self, address: str) -> WalletBalance:
-        resp = await self._client.get(
-            f"{TRONGRID_BASE}/v1/accounts/{address}", headers=self._auth_headers()
-        )
+        resp = await self._client.get(f"{TRONGRID_BASE}/v1/accounts/{address}")  # TronGrid: anonymous
         resp.raise_for_status()
         data = (resp.json().get("data") or [{}])[0]
         return WalletBalance(

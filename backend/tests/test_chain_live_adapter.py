@@ -188,21 +188,13 @@ class _TronscanDownClient:
         return FakeResponse({"data": []})
 
 
-async def test_trongrid_fallback_also_sends_api_key():
-    """The API key must authenticate the TronGrid FALLBACK too — otherwise the
-    fallback hits TronGrid's stricter anonymous limits exactly when TRONSCAN is
-    already failing."""
+async def test_trongrid_fallback_is_anonymous_not_the_tronscan_key():
+    """TronGrid is a separate provider — the TRONSCAN key 401s there — so the
+    fallback must NOT send it (send no TRON-PRO-API-KEY header)."""
     adapter = _make_adapter(settings=Settings(tronscan_api_key="test-tron-key"))
     adapter._client = _TronscanDownClient()
 
     await adapter.fetch_transfers(ADDRESS)
 
-    assert adapter._client.trongrid_call["headers"]["TRON-PRO-API-KEY"] == "test-tron-key"
-
-
-async def test_balance_sends_api_key_header():
-    adapter = _make_adapter(settings=Settings(tronscan_api_key="test-tron-key"))
-
-    await adapter.balance(ADDRESS)
-
-    assert adapter._client.calls[-1]["headers"]["TRON-PRO-API-KEY"] == "test-tron-key"
+    sent = adapter._client.trongrid_call["headers"] or {}
+    assert "TRON-PRO-API-KEY" not in sent
