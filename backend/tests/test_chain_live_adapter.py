@@ -155,15 +155,27 @@ def _adapter_with(status: int) -> TronscanAdapter:
     return adapter
 
 
-async def test_bad_address_400_from_both_providers_degrades_to_empty_not_500():
-    """A malformed/unknown address (e.g. a truncated paste) makes both providers
-    400 — the adapter must return an empty page so the investigation 404s, not 500."""
+async def test_unknown_address_400_from_both_providers_degrades_to_empty_not_500():
+    """A valid-format but unknown address that both providers 400 must return an
+    empty page so the investigation 404s, not 500."""
     adapter = _adapter_with(400)
 
-    page = await adapter.fetch_transfers("TMuA6YqfCeX8EhbfYEg5y7S4DqzSJireY")  # truncated
+    page = await adapter.fetch_transfers(ADDRESS)  # valid 34-char; providers 400 it
 
     assert page.items == []
     assert page.next_cursor is None
+
+
+async def test_malformed_address_short_circuits_without_api_call():
+    """A truncated/invalid address (or a POC-style fixture id) returns empty WITHOUT
+    a network call — no wasted request, no rate-limited fallback."""
+    adapter = _make_adapter()  # FakeHttpxClient records every .get()
+
+    page = await adapter.fetch_transfers("TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6")  # 29-char fixture id
+
+    assert page.items == []
+    assert page.next_cursor is None
+    assert adapter._client.calls == []  # never touched the network
 
 
 async def test_non_400_upstream_error_still_raises():
