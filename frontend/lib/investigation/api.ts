@@ -357,6 +357,12 @@ export interface InvestigationResult {
   seedDetails: Record<string, WalletDetail>;
 }
 
+// A LIVE on-chain trace (bounded BFS + real API latency) can take tens of seconds
+// on a busy wallet; POC returns instantly. Use a generous ceiling so a slow live
+// trace completes instead of aborting to the mock fallback. Node-click /risk reads
+// stay on the fast default — they read already-scored data.
+const TRACE_TIMEOUT_MS = 60_000;
+
 /** POST /investigate (graph + scores inline); mock fallback on failure. */
 export async function runInvestigation(
   address: string,
@@ -370,7 +376,7 @@ export async function runInvestigation(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ address, chain: "tron" }),
       },
-      10000,
+      TRACE_TIMEOUT_MS,
     ).catch(() => null);
 
     let graph: WalletGraph;
@@ -381,7 +387,7 @@ export async function runInvestigation(
       scores = kicked.scores ?? {};
     } else {
       // POST unavailable — fall back to the graph + main-wallet risk reads.
-      const raw = await request<any>(`/wallets/${enc}/graph?hops=3`);
+      const raw = await request<any>(`/wallets/${enc}/graph?hops=3`, undefined, TRACE_TIMEOUT_MS);
       graph = normalizeGraph(raw, address);
       const mainRisk = await request<any>(`/wallets/${enc}/risk`).catch(
         () => null,

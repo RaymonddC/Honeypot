@@ -220,10 +220,17 @@ def detect_fan_out(address: str, transfers: list[Transfer]) -> PatternResult:
 def iso_forest_scores(features: dict[str, FeatureVector]) -> dict[str, float]:
     """Anomaly score 0..1 per wallet (population = this investigation)."""
     addresses = list(features)
-    X = np.array([features[a].as_row() for a in addresses])
     if len(addresses) < 2:
         return {a: 0.0 for a in addresses}
+    X = np.asarray([features[a].as_row() for a in addresses], dtype=np.float64)
     X[:, _LOG_IDX] = np.log1p(X[:, _LOG_IDX])  # tame volume magnitudes
+    # Real-wallet features can be extreme or non-finite (e.g. a whale's out/in ratio
+    # when inflow is dust), which overflows float32 inside sklearn and corrupts the
+    # scores ("overflow encountered in cast"). Sanitize: replace non-finite, then
+    # clip to a float32-safe magnitude — legit features are orders smaller, so only
+    # pathological values are clamped.
+    np.nan_to_num(X, copy=False, nan=0.0, posinf=1e30, neginf=-1e30)
+    np.clip(X, -1e30, 1e30, out=X)
     model = IsolationForest(contamination=0.05, random_state=42)
     model.fit(X)
     raw = -model.decision_function(X)  # higher = more anomalous
