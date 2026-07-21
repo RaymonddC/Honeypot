@@ -14,7 +14,7 @@ MODE. So this roadmap is mostly "fill in the LIVE adapters + turn on persistence
 | Boundary | Module | LIVE adapter | Status | To do |
 |---|---|---|---|---|
 | **LLM brain** | infiltrate | `LiteLLMGateway` | ✅ **LIVE in prod** | — (9Router/Claude, done) |
-| **Blockchain** | takedown | `TronscanAdapter` | 🟢 **validated on real wallets** | flip `takedown=live` to enable (optional key for rate limits) |
+| **Blockchain** | takedown | `TronscanAdapter` | ✅ **live-validated + hardened** | flip `takedown=live`; set `ITTU_TRONSCAN_API_KEY` for limits |
 | **Notifications** | uncover | `LiveNotificationSink` | 🟠 stub, easy | wire email/SMS/webhook |
 | **TTS (voice)** | infiltrate | `ElevenLabs/GoogleTTSAdapter` | 🟢 **wired, needs key** | add key, verify audio |
 | **STT (voice)** | infiltrate | `WhisperSTTAdapter` | 🔴 stub | streaming transcription |
@@ -63,12 +63,13 @@ The real multi-agency model. Full design: [`Identity-Access-Architecture.md`](Id
 
 ## 3. Track A — Live data feeds
 
-### A1 — Blockchain (TRONSCAN) · 🟢 mostly built, quick win
-`TronscanAdapter` already hits `apilist.tronscanapi.com` with httpx.
+### A1 — Blockchain (TRONSCAN) · ✅ validated + hardened
+`TronscanAdapter` hits `apilist.tronscanapi.com` (httpx), TronGrid as anonymous fallback.
 - **Work:** register/verify an API key + rate-limit budget; add TronGrid/Bitquery as a fallback provider (`BLOCKCHAIN_PROVIDER`); Redis cache; **validate** the full pipeline (features → 5 typology detectors → graph → risk) against *real* TRON wallets, not fixtures. Confirm `data_mode="live"` tagging.
 - **Gate:** flip `ITTU_MODULE_MODES={"takedown":"live"}`.
 - **Effort:** S–M. Highest-ROI first data feed.
-- **Status:** ✅ **Validated end-to-end against a real TRON wallet** (keyless public API): 95 live USDT transfers fetched + mapped (`data_mode=live`), full pipeline ran — Isolation Forest anomaly scores, `circular`/`structuring` typology detectors fired with Glass Box reasoning, graph 39 nodes/95 edges. Ready to enable via the mode flip; a `ITTU_TRONSCAN_API_KEY` only matters for rate limits at scale.
+- **Status:** ✅ **Validated end-to-end against a real TRON wallet** (keyless public API): 95 live USDT transfers fetched + mapped (`data_mode=live`), full pipeline ran — Isolation Forest anomaly scores, `circular`/`structuring` typology detectors fired with Glass Box reasoning, graph 39 nodes/95 edges. Ready to enable via the mode flip.
+- **Hardening (done):** bad/unknown address → clean 404 (not 500); upstream errors → clean 502/503 envelope (429 = retryable, hints the key) via an app-level `httpx.HTTPError` handler; **bounded + concurrent + resilient BFS** — per-hop breadth (12), pages/addr (2), total addresses (60), fetched in parallel (semaphore 3), with downstream-node failures skipped (logged partial graph) while a root-fetch error still surfaces. Whale `hops=3` trace **~53s → ~16s**. `ITTU_TRONSCAN_API_KEY` (free, TRONSCAN-only — TronGrid uses a separate key) authenticates the primary and lifts the free-tier 429s; POC path is unbounded + byte-identical.
 - **Demo nuance:** enabling `takedown=live` makes the Investigation screen query *real* chains — the seeded honeypot fixture wallet (`TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6`) won't resolve on-chain, so the scripted honeypot→investigation demo narrative needs POC fixtures. Keep `takedown=poc` for the seeded story; use `live` to investigate real wallets/cases (both coexist via MODE).
 
 ### A2 — Text channel (Telegram) · 🔴 build
