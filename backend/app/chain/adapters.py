@@ -181,6 +181,7 @@ class TronscanAdapter:
         resp = await self._client.get(
             f"{TRONGRID_BASE}/v1/accounts/{address}/transactions/trc20",
             params={"contract_address": USDT_TRC20, "limit": PAGE_SIZE},
+            headers=self._auth_headers(),  # TronGrid honors TRON-PRO-API-KEY too
         )
         resp.raise_for_status()
         payload = resp.json()
@@ -201,7 +202,9 @@ class TronscanAdapter:
         }
 
     async def balance(self, address: str) -> WalletBalance:
-        resp = await self._client.get(f"{TRONGRID_BASE}/v1/accounts/{address}")
+        resp = await self._client.get(
+            f"{TRONGRID_BASE}/v1/accounts/{address}", headers=self._auth_headers()
+        )
         resp.raise_for_status()
         data = (resp.json().get("data") or [{}])[0]
         return WalletBalance(

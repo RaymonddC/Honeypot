@@ -173,3 +173,36 @@ async def test_non_400_upstream_error_still_raises():
 
     with pytest.raises(httpx.HTTPStatusError):
         await adapter.fetch_transfers("TNXoiAJ3dct8Fjg4M9fkLFh9S2v9TXc32G")
+
+
+class _TronscanDownClient:
+    """TRONSCAN raises (forces the fallback); TronGrid answers + records its call."""
+
+    def __init__(self) -> None:
+        self.trongrid_call: dict | None = None
+
+    async def get(self, url, params=None, headers=None):
+        if "apilist.tronscanapi.com" in url:
+            raise httpx.ConnectError("tronscan unreachable")
+        self.trongrid_call = {"url": url, "params": params, "headers": headers}
+        return FakeResponse({"data": []})
+
+
+async def test_trongrid_fallback_also_sends_api_key():
+    """The API key must authenticate the TronGrid FALLBACK too — otherwise the
+    fallback hits TronGrid's stricter anonymous limits exactly when TRONSCAN is
+    already failing."""
+    adapter = _make_adapter(settings=Settings(tronscan_api_key="test-tron-key"))
+    adapter._client = _TronscanDownClient()
+
+    await adapter.fetch_transfers(ADDRESS)
+
+    assert adapter._client.trongrid_call["headers"]["TRON-PRO-API-KEY"] == "test-tron-key"
+
+
+async def test_balance_sends_api_key_header():
+    adapter = _make_adapter(settings=Settings(tronscan_api_key="test-tron-key"))
+
+    await adapter.balance(ADDRESS)
+
+    assert adapter._client.calls[-1]["headers"]["TRON-PRO-API-KEY"] == "test-tron-key"
