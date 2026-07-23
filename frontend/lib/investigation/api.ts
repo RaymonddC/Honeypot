@@ -370,69 +370,90 @@ export interface InvestigationResult {
   seedDetails: Record<string, WalletDetail>;
 }
 
-// A LIVE on-chain trace (bounded BFS + real API latency) can take tens of seconds
-// on a busy wallet; POC returns instantly. Use a generous ceiling so a slow live
-// trace completes instead of aborting to the mock fallback. Node-click /risk reads
-// stay on the fast default — they read already-scored data.
-const TRACE_TIMEOUT_MS = 120_000;
-
 // Full BFS depth for POC (fixtures are tiny). LIVE overrides this to 1 per-call.
 const MAX_HOPS = 3;
 
+// Async job polling: submit returns a job id instantly, then we poll. Each request
+// is quick (no long-held connection), so a slow trace can never time out — we just
+// keep polling until the job finishes or the overall ceiling is hit.
+const POLL_INTERVAL_MS = 1500;
+const POLL_MAX_MS = 180_000;
+const REQ_TIMEOUT_MS = 15_000; // per submit/poll HTTP call
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 /**
- * Run an investigation. In LIVE mode the result is HONEST — a reachable-but-empty
- * wallet, a rate-limit, or a provider error each get their own status and never a
- * fabricated mock graph. Mock is only the POC / offline-demo dataset.
+ * Run an investigation via the async job API: submit → poll → result. In LIVE mode
+ * the result is HONEST — a reachable-but-empty wallet, a rate-limit, or a provider
+ * error each get their own status and never a fabricated mock graph. Mock is only
+ * the POC / offline-demo dataset. Falls back gracefully to a synchronous backend
+ * (one that returns the graph inline) so a not-yet-updated server still works.
  */
 export async function runInvestigation(
   address: string,
   live = false,
 ): Promise<InvestigationResult> {
-  const enc = encodeURIComponent(address);
   // LIVE traces a busy wallet against real chains — keep it shallow (hops=1) so a
-  // whale returns a small, fast graph within the fetch window instead of hundreds
-  // of nodes. POC uses small deterministic fixtures, so full depth stays instant.
+  // whale returns a small graph fast. POC fixtures are tiny, so full depth is instant.
   const hops = live ? 1 : MAX_HOPS;
   let payload: any = null;
   let err: unknown = null;
+  let jobErrorCode: string | null = null;
 
+  // 1. Submit — fast; returns a job id (async backend) or, on an old server, the
+  //    full result inline. Never holds a long connection either way.
+  let submit: any = null;
   try {
-    payload = await request<any>(
+    submit = await request<any>(
       "/investigate",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ address, chain: "tron", hops }),
       },
-      TRACE_TIMEOUT_MS,
+      REQ_TIMEOUT_MS,
     );
   } catch (e) {
     err = e;
   }
 
-  // POST responded 200 but without a graph (older backend) → the graph read path.
-  if (!err && !payload?.graph) {
-    try {
-      const raw = await request<any>(
-        `/wallets/${enc}/graph?hops=${hops}`,
-        undefined,
-        TRACE_TIMEOUT_MS,
-      );
-      const mainRisk = await request<any>(`/wallets/${enc}/risk`).catch(
-        () => null,
-      );
-      payload = { graph: raw, scores: mainRisk ? { [address]: mainRisk } : {} };
-    } catch (e) {
-      err = e;
+  const jobIdRaw = submit ? (submit.job_id ?? submit.jobId) : undefined;
+  const jobId = jobIdRaw != null ? String(jobIdRaw) : undefined;
+
+  if (jobId) {
+    // 2. Async backend → poll the job to completion.
+    const deadline = Date.now() + POLL_MAX_MS;
+    while (Date.now() < deadline) {
+      await sleep(POLL_INTERVAL_MS);
+      let job: any;
+      try {
+        job = await request<any>(`/investigate/jobs/${jobId}`, undefined, REQ_TIMEOUT_MS);
+      } catch {
+        continue; // transient poll failure — keep trying until the deadline
+      }
+      if (job?.status === "done") {
+        payload = job.result;
+        break;
+      }
+      if (job?.status === "error") {
+        jobErrorCode = job.error?.code != null ? String(job.error.code) : "error";
+        break;
+      }
     }
+    if (!payload && !jobErrorCode) jobErrorCode = "error"; // polled past the ceiling
+  } else if (submit?.graph) {
+    payload = submit; // back-compat: a synchronous backend returned the graph inline
   }
 
+  // 3. Success → normalize graph + scores. An empty graph (no on-chain activity)
+  //    is a valid outcome, not an error.
   if (payload?.graph && !err) {
+    const rawNodes: unknown[] = payload.graph?.nodes ?? [];
+    if (rawNodes.length === 0) {
+      return { graph: { nodes: [], edges: [] }, source: "api", status: "empty", seedDetails: {} };
+    }
     const graph = normalizeGraph(payload, address);
     const scores: Record<string, any> = payload.scores ?? {};
-    if (graph.nodes.length === 0) {
-      return { graph, source: "api", status: "empty", seedDetails: {} };
-    }
     applyPeelHighlight(graph, scores);
     const seedDetails: Record<string, WalletDetail> = {};
     for (const [addr, riskObj] of Object.entries(scores)) {
@@ -444,20 +465,18 @@ export async function runInvestigation(
     return { graph, source: "api", status: "ok", seedDetails };
   }
 
-  // Failure. POC (or unknown mode) → the offline demo dataset. LIVE → honest state,
-  // NEVER mock: 404 = empty wallet, 503 = rate-limited, else = provider error.
+  // 4. Failure. POC (or unknown mode) → the offline demo dataset. LIVE → honest
+  //    state, NEVER mock: rate-limited / provider error / empty each map explicitly.
   if (!live) {
     const { graph, details } = buildMockInvestigation(address);
     return { graph, source: "mock", status: "mock", seedDetails: details };
   }
-  const status: TraceStatus =
-    err instanceof HttpError
-      ? err.status === 404
-        ? "empty"
-        : err.status === 503
-          ? "rate_limited"
-          : "error"
-      : "error"; // timeout / network / unreachable
+  let status: TraceStatus;
+  if (jobErrorCode === "provider_rate_limited") status = "rate_limited";
+  else if (jobErrorCode) status = "error";
+  else if (err instanceof HttpError)
+    status = err.status === 404 ? "empty" : err.status === 503 ? "rate_limited" : "error";
+  else status = "error"; // network / unreachable
   return { graph: { nodes: [], edges: [] }, source: "api", status, seedDetails: {} };
 }
 
