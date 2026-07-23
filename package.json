@@ -1,0 +1,17 @@
+{
+  "name": "ittu",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ITTU dev orchestrator — one command to run backend + frontend (+ infra).",
+  "scripts": {
+    "dev": "docker-compose up -d & concurrently -k -n backend,frontend -c blue,green \"npm:dev:backend\" \"npm:dev:frontend\"",
+    "start": "npm run dev",
+    "dev:backend": "cd backend && .venv\\Scripts\\python -m uvicorn app.main:app --reload",
+    "dev:frontend": "cd frontend && npm run dev",
+    "infra": "docker-compose up -d",
+    "infra:down": "docker-compose down"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}

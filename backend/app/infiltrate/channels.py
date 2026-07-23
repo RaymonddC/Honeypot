@@ -263,10 +263,22 @@ class ReplayChannelAdapter:
     channel = "telegram"
     channel_ref = SCAMMER_HANDLE
 
-    def __init__(self, settings: Settings | None = None, script: list[ScriptTurn] | None = None):
+    def __init__(
+        self,
+        settings: Settings | None = None,
+        script: list[ScriptTurn] | None = None,
+        channel: str | None = None,
+        channel_ref: str | None = None,
+    ):
         self._script = script if script is not None else REPLAY_SCRIPT
         self._cursor = 0
         self.sent: list[ChannelMessage] = []
+        # Per-scenario transport identity (scenarios.py) — defaults keep the
+        # original investment-scam replay unchanged.
+        if channel is not None:
+            self.channel = channel
+        if channel_ref is not None:
+            self.channel_ref = channel_ref
 
     async def receive(self) -> ChannelMessage | None:
         if self._cursor >= len(self._script):

@@ -3,17 +3,53 @@
 POST /api/investigate                      → {graph, scores}
 GET  /api/wallets/{address}/graph?hops=3   → {nodes, edges}
 GET  /api/wallets/{address}/risk           → risk score (+reasoning, patterns)
+GET  /api/takedown/model-card              → model metadata + Elliptic validation
 """
+
+from functools import lru_cache
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.core.adapters import ChainDataAdapter
+from app.takedown.elliptic import EllipticValidationReport, run_validation
+from app.takedown.features import FEATURE_ORDER
 from app.takedown.graph import MAX_HOPS
-from app.takedown.scoring import WalletScore
+from app.takedown.scoring import MODEL_VERSION, WalletScore
 from app.takedown.service import AdapterDep, investigate
 
 router = APIRouter(tags=["takedown"])
+
+# The 5 deterministic typology detectors (app/takedown/scoring.py).
+TYPOLOGY_DETECTORS = [
+    "peeling_chain", "rapid_relay", "circular", "structuring", "fan_out",
+]
+
+
+class ModelCard(BaseModel):
+    """TAKEDOWN anomaly-model card: what it is + how it validates."""
+
+    model_version: str
+    detector: str
+    unsupervised: bool
+    n_features: int
+    features: list[str]
+    typology_detectors: list[str]
+    elliptic_validation: EllipticValidationReport
+
+
+@lru_cache(maxsize=1)
+def _model_card() -> ModelCard:
+    """Built once per process — the Elliptic validation fit is cached."""
+    return ModelCard(
+        model_version=MODEL_VERSION,
+        detector="IsolationForest + 5 deterministic typology detectors",
+        unsupervised=True,
+        n_features=12,  # canonical feature count (volume counts once; see features.py)
+        features=list(FEATURE_ORDER),
+        typology_detectors=list(TYPOLOGY_DETECTORS),
+        elliptic_validation=run_validation(),
+    )
 
 
 class InvestigateRequest(BaseModel):
@@ -101,6 +137,16 @@ async def get_wallet_risk(
         raise _not_found(address)
     score = inv.scores[address]
     return WalletRiskResponse(data_mode=inv.data_mode, **score.model_dump())
+
+
+@router.get("/takedown/model-card", response_model=ModelCard)
+async def get_model_card() -> ModelCard:
+    """Model card for the wallet risk engine: the Isolation Forest config, its 12
+    features + 5 typology detectors, and its accuracy validated against the
+    Elliptic Data Set (ROC-AUC / precision / recall / F1). Substantiates the
+    proposal's 'anomaly model development has begun on Elliptic' claim with a
+    live, reproducible number."""
+    return _model_card()
 
 
 @router.get("/takedown/ping")

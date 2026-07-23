@@ -178,6 +178,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="border-t border-line px-2 py-2">
           <Link
+            href="/guide"
+            aria-current={pathname.startsWith("/guide") ? "page" : undefined}
+            className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
+              pathname.startsWith("/guide")
+                ? "bg-accent/10 font-medium text-accent-bright"
+                : "text-muted hover:bg-white/[.04] hover:text-fg"
+            }`}
+          >
+            <span className="w-4 text-center text-xs" aria-hidden>
+              ?
+            </span>
+            Guide
+          </Link>
+          <Link
             href="/settings"
             aria-current={pathname.startsWith("/settings") ? "page" : undefined}
             className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${

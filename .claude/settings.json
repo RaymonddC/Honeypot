@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker --version)",
+      "Bash(npm --version)",
+      "Bash(docker compose *)",
+      "Bash(docker info *)",
+      "Bash(powershell.exe -Command \"Start-Process 'Docker Desktop' -ErrorAction SilentlyContinue; Get-Process 'Docker Desktop' -ErrorAction SilentlyContinue\")",
+      "Bash(docker version *)",
+      "Bash(docker-compose up *)",
+      "Bash(docker-compose ps *)",
+      "Bash(python -m venv .venv)"
+    ]
+  }
+}

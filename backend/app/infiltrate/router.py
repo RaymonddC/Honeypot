@@ -1,6 +1,7 @@
 """INFILTRATE router — Honeypot console API (docs/API-Contract.md).
 
 GET  /api/personas                       → [persona]
+GET  /api/scenarios                       → [scenario]      # the 3 MVP scam typologies
 GET  /api/sessions                       → [scam_session]
 POST /api/sessions                       → scam_session   # start POC replay, runs loop+extraction
 GET  /api/sessions/{id}                  → scam_session
@@ -32,6 +33,7 @@ from app.infiltrate.service import (
     MessageOut,
     PersonaOut,
     RepoDep,
+    ScenarioOut,
     SessionOut,
     StartSessionRequest,
     SyndicateOut,
@@ -57,8 +59,15 @@ class ReviewRequest(BaseModel):
 
 @router.get("/personas", response_model=list[PersonaOut])
 async def get_personas() -> list[PersonaOut]:
-    """The honeypot persona pool (POC ships 'Bu Sari')."""
+    """The honeypot persona pool (one per scam scenario)."""
     return service.list_personas()
+
+
+@router.get("/scenarios", response_model=list[ScenarioOut])
+async def get_scenarios() -> list[ScenarioOut]:
+    """The 3 MVP honeypot scam scenarios — investment scam, judol deposit,
+    crypto phishing. Pass ``{\"scenario\": <key>}`` to POST /sessions to replay one."""
+    return service.list_scenarios()
 
 
 @router.get("/sessions", response_model=list[SessionOut])

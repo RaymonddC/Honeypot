@@ -23,7 +23,7 @@ from app.core.adapters import get_adapter
 from app.core.config import get_settings
 from app.infiltrate import classifier, extraction
 from app.infiltrate.agent import COVERT_TOOLS, AgentRun, _dispatch_tools, run_session
-from app.infiltrate.channels import ChannelAdapter
+from app.infiltrate.channels import ChannelAdapter, ReplayChannelAdapter
 from app.infiltrate.custody import GENESIS, MessageChain
 from app.infiltrate.gateway import (
     InteractiveScriptedGateway,
@@ -32,6 +32,7 @@ from app.infiltrate.gateway import (
     ScriptedLLMGateway,
 )
 from app.infiltrate.personas import Persona, all_personas, get_persona
+from app.infiltrate.scenarios import Scenario, all_scenarios, get_scenario
 from app.infiltrate.repository import (
     InfiltrateRepository,
     _memory_repository,
@@ -206,6 +207,11 @@ class SessionOut(BaseModel):
 
 
 class StartSessionRequest(BaseModel):
+    # Which of the 3 MVP scam scenarios to replay (POC text): investment_scam
+    # (default), judol_deposit, crypto_phishing. Selects the persona + scripted
+    # operator + transport identity (app/infiltrate/scenarios.py). Ignored for
+    # LIVE channels (no scripted replay) and voice (own script).
+    scenario: str | None = None
     persona_id: str | None = None
     channel: str | None = "telegram"
     channel_type: Literal["text", "voice"] = "text"
@@ -213,6 +219,16 @@ class StartSessionRequest(BaseModel):
     # Tier-B live call: start an OPEN session (persona greets, then waits for
     # POST /sessions/{id}/turn) instead of running the scripted replay.
     interactive: bool = False
+
+
+class ScenarioOut(BaseModel):
+    key: str
+    label: str
+    persona: PersonaOut
+    channel: str
+    channel_ref: str
+    expected_crime_type: str
+    turns: int
 
 
 class TurnRequest(BaseModel):
@@ -515,7 +531,9 @@ async def start_session(
     req: StartSessionRequest, channel: ChannelAdapter, gateway: LLMGateway,
     repo: InfiltrateRepository,
 ) -> SessionOut:
-    persona = get_persona(req.persona_id)
+    scenario = get_scenario(req.scenario)
+    # Persona: an explicit persona_id overrides; otherwise the scenario's own.
+    persona = get_persona(req.persona_id) if req.persona_id else scenario.persona
     if req.interactive:
         # Tier-B live call (docs/Live-Voice-Calls.md): open a session with just
         # the persona's greeting and wait for POST /sessions/{id}/turn — no
@@ -528,6 +546,20 @@ async def start_session(
         channel = get_voice_channel_adapter()
         if getattr(channel, "data_mode", "poc") == "poc":
             gateway = ScriptedLLMGateway(script=VOICE_SCRIPT)
+    elif (
+        getattr(channel, "data_mode", "poc") == "poc"
+        and getattr(gateway, "data_mode", "poc") == "poc"
+    ):
+        # POC text replay: swap in the SELECTED scenario's scripted operator +
+        # transport identity so a non-default scenario (judol/phishing) replays
+        # its own conversation. Default (investment_scam) reproduces the
+        # existing ProfitMax replay verbatim. LIVE channels are left untouched.
+        channel = ReplayChannelAdapter(
+            script=scenario.script,
+            channel=scenario.channel,
+            channel_ref=scenario.channel_ref,
+        )
+        gateway = ScriptedLLMGateway(script=scenario.script)
     run = await run_session(persona, channel, gateway)
     return await _build_session(run, persona, req, channel_type=req.channel_type, repo=repo)
 
@@ -884,3 +916,24 @@ def list_personas() -> list[PersonaOut]:
                    occupation=p.occupation.split(" (")[0], region=p.region)
         for p in all_personas()
     ]
+
+
+def _scenario_out(sc: Scenario) -> ScenarioOut:
+    p = sc.persona
+    return ScenarioOut(
+        key=sc.key,
+        label=sc.label,
+        persona=PersonaOut(
+            id=p.id, name=p.name, age=p.age,
+            occupation=p.occupation.split(" (")[0], region=p.region,
+        ),
+        channel=sc.channel,
+        channel_ref=sc.channel_ref,
+        expected_crime_type=sc.expected_crime_type,
+        turns=len(sc.script),
+    )
+
+
+def list_scenarios() -> list[ScenarioOut]:
+    """The 3 MVP honeypot scam scenarios (investment / judol / crypto-phishing)."""
+    return [_scenario_out(sc) for sc in all_scenarios()]

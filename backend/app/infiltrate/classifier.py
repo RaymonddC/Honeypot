@@ -39,6 +39,8 @@ _SIGNAL_BOOST: dict[str, dict[str, float]] = {
     "deposit_request": {"investment_scam": 1.0, "judol_deposit": 1.0},
     "fake_legitimacy": {"investment_scam": 1.0, "crypto_phishing": 0.5},
     "urgency_pressure": {"investment_scam": 0.5, "judol_deposit": 0.5},
+    # Seed-phrase / secret-recovery exfiltration is the crypto-phishing tell.
+    "seed_phrase_probe": {"crypto_phishing": 3.0},
 }
 
 
