@@ -376,6 +376,9 @@ export interface InvestigationResult {
 // stay on the fast default — they read already-scored data.
 const TRACE_TIMEOUT_MS = 60_000;
 
+// Full BFS depth for POC (fixtures are tiny). LIVE overrides this to 1 per-call.
+const MAX_HOPS = 3;
+
 /**
  * Run an investigation. In LIVE mode the result is HONEST — a reachable-but-empty
  * wallet, a rate-limit, or a provider error each get their own status and never a
@@ -386,6 +389,10 @@ export async function runInvestigation(
   live = false,
 ): Promise<InvestigationResult> {
   const enc = encodeURIComponent(address);
+  // LIVE traces a busy wallet against real chains — keep it shallow (hops=1) so a
+  // whale returns a small, fast graph within the fetch window instead of hundreds
+  // of nodes. POC uses small deterministic fixtures, so full depth stays instant.
+  const hops = live ? 1 : MAX_HOPS;
   let payload: any = null;
   let err: unknown = null;
 
@@ -395,7 +402,7 @@ export async function runInvestigation(
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address, chain: "tron" }),
+        body: JSON.stringify({ address, chain: "tron", hops }),
       },
       TRACE_TIMEOUT_MS,
     );
@@ -407,7 +414,7 @@ export async function runInvestigation(
   if (!err && !payload?.graph) {
     try {
       const raw = await request<any>(
-        `/wallets/${enc}/graph?hops=3`,
+        `/wallets/${enc}/graph?hops=${hops}`,
         undefined,
         TRACE_TIMEOUT_MS,
       );

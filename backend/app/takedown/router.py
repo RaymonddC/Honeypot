@@ -19,6 +19,10 @@ router = APIRouter(tags=["takedown"])
 class InvestigateRequest(BaseModel):
     address: str = Field(min_length=4)
     chain: str = "tron"
+    # BFS depth. Lower = smaller/faster graph. LIVE clients pass hops=1 for a
+    # responsive trace of a busy wallet (a whale at hops=3 fans out to hundreds
+    # of nodes and can outrun the browser's fetch timeout). Clamped to ≤MAX_HOPS.
+    hops: int = Field(default=MAX_HOPS, ge=1, le=MAX_HOPS)
 
 
 class GraphOut(BaseModel):
@@ -61,11 +65,11 @@ def _not_found(address: str) -> HTTPException:
 async def post_investigate(
     body: InvestigateRequest, adapter: ChainDataAdapter = AdapterDep
 ) -> InvestigateResponse:
-    """Ingest (BFS ≤3 hops) + score a wallet, return graph + per-wallet scores."""
-    inv = await investigate(body.address, adapter)
+    """Ingest (BFS ≤`hops`) + score a wallet, return graph + per-wallet scores."""
+    inv = await investigate(body.address, adapter, hops=body.hops)
     if inv is None:
         raise _not_found(body.address)
-    cyto = inv.cytoscape()
+    cyto = inv.cytoscape(hops=body.hops)
     return InvestigateResponse(
         address=body.address,
         chain=body.chain,
