@@ -34,6 +34,16 @@ import { apiFetch } from "@/lib/http";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+/** Honest outcome of a trace, so LIVE never renders fabricated mock data. */
+export type TraceStatus = "ok" | "empty" | "rate_limited" | "error" | "mock";
+
+/** Carries the HTTP status so callers can classify (404 empty / 503 rate-limited). */
+class HttpError extends Error {
+  constructor(readonly status: number) {
+    super(`HTTP ${status}`);
+  }
+}
+
 async function request<T>(
   path: string,
   init?: RequestInit,
@@ -46,7 +56,7 @@ async function request<T>(
       ...init,
       signal: ctrl.signal,
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw new HttpError(res.status);
     return (await res.json()) as T;
   } finally {
     clearTimeout(timer);
@@ -353,6 +363,8 @@ function txsFromGraph(address: string, graph?: WalletGraph): TxEntry[] {
 export interface InvestigationResult {
   graph: WalletGraph;
   source: DataSource;
+  /** Honest outcome for the UI — LIVE never returns "mock". */
+  status: TraceStatus;
   /** Pre-seeded wallet details (POST /investigate `scores`, or mock). */
   seedDetails: Record<string, WalletDetail>;
 }
@@ -363,13 +375,21 @@ export interface InvestigationResult {
 // stay on the fast default — they read already-scored data.
 const TRACE_TIMEOUT_MS = 60_000;
 
-/** POST /investigate (graph + scores inline); mock fallback on failure. */
+/**
+ * Run an investigation. In LIVE mode the result is HONEST — a reachable-but-empty
+ * wallet, a rate-limit, or a provider error each get their own status and never a
+ * fabricated mock graph. Mock is only the POC / offline-demo dataset.
+ */
 export async function runInvestigation(
   address: string,
+  live = false,
 ): Promise<InvestigationResult> {
+  const enc = encodeURIComponent(address);
+  let payload: any = null;
+  let err: unknown = null;
+
   try {
-    const enc = encodeURIComponent(address);
-    const kicked = await request<any>(
+    payload = await request<any>(
       "/investigate",
       {
         method: "POST",
@@ -377,26 +397,35 @@ export async function runInvestigation(
         body: JSON.stringify({ address, chain: "tron" }),
       },
       TRACE_TIMEOUT_MS,
-    ).catch(() => null);
+    );
+  } catch (e) {
+    err = e;
+  }
 
-    let graph: WalletGraph;
-    let scores: Record<string, any> = {};
-
-    if (kicked?.graph) {
-      graph = normalizeGraph(kicked, address);
-      scores = kicked.scores ?? {};
-    } else {
-      // POST unavailable — fall back to the graph + main-wallet risk reads.
-      const raw = await request<any>(`/wallets/${enc}/graph?hops=3`, undefined, TRACE_TIMEOUT_MS);
-      graph = normalizeGraph(raw, address);
+  // POST responded 200 but without a graph (older backend) → the graph read path.
+  if (!err && !payload?.graph) {
+    try {
+      const raw = await request<any>(
+        `/wallets/${enc}/graph?hops=3`,
+        undefined,
+        TRACE_TIMEOUT_MS,
+      );
       const mainRisk = await request<any>(`/wallets/${enc}/risk`).catch(
         () => null,
       );
-      if (mainRisk) scores = { [address]: mainRisk };
+      payload = { graph: raw, scores: mainRisk ? { [address]: mainRisk } : {} };
+    } catch (e) {
+      err = e;
     }
+  }
 
+  if (payload?.graph && !err) {
+    const graph = normalizeGraph(payload, address);
+    const scores: Record<string, any> = payload.scores ?? {};
+    if (graph.nodes.length === 0) {
+      return { graph, source: "api", status: "empty", seedDetails: {} };
+    }
     applyPeelHighlight(graph, scores);
-
     const seedDetails: Record<string, WalletDetail> = {};
     for (const [addr, riskObj] of Object.entries(scores)) {
       const node = graph.nodes.find((n) => n.id === addr);
@@ -404,12 +433,24 @@ export async function runInvestigation(
       d.transactions = txsFromGraph(addr, graph);
       seedDetails[addr] = d;
     }
-
-    return { graph, source: "api", seedDetails };
-  } catch {
-    const { graph, details } = buildMockInvestigation(address);
-    return { graph, source: "mock", seedDetails: details };
+    return { graph, source: "api", status: "ok", seedDetails };
   }
+
+  // Failure. POC (or unknown mode) → the offline demo dataset. LIVE → honest state,
+  // NEVER mock: 404 = empty wallet, 503 = rate-limited, else = provider error.
+  if (!live) {
+    const { graph, details } = buildMockInvestigation(address);
+    return { graph, source: "mock", status: "mock", seedDetails: details };
+  }
+  const status: TraceStatus =
+    err instanceof HttpError
+      ? err.status === 404
+        ? "empty"
+        : err.status === 503
+          ? "rate_limited"
+          : "error"
+      : "error"; // timeout / network / unreachable
+  return { graph: { nodes: [], edges: [] }, source: "api", status, seedDetails: {} };
 }
 
 /** GET /wallets/{addr}/risk for a clicked node; mock fallback on failure. */
