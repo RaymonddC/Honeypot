@@ -34,8 +34,9 @@ import { apiFetch } from "@/lib/http";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-/** Honest outcome of a trace, so LIVE never renders fabricated mock data. */
-export type TraceStatus = "ok" | "empty" | "rate_limited" | "error" | "mock";
+/** Honest outcome of a trace, so LIVE never renders fabricated mock data.
+ * "idle" = LIVE landing state before the analyst has traced anything. */
+export type TraceStatus = "idle" | "ok" | "empty" | "rate_limited" | "error" | "mock";
 
 /** Carries the HTTP status so callers can classify (404 empty / 503 rate-limited). */
 class HttpError extends Error {

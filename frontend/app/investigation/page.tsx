@@ -26,6 +26,11 @@ const STATUS_BADGE: Record<
   TraceStatus,
   { label: string; cls: string; title: string }
 > = {
+  idle: {
+    label: "● live",
+    cls: "border-accent/30 bg-accent/10 text-accent-bright",
+    title: "Live backend — enter a wallet to trace",
+  },
   ok: {
     label: "● live api",
     cls: "border-accent/30 bg-accent/10 text-accent-bright",
@@ -57,6 +62,10 @@ const STATUS_BADGE: Record<
 const STATE_PANEL: Record<TraceStatus, { title: string; sub: string }> = {
   ok: { title: "", sub: "" },
   mock: { title: "", sub: "" },
+  idle: {
+    title: "Enter a TRON wallet address to begin.",
+    sub: "Trace fund flows, score wallets, and flag laundering typologies on live on-chain data.",
+  },
   empty: {
     title: "No USDT-TRC20 activity found for this wallet.",
     sub: "Try a wallet that has moved USDT-TRC20 on TRON.",
@@ -150,13 +159,20 @@ export default function InvestigationPage() {
     [selectWallet],
   );
 
-  // Run the initial trace once, after MODE resolves — so a LIVE deployment doesn't
-  // briefly render the default with mock data before config loads.
+  // Run the initial trace once, after MODE resolves. POC auto-traces the demo
+  // fixture (the seeded story). LIVE stays idle with an empty input — the fixture
+  // is a POC address that only 404s on-chain, and auto-tracing a real wallet on
+  // every load would burn ~30s + rate-limit. The analyst types a real wallet.
   const didInit = useRef(false);
   useEffect(() => {
     if (didInit.current || !config) return;
     didInit.current = true;
-    void trace(DEFAULT_ADDRESS);
+    if (liveRef.current) {
+      setAddress("");
+      setStatus("idle");
+    } else {
+      void trace(DEFAULT_ADDRESS);
+    }
   }, [config, trace]);
 
   return (
@@ -192,7 +208,7 @@ export default function InvestigationPage() {
         className="mb-3.5 flex gap-2.5"
         onSubmit={(e) => {
           e.preventDefault();
-          if (!tracing) void trace(address);
+          if (!tracing && address.trim()) void trace(address.trim());
         }}
       >
         <div className="flex h-[38px] flex-1 items-center gap-2 rounded-lg border border-white/10 bg-card px-3">
@@ -221,7 +237,7 @@ export default function InvestigationPage() {
         </div>
         <button
           type="submit"
-          disabled={tracing}
+          disabled={tracing || !address.trim()}
           className="h-[38px] rounded-lg bg-accent px-4 text-xs font-semibold text-[#04140d] shadow-[0_0_16px_rgba(16,185,129,.28)] transition-colors hover:bg-accent-bright disabled:opacity-50"
         >
           {tracing ? "Tracing…" : "Trace wallet"}
