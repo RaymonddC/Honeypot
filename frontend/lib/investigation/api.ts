@@ -374,7 +374,7 @@ export interface InvestigationResult {
 // on a busy wallet; POC returns instantly. Use a generous ceiling so a slow live
 // trace completes instead of aborting to the mock fallback. Node-click /risk reads
 // stay on the fast default — they read already-scored data.
-const TRACE_TIMEOUT_MS = 60_000;
+const TRACE_TIMEOUT_MS = 120_000;
 
 // Full BFS depth for POC (fixtures are tiny). LIVE overrides this to 1 per-call.
 const MAX_HOPS = 3;

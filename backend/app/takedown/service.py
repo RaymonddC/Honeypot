@@ -29,10 +29,10 @@ _log = logging.getLogger("app.takedown")
 # each hop's frontier CONCURRENTLY (bounded) so tracing stays responsive (~53s→~10s
 # on a whale). POC (small deterministic fixtures) is NEVER capped, so the seeded
 # demo graph is unchanged.
-LIVE_MAX_ADDRESSES_PER_HOP = 12
-LIVE_MAX_PAGES_PER_ADDRESS = 2
-LIVE_MAX_TOTAL_ADDRESSES = 60
-LIVE_CONCURRENCY = 3  # gentle on the free key tier — higher trips 429s
+LIVE_MAX_ADDRESSES_PER_HOP = 8
+LIVE_MAX_PAGES_PER_ADDRESS = 1
+LIVE_MAX_TOTAL_ADDRESSES = 25
+LIVE_CONCURRENCY = 4  # gentle on the free key tier — higher trips 429s
 
 
 async def _fetch_all_pages(
