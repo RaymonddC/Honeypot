@@ -143,13 +143,35 @@ def detect_rapid_relay(
     )
 
 
-def detect_circular(address: str, g: nx.MultiDiGraph) -> PatternResult:
-    """Cycles through the wallet (wash / mixing), via NetworkX simple_cycles."""
-    cycles = [
-        cycle
-        for cycle in nx.simple_cycles(nx.DiGraph(g), length_bound=CYCLE_LENGTH_BOUND)
-        if address in cycle and len(cycle) >= 2
-    ]
+# Enumerating ALL simple cycles is exponential on a dense real-world graph, so cap
+# the count — the detector only needs "does this wallet sit on a cycle", not a
+# complete enumeration. Bounded length + this cap keeps a whale's scoring in ms.
+CYCLE_ENUM_CAP = 500
+
+
+def cycles_by_address(g: nx.MultiDiGraph) -> dict[str, list[list[str]]]:
+    """All (bounded, capped) simple cycles, indexed by each address they pass through.
+
+    Compute ONCE per investigation and pass each wallet its own slice — calling
+    ``nx.simple_cycles`` per wallet (× hundreds of wallets, over the full graph)
+    was the multi-minute hang on busy wallets.
+    """
+    import itertools
+
+    by_addr: dict[str, list[list[str]]] = {}
+    for cycle in itertools.islice(
+        nx.simple_cycles(nx.DiGraph(g), length_bound=CYCLE_LENGTH_BOUND), CYCLE_ENUM_CAP
+    ):
+        if len(cycle) < 2:
+            continue
+        for node in cycle:
+            by_addr.setdefault(node, []).append(cycle)
+    return by_addr
+
+
+def detect_circular(address: str, cycles: list[list[str]]) -> PatternResult:
+    """Cycles through the wallet (wash / mixing). ``cycles`` are the precomputed
+    simple cycles that pass through ``address`` (see ``cycles_by_address``)."""
     fired = bool(cycles)
     return PatternResult(
         name="circular",
@@ -302,13 +324,14 @@ def score_investigation(
         a: compute_features(a, transfers, chain_depth=depths.get(a, 0)) for a in addresses
     }
     iso = iso_forest_scores(features)
+    cycles_map = cycles_by_address(g)  # enumerate cycles ONCE, not per wallet
 
     scores: dict[str, WalletScore] = {}
     for a in addresses:
         patterns = [
             detect_peeling_chain(a, transfers),
             detect_rapid_relay(a, transfers, features[a]),
-            detect_circular(a, g),
+            detect_circular(a, cycles_map.get(a, [])),
             detect_structuring(a, transfers),
             detect_fan_out(a, transfers),
         ]

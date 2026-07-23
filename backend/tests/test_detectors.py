@@ -3,6 +3,7 @@
 from app.takedown.features import compute_features
 from app.takedown.graph import build_digraph
 from app.takedown.scoring import (
+    cycles_by_address,
     detect_circular,
     detect_fan_out,
     detect_peeling_chain,
@@ -56,14 +57,16 @@ def test_rapid_relay_negative_when_slow():
 
 def test_circular_fires_on_wash_cycle(fixture_transfers):
     g = build_digraph(fixture_transfers)
-    result = detect_circular(MULE1, g)
+    cmap = cycles_by_address(g)
+    result = detect_circular(MULE1, cmap.get(MULE1, []))
     assert result.fired
     assert any(MULE1 in c for c in result.evidence["cycles"])
 
 
 def test_circular_negative_outside_cycle(fixture_transfers):
     g = build_digraph(fixture_transfers)
-    assert not detect_circular(SOURCE, g).fired
+    cmap = cycles_by_address(g)
+    assert not detect_circular(SOURCE, cmap.get(SOURCE, [])).fired
 
 
 # --- structuring -------------------------------------------------------------
