@@ -116,3 +116,88 @@ body {
     animation: none; /* waveform renders static, captions appear instantly */
   }
 }
+
+/* ── Login — restrained, formal motion (ELSA emerald on black only) ──────── */
+
+/* Content settles in from just below — slow, no bounce. */
+@keyframes login-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.login-rise {
+  animation: login-rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* The emerald ambient glow breathes very slowly behind the card. */
+@keyframes login-breathe {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.login-breathe {
+  animation: login-breathe 8s ease-in-out infinite;
+}
+
+/* Quiet "secure session" heartbeat — a soft emerald ring. */
+@keyframes login-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 5px rgba(16, 185, 129, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+.login-pulse {
+  animation: login-pulse 2.6s ease-out infinite;
+}
+
+/* Money flows along the graph edges — a slow travelling dash. */
+@keyframes login-flow {
+  to {
+    stroke-dashoffset: -28;
+  }
+}
+.login-flow {
+  stroke-dasharray: 2 10;
+  animation: login-flow 2.4s linear infinite;
+}
+
+/* Graph nodes breathe softly. */
+@keyframes login-node {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+.login-node {
+  animation: login-node 4.5s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-rise,
+  .login-breathe,
+  .login-pulse,
+  .login-flow,
+  .login-node {
+    animation: none;
+    opacity: 1;
+  }
+}

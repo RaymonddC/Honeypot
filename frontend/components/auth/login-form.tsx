@@ -55,7 +55,7 @@ export function LoginForm() {
   const dispatch = canDispatch(role);
 
   return (
-    <div className="w-full max-w-sm rounded-xl border border-line bg-card p-4">
+    <div className="w-full rounded-xl border border-line bg-card p-4">
       {/* Agency picker — compact 2-col tile grid */}
       <fieldset>
         <legend className="eyebrow pb-1.5">Agency</legend>
