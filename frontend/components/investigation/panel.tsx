@@ -240,17 +240,9 @@ export function InvestigationPanel({
               void trace(toAddr);
             }}
           />
-          {onSendToActions ? (
-            <button
-              type="button"
-              disabled={!selected}
-              onClick={() => selected && onSendToActions(selected)}
-              title={selected ? "Package this wallet for freeze / STR" : "Trace a wallet first"}
-              className="h-8 rounded-lg bg-accent px-3.5 text-xs font-semibold text-[#04140d] shadow-[0_0_16px_rgba(16,185,129,.28)] transition-colors hover:bg-accent-bright disabled:opacity-50"
-            >
-              Send to Action Panel →
-            </button>
-          ) : (
+          {/* Standalone gets a plain link; embedded uses the contextual
+              "Package for action" button on the verdict banner (no duplicate). */}
+          {!onSendToActions && (
             <Link
               href="/actions"
               className="flex h-8 items-center rounded-lg bg-accent px-3.5 text-xs font-semibold text-[#04140d] shadow-[0_0_16px_rgba(16,185,129,.28)] transition-colors hover:bg-accent-bright"
@@ -260,15 +252,6 @@ export function InvestigationPanel({
           )}
         </div>
       </div>
-
-      {embedded && (
-        <div className="mb-3.5 rounded-lg border border-accent/20 bg-accent/[.05] px-3 py-2 text-[11px] leading-relaxed text-muted">
-          <b className="text-accent-bright">Takedown</b> — score the wallets Trace
-          surfaced to find the collection wallet & the syndicate behind it. Trace a
-          wallet, click any node to read the <b className="text-white/70">Glass Box</b>{" "}
-          reasoning, then package the risky ones for action.
-        </div>
-      )}
 
       {/* ── search bar ─────────────────────────────────────────────── */}
       <form
@@ -370,11 +353,16 @@ export function InvestigationPanel({
           <p className="min-w-0 flex-1 text-[11.5px] leading-snug text-fg/80">
             {RISK_RECO[detail.risk]}
           </p>
-          {onSendToActions && (detail.risk === "high" || detail.risk === "exchange") && (
+          {onSendToActions && (
             <button
               type="button"
               onClick={() => onSendToActions(detail.address)}
-              className="h-8 flex-none rounded-lg bg-accent px-3 text-xs font-semibold text-[#04140d] transition-colors hover:bg-accent-bright"
+              title="Take this wallet to the Report desk (freeze / STR)"
+              className={`h-8 flex-none rounded-lg px-3 text-xs font-semibold transition-colors ${
+                detail.risk === "high" || detail.risk === "exchange"
+                  ? "bg-accent text-[#04140d] hover:bg-accent-bright"
+                  : "border border-accent/40 bg-accent/10 text-accent-bright hover:bg-accent/20"
+              }`}
             >
               Package for action →
             </button>

@@ -120,16 +120,6 @@ export function BridgePanel({
         </div>
       </div>
 
-      {embedded && (
-        <div className="mb-3.5 rounded-lg border border-accent/20 bg-accent/[.05] px-3 py-2 text-[11px] leading-relaxed text-muted">
-          <b className="text-accent-bright">Trace</b> — follow the money across the
-          fiat→crypto bridge. The Sankey maps where funds flowed; the feed ranks
-          suspected on-ramps; your tracked accounts light up{" "}
-          <b className="text-white/70">in flow</b> when they appear. Then hand the
-          exit wallets to Takedown.
-        </div>
-      )}
-
       {data && !loading ? (
         <>
           {/* ── stat row ───────────────────────────────────────────── */}

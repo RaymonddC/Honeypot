@@ -48,36 +48,75 @@ async function entitiesForCase(
   }
 }
 
-export function ActionsPanel({ embedded = false }: { embedded?: boolean }) {
+// One bundle per (case · outputs · input-data version). Every POST
+// /actions/generate creates a NEW bundle row on the case, so flipping tabs
+// must reuse the last one — only "Generate" (force) or changed case data
+// produces a fresh bundle. Module-level: survives tab switches (unmounts).
+const bundleCache = new Map<string, ActionBundle>();
+
+export function ActionsPanel({
+  embedded = false,
+  outputs,
+  cacheSalt,
+}: {
+  embedded?: boolean;
+  /** Which documents to produce (e.g. ["freeze"] on the Freeze stage); omit = full set. */
+  outputs?: string[];
+  /** Changes when the case's input entities change → invalidates the cached bundle. */
+  cacheSalt?: string;
+}) {
   const { activeCase } = useCases();
-  const [bundle, setBundle] = useState<ActionBundle | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Stable key parts (array identity must not retrigger the effect).
+  const outputsKey = outputs && outputs.length ? [...outputs].sort().join(",") : "all";
+  const cacheKey = `${activeCase?.id ?? "demo"}|${outputsKey}|${cacheSalt ?? "-"}`;
+  const freezeOnly = outputsKey === "freeze";
+
+  const [bundle, setBundle] = useState<ActionBundle | null>(
+    () => bundleCache.get(cacheKey) ?? null,
+  );
+  const [loading, setLoading] = useState(!bundleCache.has(cacheKey));
   const [dispatching, setDispatching] = useState(false);
   const loadSeq = useRef(0);
 
-  const generate = useCallback(async () => {
-    const seq = ++loadSeq.current;
-    setLoading(true);
-    // Action the ACTIVE case's own entities (falls back to the demo fixture
-    // when there's no case or the case has no tracked data yet).
-    const entities = activeCase ? await entitiesForCase(activeCase.id) : [];
-    const result = await generateActions({ caseId: activeCase?.id, entities });
-    if (seq !== loadSeq.current) return; // superseded
-    setBundle(result);
-    setLoading(false);
-  }, [activeCase]);
+  const generate = useCallback(
+    async (force: boolean) => {
+      const cached = bundleCache.get(cacheKey);
+      if (!force && cached) {
+        setBundle(cached);
+        setLoading(false);
+        return;
+      }
+      const seq = ++loadSeq.current;
+      setLoading(true);
+      // Action the ACTIVE case's own entities (falls back to the demo fixture
+      // when there's no case or the case has no tracked data yet).
+      const entities = activeCase ? await entitiesForCase(activeCase.id) : [];
+      const result = await generateActions({
+        caseId: activeCase?.id,
+        crimeType: activeCase?.crime_type ?? undefined,
+        outputs: outputsKey === "all" ? undefined : outputsKey.split(","),
+        entities,
+      });
+      if (seq !== loadSeq.current) return; // superseded
+      bundleCache.set(cacheKey, result);
+      setBundle(result);
+      setLoading(false);
+    },
+    [activeCase, cacheKey, outputsKey],
+  );
 
   useEffect(() => {
-    void generate();
+    void generate(false);
   }, [generate]);
 
   const dispatch = useCallback(async () => {
     if (!bundle || bundle.dispatched) return;
     setDispatching(true);
     const result = await dispatchActions(bundle);
+    bundleCache.set(cacheKey, result);
     setBundle(result);
     setDispatching(false);
-  }, [bundle]);
+  }, [bundle, cacheKey]);
 
   return (
     <div className={embedded ? "" : "mx-auto max-w-[1200px]"}>
@@ -114,10 +153,15 @@ export function ActionsPanel({ embedded = false }: { embedded?: boolean }) {
           <button
             type="button"
             disabled={loading}
-            onClick={() => void generate()}
+            onClick={() => void generate(true)}
+            title="Regenerate from the case's current accounts & wallets"
             className="h-8 rounded-lg bg-accent px-3.5 text-xs font-semibold text-[#04140d] shadow-[0_0_16px_rgba(16,185,129,.28)] transition-colors hover:bg-accent-bright disabled:opacity-50"
           >
-            {loading ? "Generating…" : "⎙ Generate all documents"}
+            {loading
+              ? "Generating…"
+              : freezeOnly
+                ? "⎙ Regenerate freeze request"
+                : "⎙ Regenerate all documents"}
           </button>
         </div>
       </div>
@@ -149,7 +193,9 @@ export function ActionsPanel({ embedded = false }: { embedded?: boolean }) {
         </>
       ) : (
         <div className="grid h-[420px] animate-pulse place-items-center rounded-card border border-line bg-card text-[11px] text-muted">
-          Assembling freeze request · LTKM draft · multi-agency alert…
+          {freezeOnly
+            ? "Assembling the account-blocking freeze request…"
+            : "Assembling freeze request · LTKM draft · multi-agency alert…"}
         </div>
       )}
 

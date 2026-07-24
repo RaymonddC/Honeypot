@@ -12,7 +12,6 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useCases } from "@/components/cases/case-provider";
-import { generateActions } from "@/lib/actions/api";
 import { addBankAccount, addCryptoTransfer } from "@/lib/casedata/api";
 import { CASE_STAGES, fetchRollup, type Case, type CaseRollup, type CaseStage } from "@/lib/cases/api";
 import { HoneypotPanel } from "@/components/honeypot/panel";
@@ -69,6 +68,24 @@ const STAGE_HINT: Record<CaseStage, string> = {
   report: "Package evidence + file STR/LTKM",
   recovery: "Recover funds",
   closed: "Case done",
+};
+
+// One line of "what to do at this stage" — the single source of stage guidance.
+// (Replaces the per-panel guide strips; no more double banners.)
+const VIEW_GUIDE: Record<CaseStage, string> = {
+  intake:
+    "Log the submitted victim report, or run a honeypot — both feed this case.",
+  freeze:
+    "Emergency step: generate the account-blocking request and dispatch it before the money moves. The formal STR comes later, at Report.",
+  trace:
+    "Follow the money across the fiat→crypto bridge. Your accounts light up “in flow”; hand the exit wallets to Takedown.",
+  takedown:
+    "Score the wallets Trace surfaced to find the collection wallet. Click a node for the Glass Box reasoning, then package the risky ones.",
+  report:
+    "Formal filing: STR / LTKM to PPATK (goAML), the multi-agency alert and the evidence bundle — every artifact hashed into custody.",
+  recovery:
+    "Get the frozen funds back to the victim. Confirm the freeze landed, then record the outcome to close the case.",
+  closed: "Case closed — outcome recorded.",
 };
 
 // Per-stage action: the task, the module to do it in, and the checklist that
@@ -286,22 +303,22 @@ function NextAction({
   rollup,
   onAdvance,
   onFreeze,
-  freezing,
   onOpen,
 }: {
   stage: CaseStage;
   rollup: CaseRollup | null;
   onAdvance: (s: CaseStage) => void;
+  /** Jump to the freeze desk — the ONE place freeze requests are generated. */
   onFreeze: () => void;
-  freezing: boolean;
   onOpen: () => void;
 }) {
   const a = stageAction(stage, rollup);
   const idx = CASE_STAGES.indexOf(stage);
   const nextStage = CASE_STAGES[idx + 1];
   const allDone = a.checks.length > 0 && a.checks.every((c) => c.done);
-  // The time-critical shortcut: on Intake/Freeze, freeze the reported account now.
-  const canFreeze = (stage === "intake" || stage === "freeze") && (rollup?.counts.bank_accounts ?? 0) > 0;
+  // The time-critical shortcut: on Intake, jump straight to the freeze desk
+  // once there's an account to block (on Freeze the main CTA already goes there).
+  const canFreeze = stage === "intake" && (rollup?.counts.bank_accounts ?? 0) > 0;
   return (
     <div className="rounded-card border border-accent/30 bg-accent/[.05] p-3.5">
       <div className="flex items-start justify-between gap-3">
@@ -317,10 +334,9 @@ function NextAction({
             <button
               type="button"
               onClick={onFreeze}
-              disabled={freezing}
-              className="h-8 whitespace-nowrap rounded-lg border border-risk-high/50 bg-risk-high/15 px-3.5 text-xs font-semibold text-risk-high transition-colors hover:bg-risk-high/25 disabled:opacity-60"
+              className="h-8 whitespace-nowrap rounded-lg border border-risk-high/50 bg-risk-high/15 px-3.5 text-xs font-semibold text-risk-high transition-colors hover:bg-risk-high/25"
             >
-              {freezing ? "Freezing…" : "⚡ Freeze now"}
+              ⚡ Freeze now →
             </button>
           )}
           <button
@@ -352,7 +368,8 @@ function NextAction({
         </ul>
       )}
 
-      {allDone && nextStage && (
+      {/* Closing is NOT an advance — it goes through Recovery's "Record outcome". */}
+      {allDone && nextStage && nextStage !== "closed" && (
         <button
           type="button"
           onClick={() => onAdvance(nextStage)}
@@ -439,12 +456,13 @@ function IntakeStage({
   caseId,
   banks,
   onLogged,
-  onAdvanceFreeze,
+  onDone,
 }: {
   caseId: string;
   banks: CaseRollup["bank_accounts"];
   onLogged: () => Promise<void>;
-  onAdvanceFreeze: () => void;
+  /** Report logged → advance to Freeze; true = jump straight to the freeze desk. */
+  onDone: (continueToFreeze: boolean) => void;
 }) {
   const [mode, setMode] = useState<"report" | "honeypot">("report");
   const [form, setForm] = useState({ bank_name: "", account_number: "", holder_name: "" });
@@ -464,23 +482,11 @@ function IntakeStage({
         category: "scam",
         case_id: caseId,
       });
-      if (freezeNow) {
-        await generateActions({
-          caseId,
-          outputs: ["freeze"],
-          entities: [
-            {
-              type: "bank_account",
-              value: form.account_number.trim(),
-              bank_name: form.bank_name.trim() || null,
-              holder_name: form.holder_name.trim() || null,
-            },
-          ],
-        });
-      }
-      onAdvanceFreeze();
       setForm({ bank_name: "", account_number: "", holder_name: "" });
+      // Refresh FIRST so the freeze desk generates from the just-logged account
+      // (generation happens there — one desk, no duplicate bundles).
       await onLogged();
+      onDone(freezeNow);
     } catch (e2) {
       setErr(e2 instanceof Error ? e2.message : "Failed to log the report");
     } finally {
@@ -550,8 +556,9 @@ function IntakeStage({
               <input type="checkbox" checked={freezeNow} onChange={(e) => setFreezeNow(e.target.checked)}
                 className="h-4 w-4 accent-[#10b981]" />
               <span className="text-[12px] text-fg">
-                <b className="text-accent-bright">Generate freeze request now</b> — freeze the
-                receiving account first, trace later (the real 30-min window). Advances the case to Freeze.
+                <b className="text-accent-bright">Continue to the freeze desk now</b> — jump
+                straight to generating &amp; dispatching the blocking request (the real
+                30-min window). Freeze first, trace later.
               </span>
             </label>
 
@@ -563,7 +570,7 @@ function IntakeStage({
 
             <button type="submit" disabled={busy}
               className="h-9 w-full rounded-lg bg-accent px-4 text-xs font-semibold text-[#04140d] transition-colors hover:bg-accent-bright disabled:opacity-60">
-              {busy ? "Working…" : freezeNow ? "Log report & freeze →" : "Log report →"}
+              {busy ? "Working…" : freezeNow ? "Log report & continue to Freeze →" : "Log report →"}
             </button>
           </form>
 
@@ -650,12 +657,6 @@ function RecoveryStage({
 
   return (
     <div>
-      <div className="mb-3.5 rounded-lg border border-accent/20 bg-accent/[.05] px-3 py-2 text-[11px] leading-relaxed text-muted">
-        <b className="text-accent-bright">Recovery</b> — get the frozen funds back
-        to the victim. Confirm the freeze landed, then record the outcome to close
-        the case.
-      </div>
-
       <div className="mb-3.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <StatTile
           label="Crypto exposure"
@@ -687,7 +688,28 @@ function RecoveryStage({
               </li>
             ))}
           </ul>
-          {!dispatched && (
+          {dispatched ? (
+            <div className="mt-3 border-t border-line pt-2.5">
+              <div className="mb-1.5 text-[10px] uppercase tracking-wide text-muted">
+                Dispatched to agencies
+              </div>
+              <ul className="space-y-1">
+                {docs
+                  .filter((d) => d.status === "dispatched")
+                  .map((d) => (
+                    <li
+                      key={d.id}
+                      className="flex items-center justify-between rounded-lg bg-elevated px-2.5 py-1.5 text-[11px]"
+                    >
+                      <span className="font-mono text-fg">{d.document_count} docs</span>
+                      <span className="text-[10px] text-accent-bright">
+                        {d.crime_type} · dispatched
+                      </span>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          ) : (
             <p className="mt-3 text-[11px] text-muted">
               No freeze dispatched yet — generate &amp; dispatch it from the
               Freeze / Report step first.
@@ -769,7 +791,6 @@ export default function CaseFilePage() {
   const [bank, setBank] = useState({ bank_name: "", account_number: "", holder_name: "", category: "mule" });
   const [tx, setTx] = useState({ from_addr: "", to_addr: "", value: "", category: "scam" });
   const [busy, setBusy] = useState(false);
-  const [freezing, setFreezing] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -787,9 +808,11 @@ export default function CaseFilePage() {
     }
   }, [activeCase]);
 
+  // Reload on every view switch too — work done inside a stage tool (a dispatch,
+  // a honeypot session, an added transfer) must show the moment you come back.
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, view]);
 
   const submitBank = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -836,31 +859,6 @@ export default function CaseFilePage() {
       setErr(e2 instanceof Error ? e2.message : "Failed to add transfer");
     } finally {
       setBusy(false);
-    }
-  };
-
-  // Fast freeze: generate a freeze request for the case's tracked accounts.
-  const generateFreeze = async () => {
-    if (!activeCase || !rollup) return;
-    setFreezing(true);
-    setErr(null);
-    try {
-      const entities = rollup.bank_accounts.map((b) => ({
-        type: "bank_account",
-        value: String(b.account_number),
-        bank_name: (b.bank_name as string) ?? null,
-        holder_name: (b.holder_name as string) ?? null,
-      }));
-      await generateActions({
-        caseId: activeCase.id,
-        outputs: ["freeze"],
-        entities,
-      });
-      await load();
-    } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Freeze generation failed");
-    } finally {
-      setFreezing(false);
     }
   };
 
@@ -923,7 +921,11 @@ export default function CaseFilePage() {
   const firstWallet = caseWallets[0];
   const viewTool = view === "overview" ? "overview" : STAGE_TAB[view];
   const viewToolLabel =
-    view === "intake" ? "Victim report or Honeypot" : TOOL_META[viewTool].label;
+    view === "intake"
+      ? "Victim report or Honeypot"
+      : view === "recovery"
+        ? "Recovery review"
+        : TOOL_META[viewTool].label;
 
   return (
     <div className={`mx-auto ${viewTool === "overview" ? "max-w-[1000px]" : "max-w-[1320px]"}`}>
@@ -1048,23 +1050,23 @@ export default function CaseFilePage() {
         />
       </div>
 
-      {/* when a stage's tool is open, a slim strip names it + lets you set/return */}
-      {viewTool !== "overview" && view !== "overview" && (
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-accent/20 bg-accent/[.05] px-3 py-1.5 text-[11px]">
-          <span className="text-muted">
-            <b className="text-accent-bright">{STAGE_LABEL[view]}</b> stage ·{" "}
-            {viewToolLabel} — work here attaches to{" "}
-            <b className="text-white/70">{activeCase.title}</b>.
-          </span>
-          <div className="flex flex-none items-center gap-3">
-            {view !== activeCase.stage && (
+      {/* the ONE stage banner: what to do here + set/return controls */}
+      {view !== "overview" && (
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-1.5 rounded-lg border border-accent/20 bg-accent/[.05] px-3 py-2">
+          <p className="min-w-0 flex-1 text-[11.5px] leading-relaxed text-muted">
+            <b className="text-accent-bright">{STAGE_LABEL[view]}</b>{" "}
+            <span className="text-white/45">· {viewToolLabel}</span> —{" "}
+            {VIEW_GUIDE[view]}
+          </p>
+          <div className="flex flex-none items-center gap-3 pt-0.5 text-[11px]">
+            {view !== activeCase.stage && view !== "closed" && (
               <button
                 type="button"
                 onClick={() => void advanceStage(activeCase.id, view)}
                 className="font-semibold text-accent-bright hover:underline"
                 title="Mark the case as being at this stage"
               >
-                Set case to {STAGE_LABEL[view]}
+                Set as current stage
               </button>
             )}
             <button
@@ -1083,7 +1085,10 @@ export default function CaseFilePage() {
           caseId={activeCase.id}
           banks={banks}
           onLogged={load}
-          onAdvanceFreeze={() => void advanceStage(activeCase.id, "freeze")}
+          onDone={(continueToFreeze) => {
+            void advanceStage(activeCase.id, "freeze");
+            if (continueToFreeze) openView("freeze");
+          }}
         />
       )}
       {viewTool === "bridge" && (
@@ -1098,7 +1103,14 @@ export default function CaseFilePage() {
           onSendToActions={() => openView("report")}
         />
       )}
-      {viewTool === "actions" && <ActionsPanel embedded />}
+      {viewTool === "actions" && (view === "freeze" || view === "report") && (
+        <ActionsPanel
+          embedded
+          key={view}
+          outputs={view === "freeze" ? ["freeze"] : undefined}
+          cacheSalt={`${banks.length}.${caseWallets.length}`}
+        />
+      )}
 
       {view === "recovery" && (
         <RecoveryStage
@@ -1125,8 +1137,7 @@ export default function CaseFilePage() {
           stage={activeCase.stage}
           rollup={rollup}
           onAdvance={(s) => void advanceStage(activeCase.id, s)}
-          onFreeze={() => void generateFreeze()}
-          freezing={freezing}
+          onFreeze={() => openView("freeze")}
           onOpen={() => openView(activeCase.stage)}
         />
       </div>
