@@ -17,6 +17,8 @@ export interface CryptoTxInput {
   value: number;
   ts: string; // ISO
   chain?: string;
+  /** On-chain tx hash (optional — the backend mints one when absent). */
+  tx_hash?: string | null;
   category?: string;
   note?: string;
   case_id?: string | null;

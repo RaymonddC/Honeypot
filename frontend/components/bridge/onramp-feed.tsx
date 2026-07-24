@@ -1,10 +1,85 @@
+"use client";
+
 /**
  * Suspected on-ramps alert feed — confidence-ranked fiat↔crypto correlation
- * matches (mockup .alert rows: score · "Mule cluster → exchange" · meta).
+ * matches. Each row is a real crypto leg (launderer wallet → exchange hot
+ * wallet), so inside a case you can:
+ *   · + case  — save it as a case transfer (both wallets land in Takedown)
+ *   · trace → — jump straight to Takedown on the launderer wallet
+ * That's what makes Trace's findings usable in Takedown.
  */
 
+import { useState } from "react";
+import { useCases } from "@/components/cases/case-provider";
+import { addCryptoTransfer } from "@/lib/casedata/api";
 import type { OnRampAlert } from "@/lib/bridge/types";
 import { confidenceColor } from "@/lib/bridge/types";
+
+function AlertActions({
+  a,
+  onTrace,
+}: {
+  a: OnRampAlert;
+  onTrace?: (addr: string) => void;
+}) {
+  const { activeCaseId } = useCases();
+  const [state, setState] = useState<"idle" | "busy" | "done" | "err">("idle");
+  const canSave =
+    Boolean(activeCaseId) &&
+    Boolean(a.wallet && a.toAddr) &&
+    (a.valueUsdt ?? 0) > 0;
+
+  const save = async () => {
+    if (!canSave) return;
+    setState("busy");
+    try {
+      await addCryptoTransfer({
+        from_addr: a.wallet as string,
+        to_addr: a.toAddr as string,
+        value: a.valueUsdt as number,
+        ts: a.ts ?? new Date().toISOString(),
+        chain: "tron",
+        tx_hash: a.txHash ?? undefined,
+        category: "suspect",
+        case_id: activeCaseId,
+      });
+      setState("done");
+    } catch {
+      setState("err");
+    }
+  };
+
+  return (
+    <div className="flex flex-none items-center gap-1.5">
+      {canSave &&
+        (state === "done" ? (
+          <span className="text-[9.5px] font-semibold text-accent-bright" title="Saved as a case transfer → Takedown">
+            ✓ in case
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={save}
+            disabled={state === "busy"}
+            title="Save this on-ramp as a case transfer (feeds Takedown)"
+            className="rounded-md border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent-bright transition-colors hover:bg-accent/20 disabled:opacity-50"
+          >
+            {state === "busy" ? "…" : state === "err" ? "retry" : "+ case"}
+          </button>
+        ))}
+      {onTrace && a.wallet && (
+        <button
+          type="button"
+          onClick={() => onTrace(a.wallet as string)}
+          title={`Trace ${a.wallet} in Takedown`}
+          className="rounded-md border border-line px-1.5 py-0.5 text-[9.5px] font-semibold text-muted transition-colors hover:text-fg"
+        >
+          trace →
+        </button>
+      )}
+    </div>
+  );
+}
 
 export function OnRampFeed({
   alerts,
@@ -41,16 +116,7 @@ export function OnRampFeed({
                 {a.meta}
               </small>
             </div>
-            {onTrace && a.wallet && (
-              <button
-                type="button"
-                onClick={() => onTrace(a.wallet as string)}
-                title={`Trace ${a.wallet} in Takedown`}
-                className="flex-none rounded-md border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent-bright transition-colors hover:bg-accent/20"
-              >
-                trace →
-              </button>
-            )}
+            <AlertActions a={a} onTrace={onTrace} />
           </div>
         ))
       ) : (

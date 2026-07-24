@@ -49,8 +49,16 @@ export interface OnRampAlert {
   title: string;
   /** e.g. "Rp 48.2M · Δt 12 min · amount match 99.1%". */
   meta: string;
-  /** The crypto wallet that fed the exchange — hand off to Takedown to trace. */
+  /** The crypto wallet that fed the exchange (from_addr) — Takedown trace target. */
   wallet?: string;
+  /** Exchange hot-wallet address the USDT landed in (to_addr). */
+  toAddr?: string;
+  /** USDT amount of the crypto leg — lets the correlation be saved as a transfer. */
+  valueUsdt?: number;
+  /** ISO timestamp of the crypto deposit. */
+  ts?: string;
+  /** On-chain tx hash of the deposit, when known. */
+  txHash?: string;
 }
 
 /* ── Mule network stats card ───────────────────────────────────────────── */

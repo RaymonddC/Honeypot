@@ -174,10 +174,15 @@ function normalizeCorrelations(raw: any): OnRampAlert[] {
         c?.crypto_wallet,
         c?.wallet,
       );
-      const wallet =
-        walletRaw != null && String(walletRaw).length >= 4
-          ? String(walletRaw)
-          : undefined;
+      const okAddr = (v: unknown) =>
+        v != null && String(v).length >= 4 ? String(v) : undefined;
+      const wallet = okAddr(walletRaw);
+      // The full crypto leg — lets Trace's finding be saved as a case transfer.
+      const toAddr = okAddr(first(crypto.to_addr, c?.exchange_wallet));
+      const valueUsdt = num(first(crypto.amount_usdt, c?.amount_usdt));
+      const tsRaw = first(crypto.ts, c?.crypto_ts);
+      const ts = tsRaw != null ? String(tsRaw) : undefined;
+      const txHash = okAddr(first(crypto.tx_hash, c?.tx_hash));
 
       return {
         id: String(first(c?.id, `corr-${i}`)),
@@ -185,6 +190,10 @@ function normalizeCorrelations(raw: any): OnRampAlert[] {
         title,
         meta: parts.join(" · ") || "correlated on-ramp",
         wallet,
+        toAddr,
+        valueUsdt: valueUsdt ?? undefined,
+        ts,
+        txHash,
       };
     })
     .sort((a, b) => b.confidence - a.confidence);

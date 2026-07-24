@@ -100,7 +100,6 @@ type StageAction = {
 };
 
 function stageAction(stage: CaseStage, r: CaseRollup | null): StageAction {
-  const sessions = r?.counts.sessions ?? 0;
   const documents = r?.counts.documents ?? 0;
   const banks = r?.counts.bank_accounts ?? 0;
   const txs = r?.counts.crypto_transfers ?? 0;
@@ -112,7 +111,8 @@ function stageAction(stage: CaseStage, r: CaseRollup | null): StageAction {
       href: "/honeypot",
       cta: "Open Intake",
       checks: [
-        { label: "Honeypot session engaged", done: sessions > 0 },
+        // Either path (victim report or honeypot) satisfies intake — the real
+        // requirement to move on is a captured suspect account or wallet.
         { label: "Suspect account or wallet captured", done: banks + txs > 0 },
       ],
     },
@@ -298,24 +298,110 @@ function StageFlow({
   );
 }
 
+// The one validated Back/Next control — shown both on the Overview "Now" panel
+// and on each stage's tool view, so you can always move the case forward from
+// wherever you're working. Next is gated by the stage's checklist (with an
+// explicit override); Back is free.
+function StageNav({
+  stage,
+  rollup,
+  onGo,
+}: {
+  stage: CaseStage;
+  rollup: CaseRollup | null;
+  onGo: (s: CaseStage) => void;
+}) {
+  const a = stageAction(stage, rollup);
+  const idx = CASE_STAGES.indexOf(stage);
+  const prevStage = idx > 0 ? CASE_STAGES[idx - 1] : undefined;
+  const nextStage = CASE_STAGES[idx + 1];
+  const missing = a.checks.filter((c) => !c.done);
+  const allDone = a.checks.length > 0 && missing.length === 0;
+  const [showBlock, setShowBlock] = useState(false);
+  useEffect(() => setShowBlock(false), [stage]);
+  const tryNext = () => {
+    if (!nextStage || nextStage === "closed") return;
+    if (allDone) onGo(nextStage);
+    else setShowBlock(true);
+  };
+
+  return (
+    <div>
+      {showBlock && !allDone && nextStage && (
+        <div className="mb-2 rounded-lg border border-risk-med/30 bg-risk-med/10 px-3 py-2.5 text-[11px]">
+          <div className="mb-1 font-semibold text-risk-med">
+            Finish these before {STAGE_LABEL[nextStage]}:
+          </div>
+          <ul className="space-y-0.5">
+            {missing.map((m) => (
+              <li key={m.label} className="flex items-center gap-1.5 text-fg/80">
+                <span aria-hidden className="text-risk-med">○</span>
+                {m.label}
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            onClick={() => onGo(nextStage)}
+            className="mt-2 text-[10.5px] font-semibold text-muted hover:text-fg hover:underline"
+          >
+            Advance anyway →
+          </button>
+        </div>
+      )}
+      <div className="flex items-center justify-between gap-3">
+        {prevStage ? (
+          <button
+            type="button"
+            onClick={() => onGo(prevStage)}
+            className="rounded-lg border border-line px-2.5 py-1.5 text-[11.5px] font-medium text-muted transition-colors hover:text-fg"
+          >
+            ← {STAGE_LABEL[prevStage]}
+          </button>
+        ) : (
+          <span />
+        )}
+        {nextStage === "closed" ? (
+          <span className="text-[11px] text-muted">
+            Close via <b className="text-white/70">Record outcome</b> in Recovery
+          </span>
+        ) : nextStage ? (
+          <button
+            type="button"
+            onClick={tryNext}
+            title={allDone ? `Advance to ${STAGE_LABEL[nextStage]}` : "Some steps are still open"}
+            className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[11.5px] font-semibold transition-colors ${
+              allDone
+                ? "bg-accent text-[#04140d] hover:bg-accent-bright"
+                : "border border-accent/40 bg-accent/10 text-accent-bright hover:bg-accent/20"
+            }`}
+          >
+            {allDone && <span aria-hidden>✓</span>}
+            Next: {STAGE_LABEL[nextStage]} →
+          </button>
+        ) : (
+          <span />
+        )}
+      </div>
+    </div>
+  );
+}
+
 function NextAction({
   stage,
   rollup,
-  onAdvance,
+  onGo,
   onFreeze,
   onOpen,
 }: {
   stage: CaseStage;
   rollup: CaseRollup | null;
-  onAdvance: (s: CaseStage) => void;
+  onGo: (s: CaseStage) => void;
   /** Jump to the freeze desk — the ONE place freeze requests are generated. */
   onFreeze: () => void;
   onOpen: () => void;
 }) {
   const a = stageAction(stage, rollup);
-  const idx = CASE_STAGES.indexOf(stage);
-  const nextStage = CASE_STAGES[idx + 1];
-  const allDone = a.checks.length > 0 && a.checks.every((c) => c.done);
   // The time-critical shortcut: on Intake, jump straight to the freeze desk
   // once there's an account to block (on Freeze the main CTA already goes there).
   const canFreeze = stage === "intake" && (rollup?.counts.bank_accounts ?? 0) > 0;
@@ -368,16 +454,10 @@ function NextAction({
         </ul>
       )}
 
-      {/* Closing is NOT an advance — it goes through Recovery's "Record outcome". */}
-      {allDone && nextStage && nextStage !== "closed" && (
-        <button
-          type="button"
-          onClick={() => onAdvance(nextStage)}
-          className="mt-3 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-[11.5px] font-semibold text-accent-bright transition-colors hover:bg-accent/20"
-        >
-          Done — advance to {STAGE_LABEL[nextStage]} →
-        </button>
-      )}
+      {/* validated Back / Next */}
+      <div className="mt-3 border-t border-accent/15 pt-3">
+        <StageNav stage={stage} rollup={rollup} onGo={onGo} />
+      </div>
     </div>
   );
 }
@@ -920,7 +1000,15 @@ export default function CaseFilePage() {
   const txs = rollup?.crypto_transfers ?? [];
   const sessions = rollup?.sessions ?? [];
   const documents = rollup?.documents ?? [];
-  const caseWallets = Array.from(new Set(txs.map((t) => String(t.to_addr))));
+  // Both endpoints of every case transfer are investigable — so an on-ramp
+  // added from Trace (launderer → exchange) exposes the launderer too.
+  const caseWallets = Array.from(
+    new Set(
+      txs
+        .flatMap((t) => [String(t.from_addr), String(t.to_addr)])
+        .filter((a) => a && a.length >= 4),
+    ),
+  );
   const firstWallet = caseWallets[0];
   const viewTool = view === "overview" ? "overview" : STAGE_TAB[view];
   const viewToolLabel =
@@ -1083,6 +1171,20 @@ export default function CaseFilePage() {
         </div>
       )}
 
+      {/* Back/Next on the stage you're working — same validated control as Overview */}
+      {view !== "overview" && view !== "closed" && view === activeCase.stage && (
+        <div className="mb-3 rounded-lg border border-accent/20 bg-accent/[.04] px-3 py-2.5">
+          <StageNav
+            stage={activeCase.stage}
+            rollup={rollup}
+            onGo={(s) => {
+              void advanceStage(activeCase.id, s);
+              openView(s);
+            }}
+          />
+        </div>
+      )}
+
       {viewTool === "honeypot" && (
         <IntakeStage
           caseId={activeCase.id}
@@ -1144,7 +1246,7 @@ export default function CaseFilePage() {
         <NextAction
           stage={activeCase.stage}
           rollup={rollup}
-          onAdvance={(s) => void advanceStage(activeCase.id, s)}
+          onGo={(s) => void advanceStage(activeCase.id, s)}
           onFreeze={() => openView("freeze")}
           onOpen={() => openView(activeCase.stage)}
         />
