@@ -10,6 +10,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AccountWatchlist } from "@/components/bridge/account-watchlist";
 import { MuleStatsCard } from "@/components/bridge/mule-stats-card";
 import { OnRampFeed } from "@/components/bridge/onramp-feed";
 import { StatRow } from "@/components/bridge/stat-row";
@@ -115,6 +116,7 @@ export default function BridgePage() {
             <div>
               <OnRampFeed alerts={data.alerts} />
               <MuleStatsCard mules={data.mules} />
+              <AccountWatchlist />
             </div>
           </div>
         </>

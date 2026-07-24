@@ -143,13 +143,35 @@ def detect_rapid_relay(
     )
 
 
-def detect_circular(address: str, g: nx.MultiDiGraph) -> PatternResult:
-    """Cycles through the wallet (wash / mixing), via NetworkX simple_cycles."""
-    cycles = [
-        cycle
-        for cycle in nx.simple_cycles(nx.DiGraph(g), length_bound=CYCLE_LENGTH_BOUND)
-        if address in cycle and len(cycle) >= 2
-    ]
+# Enumerating ALL simple cycles is exponential on a dense real-world graph, so cap
+# the count — the detector only needs "does this wallet sit on a cycle", not a
+# complete enumeration. Bounded length + this cap keeps a whale's scoring in ms.
+CYCLE_ENUM_CAP = 500
+
+
+def cycles_by_address(g: nx.MultiDiGraph) -> dict[str, list[list[str]]]:
+    """All (bounded, capped) simple cycles, indexed by each address they pass through.
+
+    Compute ONCE per investigation and pass each wallet its own slice — calling
+    ``nx.simple_cycles`` per wallet (× hundreds of wallets, over the full graph)
+    was the multi-minute hang on busy wallets.
+    """
+    import itertools
+
+    by_addr: dict[str, list[list[str]]] = {}
+    for cycle in itertools.islice(
+        nx.simple_cycles(nx.DiGraph(g), length_bound=CYCLE_LENGTH_BOUND), CYCLE_ENUM_CAP
+    ):
+        if len(cycle) < 2:
+            continue
+        for node in cycle:
+            by_addr.setdefault(node, []).append(cycle)
+    return by_addr
+
+
+def detect_circular(address: str, cycles: list[list[str]]) -> PatternResult:
+    """Cycles through the wallet (wash / mixing). ``cycles`` are the precomputed
+    simple cycles that pass through ``address`` (see ``cycles_by_address``)."""
     fired = bool(cycles)
     return PatternResult(
         name="circular",
@@ -220,10 +242,17 @@ def detect_fan_out(address: str, transfers: list[Transfer]) -> PatternResult:
 def iso_forest_scores(features: dict[str, FeatureVector]) -> dict[str, float]:
     """Anomaly score 0..1 per wallet (population = this investigation)."""
     addresses = list(features)
-    X = np.array([features[a].as_row() for a in addresses])
     if len(addresses) < 2:
         return {a: 0.0 for a in addresses}
+    X = np.asarray([features[a].as_row() for a in addresses], dtype=np.float64)
     X[:, _LOG_IDX] = np.log1p(X[:, _LOG_IDX])  # tame volume magnitudes
+    # Real-wallet features can be extreme or non-finite (e.g. a whale's out/in ratio
+    # when inflow is dust), which overflows float32 inside sklearn and corrupts the
+    # scores ("overflow encountered in cast"). Sanitize: replace non-finite, then
+    # clip to a float32-safe magnitude — legit features are orders smaller, so only
+    # pathological values are clamped.
+    np.nan_to_num(X, copy=False, nan=0.0, posinf=1e30, neginf=-1e30)
+    np.clip(X, -1e30, 1e30, out=X)
     model = IsolationForest(contamination=0.05, random_state=42)
     model.fit(X)
     raw = -model.decision_function(X)  # higher = more anomalous
@@ -295,13 +324,14 @@ def score_investigation(
         a: compute_features(a, transfers, chain_depth=depths.get(a, 0)) for a in addresses
     }
     iso = iso_forest_scores(features)
+    cycles_map = cycles_by_address(g)  # enumerate cycles ONCE, not per wallet
 
     scores: dict[str, WalletScore] = {}
     for a in addresses:
         patterns = [
             detect_peeling_chain(a, transfers),
             detect_rapid_relay(a, transfers, features[a]),
-            detect_circular(a, g),
+            detect_circular(a, cycles_map.get(a, [])),
             detect_structuring(a, transfers),
             detect_fan_out(a, transfers),
         ]

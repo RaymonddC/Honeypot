@@ -155,15 +155,27 @@ def _adapter_with(status: int) -> TronscanAdapter:
     return adapter
 
 
-async def test_bad_address_400_from_both_providers_degrades_to_empty_not_500():
-    """A malformed/unknown address (e.g. a truncated paste) makes both providers
-    400 — the adapter must return an empty page so the investigation 404s, not 500."""
+async def test_unknown_address_400_from_both_providers_degrades_to_empty_not_500():
+    """A valid-format but unknown address that both providers 400 must return an
+    empty page so the investigation 404s, not 500."""
     adapter = _adapter_with(400)
 
-    page = await adapter.fetch_transfers("TMuA6YqfCeX8EhbfYEg5y7S4DqzSJireY")  # truncated
+    page = await adapter.fetch_transfers(ADDRESS)  # valid 34-char; providers 400 it
 
     assert page.items == []
     assert page.next_cursor is None
+
+
+async def test_malformed_address_short_circuits_without_api_call():
+    """A truncated/invalid address (or a POC-style fixture id) returns empty WITHOUT
+    a network call — no wasted request, no rate-limited fallback."""
+    adapter = _make_adapter()  # FakeHttpxClient records every .get()
+
+    page = await adapter.fetch_transfers("TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6")  # 29-char fixture id
+
+    assert page.items == []
+    assert page.next_cursor is None
+    assert adapter._client.calls == []  # never touched the network
 
 
 async def test_non_400_upstream_error_still_raises():
@@ -173,3 +185,28 @@ async def test_non_400_upstream_error_still_raises():
 
     with pytest.raises(httpx.HTTPStatusError):
         await adapter.fetch_transfers("TNXoiAJ3dct8Fjg4M9fkLFh9S2v9TXc32G")
+
+
+class _TronscanDownClient:
+    """TRONSCAN raises (forces the fallback); TronGrid answers + records its call."""
+
+    def __init__(self) -> None:
+        self.trongrid_call: dict | None = None
+
+    async def get(self, url, params=None, headers=None):
+        if "apilist.tronscanapi.com" in url:
+            raise httpx.ConnectError("tronscan unreachable")
+        self.trongrid_call = {"url": url, "params": params, "headers": headers}
+        return FakeResponse({"data": []})
+
+
+async def test_trongrid_fallback_is_anonymous_not_the_tronscan_key():
+    """TronGrid is a separate provider — the TRONSCAN key 401s there — so the
+    fallback must NOT send it (send no TRON-PRO-API-KEY header)."""
+    adapter = _make_adapter(settings=Settings(tronscan_api_key="test-tron-key"))
+    adapter._client = _TronscanDownClient()
+
+    await adapter.fetch_transfers(ADDRESS)
+
+    sent = adapter._client.trongrid_call["headers"] or {}
+    assert "TRON-PRO-API-KEY" not in sent

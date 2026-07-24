@@ -1,5 +1,6 @@
 """TAKEDOWN investigation service — adapter → BFS ingest → graph → scores."""
 
+import asyncio
 import logging
 
 from fastapi import Depends
@@ -24,12 +25,31 @@ _log = logging.getLogger("app.takedown")
 
 # LIVE ingest budget. Free-tier TRON APIs rate-limit hard, and a real wallet's BFS
 # fans out unboundedly (every counterparty's full history, ×hops) — which exhausts
-# the quota and times out. Bound breadth/pages/total-calls in LIVE so tracing stays
-# responsive within budget. POC (small deterministic fixtures) is NEVER capped, so
-# the seeded demo graph is unchanged.
-LIVE_MAX_ADDRESSES_PER_HOP = 12
-LIVE_MAX_PAGES_PER_ADDRESS = 2
-LIVE_MAX_TOTAL_FETCHES = 60
+# the quota and times out. Bound breadth/pages/total-addresses in LIVE, and fetch
+# each hop's frontier CONCURRENTLY (bounded) so tracing stays responsive (~53s→~10s
+# on a whale). POC (small deterministic fixtures) is NEVER capped, so the seeded
+# demo graph is unchanged.
+LIVE_MAX_ADDRESSES_PER_HOP = 8
+LIVE_MAX_PAGES_PER_ADDRESS = 1
+LIVE_MAX_TOTAL_ADDRESSES = 25
+LIVE_CONCURRENCY = 4  # gentle on the free key tier — higher trips 429s
+
+
+async def _fetch_all_pages(
+    adapter: ChainDataAdapter, address: str, live: bool
+) -> list[Transfer]:
+    """Every transfer page for one address (page-capped in LIVE)."""
+    items: list[Transfer] = []
+    cursor: str | None = None
+    pages = 0
+    while True:
+        page = await adapter.fetch_transfers(address, cursor=cursor)
+        pages += 1
+        items.extend(page.items)
+        if not page.next_cursor or (live and pages >= LIVE_MAX_PAGES_PER_ADDRESS):
+            break
+        cursor = page.next_cursor
+    return items
 
 
 async def gather_transfers(
@@ -37,55 +57,74 @@ async def gather_transfers(
 ) -> list[Transfer]:
     """Lazy BFS ingest: fetch transfers per address, expanding ≤`hops` from source.
 
-    In LIVE mode the traversal is bounded (breadth/pages/total fetches) to stay
-    within free-tier rate limits; POC is unbounded (small, deterministic fixtures).
+    Each hop's frontier is fetched concurrently (bounded by a semaphore in LIVE).
+    In LIVE the traversal is bounded (breadth/pages/total addresses) to stay within
+    free-tier rate limits; POC is unbounded. ``asyncio.gather`` preserves input
+    order, so the merge is order-identical to a sequential walk — the POC fixture
+    graph is byte-for-byte unchanged.
     """
     live = getattr(adapter, "data_mode", "poc") == "live"
+    sem = asyncio.Semaphore(LIVE_CONCURRENCY)
+
+    async def fetch_one(address: str) -> list[Transfer]:
+        if live:
+            async with sem:  # cap concurrent upstream calls (rate-limit friendly)
+                return await _fetch_all_pages(adapter, address, live)
+        return await _fetch_all_pages(adapter, address, live)
+
     seen_tx: set[tuple[str, str, str]] = set()
     transfers: list[Transfer] = []
     visited: set[str] = set()
     frontier = {source}
-    fetches = 0
+    fetched = 0
     capped = False
 
-    for _ in range(min(hops, graphmod.MAX_HOPS) + 1):
-        next_frontier: set[str] = set()
+    for hop in range(min(hops, graphmod.MAX_HOPS) + 1):
         addresses = sorted(frontier - visited)
         if live and len(addresses) > LIVE_MAX_ADDRESSES_PER_HOP:
-            addresses = addresses[:LIVE_MAX_ADDRESSES_PER_HOP]
+            addresses, capped = addresses[:LIVE_MAX_ADDRESSES_PER_HOP], True
+        if live and fetched + len(addresses) > LIVE_MAX_TOTAL_ADDRESSES:
+            addresses, capped = addresses[: LIVE_MAX_TOTAL_ADDRESSES - fetched], True
+        if not addresses:
+            break
+        visited.update(addresses)
+        fetched += len(addresses)
+
+        # Fetch this hop's whole frontier at once; results keep `addresses` order.
+        # The source (hop 0) propagates errors — if we can't even fetch the root,
+        # surface it (→ 502/503). A downstream counterparty that errors (e.g. a
+        # transient 429) is skipped so one bad node never kills the whole trace.
+        per_address = await asyncio.gather(
+            *(fetch_one(a) for a in addresses), return_exceptions=hop > 0
+        )
+
+        next_frontier: set[str] = set()
+        failed = 0
+        for items in per_address:
+            if isinstance(items, BaseException):
+                failed += 1
+                continue
+            for t in items:
+                key = (t.tx_hash, t.from_addr, t.to_addr)
+                if key not in seen_tx:
+                    seen_tx.add(key)
+                    transfers.append(t)
+                next_frontier.update((t.from_addr, t.to_addr))
+        if failed:
             capped = True
-        for address in addresses:
-            if live and fetches >= LIVE_MAX_TOTAL_FETCHES:
-                capped = True
-                break
-            visited.add(address)
-            cursor: str | None = None
-            pages = 0
-            while True:
-                page = await adapter.fetch_transfers(address, cursor=cursor)
-                fetches += 1
-                pages += 1
-                for t in page.items:
-                    key = (t.tx_hash, t.from_addr, t.to_addr)
-                    if key not in seen_tx:
-                        seen_tx.add(key)
-                        transfers.append(t)
-                    next_frontier.update((t.from_addr, t.to_addr))
-                if not page.next_cursor:
-                    break
-                if live and (pages >= LIVE_MAX_PAGES_PER_ADDRESS or fetches >= LIVE_MAX_TOTAL_FETCHES):
-                    capped = True
-                    break
-                cursor = page.next_cursor
+            _log.info(
+                "LIVE BFS for %s: %d/%d addresses failed at hop %d (skipped) — partial graph.",
+                source, failed, len(addresses), hop,
+            )
         frontier = next_frontier - visited
-        if not frontier or (live and fetches >= LIVE_MAX_TOTAL_FETCHES):
+        if not frontier or (live and fetched >= LIVE_MAX_TOTAL_ADDRESSES):
             break
 
     if capped:
         _log.info(
-            "LIVE BFS for %s hit an ingest cap (%d fetches, %d transfers) — graph is "
-            "a bounded sample, not full history.",
-            source, fetches, len(transfers),
+            "LIVE BFS for %s hit an ingest cap (%d addresses, %d transfers) — graph "
+            "is a bounded sample, not full history.",
+            source, fetched, len(transfers),
         )
     return transfers
 

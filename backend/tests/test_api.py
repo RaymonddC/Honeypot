@@ -1,5 +1,7 @@
 """API smoke tests — TestClient against the POC adapter (no DB, no network)."""
 
+import time
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -13,6 +15,25 @@ def client():
         yield c
 
 
+def _run_investigation(client, address: str, hops: int | None = None) -> dict:
+    """Submit the async investigate job and poll it to completion → the result."""
+    payload: dict = {"address": address}
+    if hops is not None:
+        payload["hops"] = hops
+    r = client.post("/api/investigate", json=payload)
+    assert r.status_code == 202, r.text
+    job_id = r.json()["job_id"]
+    for _ in range(100):
+        jr = client.get(f"/api/investigate/jobs/{job_id}")
+        assert jr.status_code == 200, jr.text
+        state = jr.json()
+        if state["status"] in ("done", "error"):
+            break
+        time.sleep(0.05)
+    assert state["status"] == "done", state
+    return state["result"]
+
+
 def test_health(client):
     r = client.get("/health")
     assert r.status_code == 200
@@ -20,9 +41,7 @@ def test_health(client):
 
 
 def test_investigate(client):
-    r = client.post("/api/investigate", json={"address": SOURCE})
-    assert r.status_code == 200
-    body = r.json()
+    body = _run_investigation(client, SOURCE)
     assert body["address"] == SOURCE
     assert body["data_mode"] == "poc"
     assert len(body["graph"]["nodes"]) == 19
@@ -31,6 +50,12 @@ def test_investigate(client):
     src_node = next(n for n in body["graph"]["nodes"] if n["data"]["id"] == SOURCE)
     assert src_node["data"]["is_source"] is True
     assert src_node["data"]["risk"] == "high"
+
+
+def test_investigate_job_not_found(client):
+    r = client.get("/api/investigate/jobs/does-not-exist")
+    assert r.status_code == 404
+    assert r.json()["error"]["code"] == "job_not_found"
 
 
 def test_wallet_graph_hops_limit(client):

@@ -4,9 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/auth/auth-provider";
+import { CaseSwitcher } from "@/components/cases/case-switcher";
 import { initialsOf, roleLabel } from "@/lib/auth/types";
 
 const NAV = [
+  { href: "/case", label: "Case File", glyph: "▤" },
   { href: "/investigation", label: "Investigation", glyph: "◉" },
   { href: "/bridge", label: "Bridge View", glyph: "⇌" },
   { href: "/actions", label: "Action Panel", glyph: "⚑" },
@@ -213,14 +215,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar */}
         <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line bg-sidebar px-4">
-          {/* Case switcher chip */}
-          <button className="flex cursor-pointer items-center gap-2 rounded-md border border-line bg-elevated px-2.5 py-1 font-mono text-xs text-fg hover:border-white/10">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden />
-            #ITU-2026-0417
-            <span className="text-muted" aria-hidden>
-              ▾
-            </span>
-          </button>
+          {/* Case switcher — the active-case selector (case-centric flow) */}
+          <CaseSwitcher />
 
           {/* Agency context chip — from GET /api/auth/me */}
           <span

@@ -100,6 +100,9 @@ class Case(Base):
     status: Mapped[str] = mapped_column(
         Text, nullable=False, default="open"
     )  # open|active|closed|archived
+    # Investigation lifecycle stage (case-centric flow, migration 20260723_11):
+    # intake|freeze|trace|takedown|report|recovery|closed.
+    stage: Mapped[str] = mapped_column(Text, nullable=False, default="intake")
     crime_type: Mapped[str | None] = mapped_column(Text)
     summary: Mapped[str | None] = mapped_column(Text)
     data_mode: Mapped[str] = mapped_column(Text, nullable=False, default="poc")  # poc|live

@@ -14,7 +14,7 @@ MODE. So this roadmap is mostly "fill in the LIVE adapters + turn on persistence
 | Boundary | Module | LIVE adapter | Status | To do |
 |---|---|---|---|---|
 | **LLM brain** | infiltrate | `LiteLLMGateway` | ✅ **LIVE in prod** | — (9Router/Claude, done) |
-| **Blockchain** | takedown | `TronscanAdapter` | 🟢 **validated on real wallets** | flip `takedown=live` to enable (optional key for rate limits) |
+| **Blockchain** | takedown | `TronscanAdapter` | ✅ **live-validated + hardened** | flip `takedown=live`; set `ITTU_TRONSCAN_API_KEY` for limits |
 | **Notifications** | uncover | `LiveNotificationSink` | 🟠 stub, easy | wire email/SMS/webhook |
 | **TTS (voice)** | infiltrate | `ElevenLabs/GoogleTTSAdapter` | 🟢 **wired, needs key** | add key, verify audio |
 | **STT (voice)** | infiltrate | `WhisperSTTAdapter` | 🔴 stub | streaming transcription |
@@ -63,13 +63,22 @@ The real multi-agency model. Full design: [`Identity-Access-Architecture.md`](Id
 
 ## 3. Track A — Live data feeds
 
-### A1 — Blockchain (TRONSCAN) · 🟢 mostly built, quick win
-`TronscanAdapter` already hits `apilist.tronscanapi.com` with httpx.
+### A1 — Blockchain (TRONSCAN) · ✅ validated + hardened
+`TronscanAdapter` hits `apilist.tronscanapi.com` (httpx), TronGrid as anonymous fallback.
 - **Work:** register/verify an API key + rate-limit budget; add TronGrid/Bitquery as a fallback provider (`BLOCKCHAIN_PROVIDER`); Redis cache; **validate** the full pipeline (features → 5 typology detectors → graph → risk) against *real* TRON wallets, not fixtures. Confirm `data_mode="live"` tagging.
 - **Gate:** flip `ITTU_MODULE_MODES={"takedown":"live"}`.
 - **Effort:** S–M. Highest-ROI first data feed.
-- **Status:** ✅ **Validated end-to-end against a real TRON wallet** (keyless public API): 95 live USDT transfers fetched + mapped (`data_mode=live`), full pipeline ran — Isolation Forest anomaly scores, `circular`/`structuring` typology detectors fired with Glass Box reasoning, graph 39 nodes/95 edges. Ready to enable via the mode flip; a `ITTU_TRONSCAN_API_KEY` only matters for rate limits at scale.
+- **Status:** ✅ **Validated end-to-end against a real TRON wallet** (keyless public API): 95 live USDT transfers fetched + mapped (`data_mode=live`), full pipeline ran — Isolation Forest anomaly scores, `circular`/`structuring` typology detectors fired with Glass Box reasoning, graph 39 nodes/95 edges. Ready to enable via the mode flip.
+- **Hardening (done):** bad/unknown address → clean 404 (not 500), short-circuited before any API call; upstream errors → clean 502/503 envelope (429 = retryable, hints the key) via an app-level `httpx.HTTPError` handler; **bounded + concurrent + resilient BFS** — per-hop breadth, pages/addr, total-addresses caps (tuned for free-tier + slow links), fetched in parallel (semaphore), downstream-node failures skipped (logged partial graph) while a root-fetch error still surfaces; **cycle detection computed once** per investigation, not per wallet (was a multi-minute O(N·simple_cycles) hang → <1s); **float32 overflow sanitized** before Isolation Forest; LIVE traces at `hops=1` for a lean first view; UI trace timeout 120s. `ITTU_TRONSCAN_API_KEY` (free, TRONSCAN-only — TronGrid uses a separate key) authenticates the primary and lifts the free-tier 429s; POC path is unbounded + byte-identical.
 - **Demo nuance:** enabling `takedown=live` makes the Investigation screen query *real* chains — the seeded honeypot fixture wallet (`TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6`) won't resolve on-chain, so the scripted honeypot→investigation demo narrative needs POC fixtures. Keep `takedown=poc` for the seeded story; use `live` to investigate real wallets/cases (both coexist via MODE).
+
+#### A1-prod — production architecture (deliberately deferred, not a gap)
+The live path fetches the chain **synchronously per request** and BFS-walks it live. That is the **correct amount of engineering for the current requirement** (one analyst, one wallet, ~tens of seconds) — matching architecture to requirements, not cargo-culting a platform. Two production patterns apply *only once requirements change*; building them now would be premature optimization:
+
+- **Async jobs (build when: concurrent users, or traces routinely exceed ~1 min).** Replace synchronous `POST /investigate` with `202 + job id` → **Dramatiq worker** (already in the stack) does the fetch+score → client polls / WebSocket for the result. Kills the timeout + event-loop-blocking class of bug permanently, and moves CPU-bound scoring off the web process. Effort: **M**. Standalone-valuable — the one piece worth doing first when scale arrives. Cost: another worker process to run/operate.
+- **Chain ingestion + precompute (build when: sustained query volume / sub-second SLA — i.e. ITTU becomes a platform).** What Chainalysis/TRM/Elliptic do: continuously ingest the chain into an indexed store (Postgres/graph DB), precompute features/scores, and serve queries from local data in ms — no live API, no rate limits, no BFS latency. **Genuinely a data-platform project** (infra + ops ITTU shouldn't own yet); live-fetch + cache is the right lean choice until then. Effort: **XL + infra**. Hold firmly.
+
+Trigger to revisit: real multi-agency concurrent use, or repeated queries over the same wallets, or a latency SLA. Until one of those is real, synchronous-with-caps is the best-practice choice.
 
 ### A2 — Text channel (Telegram) · 🔴 build
 `TelegramChannelAdapter` is a `NotImplementedError` stub.

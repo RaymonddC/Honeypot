@@ -10,6 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.auth.router import router as auth_router
+from app.cases.router import router as cases_router
+from app.casedata.router import router as casedata_router
 from app.core.config import get_settings
 from app.core.db import engine
 from app.infiltrate.router import router as infiltrate_router
@@ -105,6 +107,8 @@ def create_app() -> FastAPI:
         takedown_router,
         uncover_router,
         intel_router,
+        casedata_router,
+        cases_router,
     ):
         app.include_router(router, prefix="/api")
 

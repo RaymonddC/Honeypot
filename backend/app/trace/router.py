@@ -10,11 +10,14 @@ All endpoints compute in-memory from the seeded generator + chain fixtures
 default deterministic demo (seed 4656 — the case's account count).
 """
 
+import re
 from collections import Counter
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
+from app.casedata.repository import CaseDataRepository, get_casedata_repository
+from app.casedata.schemas import BankAccountOut
 from app.chain.schemas import Transfer
 from app.core.adapters import ChainDataAdapter, FiatDataAdapter
 from app.fiat.generator import IDR_PER_USDT
@@ -25,6 +28,12 @@ from app.trace.sankey import SankeyLink, SankeyNode
 from app.trace.service import ChainAdapterDep, FiatAdapterDep, build_bridge
 
 router = APIRouter(tags=["trace"])
+
+CaseDataDep = Depends(get_casedata_repository)
+
+
+def _digits(s: str) -> str:
+    return re.sub(r"\D", "", s)
 
 DEFAULT_SEED = FiatGenParams().seed
 
@@ -161,6 +170,44 @@ async def get_mules(
         data_mode=bridge.data_mode,
         seed=seed,
         items=bridge.clusters,
+    )
+
+
+class WatchlistedAccount(BankAccountOut):
+    """A tracked bank account + whether it shows up in the bridge flow."""
+
+    seen_in_flow: bool = False
+
+
+class AccountsResponse(BaseModel):
+    case_id: str | None = None
+    data_mode: str
+    seed: int
+    items: list[WatchlistedAccount]
+
+
+@router.get("/bridge/accounts", response_model=AccountsResponse)
+async def get_accounts(
+    case: str | None = CaseQuery,
+    seed: int = SeedQuery,
+    fiat: FiatDataAdapter = FiatAdapterDep,
+    chain: ChainDataAdapter = ChainAdapterDep,
+    casedata: CaseDataRepository = CaseDataDep,
+) -> AccountsResponse:
+    """Analyst-entered bank accounts (app/casedata) surfaced on the Bridge, each
+    flagged if its number appears among the accounts in the generated flow."""
+    tracked = await casedata.list_bank_accounts(case_id=case)
+    bridge = await build_bridge(fiat, chain, FiatGenParams(seed=seed))
+    flow_numbers = {_digits(a.account_number) for a in bridge.dataset.accounts}
+    items = [
+        WatchlistedAccount(
+            **acct.model_dump(),
+            seen_in_flow=_digits(acct.account_number) in flow_numbers,
+        )
+        for acct in tracked
+    ]
+    return AccountsResponse(
+        case_id=case, data_mode=bridge.data_mode, seed=seed, items=items
     )
 
 

@@ -6,6 +6,7 @@ identical signatures + Pydantic return models, and stamp ``data_mode``.
 """
 
 import json
+import re
 from functools import lru_cache
 from pathlib import Path
 
@@ -24,6 +25,11 @@ TRONSCAN_BASE = "https://apilist.tronscanapi.com"
 TRONGRID_BASE = "https://api.trongrid.io"
 PAGE_SIZE = 50
 CACHE_TTL_SECONDS = 3600
+
+# A mainnet TRON base58 address: 'T' + 33 base58 chars (34 total). Used LIVE-side
+# to reject a malformed/truncated paste (or a POC-style fixture id) BEFORE spending
+# an API call — the providers just 400 it and the throttled fallback can even 429.
+_TRON_ADDRESS_RE = re.compile(r"^T[1-9A-HJ-NP-Za-km-z]{33}$")
 
 
 @lru_cache
@@ -118,6 +124,11 @@ class TronscanAdapter:
         return {"TRON-PRO-API-KEY": key} if key else {}
 
     async def fetch_transfers(self, address: str, cursor: str | None = None) -> TransferPage:
+        if not _TRON_ADDRESS_RE.match(address):
+            # Not a valid mainnet TRON address (truncated paste, POC fixture id,
+            # typo). Short-circuit to empty (→ 404) — don't waste an API call / the
+            # rate-limited fallback on a lookup that can only 400.
+            return TransferPage(items=[], next_cursor=None)
         start = int(cursor or 0)
         cache_key = f"trc20:{address}:{start}"
         data = await self._cache_get(cache_key)
@@ -178,6 +189,9 @@ class TronscanAdapter:
 
     async def _fetch_trongrid(self, address: str) -> dict:
         """TronGrid backup: /v1/accounts/{address}/transactions/trc20."""
+        # TronGrid is a SEPARATE provider with its own API keys — the TRONSCAN key
+        # 401s here — so the fallback stays anonymous (wire ITTU_TRONGRID_API_KEY
+        # only if a real TronGrid key is ever added).
         resp = await self._client.get(
             f"{TRONGRID_BASE}/v1/accounts/{address}/transactions/trc20",
             params={"contract_address": USDT_TRC20, "limit": PAGE_SIZE},
@@ -201,7 +215,7 @@ class TronscanAdapter:
         }
 
     async def balance(self, address: str) -> WalletBalance:
-        resp = await self._client.get(f"{TRONGRID_BASE}/v1/accounts/{address}")
+        resp = await self._client.get(f"{TRONGRID_BASE}/v1/accounts/{address}")  # TronGrid: anonymous
         resp.raise_for_status()
         data = (resp.json().get("data") or [{}])[0]
         return WalletBalance(
