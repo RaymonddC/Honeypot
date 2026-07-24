@@ -99,6 +99,20 @@ export const roleLabel = (role: string): string =>
   ROLE_LABELS[role] ??
   role.replace(/[_-]+/g, " ").replace(/^\w/, (c) => c.toUpperCase());
 
+/**
+ * Roles allowed to dispatch outward actions (freeze requests, STR filings) —
+ * mirrors the backend's DISPATCH_ROLES (app/core/auth.py). Bank / exchange
+ * compliance can generate & review but not dispatch: they RECEIVE the requests.
+ */
+export const DISPATCH_ROLES = new Set([
+  "regulator-analyst",
+  "police-investigator",
+  "agency-admin",
+  "platform-admin",
+]);
+
+export const canDispatch = (role: string): boolean => DISPATCH_ROLES.has(role);
+
 /** "Bareskrim Polri" → "BP", "Analyst" → "AN". */
 export function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
