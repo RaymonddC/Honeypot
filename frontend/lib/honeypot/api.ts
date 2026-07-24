@@ -175,6 +175,10 @@ function normalizeEntities(raw: RawEntity[]): HpEntity[] {
         id: e.id,
         type: e.type,
         value: entityValue(e),
+        // Full value for promotion: normalized form when present, else raw.
+        rawValue: e.normalized_value ?? e.value,
+        bankName: e.bank_name ?? undefined,
+        chain: e.chain ?? undefined,
         subtitle: entitySubtitle(e),
         confidence: Math.max(0, Math.min(1, e.confidence)),
         reviewStatus: e.review_status,

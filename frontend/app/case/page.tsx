@@ -457,12 +457,15 @@ function IntakeStage({
   banks,
   onLogged,
   onDone,
+  onTraceWallet,
 }: {
   caseId: string;
   banks: CaseRollup["bank_accounts"];
   onLogged: () => Promise<void>;
   /** Report logged → advance to Freeze; true = jump straight to the freeze desk. */
   onDone: (continueToFreeze: boolean) => void;
+  /** Trace a honeypot-surfaced wallet in the case's Takedown tab. */
+  onTraceWallet: (addr: string) => void;
 }) {
   const [mode, setMode] = useState<"report" | "honeypot">("report");
   const [form, setForm] = useState({ bank_name: "", account_number: "", holder_name: "" });
@@ -597,7 +600,7 @@ function IntakeStage({
           </div>
         </div>
       ) : (
-        <HoneypotPanel embedded />
+        <HoneypotPanel embedded onTraceWallet={onTraceWallet} />
       )}
     </div>
   );
@@ -1089,10 +1092,15 @@ export default function CaseFilePage() {
             void advanceStage(activeCase.id, "freeze");
             if (continueToFreeze) openView("freeze");
           }}
+          onTraceWallet={(addr) => openView("takedown", addr)}
         />
       )}
       {viewTool === "bridge" && (
-        <BridgePanel embedded onOpenTakedown={() => openView("takedown")} />
+        <BridgePanel
+          embedded
+          onOpenTakedown={(addr) => openView("takedown", addr)}
+          caseTitle={activeCase.title}
+        />
       )}
       {viewTool === "investigation" && (
         <InvestigationPanel

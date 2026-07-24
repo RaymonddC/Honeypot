@@ -49,6 +49,8 @@ export interface OnRampAlert {
   title: string;
   /** e.g. "Rp 48.2M · Δt 12 min · amount match 99.1%". */
   meta: string;
+  /** The crypto wallet that fed the exchange — hand off to Takedown to trace. */
+  wallet?: string;
 }
 
 /* ── Mule network stats card ───────────────────────────────────────────── */

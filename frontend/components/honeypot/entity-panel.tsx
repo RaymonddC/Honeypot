@@ -1,12 +1,106 @@
+"use client";
+
 /**
- * Extracted-entities side panel — icon · monospace value · context line ·
- * confidence (mockup .ent rows). Count tag reflects validated entities.
+ * Extracted-entities side panel — icon · monospace value · context · confidence.
+ *
+ * Each extracted bank account / wallet can be PROMOTED into the active case, so
+ * a honeypot lead flows onward like any other input:
+ *   · bank_account  → tracked account (shows on BridgeWatch)
+ *   · crypto_wallet → traced in Takedown (Investigation graph)
+ * That closes the loop: whatever the honeypot surfaces feeds the same pipeline
+ * as a hand-entered account or transaction.
  */
 
+import { useState } from "react";
+import Link from "next/link";
+import { useCases } from "@/components/cases/case-provider";
+import { addBankAccount } from "@/lib/casedata/api";
 import type { HpEntity } from "@/lib/honeypot/types";
 import { entityIcon, formatConf } from "@/lib/honeypot/types";
 
-export function EntityPanel({ entities }: { entities: HpEntity[] }) {
+function PromoteControl({
+  e,
+  onTraceWallet,
+}: {
+  e: HpEntity;
+  onTraceWallet?: (addr: string) => void;
+}) {
+  const { activeCaseId } = useCases();
+  const [state, setState] = useState<"idle" | "busy" | "done" | "err">("idle");
+  const full = e.rawValue ?? e.value;
+
+  // Crypto wallet → trace it in Takedown (real on-chain trace; no fake edge).
+  if (e.type === "crypto_wallet") {
+    // Avoid deep-linking a truncated display value (mock/offline).
+    if (full.includes("…")) return null;
+    // In-case: open the case's Takedown tab on this address; standalone: link out.
+    if (onTraceWallet)
+      return (
+        <button
+          type="button"
+          onClick={() => onTraceWallet(full)}
+          title="Trace this wallet in Takedown"
+          className="flex-none rounded-md border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent-bright transition-colors hover:bg-accent/20"
+        >
+          Trace →
+        </button>
+      );
+    return (
+      <Link
+        href={`/investigation?address=${encodeURIComponent(full)}`}
+        title="Trace this wallet in Takedown"
+        className="flex-none rounded-md border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent-bright transition-colors hover:bg-accent/20"
+      >
+        Trace →
+      </Link>
+    );
+  }
+
+  // Bank account → add to the active case (surfaces on BridgeWatch).
+  if (e.type === "bank_account") {
+    if (state === "done")
+      return (
+        <span className="flex-none text-[9.5px] font-semibold text-accent-bright" title="Added to case → BridgeWatch">
+          ✓ in case
+        </span>
+      );
+    return (
+      <button
+        type="button"
+        disabled={!activeCaseId || state === "busy"}
+        title={activeCaseId ? "Track on this case → BridgeWatch" : "Open a case to attach"}
+        onClick={async () => {
+          setState("busy");
+          try {
+            await addBankAccount({
+              bank_name: e.bankName || "unknown",
+              account_number: full,
+              category: "scam",
+              case_id: activeCaseId,
+            });
+            setState("done");
+          } catch {
+            setState("err");
+          }
+        }}
+        className="flex-none rounded-md border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent-bright transition-colors hover:bg-accent/20 disabled:opacity-40"
+      >
+        {state === "busy" ? "…" : state === "err" ? "retry" : "+ Case"}
+      </button>
+    );
+  }
+
+  return null;
+}
+
+export function EntityPanel({
+  entities,
+  onTraceWallet,
+}: {
+  entities: HpEntity[];
+  /** In-case: open the case's Takedown tab on a wallet (else it links out). */
+  onTraceWallet?: (addr: string) => void;
+}) {
   return (
     <div className="mb-3.5 rounded-card border border-line bg-card">
       <div className="flex items-center justify-between border-b border-line px-3.5 py-3">
@@ -37,11 +131,14 @@ export function EntityPanel({ entities }: { entities: HpEntity[] }) {
                 {e.subtitle}
               </small>
             </div>
-            <div className="ml-auto flex-none font-mono text-[10px] tnum text-muted">
-              conf{" "}
-              <b className="font-bold text-accent-bright">
-                {formatConf(e.confidence)}
-              </b>
+            <div className="ml-auto flex flex-none items-center gap-2">
+              <span className="font-mono text-[10px] tnum text-muted">
+                conf{" "}
+                <b className="font-bold text-accent-bright">
+                  {formatConf(e.confidence)}
+                </b>
+              </span>
+              <PromoteControl e={e} onTraceWallet={onTraceWallet} />
             </div>
           </div>
         ))

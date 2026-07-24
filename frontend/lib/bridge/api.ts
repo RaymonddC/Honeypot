@@ -102,6 +102,18 @@ function normalizeSankey(raw: any): BridgeSankeyData {
 
 /* ── Correlations → on-ramp alert feed ────────────────────────────────── */
 
+// Last-4 of an account number, prefixed "·" (e.g. "·8462").
+const acctTail = (s: unknown): string => {
+  const d = String(s ?? "").replace(/\D/g, "");
+  return d ? ` ·${d.slice(-4)}` : "";
+};
+
+// "PT Indodax Nasional Indonesia" → "Indodax" (recognizable exchange token).
+const exchangeShort = (name: unknown): string => {
+  const s = String(name ?? "").replace(/^PT\.?\s+/i, "").trim();
+  return s.split(/\s+/)[0] || s;
+};
+
 function normalizeCorrelations(raw: any): OnRampAlert[] {
   const items: any[] = Array.isArray(raw)
     ? raw
@@ -109,27 +121,42 @@ function normalizeCorrelations(raw: any): OnRampAlert[] {
 
   return items
     .map((c, i): OnRampAlert => {
+      // The backend sends nested `fiat` / `crypto` legs; older/flat shapes are
+      // still honored as fallbacks.
+      const fiat = c?.fiat ?? {};
+      const crypto = c?.crypto ?? {};
       const confidence = Math.max(
         0,
         Math.min(1, num(first(c?.confidence, c?.score)) ?? 0),
       );
 
+      // Fiat / mule side — who paid into the exchange.
       const from = first(
-        c?.label,
-        c?.mule_cluster,
-        c?.cluster,
-        c?.fiat_cluster,
-        c?.fiat_account,
-        c?.source,
+        c?.label, c?.mule_cluster, c?.cluster, // legacy flat
+        fiat.from_holder,
+        fiat.from_bank
+          ? `${fiat.from_bank}${acctTail(fiat.from_account_number)}`
+          : fiat.from_account_number,
       );
-      const to = first(c?.exchange, c?.exchange_name, c?.target, c?.crypto_wallet);
+      // Crypto / exchange side — prefer the exchange NAME (receiving holder),
+      // then its bank, then the hot-wallet address.
+      const toRaw = first(
+        c?.exchange, c?.exchange_name, // legacy flat
+        fiat.to_holder,
+        fiat.to_bank,
+        crypto.to_addr,
+      );
+      const to = toRaw != null ? exchangeShort(toRaw) : null;
+
       const title =
         c?.title != null
           ? String(c.title)
-          : `${from != null ? String(from) : "Mule cluster"}${to != null ? ` → ${String(to)}` : ""}`;
+          : `${from != null ? String(from) : "Mule account"}${to != null ? ` → ${to}` : ""}`;
 
       const parts: string[] = [];
-      const idr = num(first(c?.fiat_amount_idr, c?.amount_idr, c?.fiat_amount));
+      const idr = num(
+        first(fiat.amount_idr, c?.fiat_amount_idr, c?.amount_idr, c?.fiat_amount),
+      );
       if (idr != null) parts.push(formatIDR(idr));
       const dt = num(first(c?.time_delta_seconds, c?.delta_seconds));
       if (dt != null) parts.push(formatMinutes(dt));
@@ -139,11 +166,25 @@ function normalizeCorrelations(raw: any): OnRampAlert[] {
           `amount match ${(match <= 1 ? match * 100 : match).toFixed(1)}%`,
         );
 
+      // The depositing wallet (launderer feeding the exchange) — the Takedown
+      // target. Fall back to the hot-wallet address, then any flat field.
+      const walletRaw = first(
+        crypto.from_addr,
+        crypto.to_addr,
+        c?.crypto_wallet,
+        c?.wallet,
+      );
+      const wallet =
+        walletRaw != null && String(walletRaw).length >= 4
+          ? String(walletRaw)
+          : undefined;
+
       return {
         id: String(first(c?.id, `corr-${i}`)),
         confidence,
         title,
         meta: parts.join(" · ") || "correlated on-ramp",
+        wallet,
       };
     })
     .sort((a, b) => b.confidence - a.confidence);

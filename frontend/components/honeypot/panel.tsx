@@ -20,7 +20,14 @@ import { EntityPanel } from "@/components/honeypot/entity-panel";
 import { fetchHoneypotData } from "@/lib/honeypot/api";
 import type { HoneypotData } from "@/lib/honeypot/types";
 
-export function HoneypotPanel({ embedded = false }: { embedded?: boolean }) {
+export function HoneypotPanel({
+  embedded = false,
+  onTraceWallet,
+}: {
+  embedded?: boolean;
+  /** In-case: trace a surfaced wallet in the case's Takedown tab. */
+  onTraceWallet?: (addr: string) => void;
+}) {
   const [data, setData] = useState<HoneypotData | null>(null);
   const [loading, setLoading] = useState(true);
   const loadSeq = useRef(0);
@@ -110,7 +117,7 @@ export function HoneypotPanel({ embedded = false }: { embedded?: boolean }) {
             composerNote={data.composerNote}
           />
           <div>
-            <EntityPanel entities={data.entities} />
+            <EntityPanel entities={data.entities} onTraceWallet={onTraceWallet} />
             <CustodyCard custody={data.custody} />
           </div>
         </div>

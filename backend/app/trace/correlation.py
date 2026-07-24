@@ -38,6 +38,7 @@ class FiatLeg(BaseModel):
     from_holder: str
     to_account_number: str
     to_bank: str
+    to_holder: str = ""  # exchange name (holder of the receiving account)
     amount_idr: float
     ts: datetime
 
@@ -108,6 +109,7 @@ def correlate(
                 from_holder=frm.holder_name,
                 to_account_number=to.account_number,
                 to_bank=to.bank_name,
+                to_holder=to.holder_name,
                 amount_idr=f.amount,
                 ts=f.ts,
             ),

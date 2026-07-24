@@ -61,6 +61,12 @@ export interface HpEntity {
   type: EntityType;
   /** Display value (wallets pre-truncated, e.g. "TХ9dQp…aQ4pJ6"). */
   value: string;
+  /** Full untruncated value — used to promote the entity into the case. */
+  rawValue?: string;
+  /** Bank name (bank_account only) — for promoting to a tracked account. */
+  bankName?: string;
+  /** Chain (crypto_wallet only), e.g. "tron". */
+  chain?: string;
   /** Context line, e.g. "BCA · PT Maju Jaya" | "USDT-TRC20" | "phishing". */
   subtitle: string;
   /** 0..1 */

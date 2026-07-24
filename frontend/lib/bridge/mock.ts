@@ -59,18 +59,21 @@ export const MOCK_ALERTS: OnRampAlert[] = [
     confidence: 0.94,
     title: "Mule cluster M-07 → Indodax",
     meta: "Rp 48.2M · Δt 12 min · amount match 99.1%",
+    wallet: "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6mK2vN",
   },
   {
     id: "corr-2",
     confidence: 0.89,
     title: "Mule cluster M-03 → Tokocrypto",
     meta: "Rp 31.7M · Δt 24 min · amount match 97.4%",
+    wallet: "TJ8kL3mNpQ7rS2tU9vW4xY6zA1bC5dE8fG",
   },
   {
     id: "corr-3",
     confidence: 0.72,
     title: "Mule cluster M-11 → Reku",
     meta: "Rp 15.0M · Δt 28 min · amount match 94.0%",
+    wallet: "TR7yH2gF9dS4aP1oI8uY3tW6qE5rT0zX2c",
   },
 ];
 
