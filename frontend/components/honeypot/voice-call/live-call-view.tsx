@@ -16,6 +16,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useCases } from "@/components/cases/case-provider";
 import { CustodyCard } from "@/components/honeypot/custody-card";
 import { EntityPanel } from "@/components/honeypot/entity-panel";
 import {
@@ -160,6 +161,7 @@ export function LiveCallView({
   /** Bubbles the api/mock source up to the page badge once connected. */
   onSourceChange?: (source: DataSource | null) => void;
 }) {
+  const { activeCaseId } = useCases();
   const [state, setState] = useState<LiveState>("idle");
   const [call, setCall] = useState<VoiceCallSession | null>(null);
   const [lines, setLines] = useState<VoiceLine[]>([]);
@@ -417,7 +419,7 @@ export function LiveCallView({
     setElapsed(0);
     setNotice(null);
     onSourceChange?.(null);
-    const session = await startLiveCall();
+    const session = await startLiveCall(activeCaseId);
     if (runIdRef.current !== runId) return;
 
     setCall(session);
@@ -435,7 +437,7 @@ export function LiveCallView({
       await speakLine(line, runId);
       if (runIdRef.current !== runId) return;
     }
-  }, [onSourceChange, speakLine, startMic]);
+  }, [onSourceChange, speakLine, startMic, activeCaseId]);
 
   const handleEnd = () => {
     runIdRef.current++;

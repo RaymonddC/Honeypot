@@ -54,3 +54,25 @@ class CaseOut(BaseModel):
     data_mode: Mode = "poc"
     created_at: datetime
     updated_at: datetime
+
+
+class CaseSessionSummary(BaseModel):
+    """A honeypot session attached to the case (rollup view)."""
+
+    id: str
+    channel: str
+    channel_ref: str
+    crime_type: str | None = None
+    status: str
+    entity_count: int
+    started_at: datetime
+
+
+class CaseDocumentSummary(BaseModel):
+    """An UNCOVER action bundle attached to the case (rollup view)."""
+
+    id: str
+    status: str
+    crime_type: str
+    document_count: int
+    created_at: datetime

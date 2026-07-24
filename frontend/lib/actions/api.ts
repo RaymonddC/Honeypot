@@ -463,14 +463,31 @@ const DEMO_REQUEST = {
  * POST /actions/generate; falls back to the mock bundle when the API is
  * unreachable or returns an empty bundle.
  */
-export async function generateActions(): Promise<ActionBundle> {
+export interface GenerateOptions {
+  /** Active case id — the bundle attaches here (shows in the Case File rollup). */
+  caseId?: string | null;
+  /** Entities to action; when omitted/empty the demo fixture entities are used. */
+  entities?: Array<Record<string, unknown>>;
+}
+
+export async function generateActions(
+  opts: GenerateOptions = {},
+): Promise<ActionBundle> {
+  // Build the request from the active case when provided, else the demo fixture.
+  const entities =
+    opts.entities && opts.entities.length ? opts.entities : DEMO_REQUEST.entities;
+  const body = {
+    ...DEMO_REQUEST,
+    ...(opts.caseId ? { case_id: opts.caseId } : {}),
+    entities,
+  };
   try {
     const raw = await request<any>(
       "/actions/generate",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(DEMO_REQUEST),
+        body: JSON.stringify(body),
       },
       20000,
     );

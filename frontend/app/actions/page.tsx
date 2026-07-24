@@ -13,10 +13,39 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AgencyAlertCard } from "@/components/actions/agency-alert-card";
 import { DispatchBar } from "@/components/actions/dispatch-bar";
 import { DocCard } from "@/components/actions/doc-card";
+import { useCases } from "@/components/cases/case-provider";
 import { dispatchActions, generateActions } from "@/lib/actions/api";
+import { fetchRollup } from "@/lib/cases/api";
 import type { ActionBundle } from "@/lib/actions/types";
 
+/** Assemble action entities from a case's tracked accounts + wallets. */
+async function entitiesForCase(
+  caseId: string,
+): Promise<Array<Record<string, unknown>>> {
+  try {
+    const r = await fetchRollup(caseId);
+    const banks = r.bank_accounts.map((b) => ({
+      type: "bank_account",
+      value: String(b.account_number),
+      bank_name: b.bank_name ?? null,
+      holder_name: b.holder_name ?? null,
+    }));
+    const seen = new Set<string>();
+    const wallets: Array<Record<string, unknown>> = [];
+    for (const t of r.crypto_transfers) {
+      const addr = String(t.to_addr);
+      if (seen.has(addr)) continue;
+      seen.add(addr);
+      wallets.push({ type: "crypto_wallet", value: addr, chain: String(t.chain ?? "tron") });
+    }
+    return [...wallets, ...banks];
+  } catch {
+    return [];
+  }
+}
+
 export default function ActionsPage() {
+  const { activeCase } = useCases();
   const [bundle, setBundle] = useState<ActionBundle | null>(null);
   const [loading, setLoading] = useState(true);
   const [dispatching, setDispatching] = useState(false);
@@ -25,11 +54,14 @@ export default function ActionsPage() {
   const generate = useCallback(async () => {
     const seq = ++loadSeq.current;
     setLoading(true);
-    const result = await generateActions();
+    // Action the ACTIVE case's own entities (falls back to the demo fixture
+    // when there's no case or the case has no tracked data yet).
+    const entities = activeCase ? await entitiesForCase(activeCase.id) : [];
+    const result = await generateActions({ caseId: activeCase?.id, entities });
     if (seq !== loadSeq.current) return; // superseded
     setBundle(result);
     setLoading(false);
-  }, []);
+  }, [activeCase]);
 
   useEffect(() => {
     void generate();

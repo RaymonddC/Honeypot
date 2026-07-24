@@ -66,14 +66,20 @@ async function request<T>(
  * Falls back to a local mock session when the backend is unreachable or has
  * no interactive support yet.
  */
-export async function startLiveCall(): Promise<VoiceCallSession> {
+export async function startLiveCall(
+  caseId?: string | null,
+): Promise<VoiceCallSession> {
   try {
     const raw = await request<RawSession>(
       "/sessions",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ channel_type: "voice", interactive: true }),
+        body: JSON.stringify({
+          channel_type: "voice",
+          interactive: true,
+          ...(caseId ? { case_id: caseId } : {}),
+        }),
       },
       20000,
     );

@@ -10,18 +10,30 @@ All routes require an authenticated identity (cases are agency-owned).
 """
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 from app.cases.repository import CaseRepository, get_case_repository
-from app.cases.schemas import CaseOut, CreateCaseRequest, UpdateCaseRequest
+from app.cases.schemas import (
+    CaseDocumentSummary,
+    CaseOut,
+    CaseSessionSummary,
+    CreateCaseRequest,
+    UpdateCaseRequest,
+)
 from app.casedata.repository import CaseDataRepository, get_casedata_repository
 from app.casedata.schemas import BankAccountOut, CryptoTxOut
 from app.core.auth import AuthContext, get_current_user
-from pydantic import BaseModel
+from app.infiltrate import service as infiltrate_service
+from app.infiltrate.repository import InfiltrateRepository, get_infiltrate_repository
+from app.uncover import service as uncover_service
+from app.uncover.repository import UncoverRepository, get_uncover_repository
 
 router = APIRouter(tags=["cases"])
 
 RepoDep = Depends(get_case_repository)
 CaseDataDep = Depends(get_casedata_repository)
+InfiltrateDep = Depends(get_infiltrate_repository)
+UncoverDep = Depends(get_uncover_repository)
 
 
 def _not_found(case_id: str) -> HTTPException:
@@ -35,6 +47,8 @@ class CaseRollup(BaseModel):
     case: CaseOut
     bank_accounts: list[BankAccountOut]
     crypto_transfers: list[CryptoTxOut]
+    sessions: list[CaseSessionSummary]
+    documents: list[CaseDocumentSummary]
     counts: dict[str, int]
 
 
@@ -87,19 +101,51 @@ async def get_case_rollup(
     case_id: str,
     repo: CaseRepository = RepoDep,
     casedata: CaseDataRepository = CaseDataDep,
+    infiltrate: InfiltrateRepository = InfiltrateDep,
+    uncover: UncoverRepository = UncoverDep,
     _auth: AuthContext = Depends(get_current_user),
 ) -> CaseRollup:
-    """The case file: the case + all case-data records attached to it."""
+    """The case file: the case + everything attached to it across all modules —
+    tracked bank accounts + crypto transfers (case-data), honeypot sessions
+    (INFILTRATE) and action documents (UNCOVER)."""
     case = await repo.get_case(case_id)
     if case is None:
         raise _not_found(case_id)
+
     banks = await casedata.list_bank_accounts(case_id=case_id)
     txs = await casedata.list_crypto_transfers(case_id=case_id)
+
+    sessions = [
+        CaseSessionSummary(
+            id=s.id, channel=s.channel, channel_ref=s.channel_ref,
+            crime_type=s.crime_type, status=s.status,
+            entity_count=s.entity_count, started_at=s.started_at,
+        )
+        for s in await infiltrate_service.list_sessions(repo=infiltrate)
+        if s.case_id == case_id
+    ]
+
+    documents = [
+        CaseDocumentSummary(
+            id=b.id, status=b.status, crime_type=b.crime_type,
+            document_count=len(b.documents), created_at=b.created_at,
+        )
+        for b in await uncover_service.all_bundles(repo=uncover)
+        if b.case_id == case_id
+    ]
+
     return CaseRollup(
         case=case,
         bank_accounts=banks,
         crypto_transfers=txs,
-        counts={"bank_accounts": len(banks), "crypto_transfers": len(txs)},
+        sessions=sessions,
+        documents=documents,
+        counts={
+            "bank_accounts": len(banks),
+            "crypto_transfers": len(txs),
+            "sessions": len(sessions),
+            "documents": len(documents),
+        },
     )
 
 

@@ -96,6 +96,27 @@ def test_rollup_attaches_case_data():
 
     rollup = client.get(f"/api/cases/{cid}/rollup").json()
     assert rollup["case"]["id"] == cid
-    assert rollup["counts"] == {"bank_accounts": 1, "crypto_transfers": 1}
+    assert rollup["counts"] == {
+        "bank_accounts": 1, "crypto_transfers": 1, "sessions": 0, "documents": 0,
+    }
     assert rollup["bank_accounts"][0]["account_number"] == "5271038462"
     assert rollup["crypto_transfers"][0]["to_addr"] == "TScamBBB"
+
+
+def test_rollup_includes_honeypot_session_attached_to_case():
+    """A honeypot session started with case_id shows up in the case rollup."""
+    from app.infiltrate import service as infiltrate_service
+
+    infiltrate_service.reset_stores()
+    c = make_case("Honeypot case")
+    cid = c["id"]
+
+    r = client.post("/api/sessions", json={"scenario": "investment_scam", "case_id": cid})
+    assert r.status_code == 201, r.text
+
+    rollup = client.get(f"/api/cases/{cid}/rollup").json()
+    assert rollup["counts"]["sessions"] == 1
+    sess = rollup["sessions"][0]
+    assert sess["crime_type"] == "investment_scam"
+    assert sess["entity_count"] >= 1
+    infiltrate_service.reset_stores()

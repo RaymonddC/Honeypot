@@ -34,11 +34,36 @@ export interface Case {
   updated_at: string;
 }
 
+export interface CaseSessionSummary {
+  id: string;
+  channel: string;
+  channel_ref: string;
+  crime_type: string | null;
+  status: string;
+  entity_count: number;
+  started_at: string;
+}
+
+export interface CaseDocumentSummary {
+  id: string;
+  status: string;
+  crime_type: string;
+  document_count: number;
+  created_at: string;
+}
+
 export interface CaseRollup {
   case: Case;
   bank_accounts: Array<Record<string, unknown>>;
   crypto_transfers: Array<Record<string, unknown>>;
-  counts: { bank_accounts: number; crypto_transfers: number };
+  sessions: CaseSessionSummary[];
+  documents: CaseDocumentSummary[];
+  counts: {
+    bank_accounts: number;
+    crypto_transfers: number;
+    sessions: number;
+    documents: number;
+  };
 }
 
 async function json<T>(path: string, init?: RequestInit): Promise<T> {

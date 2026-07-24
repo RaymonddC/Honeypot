@@ -52,8 +52,20 @@ async def _fetch_all_pages(
     return items
 
 
+def _index_by_address(transfers: list[Transfer]) -> dict[str, list[Transfer]]:
+    """Group transfers by each endpoint address (for the manual-transfer merge)."""
+    index: dict[str, list[Transfer]] = {}
+    for t in transfers:
+        index.setdefault(t.from_addr, []).append(t)
+        index.setdefault(t.to_addr, []).append(t)
+    return index
+
+
 async def gather_transfers(
-    adapter: ChainDataAdapter, source: str, hops: int = graphmod.MAX_HOPS
+    adapter: ChainDataAdapter,
+    source: str,
+    hops: int = graphmod.MAX_HOPS,
+    extra_transfers: list[Transfer] | None = None,
 ) -> list[Transfer]:
     """Lazy BFS ingest: fetch transfers per address, expanding ≤`hops` from source.
 
@@ -62,8 +74,14 @@ async def gather_transfers(
     free-tier rate limits; POC is unbounded. ``asyncio.gather`` preserves input
     order, so the merge is order-identical to a sequential walk — the POC fixture
     graph is byte-for-byte unchanged.
+
+    ``extra_transfers`` are analyst-entered edges (app/casedata) folded into the
+    same BFS: any touching a visited address join the graph and expand the
+    frontier, so a hand-entered transaction — or a brand-new wallet known only
+    from manual data — is investigable exactly like adapter data.
     """
     live = getattr(adapter, "data_mode", "poc") == "live"
+    manual_index = _index_by_address(extra_transfers or [])
     sem = asyncio.Semaphore(LIVE_CONCURRENCY)
 
     async def fetch_one(address: str) -> list[Transfer]:
@@ -110,6 +128,15 @@ async def gather_transfers(
                     seen_tx.add(key)
                     transfers.append(t)
                 next_frontier.update((t.from_addr, t.to_addr))
+        # Manual (analyst-entered) transfers touching this hop's addresses —
+        # offline, never rate-capped, folded in like fixture/live edges.
+        for address in addresses:
+            for t in manual_index.get(address, []):
+                key = (t.tx_hash, t.from_addr, t.to_addr)
+                if key not in seen_tx:
+                    seen_tx.add(key)
+                    transfers.append(t)
+                next_frontier.update((t.from_addr, t.to_addr))
         if failed:
             capped = True
             _log.info(
@@ -149,10 +176,17 @@ class Investigation:
 
 
 async def investigate(
-    address: str, adapter: ChainDataAdapter, hops: int = graphmod.MAX_HOPS
+    address: str,
+    adapter: ChainDataAdapter,
+    hops: int = graphmod.MAX_HOPS,
+    extra_transfers: list[Transfer] | None = None,
 ) -> Investigation | None:
-    """Run the full pipeline; None if the address has no transfers."""
-    transfers = await gather_transfers(adapter, address, hops)
+    """Run the full pipeline; None if the address has no transfers.
+
+    ``extra_transfers`` are analyst-entered edges (app/casedata) merged into the
+    BFS — so an address known only from manually-added data is still investigable.
+    """
+    transfers = await gather_transfers(adapter, address, hops, extra_transfers=extra_transfers)
     if not transfers:
         return None
     return Investigation(address, transfers)

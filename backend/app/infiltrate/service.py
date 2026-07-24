@@ -810,7 +810,20 @@ async def seed_demo_session() -> SessionOut | None:
     """
     settings = get_settings()
     if settings.persistence == "postgres":
-        return await _seed_demo_session_postgres(settings)
+        # Demo seeding must never take down the whole server: if Postgres is
+        # unreachable at boot (e.g. Docker not up yet), log and skip rather than
+        # crash startup. The API still serves; endpoints that need the DB fail
+        # per-request, not at boot.
+        try:
+            return await _seed_demo_session_postgres(settings)
+        except Exception:
+            logging.getLogger("uvicorn.error").warning(
+                "Demo-session seeding skipped — Postgres unreachable at startup "
+                "(ITTU_PERSISTENCE=postgres). Bring Docker/Postgres up; the API is "
+                "otherwise serving.",
+                exc_info=True,
+            )
+            return None
     repo = await get_infiltrate_repository()
     if await repo.list_sessions():
         return None

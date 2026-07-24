@@ -6,6 +6,15 @@ import pytest
 
 from app.chain.adapters import _load_fixture_transfers
 from app.chain.schemas import Transfer
+from app.core.config import get_settings as _get_settings
+
+# Tests are hermetic + POC: force memory persistence at import — BEFORE any
+# module-scoped TestClient builds its lifespan (e.g. test_api.py) — so a
+# developer .env with ITTU_PERSISTENCE=postgres never makes the suite reach for
+# a (possibly-down) Postgres. The autouse _hermetic_provider_keys fixture below
+# re-asserts this per test; the pgserver/auth-live tests opt back into postgres
+# themselves.
+_get_settings().persistence = "memory"
 
 SOURCE = "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6"
 RELAY1 = "TLa8NqPv5RkXm3WdJc7YtB2sFhE9gUn6Kz"

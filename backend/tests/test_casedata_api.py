@@ -5,6 +5,8 @@ that a hand-entered crypto transfer makes a brand-new wallet investigable, and
 that a tracked bank account is surfaced (+ flagged) on the Bridge.
 """
 
+import time
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -14,6 +16,21 @@ from tests.conftest import bearer
 
 client = TestClient(app)
 client.headers.update(bearer())
+
+
+def _run_investigation(c: TestClient, address: str) -> dict:
+    """Submit the async investigate job and poll to completion → the result."""
+    r = c.post("/api/investigate", json={"address": address})
+    assert r.status_code == 202, r.text
+    job_id = r.json()["job_id"]
+    state: dict = {}
+    for _ in range(100):
+        state = c.get(f"/api/investigate/jobs/{job_id}").json()
+        if state["status"] in ("done", "error"):
+            break
+        time.sleep(0.05)
+    assert state["status"] == "done", state
+    return state["result"]
 
 
 @pytest.fixture(autouse=True)
@@ -91,32 +108,33 @@ def test_add_crypto_transfer_mints_hash():
 
 
 def test_manual_transfer_makes_new_wallet_investigable():
-    """A brand-new wallet, known ONLY from a hand-entered transfer, is 404 before
-    and investigable after — proving the merge into the TAKEDOWN graph."""
+    """A brand-new wallet, known ONLY from a hand-entered transfer, has no graph
+    before and is investigable after — proving the merge into the TAKEDOWN graph.
+    (Uses the async investigate job: submit → poll.)"""
     new_wallet = "TBrandNewScamWalletZZZZZZZZZZZZZZZZ"
     victim = "TBrandNewVictimYYYYYYYYYYYYYYYYYYYY"
 
-    # Before: unknown address → 404
-    pre = client.post("/api/investigate", json={"address": new_wallet})
-    assert pre.status_code == 404
+    with TestClient(app) as c:
+        c.headers.update(bearer())
+        # Before: unknown address → job completes with an empty graph.
+        pre = _run_investigation(c, new_wallet)
+        assert new_wallet not in pre["scores"]
 
-    # Add a transfer victim → new_wallet
-    client.post(
-        "/api/casedata/crypto-transfers",
-        json={
-            "from_addr": victim,
-            "to_addr": new_wallet,
-            "value": 12345,
-            "ts": "2026-07-20T09:00:00+00:00",
-        },
-    )
+        # Add a transfer victim → new_wallet
+        c.post(
+            "/api/casedata/crypto-transfers",
+            json={
+                "from_addr": victim,
+                "to_addr": new_wallet,
+                "value": 12345,
+                "ts": "2026-07-20T09:00:00+00:00",
+            },
+        )
 
-    # After: the wallet is investigable, and both endpoints appear in the graph
-    post = client.post("/api/investigate", json={"address": new_wallet})
-    assert post.status_code == 200, post.text
-    scores = post.json()["scores"]
-    assert new_wallet in scores
-    assert victim in scores
+        # After: the wallet is investigable, and both endpoints appear in the graph
+        post = _run_investigation(c, new_wallet)
+        assert new_wallet in post["scores"]
+        assert victim in post["scores"]
 
 
 def test_manual_transfer_merges_into_existing_fixture_graph():
@@ -124,18 +142,20 @@ def test_manual_transfer_merges_into_existing_fixture_graph():
     source = "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6"  # P1 fixture scam wallet
     new_cashout = "TManualCashoutWWWWWWWWWWWWWWWWWWWWW"
 
-    base = client.post("/api/investigate", json={"address": source}).json()
-    base_n = len(base["scores"])
+    with TestClient(app) as c:
+        c.headers.update(bearer())
+        base = _run_investigation(c, source)
+        base_n = len(base["scores"])
 
-    client.post(
-        "/api/casedata/crypto-transfers",
-        json={
-            "from_addr": source,
-            "to_addr": new_cashout,
-            "value": 5000,
-            "ts": "2026-07-21T10:00:00+00:00",
-        },
-    )
-    after = client.post("/api/investigate", json={"address": source}).json()
-    assert new_cashout in after["scores"]
-    assert len(after["scores"]) == base_n + 1
+        c.post(
+            "/api/casedata/crypto-transfers",
+            json={
+                "from_addr": source,
+                "to_addr": new_cashout,
+                "value": 5000,
+                "ts": "2026-07-21T10:00:00+00:00",
+            },
+        )
+        after = _run_investigation(c, source)
+        assert new_cashout in after["scores"]
+        assert len(after["scores"]) == base_n + 1

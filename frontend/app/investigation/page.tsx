@@ -9,6 +9,8 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { AddTransaction } from "@/components/investigation/add-transaction";
 import { GlassBox } from "@/components/investigation/glass-box";
 import { WalletDetailCard } from "@/components/investigation/wallet-detail-card";
 import { fetchWalletDetail, runInvestigation } from "@/lib/investigation/api";
@@ -164,16 +166,22 @@ export default function InvestigationPage() {
   // is a POC address that only 404s on-chain, and auto-tracing a real wallet on
   // every load would burn ~30s + rate-limit. The analyst types a real wallet.
   const didInit = useRef(false);
+  const searchParams = useSearchParams();
   useEffect(() => {
     if (didInit.current || !config) return;
     didInit.current = true;
-    if (liveRef.current) {
+    // Deep-link from the Case File ("investigate →"): trace that wallet on load.
+    const linked = searchParams.get("address");
+    if (linked) {
+      setAddress(linked);
+      void trace(linked);
+    } else if (liveRef.current) {
       setAddress("");
       setStatus("idle");
     } else {
       void trace(DEFAULT_ADDRESS);
     }
-  }, [config, trace]);
+  }, [config, trace, searchParams]);
 
   return (
     <div className="mx-auto max-w-[1200px]">
@@ -188,12 +196,12 @@ export default function InvestigationPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <button
-            type="button"
-            className="h-8 rounded-lg border border-white/10 bg-elevated px-3.5 text-xs font-semibold text-fg transition-colors hover:bg-white/[.07]"
-          >
-            Export graph
-          </button>
+          <AddTransaction
+            onAdded={(toAddr) => {
+              setAddress(toAddr);
+              void trace(toAddr);
+            }}
+          />
           <button
             type="button"
             className="h-8 rounded-lg bg-accent px-3.5 text-xs font-semibold text-[#04140d] shadow-[0_0_16px_rgba(16,185,129,.28)] transition-colors hover:bg-accent-bright"

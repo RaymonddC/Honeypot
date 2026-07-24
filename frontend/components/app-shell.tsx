@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/auth/auth-provider";
 import { CaseSwitcher } from "@/components/cases/case-switcher";
+import { CaseContextBar } from "@/components/cases/case-context-bar";
 import { initialsOf, roleLabel } from "@/lib/auth/types";
 
 const NAV = [
@@ -236,6 +237,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <ModeBadge />
           <UserMenu />
         </header>
+
+        {/* Case context — the connective thread across module screens */}
+        <CaseContextBar />
 
         {/* Screen canvas */}
         <main className="min-h-0 flex-1 overflow-y-auto p-6">{children}</main>
