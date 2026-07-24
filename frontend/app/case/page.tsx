@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useCases } from "@/components/cases/case-provider";
+import { generateActions } from "@/lib/actions/api";
 import { addBankAccount, addCryptoTransfer } from "@/lib/casedata/api";
 import { CASE_STAGES, fetchRollup, type CaseRollup, type CaseStage } from "@/lib/cases/api";
 
@@ -189,15 +190,21 @@ function NextAction({
   stage,
   rollup,
   onAdvance,
+  onFreeze,
+  freezing,
 }: {
   stage: CaseStage;
   rollup: CaseRollup | null;
   onAdvance: (s: CaseStage) => void;
+  onFreeze: () => void;
+  freezing: boolean;
 }) {
   const a = stageAction(stage, rollup);
   const idx = CASE_STAGES.indexOf(stage);
   const nextStage = CASE_STAGES[idx + 1];
   const allDone = a.checks.length > 0 && a.checks.every((c) => c.done);
+  // The time-critical shortcut: on Intake/Freeze, freeze the reported account now.
+  const canFreeze = (stage === "intake" || stage === "freeze") && (rollup?.counts.bank_accounts ?? 0) > 0;
   return (
     <div className="rounded-card border border-accent/30 bg-accent/[.05] p-3.5">
       <div className="flex items-start justify-between gap-3">
@@ -208,12 +215,24 @@ function NextAction({
           <div className="text-[14px] font-semibold text-fg">{a.task}</div>
           <p className="mt-0.5 text-[11.5px] text-muted">{a.why}</p>
         </div>
-        <Link
-          href={a.href}
-          className="h-8 flex-none whitespace-nowrap rounded-lg bg-accent px-3.5 text-xs font-semibold leading-8 text-[#04140d] transition-colors hover:bg-accent-bright"
-        >
-          {a.cta} →
-        </Link>
+        <div className="flex flex-none flex-col items-end gap-1.5">
+          {canFreeze && (
+            <button
+              type="button"
+              onClick={onFreeze}
+              disabled={freezing}
+              className="h-8 whitespace-nowrap rounded-lg border border-risk-high/50 bg-risk-high/15 px-3.5 text-xs font-semibold text-risk-high transition-colors hover:bg-risk-high/25 disabled:opacity-60"
+            >
+              {freezing ? "Freezing…" : "⚡ Freeze now"}
+            </button>
+          )}
+          <Link
+            href={a.href}
+            className="h-8 whitespace-nowrap rounded-lg bg-accent px-3.5 text-xs font-semibold leading-8 text-[#04140d] transition-colors hover:bg-accent-bright"
+          >
+            {a.cta} →
+          </Link>
+        </div>
       </div>
 
       {a.checks.length > 0 && (
@@ -301,6 +320,7 @@ export default function CaseFilePage() {
   const [bank, setBank] = useState({ bank_name: "", account_number: "", holder_name: "", category: "mule" });
   const [tx, setTx] = useState({ from_addr: "", to_addr: "", value: "", category: "scam" });
   const [busy, setBusy] = useState(false);
+  const [freezing, setFreezing] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -370,6 +390,31 @@ export default function CaseFilePage() {
     }
   };
 
+  // Fast freeze: generate a freeze request for the case's tracked accounts.
+  const generateFreeze = async () => {
+    if (!activeCase || !rollup) return;
+    setFreezing(true);
+    setErr(null);
+    try {
+      const entities = rollup.bank_accounts.map((b) => ({
+        type: "bank_account",
+        value: String(b.account_number),
+        bank_name: (b.bank_name as string) ?? null,
+        holder_name: (b.holder_name as string) ?? null,
+      }));
+      await generateActions({
+        caseId: activeCase.id,
+        outputs: ["freeze"],
+        entities,
+      });
+      await load();
+    } catch (e2) {
+      setErr(e2 instanceof Error ? e2.message : "Freeze generation failed");
+    } finally {
+      setFreezing(false);
+    }
+  };
+
   // No active case → prompt to open one.
   if (!activeCase) {
     return (
@@ -399,6 +444,13 @@ export default function CaseFilePage() {
             Open case
           </button>
         </form>
+        <div className="mt-3 text-[11.5px] text-muted">
+          or{" "}
+          <Link href="/intake" className="font-semibold text-accent-bright hover:underline">
+            start from a victim report →
+          </Link>{" "}
+          (opens a case, logs the account, and can freeze it in one step)
+        </div>
       </div>
     );
   }
@@ -439,6 +491,8 @@ export default function CaseFilePage() {
           stage={activeCase.stage}
           rollup={rollup}
           onAdvance={(s) => void advanceStage(activeCase.id, s)}
+          onFreeze={() => void generateFreeze()}
+          freezing={freezing}
         />
       </div>
 

@@ -468,6 +468,10 @@ export interface GenerateOptions {
   caseId?: string | null;
   /** Entities to action; when omitted/empty the demo fixture entities are used. */
   entities?: Array<Record<string, unknown>>;
+  /** Which documents to produce; defaults to the full set. "freeze" alone = fast freeze. */
+  outputs?: string[];
+  /** Crime type override (from the case). */
+  crimeType?: string;
 }
 
 export async function generateActions(
@@ -479,6 +483,8 @@ export async function generateActions(
   const body = {
     ...DEMO_REQUEST,
     ...(opts.caseId ? { case_id: opts.caseId } : {}),
+    ...(opts.crimeType ? { crime_type: opts.crimeType } : {}),
+    ...(opts.outputs && opts.outputs.length ? { outputs: opts.outputs } : {}),
     entities,
   };
   try {

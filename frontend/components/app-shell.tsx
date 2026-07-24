@@ -9,12 +9,13 @@ import { CaseContextBar } from "@/components/cases/case-context-bar";
 import { initialsOf, roleLabel } from "@/lib/auth/types";
 
 const NAV = [
+  { href: "/intake", label: "Intake", glyph: "✎" },
   { href: "/case", label: "Case File", glyph: "▤" },
-  { href: "/investigation", label: "Investigation", glyph: "◉" },
+  { href: "/honeypot", label: "Honeypot", glyph: "⬡" },
   { href: "/bridge", label: "Bridge View", glyph: "⇌" },
+  { href: "/investigation", label: "Investigation", glyph: "◉" },
   { href: "/actions", label: "Action Panel", glyph: "⚑" },
   { href: "/response", label: "Response", glyph: "▦" },
-  { href: "/honeypot", label: "Honeypot", glyph: "⬡" },
 ];
 
 /* ── MODE badge — real per-deployment mode from GET /api/config ─────────── */
