@@ -8,14 +8,25 @@ import { CaseSwitcher } from "@/components/cases/case-switcher";
 import { CaseContextBar } from "@/components/cases/case-context-bar";
 import { initialsOf, roleLabel } from "@/lib/auth/types";
 
-const NAV = [
-  { href: "/intake", label: "Intake", glyph: "✎" },
-  { href: "/case", label: "Case File", glyph: "▤" },
-  { href: "/honeypot", label: "Honeypot", glyph: "⬡" },
-  { href: "/bridge", label: "Bridge View", glyph: "⇌" },
-  { href: "/investigation", label: "Investigation", glyph: "◉" },
-  { href: "/actions", label: "Action Panel", glyph: "⚑" },
-  { href: "/response", label: "Response", glyph: "▦" },
+// Two clear groups: the guided case flow vs standalone tools.
+const NAV_GROUPS: { label: string; items: { href: string; label: string; glyph: string }[] }[] = [
+  {
+    label: "Case workflow",
+    items: [
+      { href: "/intake", label: "Intake", glyph: "✎" },
+      { href: "/case", label: "Case File", glyph: "▤" },
+    ],
+  },
+  {
+    label: "Tools",
+    items: [
+      { href: "/honeypot", label: "Honeypot", glyph: "⬡" },
+      { href: "/bridge", label: "Bridge View", glyph: "⇌" },
+      { href: "/investigation", label: "Investigation", glyph: "◉" },
+      { href: "/actions", label: "Action Panel", glyph: "⚑" },
+      { href: "/response", label: "Response", glyph: "▦" },
+    ],
+  },
 ];
 
 /* ── MODE badge — real per-deployment mode from GET /api/config ─────────── */
@@ -153,31 +164,49 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className="text-sm font-semibold tracking-wide">ITTU</span>
         </div>
 
-        <nav className="flex-1 px-2 pt-2">
-          <div className="eyebrow px-3 pb-2">Modules</div>
-          <ul className="space-y-0.5">
-            {NAV.map((item) => {
-              const active = pathname.startsWith(item.href);
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    aria-current={active ? "page" : undefined}
-                    className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
-                      active
-                        ? "bg-accent/10 font-medium text-accent-bright"
-                        : "text-muted hover:bg-white/[.04] hover:text-fg"
-                    }`}
-                  >
-                    <span className="w-4 text-center text-xs" aria-hidden>
-                      {item.glyph}
-                    </span>
-                    {item.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+        <nav className="flex-1 overflow-y-auto px-2 pt-1">
+          {/* Home */}
+          <Link
+            href="/home"
+            aria-current={pathname === "/home" ? "page" : undefined}
+            className={`mb-1 flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
+              pathname === "/home"
+                ? "bg-accent/10 font-medium text-accent-bright"
+                : "text-muted hover:bg-white/[.04] hover:text-fg"
+            }`}
+          >
+            <span className="w-4 text-center text-xs" aria-hidden>⌂</span>
+            Home
+          </Link>
+
+          {NAV_GROUPS.map((group) => (
+            <div key={group.label} className="mt-2">
+              <div className="eyebrow px-3 pb-1.5">{group.label}</div>
+              <ul className="space-y-0.5">
+                {group.items.map((item) => {
+                  const active = pathname.startsWith(item.href);
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        aria-current={active ? "page" : undefined}
+                        className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
+                          active
+                            ? "bg-accent/10 font-medium text-accent-bright"
+                            : "text-muted hover:bg-white/[.04] hover:text-fg"
+                        }`}
+                      >
+                        <span className="w-4 text-center text-xs" aria-hidden>
+                          {item.glyph}
+                        </span>
+                        {item.label}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
         </nav>
 
         <div className="border-t border-line px-2 py-2">

@@ -15,8 +15,40 @@ import { useCases } from "@/components/cases/case-provider";
 import { generateActions } from "@/lib/actions/api";
 import { addBankAccount, addCryptoTransfer } from "@/lib/casedata/api";
 import { CASE_STAGES, fetchRollup, type CaseRollup, type CaseStage } from "@/lib/cases/api";
+import { HoneypotPanel } from "@/components/honeypot/panel";
+import { BridgePanel } from "@/components/bridge/panel";
+import { InvestigationPanel } from "@/components/investigation/panel";
+import { ActionsPanel } from "@/components/actions/panel";
+import { ResponsePanel } from "@/components/response/panel";
 
 const CATEGORIES = ["unknown", "scam", "mule", "victim", "suspect", "exchange"];
+
+// The embedded tools, keyed by id. The case-workflow stepper IS the navigation:
+// each stage opens one of these tools below it. "overview" is the case dashboard.
+type ToolTab = "overview" | "honeypot" | "bridge" | "investigation" | "actions" | "response";
+
+const TOOL_META: Record<ToolTab, { label: string; glyph: string }> = {
+  overview: { label: "Overview", glyph: "▤" },
+  honeypot: { label: "Honeypot", glyph: "⬡" },
+  bridge: { label: "Bridge", glyph: "⇌" },
+  investigation: { label: "Investigation", glyph: "◉" },
+  actions: { label: "Action Panel", glyph: "⚑" },
+  response: { label: "Response", glyph: "▦" },
+};
+
+// Which tool each stage's work happens in — the stage step opens this tool.
+const STAGE_TAB: Record<CaseStage, ToolTab> = {
+  intake: "honeypot",
+  freeze: "actions",
+  trace: "bridge",
+  takedown: "investigation",
+  report: "actions",
+  recovery: "response",
+  closed: "overview",
+};
+
+// What the workspace is currently showing: the case dashboard, or one stage's tool.
+type View = "overview" | CaseStage;
 
 const STAGE_LABEL: Record<CaseStage, string> = {
   intake: "Intake",
@@ -121,67 +153,97 @@ function stageAction(stage: CaseStage, r: CaseRollup | null): StageAction {
   return map[stage];
 }
 
-// A stage is "evidenced" when all its checks pass — used for ✓ on the tracker.
-function stageDoneMap(r: CaseRollup | null): Record<CaseStage, boolean> {
-  const out = {} as Record<CaseStage, boolean>;
-  for (const s of CASE_STAGES) {
-    const a = stageAction(s, r);
-    out[s] = a.checks.length > 0 && a.checks.every((c) => c.done);
-  }
-  return out;
-}
-
 const fieldCls =
   "h-[32px] w-full rounded-lg border border-white/10 bg-card px-2.5 font-mono text-[11.5px] text-fg outline-none placeholder:text-muted focus:border-accent/40";
 
-function StageTracker({
+// The one navigation control: a linear case-workflow stepper that IS the tab
+// bar. Each step opens its stage's tool below. Two visual dimensions on one row:
+//   · progress (the circle): ✓ done · filled dot = where the case is now · number = upcoming
+//   · selection (the pill highlight): which step's tool is open right now
+// Monotonic — no out-of-order checkmarks. "Overview" sits at the front.
+function StageFlow({
   stage,
-  done,
-  onPick,
+  view,
+  onView,
 }: {
-  stage: CaseStage;
-  done: Record<CaseStage, boolean>;
-  onPick: (s: CaseStage) => void;
+  stage: CaseStage; // official case stage (drives progress)
+  view: View; // what's open (drives selection)
+  onView: (v: View) => void;
 }) {
   const idx = CASE_STAGES.indexOf(stage);
   return (
     <div className="rounded-card border border-line bg-card p-3.5">
-      <div className="eyebrow mb-3">Investigation stage — click to set</div>
-      <ol className="flex flex-wrap items-center gap-1.5">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="eyebrow">Case workflow</div>
+        <div className="text-[10.5px] text-muted">
+          {STAGE_LABEL[stage]} · step {idx + 1} of {CASE_STAGES.length} — click a step to work on it
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {/* Overview — the case dashboard */}
+        <button
+          type="button"
+          onClick={() => onView("overview")}
+          aria-current={view === "overview" ? "page" : undefined}
+          className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-medium transition-colors ${
+            view === "overview"
+              ? "border-accent bg-accent/15 text-accent-bright"
+              : "border-line bg-card text-muted hover:text-fg"
+          }`}
+        >
+          <span aria-hidden>▤</span>
+          Overview
+        </button>
+        <span className="mx-1 h-5 w-px bg-line" aria-hidden />
         {CASE_STAGES.map((s, i) => {
           const past = i < idx;
-          const current = i === idx;
-          const evidenced = done[s];
+          const current = i === idx; // where the case officially is
+          const selected = view === s; // what's open
+          const tool = STAGE_TAB[s];
           return (
-            <li key={s} className="flex items-center gap-1.5">
+            <div key={s} className="flex items-center gap-1.5">
               <button
                 type="button"
-                onClick={() => onPick(s)}
-                title={STAGE_HINT[s]}
-                className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-medium transition-colors ${
-                  current
-                    ? "border-accent/50 bg-accent/15 text-accent-bright"
-                    : past
-                      ? "border-line bg-elevated text-fg/70"
-                      : "border-line bg-card text-muted hover:text-fg"
+                onClick={() => onView(s)}
+                title={`${STAGE_LABEL[s]} — ${STAGE_HINT[s]} · opens ${TOOL_META[tool].label}`}
+                aria-current={selected ? "page" : current ? "step" : undefined}
+                className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-medium transition-colors ${
+                  selected
+                    ? "border-accent bg-accent/15 text-accent-bright"
+                    : current
+                      ? "border-accent/40 bg-accent/[.06] text-fg"
+                      : past
+                        ? "border-line bg-elevated text-fg/70"
+                        : "border-line bg-card text-muted hover:text-fg"
                 }`}
               >
                 <span
-                  className={`font-mono text-[10px] ${evidenced ? "text-accent" : "opacity-60"}`}
+                  className={`flex h-4 w-4 items-center justify-center rounded-full font-mono text-[9px] ${
+                    past
+                      ? "bg-accent/20 text-accent-bright"
+                      : current
+                        ? "bg-accent text-[#04140d]"
+                        : "border border-line text-muted"
+                  }`}
                 >
-                  {evidenced ? "✓" : i + 1}
+                  {past ? "✓" : i + 1}
                 </span>
                 {STAGE_LABEL[s]}
+                {current && (
+                  <span className="text-[8.5px] font-bold uppercase tracking-wide text-accent-bright/80">
+                    now
+                  </span>
+                )}
               </button>
               {i < CASE_STAGES.length - 1 && (
-                <span className="text-muted" aria-hidden>
+                <span className={i < idx ? "text-accent/50" : "text-muted"} aria-hidden>
                   →
                 </span>
               )}
-            </li>
+            </div>
           );
         })}
-      </ol>
+      </div>
     </div>
   );
 }
@@ -192,12 +254,14 @@ function NextAction({
   onAdvance,
   onFreeze,
   freezing,
+  onOpen,
 }: {
   stage: CaseStage;
   rollup: CaseRollup | null;
   onAdvance: (s: CaseStage) => void;
   onFreeze: () => void;
   freezing: boolean;
+  onOpen: () => void;
 }) {
   const a = stageAction(stage, rollup);
   const idx = CASE_STAGES.indexOf(stage);
@@ -226,12 +290,13 @@ function NextAction({
               {freezing ? "Freezing…" : "⚡ Freeze now"}
             </button>
           )}
-          <Link
-            href={a.href}
+          <button
+            type="button"
+            onClick={onOpen}
             className="h-8 whitespace-nowrap rounded-lg bg-accent px-3.5 text-xs font-semibold leading-8 text-[#04140d] transition-colors hover:bg-accent-bright"
           >
             {a.cta} →
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -270,16 +335,16 @@ function NextAction({
 function CardShell({
   title,
   count,
-  href,
-  hrefLabel,
+  onOpen,
+  openLabel,
   onAddToggle,
   adding,
   children,
 }: {
   title: string;
   count: number;
-  href: string;
-  hrefLabel: string;
+  onOpen: () => void;
+  openLabel: string;
   onAddToggle: () => void;
   adding: boolean;
   children: React.ReactNode;
@@ -298,9 +363,9 @@ function CardShell({
           >
             {adding ? "Cancel" : "+ Add"}
           </button>
-          <Link href={href} className="text-[11px] text-muted hover:text-fg">
-            {hrefLabel} →
-          </Link>
+          <button type="button" onClick={onOpen} className="text-[11px] text-muted hover:text-fg">
+            {openLabel} →
+          </button>
         </div>
       </div>
       <div className="p-2">{children}</div>
@@ -308,9 +373,39 @@ function CardShell({
   );
 }
 
+function StatTile({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: React.ReactNode;
+  accent?: boolean;
+}) {
+  return (
+    <div className="rounded-lg border border-line bg-card px-3 py-2.5">
+      <div className="text-[10px] uppercase tracking-wide text-muted">{label}</div>
+      <div className={`tnum mt-0.5 text-lg font-bold ${accent ? "text-accent-bright" : "text-fg"}`}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function daysOpen(iso: string): number {
+  const d = new Date(iso).getTime();
+  if (Number.isNaN(d)) return 0;
+  return Math.max(0, Math.floor((Date.now() - d) / 86_400_000));
+}
+
 export default function CaseFilePage() {
-  const { activeCase, advanceStage, createCase } = useCases();
+  const { activeCase, advanceStage, updateCase, createCase } = useCases();
   const [rollup, setRollup] = useState<CaseRollup | null>(null);
+  const [view, setView] = useState<View>("overview");
+  // Wallet to auto-trace when the Investigation stage opens (from a transfer row).
+  const [investigateAddr, setInvestigateAddr] = useState<string | undefined>(undefined);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState({ title: "", crime_type: "", summary: "" });
   const [loading, setLoading] = useState(false);
   const [newTitle, setNewTitle] = useState("");
 
@@ -415,6 +510,17 @@ export default function CaseFilePage() {
     }
   };
 
+  // Navigate the workspace. Clears any per-row wallet override unless one is passed.
+  const openView = (v: View, addr?: string) => {
+    setInvestigateAddr(addr);
+    setView(v);
+  };
+  // Open the tool for a stage, given the tool id (used by the rollup cards).
+  const openTool = (t: ToolTab, addr?: string) => {
+    const stage = (Object.keys(STAGE_TAB) as CaseStage[]).find((s) => STAGE_TAB[s] === t);
+    openView(t === "overview" || !stage ? "overview" : stage, addr);
+  };
+
   // No active case → prompt to open one.
   if (!activeCase) {
     return (
@@ -459,40 +565,194 @@ export default function CaseFilePage() {
   const txs = rollup?.crypto_transfers ?? [];
   const sessions = rollup?.sessions ?? [];
   const documents = rollup?.documents ?? [];
+  const firstWallet = txs.map((t) => String(t.to_addr))[0];
+  const viewTool = view === "overview" ? "overview" : STAGE_TAB[view];
 
   return (
-    <div className="mx-auto max-w-[1000px]">
+    <div className={`mx-auto ${viewTool === "overview" ? "max-w-[1000px]" : "max-w-[1320px]"}`}>
       {/* header */}
       <div className="mb-4">
-        <div className="eyebrow mb-1">Case file</div>
-        <div className="flex flex-wrap items-center gap-2.5">
-          <h1 className="text-xl font-bold tracking-tight">{activeCase.title}</h1>
-          <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] text-muted">
-            {activeCase.status}
-          </span>
-          {activeCase.crime_type && (
-            <span className="rounded-md border border-risk-med/30 bg-risk-med/10 px-2 py-0.5 text-[10.5px] text-risk-med">
-              {activeCase.crime_type}
-            </span>
-          )}
+        <div className="mb-1 flex items-center justify-between gap-3">
+          <div className="eyebrow">Case file</div>
+          <div className="flex items-center gap-2">
+            {!editing && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDraft({
+                    title: activeCase.title,
+                    crime_type: activeCase.crime_type ?? "",
+                    summary: activeCase.summary ?? "",
+                  });
+                  setEditing(true);
+                }}
+                className="h-7 rounded-lg border border-white/10 bg-elevated px-2.5 text-[11px] font-semibold text-muted transition-colors hover:text-fg"
+              >
+                ✎ Edit
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() =>
+                void updateCase(activeCase.id, {
+                  status: activeCase.status === "closed" ? "open" : "closed",
+                  ...(activeCase.status === "closed" ? {} : { stage: "closed" as CaseStage }),
+                })
+              }
+              className={`h-7 rounded-lg border px-2.5 text-[11px] font-semibold transition-colors ${
+                activeCase.status === "closed"
+                  ? "border-accent/40 bg-accent/10 text-accent-bright hover:bg-accent/20"
+                  : "border-white/10 bg-elevated text-muted hover:text-fg"
+              }`}
+            >
+              {activeCase.status === "closed" ? "Reopen case" : "Close case"}
+            </button>
+          </div>
         </div>
-        {activeCase.summary && (
-          <p className="mt-1 max-w-[70ch] text-xs text-muted">{activeCase.summary}</p>
+
+        {editing ? (
+          <div className="rounded-card border border-line bg-card p-3.5">
+            <input
+              className="mb-2 h-9 w-full rounded-lg border border-white/10 bg-elevated px-3 text-[15px] font-semibold text-fg outline-none focus:border-accent/40"
+              value={draft.title}
+              onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+              placeholder="Case title"
+            />
+            <input
+              className="mb-2 h-8 w-full rounded-lg border border-white/10 bg-elevated px-3 text-[12px] text-fg outline-none focus:border-accent/40"
+              value={draft.crime_type}
+              onChange={(e) => setDraft({ ...draft, crime_type: e.target.value })}
+              placeholder="Crime type (e.g. investment_scam)"
+            />
+            <textarea
+              className="mb-2.5 min-h-[64px] w-full rounded-lg border border-white/10 bg-elevated px-3 py-2 text-[12px] text-fg outline-none focus:border-accent/40"
+              value={draft.summary}
+              onChange={(e) => setDraft({ ...draft, summary: e.target.value })}
+              placeholder="Case brief / notes — what happened, amounts, context…"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                className="h-8 rounded-lg border border-line px-3 text-[11.5px] text-muted hover:text-fg"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  await updateCase(activeCase.id, {
+                    title: draft.title.trim() || activeCase.title,
+                    crime_type: draft.crime_type.trim() || undefined,
+                    summary: draft.summary.trim() || undefined,
+                  });
+                  setEditing(false);
+                }}
+                className="h-8 rounded-lg bg-accent px-3.5 text-[11.5px] font-semibold text-[#04140d] hover:bg-accent-bright"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="text-xl font-bold tracking-tight">{activeCase.title}</h1>
+              <span
+                className={`rounded-md border px-2 py-0.5 font-mono text-[10.5px] ${
+                  activeCase.status === "closed"
+                    ? "border-line bg-elevated text-muted"
+                    : "border-accent/30 bg-accent/10 text-accent-bright"
+                }`}
+              >
+                {activeCase.status}
+              </span>
+              {activeCase.crime_type && (
+                <span className="rounded-md border border-risk-med/30 bg-risk-med/10 px-2 py-0.5 text-[10.5px] text-risk-med">
+                  {activeCase.crime_type}
+                </span>
+              )}
+            </div>
+            {activeCase.summary && (
+              <p className="mt-1 max-w-[75ch] text-xs leading-relaxed text-muted">
+                {activeCase.summary}
+              </p>
+            )}
+          </>
         )}
       </div>
 
-      <div className="mb-3.5 space-y-3.5">
-        <StageTracker
+      {/* the ONE navigation: the case-workflow stepper, which opens each tool below */}
+      <div className="mb-3.5">
+        <StageFlow
           stage={activeCase.stage}
-          done={stageDoneMap(rollup)}
-          onPick={(s) => void advanceStage(activeCase.id, s)}
+          view={view}
+          onView={(v) => openView(v)}
         />
+      </div>
+
+      {/* when a stage's tool is open, a slim strip names it + lets you set/return */}
+      {viewTool !== "overview" && view !== "overview" && (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-accent/20 bg-accent/[.05] px-3 py-1.5 text-[11px]">
+          <span className="text-muted">
+            <b className="text-accent-bright">{STAGE_LABEL[view]}</b> stage ·{" "}
+            {TOOL_META[viewTool].label} — work here attaches to{" "}
+            <b className="text-white/70">{activeCase.title}</b>.
+          </span>
+          <div className="flex flex-none items-center gap-3">
+            {view !== activeCase.stage && (
+              <button
+                type="button"
+                onClick={() => void advanceStage(activeCase.id, view)}
+                className="font-semibold text-accent-bright hover:underline"
+                title="Mark the case as being at this stage"
+              >
+                Set case to {STAGE_LABEL[view]}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => openView("overview")}
+              className="text-muted hover:text-fg"
+            >
+              ← Overview
+            </button>
+          </div>
+        </div>
+      )}
+
+      {viewTool === "honeypot" && <HoneypotPanel embedded />}
+      {viewTool === "bridge" && <BridgePanel embedded />}
+      {viewTool === "investigation" && (
+        <InvestigationPanel
+          embedded
+          key={investigateAddr ?? firstWallet ?? "idle"}
+          initialAddress={investigateAddr ?? firstWallet}
+        />
+      )}
+      {viewTool === "actions" && <ActionsPanel embedded />}
+      {viewTool === "response" && <ResponsePanel embedded />}
+
+      {viewTool === "overview" && (
+        <>
+      {/* overview stat tiles */}
+      <div className="mb-3.5 grid grid-cols-3 gap-2 sm:grid-cols-6">
+        <StatTile label="Stage" value={activeCase.stage} accent />
+        <StatTile label="Accounts" value={banks.length} />
+        <StatTile label="Wallets" value={txs.length} />
+        <StatTile label="Honeypot" value={sessions.length} />
+        <StatTile label="Documents" value={documents.length} />
+        <StatTile label="Days open" value={daysOpen(activeCase.created_at)} />
+      </div>
+
+      <div className="mb-3.5">
         <NextAction
           stage={activeCase.stage}
           rollup={rollup}
           onAdvance={(s) => void advanceStage(activeCase.id, s)}
           onFreeze={() => void generateFreeze()}
           freezing={freezing}
+          onOpen={() => openView(activeCase.stage)}
         />
       </div>
 
@@ -508,8 +768,8 @@ export default function CaseFilePage() {
         <CardShell
           title="Tracked bank accounts"
           count={banks.length}
-          href="/bridge"
-          hrefLabel="Bridge"
+          onOpen={() => openTool("bridge")}
+          openLabel="Bridge"
           adding={addingBank}
           onAddToggle={() => setAddingBank((v) => !v)}
         >
@@ -551,8 +811,8 @@ export default function CaseFilePage() {
         <CardShell
           title="Crypto transfers"
           count={txs.length}
-          href="/investigation"
-          hrefLabel="Investigation"
+          onOpen={() => openTool("investigation")}
+          openLabel="Investigation"
           adding={addingTx}
           onAddToggle={() => setAddingTx((v) => !v)}
         >
@@ -590,12 +850,13 @@ export default function CaseFilePage() {
                       {Number(t.value).toLocaleString()} USDT
                     </span>
                   </span>
-                  <Link
-                    href={`/investigation?address=${encodeURIComponent(String(t.to_addr))}`}
+                  <button
+                    type="button"
+                    onClick={() => openTool("investigation", String(t.to_addr))}
                     className="flex-none text-[10.5px] text-accent-bright hover:underline"
                   >
                     investigate →
-                  </Link>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -609,9 +870,13 @@ export default function CaseFilePage() {
         <div className="rounded-card border border-line bg-card">
           <div className="flex items-center justify-between border-b border-line px-3.5 py-2.5">
             <span className="eyebrow">Honeypot sessions · {sessions.length}</span>
-            <Link href="/honeypot" className="text-[11px] text-accent-bright hover:underline">
+            <button
+              type="button"
+              onClick={() => openTool("honeypot")}
+              className="text-[11px] text-accent-bright hover:underline"
+            >
               Honeypot →
-            </Link>
+            </button>
           </div>
           <div className="p-2">
             {sessions.length === 0 ? (
@@ -637,9 +902,13 @@ export default function CaseFilePage() {
         <div className="rounded-card border border-line bg-card">
           <div className="flex items-center justify-between border-b border-line px-3.5 py-2.5">
             <span className="eyebrow">Action documents · {documents.length}</span>
-            <Link href="/actions" className="text-[11px] text-accent-bright hover:underline">
+            <button
+              type="button"
+              onClick={() => openTool("actions")}
+              className="text-[11px] text-accent-bright hover:underline"
+            >
               Action Panel →
-            </Link>
+            </button>
           </div>
           <div className="p-2">
             {documents.length === 0 ? (
@@ -665,6 +934,56 @@ export default function CaseFilePage() {
         </div>
       </div>
 
+      {/* activity timeline — derived from the case's records */}
+      <div className="mt-3.5 rounded-card border border-line bg-card">
+        <div className="border-b border-line px-3.5 py-2.5">
+          <span className="eyebrow">Activity</span>
+        </div>
+        <div className="p-3.5">
+          <ol className="space-y-2.5">
+            {(() => {
+              type Ev = { t: number; label: string; sub: string };
+              const evs: Ev[] = [
+                {
+                  t: new Date(activeCase.created_at).getTime(),
+                  label: "Case opened",
+                  sub: activeCase.crime_type ?? "investigation",
+                },
+                ...sessions.map((s) => ({
+                  t: new Date(s.started_at).getTime(),
+                  label: "Honeypot session engaged",
+                  sub: `${s.crime_type ?? "—"} · ${s.entity_count} entities`,
+                })),
+                ...documents.map((d) => ({
+                  t: new Date(d.created_at).getTime(),
+                  label: `${d.document_count} document(s) generated`,
+                  sub: `${d.crime_type} · ${d.status}`,
+                })),
+              ].sort((a, b) => a.t - b.t);
+              return evs.map((e, i) => (
+                <li key={i} className="flex gap-2.5">
+                  <span
+                    className="mt-1 h-1.5 w-1.5 flex-none rounded-full bg-accent"
+                    aria-hidden
+                  />
+                  <div className="min-w-0">
+                    <div className="text-[12px] text-fg">{e.label}</div>
+                    <div className="text-[10.5px] text-muted">
+                      {e.sub}
+                      {Number.isFinite(e.t) && (
+                        <span className="ml-1.5 text-muted/60">
+                          · {new Date(e.t).toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              ));
+            })()}
+          </ol>
+        </div>
+      </div>
+
       <p className="mt-5 border-t border-line pt-3.5 text-[10.5px] leading-relaxed text-muted">
         Everything you touch while this case is active attaches to{" "}
         <b className="text-white/70">{activeCase.title}</b>: bank accounts feed the
@@ -672,6 +991,8 @@ export default function CaseFilePage() {
         sessions and action documents roll up here. Switch cases from the top-bar
         selector.
       </p>
+        </>
+      )}
     </div>
   );
 }

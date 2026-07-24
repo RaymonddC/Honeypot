@@ -35,6 +35,10 @@ interface CaseContextValue {
   setActiveCase: (id: string | null) => void;
   createCase: (input: { title: string; crime_type?: string }) => Promise<Case>;
   advanceStage: (id: string, stage: CaseStage) => Promise<void>;
+  updateCase: (
+    id: string,
+    patch: Partial<Pick<Case, "title" | "crime_type" | "summary" | "stage" | "status">>,
+  ) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -106,10 +110,23 @@ export function CaseProvider({ children }: { children: React.ReactNode }) {
     [setActiveCase],
   );
 
-  const advanceStage = useCallback(async (id: string, stage: CaseStage) => {
-    const updated = await apiUpdateCase(id, { stage });
-    setCases((cur) => cur.map((c) => (c.id === id ? updated : c)));
-  }, []);
+  const updateCase = useCallback(
+    async (
+      id: string,
+      patch: Partial<Pick<Case, "title" | "crime_type" | "summary" | "stage" | "status">>,
+    ) => {
+      const updated = await apiUpdateCase(id, patch);
+      setCases((cur) => cur.map((c) => (c.id === id ? updated : c)));
+    },
+    [],
+  );
+
+  const advanceStage = useCallback(
+    async (id: string, stage: CaseStage) => {
+      await updateCase(id, { stage });
+    },
+    [updateCase],
+  );
 
   const activeCase = useMemo(
     () => cases.find((c) => c.id === activeCaseId) ?? null,
@@ -125,9 +142,10 @@ export function CaseProvider({ children }: { children: React.ReactNode }) {
       setActiveCase,
       createCase,
       advanceStage,
+      updateCase,
       refresh,
     }),
-    [cases, activeCase, activeCaseId, loading, setActiveCase, createCase, advanceStage, refresh],
+    [cases, activeCase, activeCaseId, loading, setActiveCase, createCase, advanceStage, updateCase, refresh],
   );
 
   return <CaseContext.Provider value={value}>{children}</CaseContext.Provider>;

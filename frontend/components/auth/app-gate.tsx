@@ -32,7 +32,7 @@ export function AppGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isLogin && status === "anon") router.replace("/login");
-    if (isLogin && status === "authed") router.replace("/investigation");
+    if (isLogin && status === "authed") router.replace("/home");
   }, [isLogin, status, router]);
 
   if (isLogin) return <>{children}</>;
