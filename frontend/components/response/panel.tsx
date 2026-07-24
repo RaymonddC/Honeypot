@@ -49,10 +49,11 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
         {!embedded && (
           <div>
             <h1 className="text-xl font-bold tracking-tight">
-              Response Dashboard
+              Command Center <span className="font-semibold text-muted">· metrics</span>
             </h1>
             <p className="mt-1 text-xs text-muted">
-              From days to minutes — the operational impact, on real case data.
+              Agency-wide operational impact across all cases — from days to
+              minutes, on real data.
             </p>
           </div>
         )}

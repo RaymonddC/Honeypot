@@ -19,7 +19,7 @@ const STAGE_TASK: Record<CaseStage, string> = {
   trace: "Trace the money flow (Bridge)",
   takedown: "Score the wallet network (Investigation)",
   report: "File the STR / LTKM (Action Panel)",
-  recovery: "Track fund recovery (Response)",
+  recovery: "Track fund recovery for this case",
   closed: "Case closed",
 };
 

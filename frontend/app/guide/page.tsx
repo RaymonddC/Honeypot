@@ -89,10 +89,10 @@ const SCREENS: Screen[] = [
   },
   {
     glyph: "▦",
-    name: "Response",
+    name: "Command Center",
     href: "/response",
-    see: "KPI dashboard — funds at risk / frozen, recovery rate, average time-to-freeze.",
-    doWhat: "Track outcomes across cases over a chosen time range.",
+    see: "Agency-wide KPI dashboard — funds at risk / frozen, recovery rate, average time-to-freeze.",
+    doWhat: "Track outcomes across ALL cases over a chosen time range (outside any single case).",
   },
   {
     glyph: "⚙",

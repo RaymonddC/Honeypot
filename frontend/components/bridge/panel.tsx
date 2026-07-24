@@ -12,6 +12,7 @@
  */
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AccountWatchlist } from "@/components/bridge/account-watchlist";
 import { MuleStatsCard } from "@/components/bridge/mule-stats-card";
@@ -31,7 +32,14 @@ const SankeyChart = dynamic(
   },
 );
 
-export function BridgePanel({ embedded = false }: { embedded?: boolean }) {
+export function BridgePanel({
+  embedded = false,
+  onOpenTakedown,
+}: {
+  embedded?: boolean;
+  /** Handoff: jump to Takedown to score the wallets this trace surfaced. */
+  onOpenTakedown?: () => void;
+}) {
   const [data, setData] = useState<BridgeData | null>(null);
   const [loading, setLoading] = useState(true);
   const loadSeq = useRef(0);
@@ -92,14 +100,35 @@ export function BridgePanel({ embedded = false }: { embedded?: boolean }) {
           >
             {loading ? "Generating…" : "Regenerate feed"}
           </button>
-          <button
-            type="button"
-            className="h-8 rounded-lg bg-accent px-3.5 text-xs font-semibold text-[#04140d] shadow-[0_0_16px_rgba(16,185,129,.28)] transition-colors hover:bg-accent-bright"
-          >
-            Alert bridge nodes →
-          </button>
+          {onOpenTakedown ? (
+            <button
+              type="button"
+              onClick={onOpenTakedown}
+              title="Score the wallets this trace surfaced"
+              className="h-8 rounded-lg bg-accent px-3.5 text-xs font-semibold text-[#04140d] shadow-[0_0_16px_rgba(16,185,129,.28)] transition-colors hover:bg-accent-bright"
+            >
+              Score wallets in Takedown →
+            </button>
+          ) : (
+            <Link
+              href="/investigation"
+              className="flex h-8 items-center rounded-lg bg-accent px-3.5 text-xs font-semibold text-[#04140d] shadow-[0_0_16px_rgba(16,185,129,.28)] transition-colors hover:bg-accent-bright"
+            >
+              Score wallets in Takedown →
+            </Link>
+          )}
         </div>
       </div>
+
+      {embedded && (
+        <div className="mb-3.5 rounded-lg border border-accent/20 bg-accent/[.05] px-3 py-2 text-[11px] leading-relaxed text-muted">
+          <b className="text-accent-bright">Trace</b> — follow the money across the
+          fiat→crypto bridge. The Sankey maps where funds flowed; the feed ranks
+          suspected on-ramps; your tracked accounts light up{" "}
+          <b className="text-white/70">in flow</b> when they appear. Then hand the
+          exit wallets to Takedown.
+        </div>
+      )}
 
       {data && !loading ? (
         <>

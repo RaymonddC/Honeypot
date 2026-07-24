@@ -37,7 +37,7 @@ const TOOLS: Tool[] = [
   { glyph: "⇌", title: "Bridge / BridgeWatch", desc: "See the fiat → QRIS → crypto money flow as a Sankey.", href: "/bridge" },
   { glyph: "◉", title: "Investigate a wallet", desc: "Trace a wallet's network and score its risk.", href: "/investigation" },
   { glyph: "⚑", title: "Action documents", desc: "Generate freeze requests & suspicious-transaction reports.", href: "/actions" },
-  { glyph: "▦", title: "Response metrics", desc: "Funds at risk / frozen, recovery rate, time-to-freeze.", href: "/response" },
+  { glyph: "▦", title: "Command Center", desc: "Agency-wide metrics: funds at risk / frozen, recovery rate, time-to-freeze.", href: "/response" },
 ];
 
 function Glyph({ children }: { children: React.ReactNode }) {

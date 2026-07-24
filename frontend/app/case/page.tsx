@@ -14,12 +14,11 @@ import Link from "next/link";
 import { useCases } from "@/components/cases/case-provider";
 import { generateActions } from "@/lib/actions/api";
 import { addBankAccount, addCryptoTransfer } from "@/lib/casedata/api";
-import { CASE_STAGES, fetchRollup, type CaseRollup, type CaseStage } from "@/lib/cases/api";
+import { CASE_STAGES, fetchRollup, type Case, type CaseRollup, type CaseStage } from "@/lib/cases/api";
 import { HoneypotPanel } from "@/components/honeypot/panel";
 import { BridgePanel } from "@/components/bridge/panel";
 import { InvestigationPanel } from "@/components/investigation/panel";
 import { ActionsPanel } from "@/components/actions/panel";
-import { ResponsePanel } from "@/components/response/panel";
 
 const CATEGORIES = ["unknown", "scam", "mule", "victim", "suspect", "exchange"];
 
@@ -33,17 +32,19 @@ const TOOL_META: Record<ToolTab, { label: string; glyph: string }> = {
   bridge: { label: "Bridge", glyph: "⇌" },
   investigation: { label: "Investigation", glyph: "◉" },
   actions: { label: "Action Panel", glyph: "⚑" },
-  response: { label: "Response", glyph: "▦" },
+  response: { label: "Command Center", glyph: "▦" }, // agency-wide — outside the case flow
 };
 
 // Which tool each stage's work happens in — the stage step opens this tool.
+// Recovery reviews THIS case (overview), not the agency-wide dashboard — that
+// lives outside the case flow, in the sidebar Command Center.
 const STAGE_TAB: Record<CaseStage, ToolTab> = {
   intake: "honeypot",
   freeze: "actions",
   trace: "bridge",
   takedown: "investigation",
   report: "actions",
-  recovery: "response",
+  recovery: "overview",
   closed: "overview",
 };
 
@@ -90,9 +91,9 @@ function stageAction(stage: CaseStage, r: CaseRollup | null): StageAction {
   const map: Record<CaseStage, StageAction> = {
     intake: {
       task: "Surface the suspect accounts & wallets",
-      why: "Catch the lead — run a honeypot or log what the victim reported.",
+      why: "Catch the lead — log the submitted victim report, or run a honeypot.",
       href: "/honeypot",
-      cta: "Open Honeypot",
+      cta: "Open Intake",
       checks: [
         { label: "Honeypot session engaged", done: sessions > 0 },
         { label: "Suspect account or wallet captured", done: banks + txs > 0 },
@@ -138,15 +139,15 @@ function stageAction(stage: CaseStage, r: CaseRollup | null): StageAction {
     recovery: {
       task: "Track fund recovery",
       why: "Coordinate returning the frozen funds to victims.",
-      href: "/response",
-      cta: "Open Response",
+      href: "/case",
+      cta: "Review recovery",
       checks: [{ label: "Freeze dispatched", done: dispatched }],
     },
     closed: {
       task: "Case closed",
       why: "Outcome recorded — nothing more to do.",
-      href: "/response",
-      cta: "Open Response",
+      href: "/case",
+      cta: "Review case",
       checks: [],
     },
   };
@@ -171,12 +172,18 @@ function StageFlow({
   onView: (v: View) => void;
 }) {
   const idx = CASE_STAGES.indexOf(stage);
+  // Closed is a STATUS, not a clickable work step — render the doing-stages as
+  // steps and Closed as an end-marker.
+  const workflow = CASE_STAGES.filter((s) => s !== "closed");
+  const isClosed = stage === "closed";
   return (
     <div className="rounded-card border border-line bg-card p-3.5">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="eyebrow">Case workflow</div>
         <div className="text-[10.5px] text-muted">
-          {STAGE_LABEL[stage]} · step {idx + 1} of {CASE_STAGES.length} — click a step to work on it
+          {isClosed
+            ? "Case closed"
+            : `${STAGE_LABEL[stage]} · step ${idx + 1} of ${workflow.length} — click a step to work on it`}
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
@@ -195,17 +202,23 @@ function StageFlow({
           Overview
         </button>
         <span className="mx-1 h-5 w-px bg-line" aria-hidden />
-        {CASE_STAGES.map((s, i) => {
+        {workflow.map((s, i) => {
           const past = i < idx;
           const current = i === idx; // where the case officially is
           const selected = view === s; // what's open
           const tool = STAGE_TAB[s];
+          const opensLabel =
+            s === "intake"
+              ? "Victim report or Honeypot"
+              : s === "recovery"
+                ? "Recovery review"
+                : TOOL_META[tool].label;
           return (
             <div key={s} className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => onView(s)}
-                title={`${STAGE_LABEL[s]} — ${STAGE_HINT[s]} · opens ${TOOL_META[tool].label}`}
+                title={`${STAGE_LABEL[s]} — ${STAGE_HINT[s]} · opens ${opensLabel}`}
                 aria-current={selected ? "page" : current ? "step" : undefined}
                 className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-medium transition-colors ${
                   selected
@@ -235,7 +248,7 @@ function StageFlow({
                   </span>
                 )}
               </button>
-              {i < CASE_STAGES.length - 1 && (
+              {i < workflow.length - 1 && (
                 <span className={i < idx ? "text-accent/50" : "text-muted"} aria-hidden>
                   →
                 </span>
@@ -243,6 +256,26 @@ function StageFlow({
             </div>
           );
         })}
+
+        {/* Closed — a status marker, not a clickable step */}
+        <span className="mx-1 h-5 w-px bg-line" aria-hidden />
+        <div
+          title={isClosed ? "Case closed" : "Set from the Recovery step or the Close case button"}
+          className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-medium ${
+            isClosed
+              ? "border-accent/50 bg-accent/10 text-accent-bright"
+              : "border-dashed border-line text-muted"
+          }`}
+        >
+          <span
+            className={`flex h-4 w-4 items-center justify-center rounded-full font-mono text-[9px] ${
+              isClosed ? "bg-accent/20 text-accent-bright" : "border border-line text-muted"
+            }`}
+          >
+            {isClosed ? "✓" : "•"}
+          </span>
+          Closed
+        </div>
       </div>
     </div>
   );
@@ -396,6 +429,327 @@ function daysOpen(iso: string): number {
   const d = new Date(iso).getTime();
   if (Number.isNaN(d)) return 0;
   return Math.max(0, Math.floor((Date.now() - d) / 86_400_000));
+}
+
+// Intake has two entry paths, mirroring how real cases actually start:
+//  · reactive  — a victim report was SUBMITTED (from IASC / a bank / police)
+//  · proactive — a HONEYPOT infiltration surfaced the lead
+// The analyst picks either; both feed the same case.
+function IntakeStage({
+  caseId,
+  banks,
+  onLogged,
+  onAdvanceFreeze,
+}: {
+  caseId: string;
+  banks: CaseRollup["bank_accounts"];
+  onLogged: () => Promise<void>;
+  onAdvanceFreeze: () => void;
+}) {
+  const [mode, setMode] = useState<"report" | "honeypot">("report");
+  const [form, setForm] = useState({ bank_name: "", account_number: "", holder_name: "" });
+  const [freezeNow, setFreezeNow] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setErr(null);
+    try {
+      await addBankAccount({
+        bank_name: form.bank_name.trim(),
+        account_number: form.account_number.trim(),
+        holder_name: form.holder_name.trim() || undefined,
+        category: "scam",
+        case_id: caseId,
+      });
+      if (freezeNow) {
+        await generateActions({
+          caseId,
+          outputs: ["freeze"],
+          entities: [
+            {
+              type: "bank_account",
+              value: form.account_number.trim(),
+              bank_name: form.bank_name.trim() || null,
+              holder_name: form.holder_name.trim() || null,
+            },
+          ],
+        });
+      }
+      onAdvanceFreeze();
+      setForm({ bank_name: "", account_number: "", holder_name: "" });
+      await onLogged();
+    } catch (e2) {
+      setErr(e2 instanceof Error ? e2.message : "Failed to log the report");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const ModeCard = ({
+    id,
+    title,
+    sub,
+  }: {
+    id: "report" | "honeypot";
+    title: string;
+    sub: string;
+  }) => (
+    <button
+      type="button"
+      onClick={() => setMode(id)}
+      aria-pressed={mode === id}
+      className={`flex-1 rounded-lg border px-3 py-2.5 text-left transition-colors ${
+        mode === id
+          ? "border-accent bg-accent/10"
+          : "border-line bg-elevated hover:border-white/20"
+      }`}
+    >
+      <div className={`text-[12.5px] font-semibold ${mode === id ? "text-accent-bright" : "text-fg"}`}>
+        {title}
+      </div>
+      <div className="mt-0.5 text-[10.5px] leading-snug text-muted">{sub}</div>
+    </button>
+  );
+
+  return (
+    <div>
+      {/* how did this case come in? */}
+      <div className="mb-3.5 rounded-card border border-line bg-card p-3.5">
+        <div className="eyebrow mb-2">How did this case come in?</div>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <ModeCard
+            id="report"
+            title="① Victim report — case submitted"
+            sub="Reactive: a report from IASC, a bank, or police. Log the receiving account and freeze fast."
+          />
+          <ModeCard
+            id="honeypot"
+            title="② Honeypot — proactive"
+            sub="Our AI persona baits the scammer and extracts the receiving accounts & wallets."
+          />
+        </div>
+      </div>
+
+      {mode === "report" ? (
+        <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1fr_320px]">
+          <form onSubmit={submit} className="space-y-3 rounded-card border border-line bg-card p-4">
+            <div className="eyebrow">Receiving account reported (to freeze)</div>
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+              <input required placeholder="Bank (e.g. BCA)" className={fieldCls}
+                value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} />
+              <input required placeholder="Account number" className={fieldCls}
+                value={form.account_number} onChange={(e) => setForm({ ...form, account_number: e.target.value })} />
+              <input placeholder="Holder name (optional)" className={fieldCls}
+                value={form.holder_name} onChange={(e) => setForm({ ...form, holder_name: e.target.value })} />
+            </div>
+
+            <label className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-accent/30 bg-accent/[.06] px-3 py-2.5">
+              <input type="checkbox" checked={freezeNow} onChange={(e) => setFreezeNow(e.target.checked)}
+                className="h-4 w-4 accent-[#10b981]" />
+              <span className="text-[12px] text-fg">
+                <b className="text-accent-bright">Generate freeze request now</b> — freeze the
+                receiving account first, trace later (the real 30-min window). Advances the case to Freeze.
+              </span>
+            </label>
+
+            {err && (
+              <p className="rounded-lg border border-risk-high/30 bg-risk-high/10 px-3 py-2 text-[11.5px] text-risk-high">
+                {err}
+              </p>
+            )}
+
+            <button type="submit" disabled={busy}
+              className="h-9 w-full rounded-lg bg-accent px-4 text-xs font-semibold text-[#04140d] transition-colors hover:bg-accent-bright disabled:opacity-60">
+              {busy ? "Working…" : freezeNow ? "Log report & freeze →" : "Log report →"}
+            </button>
+          </form>
+
+          <div className="rounded-card border border-line bg-card">
+            <div className="border-b border-line px-3.5 py-2.5">
+              <span className="eyebrow">Reported accounts · {banks.length}</span>
+            </div>
+            <div className="p-2">
+              {banks.length === 0 ? (
+                <p className="px-1.5 py-2 text-[11px] text-muted">
+                  None logged yet — add the receiving account from the report.
+                </p>
+              ) : (
+                <ul className="space-y-1">
+                  {banks.map((b) => (
+                    <li key={String(b.id)} className="rounded-lg bg-elevated px-2.5 py-1.5 font-mono text-[11.5px] text-fg">
+                      {String(b.bank_name)} {String(b.account_number)}
+                      <span className="ml-2 text-[10.5px] text-muted">{String(b.category)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <HoneypotPanel embedded />
+      )}
+    </div>
+  );
+}
+
+// Recovery — the last "doing" stage: get the frozen funds back to the victim,
+// then record the outcome and close. Case-scoped (this case's own freeze docs +
+// exposure), NOT the agency-wide Command Center.
+function RecoveryStage({
+  caseData,
+  rollup,
+  onUpdate,
+}: {
+  caseData: Case;
+  rollup: CaseRollup | null;
+  onUpdate: (
+    patch: Partial<Pick<Case, "summary" | "status" | "stage">>,
+  ) => Promise<void>;
+}) {
+  const docs = rollup?.documents ?? [];
+  const txs = rollup?.crypto_transfers ?? [];
+  const banks = rollup?.bank_accounts ?? [];
+  const dispatched = docs.some((d) => d.status === "dispatched");
+  const dispatchedCount = docs.filter((d) => d.status === "dispatched").length;
+  const cryptoExposure = txs.reduce((s, t) => s + Number(t.value ?? 0), 0);
+  const closed = caseData.status === "closed";
+
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const checklist = [
+    { label: "Freeze request generated", done: docs.length > 0 },
+    { label: "Freeze dispatched to bank / exchange", done: dispatched },
+    { label: "Outcome recorded & case closed", done: closed },
+  ];
+
+  const recordOutcome = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      const amt = amount.trim()
+        ? `Rp ${Number(amount).toLocaleString("id-ID")}`
+        : "an unspecified amount";
+      const line = `Recovered ${amt}${note.trim() ? ` — ${note.trim()}` : ""}.`;
+      // Keep a single outcome line in the brief (replace any prior one).
+      const base = (caseData.summary ?? "").split("— Outcome:")[0].trimEnd();
+      const summary = `${base}${base ? "\n\n" : ""}— Outcome: ${line}`;
+      await onUpdate({ summary, status: "closed", stage: "closed" });
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to record the outcome");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="mb-3.5 rounded-lg border border-accent/20 bg-accent/[.05] px-3 py-2 text-[11px] leading-relaxed text-muted">
+        <b className="text-accent-bright">Recovery</b> — get the frozen funds back
+        to the victim. Confirm the freeze landed, then record the outcome to close
+        the case.
+      </div>
+
+      <div className="mb-3.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <StatTile
+          label="Crypto exposure"
+          value={cryptoExposure > 0 ? `${cryptoExposure.toLocaleString()} USDT` : "—"}
+          accent
+        />
+        <StatTile label="Accounts tracked" value={banks.length} />
+        <StatTile label="Freeze requests" value={docs.length} />
+        <StatTile label="Dispatched" value={dispatchedCount} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+        {/* checklist */}
+        <div className="rounded-card border border-line bg-card p-3.5">
+          <div className="eyebrow mb-2.5">Recovery checklist</div>
+          <ul className="space-y-2">
+            {checklist.map((c) => (
+              <li key={c.label} className="flex items-center gap-2 text-[12px]">
+                <span
+                  className={`flex h-4 w-4 flex-none items-center justify-center rounded-full border text-[9px] ${
+                    c.done
+                      ? "border-accent bg-accent/20 text-accent-bright"
+                      : "border-line text-muted"
+                  }`}
+                >
+                  {c.done ? "✓" : ""}
+                </span>
+                <span className={c.done ? "text-fg/80" : "text-muted"}>{c.label}</span>
+              </li>
+            ))}
+          </ul>
+          {!dispatched && (
+            <p className="mt-3 text-[11px] text-muted">
+              No freeze dispatched yet — generate &amp; dispatch it from the
+              Freeze / Report step first.
+            </p>
+          )}
+        </div>
+
+        {/* outcome */}
+        <div className="rounded-card border border-line bg-card p-3.5">
+          <div className="eyebrow mb-2.5">Record outcome</div>
+          {closed ? (
+            <div>
+              <p className="rounded-lg border border-accent/30 bg-accent/[.06] px-3 py-2 text-[12px] text-fg">
+                ✓ Case closed — the outcome is recorded in the case brief.
+              </p>
+              <button
+                type="button"
+                onClick={() => void onUpdate({ status: "open", stage: "recovery" })}
+                className="mt-2.5 h-8 rounded-lg border border-white/10 bg-elevated px-3 text-[11.5px] font-semibold text-muted transition-colors hover:text-fg"
+              >
+                Reopen case
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              <div>
+                <label className="mb-1 block text-[11px] text-muted">
+                  Recovered amount (IDR)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="e.g. 18000000"
+                  className={fieldCls}
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] text-muted">Note (optional)</label>
+                <input
+                  placeholder="e.g. BCA froze Rp 18M, returned to victim"
+                  className={fieldCls}
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                />
+              </div>
+              {err && <p className="text-[11px] text-risk-high">{err}</p>}
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void recordOutcome()}
+                className="h-9 w-full rounded-lg bg-accent px-4 text-xs font-semibold text-[#04140d] transition-colors hover:bg-accent-bright disabled:opacity-60"
+              >
+                {busy ? "Saving…" : "Record outcome & close case"}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function CaseFilePage() {
@@ -565,8 +919,11 @@ export default function CaseFilePage() {
   const txs = rollup?.crypto_transfers ?? [];
   const sessions = rollup?.sessions ?? [];
   const documents = rollup?.documents ?? [];
-  const firstWallet = txs.map((t) => String(t.to_addr))[0];
+  const caseWallets = Array.from(new Set(txs.map((t) => String(t.to_addr))));
+  const firstWallet = caseWallets[0];
   const viewTool = view === "overview" ? "overview" : STAGE_TAB[view];
+  const viewToolLabel =
+    view === "intake" ? "Victim report or Honeypot" : TOOL_META[viewTool].label;
 
   return (
     <div className={`mx-auto ${viewTool === "overview" ? "max-w-[1000px]" : "max-w-[1320px]"}`}>
@@ -696,7 +1053,7 @@ export default function CaseFilePage() {
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-accent/20 bg-accent/[.05] px-3 py-1.5 text-[11px]">
           <span className="text-muted">
             <b className="text-accent-bright">{STAGE_LABEL[view]}</b> stage ·{" "}
-            {TOOL_META[viewTool].label} — work here attaches to{" "}
+            {viewToolLabel} — work here attaches to{" "}
             <b className="text-white/70">{activeCase.title}</b>.
           </span>
           <div className="flex flex-none items-center gap-3">
@@ -721,19 +1078,37 @@ export default function CaseFilePage() {
         </div>
       )}
 
-      {viewTool === "honeypot" && <HoneypotPanel embedded />}
-      {viewTool === "bridge" && <BridgePanel embedded />}
+      {viewTool === "honeypot" && (
+        <IntakeStage
+          caseId={activeCase.id}
+          banks={banks}
+          onLogged={load}
+          onAdvanceFreeze={() => void advanceStage(activeCase.id, "freeze")}
+        />
+      )}
+      {viewTool === "bridge" && (
+        <BridgePanel embedded onOpenTakedown={() => openView("takedown")} />
+      )}
       {viewTool === "investigation" && (
         <InvestigationPanel
           embedded
           key={investigateAddr ?? firstWallet ?? "idle"}
           initialAddress={investigateAddr ?? firstWallet}
+          caseWallets={caseWallets}
+          onSendToActions={() => openView("report")}
         />
       )}
       {viewTool === "actions" && <ActionsPanel embedded />}
-      {viewTool === "response" && <ResponsePanel embedded />}
 
-      {viewTool === "overview" && (
+      {view === "recovery" && (
+        <RecoveryStage
+          caseData={activeCase}
+          rollup={rollup}
+          onUpdate={(patch) => updateCase(activeCase.id, patch)}
+        />
+      )}
+
+      {viewTool === "overview" && view !== "recovery" && (
         <>
       {/* overview stat tiles */}
       <div className="mb-3.5 grid grid-cols-3 gap-2 sm:grid-cols-6">

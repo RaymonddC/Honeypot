@@ -24,7 +24,7 @@ const NAV_GROUPS: { label: string; items: { href: string; label: string; glyph: 
       { href: "/bridge", label: "Bridge View", glyph: "⇌" },
       { href: "/investigation", label: "Investigation", glyph: "◉" },
       { href: "/actions", label: "Action Panel", glyph: "⚑" },
-      { href: "/response", label: "Response", glyph: "▦" },
+      { href: "/response", label: "Command Center", glyph: "▦" },
     ],
   },
 ];
