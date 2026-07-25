@@ -14,7 +14,6 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AccountWatchlist } from "@/components/bridge/account-watchlist";
 import { MuleStatsCard } from "@/components/bridge/mule-stats-card";
 import { OnRampFeed } from "@/components/bridge/onramp-feed";
 import { StatRow } from "@/components/bridge/stat-row";
@@ -38,7 +37,7 @@ const SankeyChart = dynamic(
     })),
   {
     ssr: false,
-    loading: () => <div className="h-[430px] animate-pulse" />,
+    loading: () => <div className="h-[460px] animate-pulse rounded-lg bg-white/[.02]" />,
   },
 );
 
@@ -159,6 +158,13 @@ export function BridgePanel({
           {/* ── sankey + right rail ────────────────────────────────── */}
           <div className="grid grid-cols-1 items-start gap-3.5 lg:grid-cols-[1fr_300px]">
             <div className="rounded-card border border-line bg-card px-4 pb-3 pt-3.5">
+              {/* card header — what the diagram shows + how to read it */}
+              <div className="mb-2.5 flex items-baseline justify-between gap-3 border-b border-line px-1.5 pb-2.5">
+                <span className="eyebrow">Money flow · fiat → crypto</span>
+                <span className="hidden text-[10px] text-muted sm:block">
+                  ribbon width = volume · hover to isolate a path
+                </span>
+              </div>
               {/* split-screen labels: fiat │ bridge │ crypto */}
               <div className="grid grid-cols-3 px-1.5 pb-1 text-[10px] font-bold uppercase tracking-[.08em]">
                 <span className="text-muted">Fiat · simulated</span>
@@ -183,7 +189,6 @@ export function BridgePanel({
             <div>
               <OnRampFeed alerts={data.alerts} onTrace={goTakedown} />
               <MuleStatsCard mules={data.mules} />
-              <AccountWatchlist />
             </div>
           </div>
         </>

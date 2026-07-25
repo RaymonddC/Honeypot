@@ -1,16 +1,33 @@
 /**
  * Bridge View stat row — QRIS inflow (sim) · bridged to crypto · correlated
- * on-ramps, as three metric cards (mockup .stat-row).
+ * on-ramps, as three metric cards with a colored accent + context sublabel.
  */
 
 import type { BridgeStats, StatValue } from "@/lib/bridge/types";
 
-function Metric({ label, stat }: { label: string; stat: StatValue }) {
+type MetricMeta = { key: keyof BridgeStats; label: string; sub: string; dot: string };
+
+const METRICS: MetricMeta[] = [
+  { key: "qrisInflow", label: "QRIS inflow", sub: "fiat entering the funnel", dot: "#f5a524" },
+  { key: "bridgedToCrypto", label: "Bridged to crypto", sub: "reached USDT / exchanges", dot: "#06b6d4" },
+  { key: "correlatedOnRamps", label: "Correlated on-ramps", sub: "fiat ↔ crypto matches", dot: "#34d399" },
+];
+
+function Metric({ meta, stat }: { meta: MetricMeta; stat: StatValue }) {
   return (
-    <div className="rounded-card border border-line bg-card p-[15px]">
-      <div className="eyebrow">{label}</div>
+    <div className="group relative overflow-hidden rounded-card border border-line bg-card p-4 transition-colors hover:border-white/15">
+      {/* left accent rail */}
+      <span
+        className="absolute inset-y-0 left-0 w-[3px]"
+        style={{ background: meta.dot }}
+        aria-hidden
+      />
+      <div className="flex items-center gap-1.5">
+        <span className="h-1.5 w-1.5 rounded-full" style={{ background: meta.dot }} aria-hidden />
+        <div className="eyebrow">{meta.label}</div>
+      </div>
       <div
-        className="mt-2 font-mono text-[22px] font-extrabold leading-none tracking-tight tnum"
+        className="mt-2 font-mono text-[24px] font-extrabold leading-none tracking-tight tnum"
         style={stat.color ? { color: stat.color } : undefined}
       >
         {stat.value}
@@ -18,6 +35,7 @@ function Metric({ label, stat }: { label: string; stat: StatValue }) {
           <span className="text-[13px] font-bold text-muted"> {stat.suffix}</span>
         )}
       </div>
+      <div className="mt-1.5 text-[10.5px] text-muted">{meta.sub}</div>
     </div>
   );
 }
@@ -25,9 +43,9 @@ function Metric({ label, stat }: { label: string; stat: StatValue }) {
 export function StatRow({ stats }: { stats: BridgeStats }) {
   return (
     <div className="mb-3.5 grid grid-cols-3 gap-2.5">
-      <Metric label="QRIS inflow (sim)" stat={stats.qrisInflow} />
-      <Metric label="Bridged to crypto" stat={stats.bridgedToCrypto} />
-      <Metric label="Correlated on-ramps" stat={stats.correlatedOnRamps} />
+      {METRICS.map((m) => (
+        <Metric key={m.key} meta={m} stat={stats[m.key]} />
+      ))}
     </div>
   );
 }
