@@ -59,6 +59,10 @@ export interface DispatchTarget {
   /** What gets asked of them, e.g. "Freeze mule a/n 4881…". */
   action: string;
   status: DispatchStatus;
+  /** Delivery channel/protocol, e.g. "goAML" / "IASC" / "Compliance API". */
+  channel?: string;
+  /** Agency type, e.g. "regulator" / "bank" / "exchange" / "police". */
+  agencyType?: string;
 }
 
 /* ── Aggregate bundle ──────────────────────────────────────────────────── */

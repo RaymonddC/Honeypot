@@ -14,11 +14,40 @@
 
 import { useState } from "react";
 import { downloadDocument } from "@/lib/actions/api";
-import type { ActionDocument } from "@/lib/actions/types";
+import type { ActionDocument, DispatchTarget } from "@/lib/actions/types";
+import { useAuth } from "@/components/auth/auth-provider";
+import { roleLabel } from "@/lib/auth/types";
+import { DocumentView } from "@/components/actions/document-view";
+import type { LetterContext } from "@/lib/actions/letter";
 
-export function DocCard({ doc }: { doc: ActionDocument }) {
+export function DocCard({
+  doc,
+  caseRef,
+  evidenceHash,
+  targets,
+}: {
+  doc: ActionDocument;
+  /** Bundle context stamped onto the official letter. */
+  caseRef?: string;
+  evidenceHash?: string;
+  targets?: DispatchTarget[];
+}) {
+  const { me } = useAuth();
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showDoc, setShowDoc] = useState(false);
+
+  const letterCtx: LetterContext = {
+    agencyName: me?.agency.name ?? "Agency",
+    agencyType: me?.agency.type,
+    officerName: me?.user.name ?? "[Nama Pejabat]",
+    officerRole: me ? roleLabel(me.role) : "Pejabat Berwenang",
+    caseRef: caseRef ?? "CASE #—",
+    evidenceHash: evidenceHash ?? doc.sha256 ?? "—",
+    targets: targets ?? [],
+  };
+  // Only freeze / STR letters get a formal document; the alert has its own card.
+  const canPreview = doc.kind === "freeze" || doc.kind === "ltkm";
 
   const download = async () => {
     if (downloading) return;
@@ -44,17 +73,29 @@ export function DocCard({ doc }: { doc: ActionDocument }) {
           <b className="block truncate text-[12.5px]">{doc.title}</b>
           <small className="text-[10px] text-muted">{doc.subtitle}</small>
         </div>
-        {doc.downloadUrl && (
-          <button
-            type="button"
-            onClick={() => void download()}
-            disabled={downloading}
-            title="Download PDF (GET /api/documents/{id})"
-            className="ml-auto cursor-pointer rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10px] text-white/60 transition-colors hover:border-accent/30 hover:text-accent-bright disabled:cursor-default disabled:opacity-50"
-          >
-            {downloading ? "…" : "↓ PDF"}
-          </button>
-        )}
+        <div className="ml-auto flex items-center gap-1.5">
+          {canPreview && (
+            <button
+              type="button"
+              onClick={() => setShowDoc(true)}
+              title="View the formatted letter — print or save it as PDF"
+              className="cursor-pointer rounded-md border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent-bright transition-colors hover:bg-accent/20"
+            >
+              ⧉ View
+            </button>
+          )}
+          {doc.downloadUrl && (
+            <button
+              type="button"
+              onClick={() => void download()}
+              disabled={downloading}
+              title="Download the official PDF — the SHA-256 hash-chained file of record dispatched to agencies"
+              className="cursor-pointer rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10px] text-white/60 transition-colors hover:border-accent/30 hover:text-accent-bright disabled:cursor-default disabled:opacity-50"
+            >
+              {downloading ? "…" : "↓ PDF"}
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -90,6 +131,10 @@ export function DocCard({ doc }: { doc: ActionDocument }) {
           ))}
         </div>
       </div>
+
+      {showDoc && canPreview && (
+        <DocumentView doc={doc} ctx={letterCtx} onClose={() => setShowDoc(false)} />
+      )}
     </div>
   );
 }

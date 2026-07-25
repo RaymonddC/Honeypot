@@ -362,6 +362,8 @@ function normalizeTargets(b: any): DispatchTarget[] {
         // Pre-dispatch nothing has been sent — targets are drafts until the
         // analyst confirms; dispatch overlays the notification status (mock…).
         status: statusByAgency.get(name) ?? "draft",
+        channel: str(first(r?.channel, r?.protocol, r?.delivery_channel)),
+        agencyType: str(first(r?.agency_type, r?.type)),
       };
     });
 
@@ -377,6 +379,8 @@ function normalizeTargets(b: any): DispatchTarget[] {
         str(first(n?.payload?.note, n?.channel && `via ${n.channel}`)) ??
         "Alert",
       status: normalizeStatus(first(n?.status, n?.delivery_status)),
+      channel: str(first(n?.channel, n?.protocol)),
+      agencyType: str(first(n?.agency_type, n?.type)),
     };
   });
 }

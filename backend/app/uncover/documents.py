@@ -71,6 +71,21 @@ CRIME_TYPE_LABELS = {
     "romance": "Romance scam",
 }
 
+# Role → Indonesian officer title for the signature block.
+OFFICER_TITLES = {
+    "police-investigator": "Penyidik / Investigator",
+    "regulator-analyst": "Analis Transaksi Keuangan",
+    "bank-compliance": "Petugas Kepatuhan (Compliance)",
+    "exchange-compliance": "Petugas Kepatuhan (Compliance)",
+    "agency-admin": "Administrator Instansi",
+    "platform-admin": "Administrator Platform",
+}
+
+_ID_MONTHS = [
+    "", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli",
+    "Agustus", "September", "Oktober", "November", "Desember",
+]
+
 
 # --------------------------------------------------------------------------- #
 # Context models (assembled by the Action Orchestrator, app/uncover/service.py)
@@ -115,6 +130,9 @@ class DocumentContext(BaseModel):
     data_mode: str = "poc"
     generated_at: datetime
     requesting_agency: str = "ITTU — Integrated Trace & Takedown Unit (POC)"
+    agency_type: str = ""                 # police | regulator | bank | exchange
+    officer_name: str = ""                # signing officer (from the authed user)
+    officer_role: str = ""                # officer title for the signature block
     case_reference: str | None = None
     wallets: list[WalletTarget] = Field(default_factory=list)
     accounts: list[AccountTarget] = Field(default_factory=list)
@@ -170,28 +188,44 @@ class GeneratedDocument:
 # ReportLab plumbing
 # --------------------------------------------------------------------------- #
 
+# Palette mirrors the web letter (lib/actions/letter.ts).
+C_INK = colors.HexColor("#111827")
+C_MUTED = colors.HexColor("#6b7280")
+C_LINE = colors.HexColor("#d1d5db")
+C_ACCENT = colors.HexColor("#0d9488")
+C_HEADBG = colors.HexColor("#f3f4f6")
+
 _styles = getSampleStyleSheet()
+# Body is serif (Times) like the web letter; labels/tables/headers are sans.
 STYLE_TITLE = ParagraphStyle(
-    "IttuTitle", parent=_styles["Title"], fontSize=15, spaceAfter=2 * mm)
+    "IttuTitle", parent=_styles["Title"], fontName="Times-Bold", fontSize=15,
+    textColor=C_INK, spaceAfter=1 * mm)
 STYLE_SUB = ParagraphStyle(
-    "IttuSub", parent=_styles["Normal"], fontSize=9, textColor=colors.HexColor("#555555"))
+    "IttuSub", parent=_styles["Normal"], fontSize=9, textColor=C_MUTED)
 STYLE_H = ParagraphStyle(
-    "IttuH", parent=_styles["Heading2"], fontSize=11, spaceBefore=4 * mm, spaceAfter=1.5 * mm)
+    "IttuH", parent=_styles["Normal"], fontName="Helvetica-Bold", fontSize=9.5,
+    textColor=C_MUTED, spaceBefore=4 * mm, spaceAfter=1.5 * mm)
 STYLE_BODY = ParagraphStyle(
-    "IttuBody", parent=_styles["Normal"], fontSize=9, leading=12)
+    "IttuBody", parent=_styles["Normal"], fontName="Times-Roman", fontSize=10,
+    leading=13.5, textColor=C_INK)
 STYLE_MONO = ParagraphStyle(
-    "IttuMono", parent=_styles["Normal"], fontName="Courier", fontSize=7.5, leading=9.5)
+    "IttuMono", parent=_styles["Normal"], fontName="Courier", fontSize=7.5,
+    leading=9.5, textColor=C_INK)
 STYLE_BULLET = ParagraphStyle(
-    "IttuBullet", parent=STYLE_BODY, leftIndent=5 * mm, bulletIndent=1 * mm)
+    "IttuBullet", parent=STYLE_BODY, leftIndent=5 * mm, bulletIndent=1 * mm,
+    spaceAfter=0.6 * mm)
 
 TABLE_STYLE = TableStyle([
-    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1f2937")),
-    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+    ("BACKGROUND", (0, 0), (-1, 0), C_HEADBG),
+    ("TEXTCOLOR", (0, 0), (-1, 0), C_INK),
     ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-    ("FONTSIZE", (0, 0), (-1, -1), 7.5),
-    ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#9ca3af")),
+    ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+    ("TEXTCOLOR", (0, 1), (-1, -1), C_INK),
+    ("FONTSIZE", (0, 0), (-1, -1), 7.8),
+    ("GRID", (0, 0), (-1, -1), 0.5, C_LINE),
     ("VALIGN", (0, 0), (-1, -1), "TOP"),
-    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f3f4f6")]),
+    ("TOPPADDING", (0, 0), (-1, -1), 3),
+    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
 ])
 
 
@@ -221,9 +255,122 @@ def _header(story: list, title: str, ctx: DocumentContext, doc_kind: str) -> Non
 
 
 def _legal_basis(story: list) -> None:
-    story.append(Paragraph("Legal basis / Dasar hukum", STYLE_H))
+    story.append(Paragraph("Dasar hukum / Legal basis", STYLE_H))
     for ref, desc in LEGAL_BASIS:
         story.append(Paragraph(f"<b>{ref}</b> — {desc}", STYLE_BULLET, bulletText="•"))
+
+
+# --- Formal-letter styling (kop surat, meta, signature) ------------------- #
+
+STYLE_KOP_AGENCY = ParagraphStyle(
+    "KopAgency", parent=_styles["Normal"], fontName="Helvetica-Bold",
+    fontSize=15, leading=17, textColor=C_INK)
+STYLE_KOP_SUB = ParagraphStyle(
+    "KopSub", parent=_styles["Normal"], fontSize=9.5, leading=11.5, textColor=C_INK)
+STYLE_KOP_ADDR = ParagraphStyle(
+    "KopAddr", parent=_styles["Normal"], fontSize=7.5, leading=9.5, textColor=C_MUTED)
+STYLE_CREST = ParagraphStyle(
+    "Crest", parent=_styles["Normal"], fontName="Helvetica-Bold", fontSize=20,
+    textColor=C_ACCENT, alignment=1)
+STYLE_META = ParagraphStyle(
+    "Meta", parent=_styles["Normal"], fontSize=9, leading=12.5, textColor=C_INK)
+STYLE_JUST = ParagraphStyle("IttuJust", parent=STYLE_BODY, alignment=4)  # justify
+STYLE_SIGN = ParagraphStyle(
+    "IttuSign", parent=_styles["Normal"], fontName="Times-Roman", fontSize=9.5,
+    leading=13, alignment=1, textColor=C_INK)
+STYLE_FOOT = ParagraphStyle(
+    "IttuFoot", parent=_styles["Normal"], fontSize=7, leading=9.5, textColor=C_MUTED)
+
+
+def _just(text: str) -> Paragraph:
+    return Paragraph(text, STYLE_JUST)
+
+
+def _division_line(ctx: DocumentContext) -> str:
+    t = (ctx.agency_type or "").lower()
+    name = (ctx.requesting_agency or "").lower()
+    if "police" in t or "bareskrim" in name or "polri" in name:
+        return "Direktorat Tindak Pidana Siber (Dittipidsiber)"
+    if "regulator" in t or "ppatk" in name or "ojk" in name:
+        return "Unit Analisis &amp; Kepatuhan Transaksi Keuangan"
+    if "bank" in t:
+        return "Divisi Anti Pencucian Uang (APU-PPT)"
+    if "exchange" in t:
+        return "Divisi Kepatuhan (Compliance)"
+    return "Unit Penanganan Tindak Pidana Keuangan"
+
+
+def _date_id(ctx: DocumentContext) -> str:
+    d = ctx.generated_at
+    return f"{d.day} {_ID_MONTHS[d.month]} {d.year}"
+
+
+def _ref_no(ctx: DocumentContext, tag: str) -> str:
+    import re
+    digits = re.sub(r"\D", "", ctx.case_reference or ctx.case_id) or "0001"
+    return f"{digits[-4:]}/{tag}/{ctx.generated_at.year}"
+
+
+def _letterhead(story: list, ctx: DocumentContext) -> None:
+    # Crest box (teal ring) + agency block, side by side — like the web letter.
+    crest = Table([[Paragraph("◈", STYLE_CREST)]], colWidths=[12 * mm], rowHeights=[12 * mm])
+    crest.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 1.3, C_ACCENT),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+    ]))
+    text = [
+        Paragraph((ctx.requesting_agency or "").upper(), STYLE_KOP_AGENCY),
+        Paragraph(_division_line(ctx), STYLE_KOP_SUB),
+        Paragraph("Republik Indonesia · Sistem Forensik Keuangan ITTU", STYLE_KOP_ADDR),
+    ]
+    head = Table([[crest, text]], colWidths=[16 * mm, None])
+    head.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (0, 0), 0),
+        ("LEFTPADDING", (1, 0), (1, 0), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    story.append(head)
+    story.append(HRFlowable(width="100%", thickness=2.5, color=C_INK,
+                            spaceBefore=2 * mm, spaceAfter=0.7 * mm))
+    story.append(HRFlowable(width="100%", thickness=0.6, color=C_LINE,
+                            spaceAfter=4 * mm))
+
+
+def _signature(story: list, ctx: DocumentContext) -> None:
+    officer = ctx.officer_name or "[Nama Pejabat Penandatangan]"
+    # officer_role arrives as a role slug (e.g. "police-investigator") → title.
+    role = OFFICER_TITLES.get(ctx.officer_role, ctx.officer_role) or "Pejabat Berwenang"
+    inner = Table(
+        [
+            [Paragraph(f"Jakarta, {_date_id(ctx)}", STYLE_SIGN)],
+            [Paragraph(role, STYLE_SIGN)],
+            [Spacer(1, 15 * mm)],
+            [Paragraph(f"<u><b>{officer}</b></u>", STYLE_SIGN)],
+            [Paragraph(ctx.requesting_agency, STYLE_SIGN)],
+        ],
+        colWidths=[72 * mm],
+    )
+    inner.setStyle(TableStyle([
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    outer = Table([["", inner]], colWidths=[None, 72 * mm])
+    outer.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
+    story.append(Spacer(1, 5 * mm))
+    story.append(outer)
+
+
+def _doc_footer(story: list, ctx: DocumentContext, note: str) -> None:
+    story.append(Spacer(1, 6 * mm))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=C_LINE, spaceAfter=2 * mm))
+    poc = ("Dokumen ini dihasilkan dari data PROOF-OF-CONCEPT dan bukan instrumen hukum. "
+           if ctx.data_mode == "poc" else "")
+    story.append(Paragraph(
+        f"{note} {poc}Integritas bukti: dokumen di-SHA-256 dan dirantai-kustodi "
+        f"(UU ITE Pasal 5). Dicetak: {_date_id(ctx)}.", STYLE_FOOT))
 
 
 def _render(story: list, title: str) -> bytes:
@@ -280,72 +427,106 @@ def _finalize(
 
 def generate_freeze_request(ctx: DocumentContext) -> GeneratedDocument:
     title = "Permohonan Pemblokiran — Account & Wallet Freeze Request"
+    case = ctx.case_reference or ctx.case_id
     story: list = []
-    _header(story, title, ctx, "Freeze Request (IASC-compatible)")
+
+    _letterhead(story, ctx)
+
+    # Nomor / Sifat / Lampiran / Perihal
+    meta = Table(
+        [
+            [Paragraph("Nomor", STYLE_META), Paragraph(f": {_ref_no(ctx, 'PMB')}", STYLE_META)],
+            [Paragraph("Sifat", STYLE_META), Paragraph(": <b>SEGERA / URGENT</b>", STYLE_META)],
+            [Paragraph("Lampiran", STYLE_META), Paragraph(": 1 (satu) berkas ringkasan analisis", STYLE_META)],
+            [Paragraph("Perihal", STYLE_META),
+             Paragraph(": <b>Permohonan Pemblokiran Rekening &amp; Dompet Terkait Dugaan Tindak Pidana</b>", STYLE_META)],
+        ],
+        colWidths=[20 * mm, None],
+    )
+    meta.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0.5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0.5),
+    ]))
+    story.append(meta)
+    story.append(Spacer(1, 4 * mm))
 
     story.append(_body(
-        f"Pursuant to the legal basis below, <b>{ctx.requesting_agency}</b> requests the "
-        f"immediate <b>blocking/freezing</b> of the assets listed in this document, identified "
-        f"during investigation of case <b>{ctx.case_id}</b> "
-        f"(typology: <b>{ctx.crime_label}</b>). Total estimated funds at risk: "
-        f"<b>{ctx.total_at_risk_usdt:,.2f} USDT</b> "
-        f"(≈ Rp {ctx.total_at_risk_idr:,.0f} at Rp {ctx.idr_per_usdt:,.0f}/USDT)."
-    ))
+        "Kepada Yth.<br/><b>Kepala Divisi Kepatuhan / APU-PPT</b><br/>"
+        "Institusi Keuangan &amp; Penyedia Aset Kripto Terkait<br/>di Tempat"))
+    story.append(Spacer(1, 3 * mm))
 
-    if ctx.wallets:
-        story.append(Paragraph("Target crypto wallets (freeze / flag at exchange)", STYLE_H))
-        rows = [["Address", "Chain", "Risk", "Conf.", "Inflow (USDT)", "Fired patterns"]]
-        for w in ctx.wallets:
-            rows.append([
-                _mono(w.address), w.chain.upper(), w.risk.upper(),
-                f"{w.confidence:.2f}" if w.confidence is not None else "—",
-                f"{w.inflow_usdt:,.2f}", ", ".join(w.patterns) or "—",
-            ])
-        story.append(Table(rows, style=TABLE_STYLE,
-                           colWidths=[62 * mm, 13 * mm, 14 * mm, 12 * mm, 25 * mm, None]))
+    story.append(_body("Dengan hormat,"))
+    story.append(_just(
+        f"Sehubungan dengan penanganan perkara <b>{case}</b> terkait dugaan tindak pidana "
+        f"penipuan (<i>fraud</i>) dan pencucian uang dengan tipologi <b>{ctx.crime_label}</b>, "
+        "serta berdasarkan hasil analisis forensik keuangan yang kami lakukan, dengan ini kami "
+        "memohon bantuan Saudara untuk <b>segera melakukan PEMBLOKIRAN</b> terhadap rekening "
+        "dan/atau dompet sebagai berikut:"))
+    story.append(Spacer(1, 1.5 * mm))
 
     if ctx.accounts:
-        story.append(Paragraph("Target bank accounts (freeze at holding bank)", STYLE_H))
-        rows = [["Account number", "Bank", "Holder", "Role", "Outflow (IDR)"]]
-        for a in ctx.accounts:
-            rows.append([
-                _mono(a.account_number), a.bank_name, a.holder_name or "—",
-                a.role or "—", f"Rp {a.outflow_idr:,.0f}",
-            ])
+        rows = [["No.", "Nomor Rekening", "Bank", "Atas Nama", "Peran", "Arus Keluar (IDR)"]]
+        for i, a in enumerate(ctx.accounts, start=1):
+            rows.append([str(i), _mono(a.account_number), a.bank_name,
+                         a.holder_name or "—", a.role or "mule", f"Rp {a.outflow_idr:,.0f}"])
         story.append(Table(rows, style=TABLE_STYLE,
-                           colWidths=[38 * mm, 30 * mm, 40 * mm, 26 * mm, None]))
+                           colWidths=[8 * mm, 34 * mm, 24 * mm, 40 * mm, 24 * mm, None]))
+        story.append(Spacer(1, 1.5 * mm))
+
+    if ctx.wallets:
+        rows = [["No.", "Alamat Dompet (USDT-TRC20)", "Rantai", "Risiko", "Inflow (USDT)"]]
+        for i, w in enumerate(ctx.wallets, start=1):
+            rows.append([str(i), _mono(w.address), w.chain.upper(),
+                         w.risk.upper(), f"{w.inflow_usdt:,.2f}"])
+        story.append(Table(rows, style=TABLE_STYLE,
+                           colWidths=[8 * mm, 74 * mm, 16 * mm, 18 * mm, None]))
+        story.append(Spacer(1, 1.5 * mm))
+
+    story.append(_just(
+        f"Estimasi nilai dana terkait yang berisiko dipindahkan: "
+        f"<b>{ctx.total_at_risk_usdt:,.2f} USDT</b> "
+        f"(≈ Rp {ctx.total_at_risk_idr:,.0f} pada kurs Rp {ctx.idr_per_usdt:,.0f}/USDT). "
+        "Justifikasi risiko per objek disertai penalaran <i>Glass Box</i> dan skor risiko "
+        "pada berkas analisis terlampir."))
+
+    patterns = ", ".join(dict.fromkeys(p for w in ctx.wallets for p in w.patterns))
+    if patterns:
+        story.append(_just(
+            f"Pola tipologi pencucian uang yang terdeteksi (fired detectors): <b>{patterns}</b>."))
 
     tx_hashes = [h for w in ctx.wallets for h in w.tx_hashes]
     if tx_hashes:
-        story.append(Paragraph("Supporting transaction hashes (evidence)", STYLE_H))
+        story.append(Paragraph(
+            "Lampiran — jejak transaksi pendukung / Supporting tx hashes", STYLE_H))
         for h in tx_hashes[:20]:
             story.append(_mono(h))
         if len(tx_hashes) > 20:
-            story.append(_body(f"… and {len(tx_hashes) - 20} further transactions "
-                               "(see Case Evidence Pack)."))
-
-    story.append(Paragraph("Risk assessment — Glass Box reasoning", STYLE_H))
-    for w in ctx.wallets:
-        story.append(_body(f"<b>{w.address}</b> — composite risk <b>{w.risk.upper()}</b>:"))
-        for r in w.reasoning:
-            story.append(Paragraph(r, STYLE_BULLET, bulletText="•"))
-    if not ctx.wallets:
-        story.append(_body("See attached analyst narrative."))
+            story.append(_body(
+                f"… dan {len(tx_hashes) - 20} transaksi lainnya (lihat Berkas Bukti Perkara)."))
 
     _legal_basis(story)
 
-    story.append(Paragraph("Requested action", STYLE_H))
-    story.append(_body(
-        "1. Immediate temporary blocking (penundaan/pemblokiran sementara) of the assets above. "
-        "2. Preservation of all associated KYC records and transaction logs. "
-        "3. Confirmation of execution to the requesting agency, referencing this case id. "
-        "The freeze is executed by the receiving bank/exchange under its own authority "
-        "(IASC mechanism); this request compresses coordination, not legal authority."
-    ))
-    story.append(Spacer(1, 6 * mm))
-    story.append(_body(f"Issued electronically by {ctx.requesting_agency} — "
-                       f"{ctx.generated_at.isoformat()}. Document custody: SHA-256 hashed "
-                       "and audit-chained (UU ITE Pasal 5)."))
+    story.append(Paragraph("Tindakan yang dimohonkan / Requested action", STYLE_H))
+    story.append(_just(
+        "1. Pemblokiran / penundaan sementara terhadap rekening dan dompet tersebut di atas "
+        "<b>paling lambat 1×24 jam</b> sejak surat ini diterima. "
+        "2. Pengamanan seluruh data KYC dan log transaksi terkait. "
+        "3. Konfirmasi pelaksanaan disampaikan kepada unit kami dengan menyebutkan nomor perkara. "
+        "Pemblokiran dilaksanakan oleh bank / penyedia aset kripto penerima berdasarkan "
+        "kewenangannya (mekanisme IASC); surat ini mengkoordinasikan, bukan menggantikan, "
+        "kewenangan hukum tersebut."))
+
+    story.append(Spacer(1, 2 * mm))
+    story.append(_just(
+        "Demikian permohonan ini kami sampaikan. Atas perhatian dan kerja sama Saudara, "
+        "kami ucapkan terima kasih."))
+
+    _signature(story, ctx)
+    _doc_footer(story, ctx,
+                "Draf keluaran otomatis untuk ditinjau dan ditandatangani pejabat berwenang "
+                "sebelum dikirimkan.")
 
     pdf = _render(story, title)
     return _finalize(ctx, doc_type="account_blocking", fmt="iasc", title=title,
@@ -416,7 +597,11 @@ def generate_str_draft(ctx: DocumentContext) -> GeneratedDocument:
     title = "LTKM / Suspicious Transaction Report — Draft (goAML)"
     goaml = build_goaml_draft(ctx)
     story: list = []
-    _header(story, title, ctx, "LTKM/STR draft for PPATK goAML")
+    _letterhead(story, ctx)
+    story.append(Paragraph("LAPORAN TRANSAKSI KEUANGAN MENCURIGAKAN (LTKM)", STYLE_TITLE))
+    story.append(Paragraph(
+        "Suspicious Transaction Report — Draft untuk PPATK (goAML)", STYLE_SUB))
+    story.append(Spacer(1, 3 * mm))
 
     story.append(Paragraph("Report header", STYLE_H))
     rows = [
@@ -473,10 +658,15 @@ def generate_str_draft(ctx: DocumentContext) -> GeneratedDocument:
     story.append(Paragraph("Grounds for suspicion — narrative", STYLE_H))
     story.append(_body(goaml["report"]["reason"]))
 
-    story.append(Spacer(1, 4 * mm))
-    story.append(_body("A machine-readable goAML-shaped draft accompanies this PDF "
-                       "(bundle field <b>goaml_draft</b>); live goAML XML submission is a "
-                       "LIVE-mode integration."))
+    story.append(Spacer(1, 3 * mm))
+    story.append(_body(
+        "Draf terstruktur goAML (machine-readable) menyertai dokumen ini "
+        "(<b>goaml_draft</b>); penyampaian goAML XML langsung merupakan integrasi mode LIVE."))
+
+    _signature(story, ctx)
+    _doc_footer(story, ctx,
+                "Draf LTKM keluaran sistem — wajib dilengkapi identitas terlapor dan disahkan "
+                "sebelum disampaikan melalui goAML.")
 
     pdf = _render(story, title)
     return _finalize(ctx, doc_type="str_report", fmt="ppatk_str", title=title,

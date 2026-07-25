@@ -179,9 +179,15 @@ export function ActionsPanel({
           {/* ── three doc cards ────────────────────────────────────── */}
           <div className="grid grid-cols-1 gap-3.5 md:grid-cols-3">
             {bundle.documents.map((doc) => (
-              <DocCard key={doc.id} doc={doc} />
+              <DocCard
+                key={doc.id}
+                doc={doc}
+                caseRef={bundle.caseRef}
+                evidenceHash={bundle.evidenceHash}
+                targets={bundle.targets}
+              />
             ))}
-            <AgencyAlertCard targets={bundle.targets} />
+            <AgencyAlertCard targets={bundle.targets} caseRef={bundle.caseRef} />
           </div>
 
           {/* ── human-gated dispatch ───────────────────────────────── */}
