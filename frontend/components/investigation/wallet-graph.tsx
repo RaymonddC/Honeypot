@@ -247,7 +247,7 @@ export function WalletGraph({
 
   return (
     <div
-      className="relative h-[456px] overflow-hidden rounded-card border border-line"
+      className="relative h-[540px] overflow-hidden rounded-card border border-line"
       style={{
         background: "radial-gradient(120% 120% at 30% 20%, #0e1013, #0a0a0b)",
       }}

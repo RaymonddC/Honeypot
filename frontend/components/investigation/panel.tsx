@@ -106,7 +106,7 @@ const WalletGraph = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-[456px] animate-pulse rounded-card border border-line bg-card" />
+      <div className="h-[540px] animate-pulse rounded-card border border-line bg-card" />
     ),
   },
 );
@@ -324,31 +324,38 @@ export function InvestigationPanel({
       {/* verdict + plain-language recommendation for the scored wallet */}
       {detail && !tracing && (
         <div
-          className="mb-3.5 flex flex-wrap items-center gap-3 rounded-card border px-3.5 py-2.5"
+          className="relative mb-3.5 flex flex-wrap items-center gap-x-4 gap-y-2 overflow-hidden rounded-card border px-4 py-3"
           style={{
             borderColor: `${RISK_COLORS[detail.risk]}55`,
             background: `${RISK_COLORS[detail.risk]}12`,
           }}
         >
-          <div className="flex items-center gap-2.5">
+          <span
+            className="absolute inset-y-0 left-0 w-1"
+            style={{ background: RISK_COLORS[detail.risk] }}
+            aria-hidden
+          />
+          <div className="flex items-center gap-2.5 pl-1">
             <span
-              className="rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide"
+              className="font-mono text-[27px] font-extrabold leading-none tnum"
               style={{
                 color: RISK_COLORS[detail.risk],
-                background: `${RISK_COLORS[detail.risk]}1f`,
+                textShadow: `0 0 14px ${RISK_COLORS[detail.risk]}55`,
               }}
-            >
-              {detail.risk === "exchange" ? "Attributed exchange" : `${RISK_LABELS[detail.risk]} risk`}
-            </span>
-            <span
-              className="font-mono text-[15px] font-extrabold tnum"
-              style={{ color: RISK_COLORS[detail.risk] }}
             >
               {detail.risk === "exchange" ? "—" : detail.score.toFixed(2)}
             </span>
-            <span className="hidden font-mono text-[10.5px] text-muted md:inline">
-              {detail.shortAddress} · conf {detail.confidence.toFixed(2)}
-            </span>
+            <div>
+              <div
+                className="text-[11.5px] font-bold uppercase tracking-wide"
+                style={{ color: RISK_COLORS[detail.risk] }}
+              >
+                {detail.risk === "exchange" ? "Attributed exchange" : `${RISK_LABELS[detail.risk]} risk`}
+              </div>
+              <div className="font-mono text-[10px] text-muted">
+                {detail.shortAddress} · conf {detail.confidence.toFixed(2)}
+              </div>
+            </div>
           </div>
           <p className="min-w-0 flex-1 text-[11.5px] leading-snug text-fg/80">
             {RISK_RECO[detail.risk]}
@@ -370,60 +377,61 @@ export function InvestigationPanel({
         </div>
       )}
 
-      {/* ── graph + right rail ─────────────────────────────────────── */}
-      <div className="grid grid-cols-1 items-start gap-3.5 lg:grid-cols-[1fr_328px]">
-        {tracing ? (
-          <div
-            className="grid h-[456px] place-items-center rounded-card border border-line bg-card"
-            aria-live="polite"
-          >
-            <div className="flex flex-col items-center gap-3 text-center">
-              <span
-                className="h-8 w-8 rounded-full border-2 border-accent/25 border-t-accent motion-safe:animate-spin motion-reduce:animate-pulse"
-                aria-hidden
-              />
-              <div>
+      {/* ── graph + reasoning (left) · calculated risk (right) ─────────── */}
+      <div className="grid grid-cols-1 items-start gap-3.5 lg:grid-cols-[1fr_336px]">
+        {/* left column — graph then the Glass Box, so it fills to match the
+            content-rich risk card and there's no dead space below the graph */}
+        <div className="space-y-3.5">
+          {tracing ? (
+            <div
+              className="grid h-[540px] place-items-center rounded-card border border-line bg-card"
+              aria-live="polite"
+            >
+              <div className="flex flex-col items-center gap-3 text-center">
+                <span
+                  className="h-8 w-8 rounded-full border-2 border-accent/25 border-t-accent motion-safe:animate-spin motion-reduce:animate-pulse"
+                  aria-hidden
+                />
+                <div>
+                  <p className="text-[13px] font-medium text-fg">Tracing on-chain…</p>
+                  <p className="mt-1 text-[11px] text-muted">
+                    a busy wallet can take up to a minute
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (status === "ok" || status === "mock") && graph ? (
+            <WalletGraph
+              graph={graph}
+              selectedId={selected}
+              onSelect={(id) => {
+                if (graph && source)
+                  void selectWallet(id, graph, source, traceSeq.current);
+              }}
+            />
+          ) : status && status !== "ok" && status !== "mock" ? (
+            <div
+              className="grid h-[540px] place-items-center rounded-card border border-line bg-card"
+              role="status"
+            >
+              <div className="max-w-xs px-6 text-center">
                 <p className="text-[13px] font-medium text-fg">
-                  Tracing on-chain…
+                  {STATE_PANEL[status].title}
                 </p>
-                <p className="mt-1 text-[11px] text-muted">
-                  a busy wallet can take up to a minute
+                <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+                  {STATE_PANEL[status].sub}
                 </p>
               </div>
             </div>
-          </div>
-        ) : (status === "ok" || status === "mock") && graph ? (
-          <WalletGraph
-            graph={graph}
-            selectedId={selected}
-            onSelect={(id) => {
-              if (graph && source)
-                void selectWallet(id, graph, source, traceSeq.current);
-            }}
-          />
-        ) : status && status !== "ok" && status !== "mock" ? (
-          <div
-            className="grid h-[456px] place-items-center rounded-card border border-line bg-card"
-            role="status"
-          >
-            <div className="max-w-xs px-6 text-center">
-              <p className="text-[13px] font-medium text-fg">
-                {STATE_PANEL[status].title}
-              </p>
-              <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
-                {STATE_PANEL[status].sub}
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="h-[456px] rounded-card border border-line bg-card" />
-        )}
+          ) : (
+            <div className="h-[540px] rounded-card border border-line bg-card" />
+          )}
+
+          <GlassBox detail={detail} />
+        </div>
 
         <WalletDetailCard detail={detail} loading={detailLoading || tracing} />
       </div>
-
-      {/* ── Glass Box ──────────────────────────────────────────────── */}
-      <GlassBox detail={detail} />
 
       {!embedded && (
         <div className="mt-5 border-t border-line pt-3.5 text-[10.5px] leading-relaxed text-muted">

@@ -5,25 +5,89 @@
  * Overview (patterns + 12 features) / Transactions tabs.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { WalletDetail } from "@/lib/investigation/types";
-import { RISK_COLORS } from "@/lib/investigation/types";
+import { RISK_COLORS, RISK_LABELS } from "@/lib/investigation/types";
 import { RiskPill } from "./risk-pill";
 
 type Tab = "overview" | "transactions";
 
-function gaugeFill(d: WalletDetail): { width: string; background: string } {
-  if (d.risk === "exchange")
-    return { width: "100%", background: RISK_COLORS.exchange };
-  if (d.score > 0.7)
-    return {
-      width: `${d.score * 100}%`,
-      background: `linear-gradient(90deg, ${RISK_COLORS.medium}, ${RISK_COLORS.high})`,
+// Plain-language meaning of each of the 12 features (hover tooltip).
+const FACTOR_HELP: Record<string, string> = {
+  "Rapid-relay rate": "Share of incoming funds forwarded out within ~5 minutes — pass-through/relay behaviour.",
+  "In/out ratio": "Value out vs in (~1.0 = pure pass-through, typical of a mule).",
+  "Tx velocity": "Transactions per active day — higher = busier / more automated.",
+  "Unique counterparties": "Number of distinct wallets it transacts with.",
+  "Round-number %": "Share of round-number amounts — a structuring / smurfing signature.",
+  "Account age (inv.)": "How new the wallet is (inverted) — fresh wallets score higher.",
+  "Fan-in/out ratio": "Senders vs receivers — high fan-out means dispersal to many wallets.",
+  "Time-dist. entropy": "How spread the timing is across the day — low = bursty / automated.",
+  "Chain depth": "Hops from the wallet you traced — deeper = further down the laundering chain.",
+  "Volume (total)": "Total USDT moved through the wallet.",
+  "Max tx size": "Largest single transfer.",
+  "Self-loop count": "Transfers back to itself — an obfuscation tactic.",
+};
+
+/** Animate a 0..1 value up from 0 (respects reduced-motion). */
+function useCountUp(target: number, ms = 650): number {
+  const [v, setV] = useState(0);
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    ) {
+      setV(target);
+      return;
+    }
+    let raf = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / ms);
+      const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
+      setV(target * eased);
+      if (t < 1) raf = requestAnimationFrame(tick);
     };
-  return {
-    width: `${d.score * 100}%`,
-    background: d.score > 0.4 ? RISK_COLORS.medium : RISK_COLORS.low,
-  };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, ms]);
+  return v;
+}
+
+// Radial risk gauge — the headline "calculated risk" figure.
+function RiskGauge({ detail }: { detail: WalletDetail }) {
+  const exchange = detail.risk === "exchange";
+  const color = RISK_COLORS[detail.risk];
+  const target = exchange ? 1 : Math.max(0, Math.min(1, detail.score));
+  const pct = useCountUp(target);
+  const R = 48;
+  const C = 2 * Math.PI * R;
+  return (
+    <div className="relative h-[128px] w-[128px]">
+      <svg viewBox="0 0 128 128" className="h-full w-full -rotate-90">
+        <circle cx={64} cy={64} r={R} fill="none" stroke="rgba(255,255,255,.06)" strokeWidth={9} />
+        <circle
+          cx={64}
+          cy={64}
+          r={R}
+          fill="none"
+          stroke={color}
+          strokeWidth={9}
+          strokeLinecap="round"
+          strokeDasharray={C}
+          strokeDashoffset={C * (1 - pct)}
+          style={{ filter: `drop-shadow(0 0 6px ${color}66)` }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <div className="font-mono text-[30px] font-extrabold leading-none tracking-tight tnum" style={{ color }}>
+          {exchange ? "—" : pct.toFixed(2)}
+        </div>
+        <div className="mt-1 text-[9.5px] font-bold uppercase tracking-[.08em]" style={{ color }}>
+          {exchange ? "Exchange" : `${RISK_LABELS[detail.risk]} risk`}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function KV({ label, value, color }: { label: string; value: string; color?: string }) {
@@ -45,6 +109,7 @@ export function WalletDetailCard({
   loading?: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("overview");
+  const [hoverFactor, setHoverFactor] = useState<string | null>(null);
 
   if (!detail) {
     return (
@@ -59,34 +124,34 @@ export function WalletDetailCard({
     );
   }
 
-  const color = RISK_COLORS[detail.risk];
-  const fill = gaugeFill(detail);
-
   return (
     <div className={`rounded-card border border-line bg-card ${loading ? "opacity-60" : ""}`}>
       {/* header */}
       <div className="flex items-center justify-between border-b border-line px-3.5 py-3">
-        <span className="eyebrow">Selected wallet</span>
+        <span className="eyebrow">Calculated risk</span>
         <RiskPill risk={detail.risk} score={detail.score} />
       </div>
 
-      {/* risk gauge */}
-      <div className="flex flex-col items-center px-3.5 pb-2.5 pt-4">
-        <div
-          className="font-mono text-[34px] font-extrabold leading-none tracking-tight tnum"
-          style={{ color }}
-        >
-          {detail.risk === "exchange" ? "—" : detail.score.toFixed(2)}
-        </div>
-        <div className="mt-1.5 text-[10px] uppercase tracking-[.04em] text-muted">
+      {/* radial risk gauge — the highlighted verdict */}
+      <div className="flex flex-col items-center px-3.5 pb-3 pt-4">
+        <RiskGauge detail={detail} />
+        <div className="mt-2 text-[9.5px] uppercase tracking-[.05em] text-muted">
           {detail.method}
         </div>
-        <div className="mt-3 h-1.5 w-full overflow-hidden rounded bg-elevated">
-          <i
-            className="block h-full rounded transition-all duration-300"
-            style={fill}
-          />
-        </div>
+        {detail.risk !== "exchange" && (
+          <div className="mt-2.5 flex w-full items-center gap-2">
+            <span className="text-[9.5px] uppercase tracking-wide text-muted">Confidence</span>
+            <span className="h-1 flex-1 overflow-hidden rounded-full bg-elevated">
+              <i
+                className="block h-full rounded-full bg-accent transition-all duration-300"
+                style={{ width: `${Math.round(detail.confidence * 100)}%` }}
+              />
+            </span>
+            <span className="font-mono text-[10px] tnum text-fg/80">
+              {detail.confidence.toFixed(2)}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* key/value rows */}
@@ -127,7 +192,14 @@ export function WalletDetailCard({
 
       {tab === "overview" ? (
         <div>
-          <div className="eyebrow px-3.5 pb-0.5 pt-3">Flagged patterns</div>
+          <div className="eyebrow px-3.5 pb-0.5 pt-3">
+            Flagged typologies
+            {detail.patterns && detail.patterns.length > 0 && (
+              <span className="ml-1.5 rounded bg-risk-high/15 px-1.5 py-px text-[9px] font-bold text-risk-high">
+                {detail.patterns.length} fired
+              </span>
+            )}
+          </div>
           {detail.patterns && detail.patterns.length > 0 ? (
             detail.patterns.map((p) => (
               <div
@@ -160,30 +232,53 @@ export function WalletDetailCard({
 
           {detail.features && (
             <>
-              <div className="eyebrow px-3.5 pb-0.5 pt-2">
-                Features · 12 indicators
+              <div className="flex items-baseline justify-between px-3.5 pb-1 pt-2">
+                <span className="eyebrow">Risk factors · 12 indicators</span>
+                <span className="text-[9px] text-muted/70">percentile · highest first</span>
               </div>
-              <div className="grid grid-cols-[1fr_auto] gap-x-2.5 gap-y-1.5 px-3.5 py-3">
-                {detail.features.map((f) => (
-                  <div key={f.name} className="contents">
-                    <span className="self-center text-[10.5px] text-muted">
-                      {f.name}
-                    </span>
-                    <span
-                      className="h-1 min-w-20 self-center overflow-hidden rounded bg-elevated"
-                      title={`${f.percentile}th percentile`}
-                    >
-                      <i
-                        className="block h-full rounded transition-all duration-300"
-                        style={{
-                          width: `${f.percentile}%`,
-                          background:
-                            "linear-gradient(90deg, #14b8a6, #34d399)",
-                        }}
-                      />
-                    </span>
-                  </div>
-                ))}
+              <div className="space-y-1.5 px-3.5 py-2.5">
+                {[...detail.features]
+                  .sort((a, b) => b.percentile - a.percentile)
+                  .map((f) => {
+                    const band =
+                      f.percentile >= 70
+                        ? "#ef4444"
+                        : f.percentile >= 40
+                          ? "#f5a524"
+                          : "#10b981";
+                    const on = hoverFactor === f.name;
+                    return (
+                      <div
+                        key={f.name}
+                        className={`flex cursor-help items-center gap-2 rounded transition-colors ${on ? "bg-white/[.04]" : ""}`}
+                        onMouseEnter={() => setHoverFactor(f.name)}
+                        onMouseLeave={() => setHoverFactor(null)}
+                      >
+                        <span className={`w-[40%] flex-none truncate text-[10.5px] ${on ? "text-fg" : "text-muted"}`}>
+                          {f.name}
+                        </span>
+                        <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-elevated">
+                          <i
+                            className="block h-full rounded-full transition-all duration-300"
+                            style={{ width: `${f.percentile}%`, background: band }}
+                          />
+                        </span>
+                        <span className="w-6 flex-none text-right font-mono text-[9.5px] tnum" style={{ color: band }}>
+                          {f.percentile}
+                        </span>
+                      </div>
+                    );
+                  })}
+              </div>
+              {/* plain-language meaning of the hovered factor */}
+              <div className="mx-3.5 mb-3 min-h-[34px] rounded-lg border border-line bg-elevated px-2.5 py-1.5 text-[10.5px] leading-snug text-muted">
+                {hoverFactor ? (
+                  <>
+                    <b className="text-fg/80">{hoverFactor}</b> — {FACTOR_HELP[hoverFactor] ?? "—"}
+                  </>
+                ) : (
+                  <span className="text-muted/70">Hover a factor for its meaning.</span>
+                )}
               </div>
             </>
           )}
