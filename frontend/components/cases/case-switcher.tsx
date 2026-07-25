@@ -7,7 +7,6 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCases } from "@/components/cases/case-provider";
 import { CASE_STAGES } from "@/lib/cases/api";
@@ -176,22 +175,13 @@ export function CaseSwitcher() {
               </div>
             </form>
           ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => setCreating(true)}
-                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-[12.5px] text-accent-bright transition-colors hover:bg-white/[.04]"
-              >
-                <span aria-hidden>＋</span> New case (blank)
-              </button>
-              <Link
-                href="/intake"
-                onClick={() => setOpen(false)}
-                className="mb-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-[12.5px] text-muted transition-colors hover:bg-white/[.04] hover:text-fg"
-              >
-                <span aria-hidden>✎</span> New from victim report
-              </Link>
-            </>
+            <button
+              type="button"
+              onClick={() => setCreating(true)}
+              className="mb-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-[12.5px] text-accent-bright transition-colors hover:bg-white/[.04]"
+            >
+              <span aria-hidden>＋</span> New case
+            </button>
           )}
         </div>
       )}

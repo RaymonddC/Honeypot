@@ -156,40 +156,36 @@ function freezeLetter(doc: ActionDocument, ctx: LetterContext): string {
   </div>
   <hr class="rule"><hr class="rule thin">
 
+  <h1 class="rep">PERMOHONAN PEMBLOKIRAN REKENING &amp; DOMPET
+    <small>Request to Freeze Accounts / Wallets — Suspected Financial Crime</small></h1>
+
   <table class="meta">
     <tr><td>Nomor</td><td>: ${esc(refNo(ctx, "PMB"))}</td></tr>
     <tr><td>Sifat</td><td>: <span class="urgent">SEGERA / URGENT</span></td></tr>
-    <tr><td>Lampiran</td><td>: 1 (satu) berkas ringkasan analisis</td></tr>
-    <tr><td>Perihal</td><td>: <b>Permohonan Pemblokiran Rekening &amp; Dompet Terkait Dugaan Tindak Pidana</b><br><small>Re: Request to Freeze Accounts/Wallets — Suspected Financial Crime</small></td></tr>
+    <tr><td>Perkara</td><td>: ${esc(ctx.caseRef)}</td></tr>
+    <tr><td>Kepada</td><td>: Kepala Divisi Kepatuhan / APU-PPT — Institusi Keuangan &amp; Penyedia Aset Kripto Terkait</td></tr>
+    <tr><td>Tanggal</td><td>: ${esc(todayID())}</td></tr>
   </table>
 
-  <div class="to">
-    Kepada Yth.<br>
-    <b>Kepala Divisi Kepatuhan / APU-PPT</b><br>
-    Institusi Keuangan &amp; Penyedia Aset Kripto Terkait<br>
-    di Tempat
-  </div>
-
-  <p>Dengan hormat,</p>
-  <p>Sehubungan dengan penanganan perkara <b>${esc(ctx.caseRef)}</b> terkait dugaan tindak pidana penipuan (<i>fraud</i>) dan pencucian uang, serta berdasarkan hasil analisis forensik keuangan yang kami lakukan, dengan ini kami memohon bantuan Saudara untuk <b>segera melakukan PEMBLOKIRAN</b> terhadap rekening dan/atau dompet sebagai berikut:</p>
-
+  <h2 class="sec">A. Objek Pemblokiran / Freeze Targets</h2>
   <table class="items">
     <thead><tr><th style="width:34px">No.</th><th style="width:120px">Jenis</th><th>Identitas</th><th>Keterangan</th></tr></thead>
     <tbody>${rows.join("")}</tbody>
   </table>
 
-  ${atRisk ? `<p>Estimasi nilai dana terkait yang berisiko dipindahkan: <b>${esc(atRisk)}</b>.</p>` : ""}
+  <h2 class="sec">B. Dasar Permohonan / Basis</h2>
+  <p>Sehubungan dengan penanganan perkara <b>${esc(ctx.caseRef)}</b> terkait dugaan tindak pidana penipuan (<i>fraud</i>) dan pencucian uang, hasil analisis forensik keuangan kami mengindikasikan bahwa objek pada bagian A patut diduga digunakan untuk menerima dan/atau menampung dana hasil tindak pidana. Dengan ini kami memohon bantuan Saudara untuk <b>segera melakukan PEMBLOKIRAN</b> terhadap objek dimaksud.</p>
+  ${atRisk ? `<dl><dt>Estimasi nilai dana berisiko / Value at risk</dt><dd><b>${esc(atRisk)}</b></dd></dl>` : ""}
 
-  <p>Permohonan ini didasarkan pada:</p>
+  <h2 class="sec">C. Dasar Hukum / Legal Basis</h2>
   <ul class="basis">
     <li>Undang-Undang No. 8 Tahun 2010 tentang Pencegahan dan Pemberantasan Tindak Pidana Pencucian Uang (Pasal 71 dan 72);</li>
     <li>${esc(basis ?? "POJK No. 27/POJK.03/2024 tentang Penyelenggaraan Produk Bank Umum")};</li>
     <li>Undang-Undang No. 11 Tahun 2008 jo. No. 19 Tahun 2016 tentang Informasi dan Transaksi Elektronik.</li>
   </ul>
 
-  <p>Mengingat sifat perkara yang mendesak dan potensi pemindahan dana, kami mohon pemblokiran dapat dilaksanakan <b>paling lambat 1&times;24 jam</b> sejak surat ini diterima, dengan konfirmasi pelaksanaan disampaikan kepada unit kami.</p>
-
-  <p>Demikian permohonan ini kami sampaikan. Atas perhatian dan kerja sama Saudara, kami ucapkan terima kasih.</p>
+  <h2 class="sec">D. Instruksi Pelaksanaan / Execution</h2>
+  <p>Mengingat sifat perkara yang mendesak dan potensi pemindahan dana, kami mohon pemblokiran dapat dilaksanakan <b>paling lambat 1&times;24 jam</b> sejak surat ini diterima, dengan konfirmasi pelaksanaan disampaikan kepada unit kami. Atas perhatian dan kerja sama Saudara, kami ucapkan terima kasih.</p>
 
   <div class="sign">
     <div>Jakarta, ${esc(todayID())}</div>

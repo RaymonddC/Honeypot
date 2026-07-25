@@ -9,8 +9,7 @@
  * TAKEDOWN), with links into the engines that consume them.
  */
 
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useCases } from "@/components/cases/case-provider";
 import { addBankAccount, addCryptoTransfer } from "@/lib/casedata/api";
 import { CASE_STAGES, fetchRollup, type Case, type CaseRollup, type CaseStage } from "@/lib/cases/api";
@@ -21,17 +20,41 @@ import { ActionsPanel } from "@/components/actions/panel";
 
 const CATEGORIES = ["unknown", "scam", "mule", "victim", "suspect", "exchange"];
 
+// Victim-report vocabulary (the single intake form now lives in the Intake stage).
+const CRIME_TYPES = [
+  { value: "investment_scam", label: "Investment scam", glyph: "📈" },
+  { value: "judol_deposit", label: "Online gambling", glyph: "🎰" },
+  { value: "crypto_phishing", label: "Crypto phishing", glyph: "⛓" },
+  { value: "romance_scam", label: "Romance scam", glyph: "💔" },
+  { value: "impersonation", label: "Impersonation", glyph: "🎭" },
+  { value: "other", label: "Other", glyph: "◇" },
+];
+
+const SOURCES = [
+  { value: "iasc", label: "IASC" },
+  { value: "bank", label: "Bank" },
+  { value: "police", label: "Police report" },
+  { value: "walk_in", label: "Direct / walk-in" },
+];
+
+/** Current local date-time as "YYYY-MM-DDTHH:mm" for <input type=datetime-local>. */
+function nowLocal() {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+}
+
 // The embedded tools, keyed by id. The case-workflow stepper IS the navigation:
 // each stage opens one of these tools below it. "overview" is the case dashboard.
-type ToolTab = "overview" | "honeypot" | "bridge" | "investigation" | "actions" | "response";
+// (Command Center is agency-wide — it lives in the sidebar, not the case flow.)
+type ToolTab = "overview" | "honeypot" | "bridge" | "investigation" | "actions";
 
 const TOOL_META: Record<ToolTab, { label: string; glyph: string }> = {
   overview: { label: "Overview", glyph: "▤" },
-  honeypot: { label: "Honeypot", glyph: "⬡" },
-  bridge: { label: "Bridge", glyph: "⇌" },
-  investigation: { label: "Investigation", glyph: "◉" },
-  actions: { label: "Action Panel", glyph: "⚑" },
-  response: { label: "Command Center", glyph: "▦" }, // agency-wide — outside the case flow
+  honeypot: { label: "Infiltrate", glyph: "⬡" },
+  bridge: { label: "Trace", glyph: "⇌" },
+  investigation: { label: "Takedown", glyph: "◉" },
+  actions: { label: "Uncover", glyph: "⚑" },
 };
 
 // Which tool each stage's work happens in — the stage step opens this tool.
@@ -535,12 +558,18 @@ function daysOpen(iso: string): number {
 function IntakeStage({
   caseId,
   banks,
+  defaultCrimeType,
+  onSaveReport,
   onLogged,
   onDone,
   onTraceWallet,
 }: {
   caseId: string;
   banks: CaseRollup["bank_accounts"];
+  /** The case's current crime_type, to seed the selector. */
+  defaultCrimeType?: string;
+  /** Persist the report brief onto the case (crime_type + summary). */
+  onSaveReport: (patch: { crime_type?: string; summary?: string }) => Promise<void>;
   onLogged: () => Promise<void>;
   /** Report logged → advance to Freeze; true = jump straight to the freeze desk. */
   onDone: (continueToFreeze: boolean) => void;
@@ -549,15 +578,45 @@ function IntakeStage({
 }) {
   const [mode, setMode] = useState<"report" | "honeypot">("report");
   const [form, setForm] = useState({ bank_name: "", account_number: "", holder_name: "" });
+  const [crimeType, setCrimeType] = useState(
+    defaultCrimeType && CRIME_TYPES.some((c) => c.value === defaultCrimeType)
+      ? defaultCrimeType
+      : "investment_scam",
+  );
+  const [source, setSource] = useState("iasc");
+  const [amount, setAmount] = useState("");
+  const [incidentAt, setIncidentAt] = useState(nowLocal());
+  const [description, setDescription] = useState("");
   const [freezeNow, setFreezeNow] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  const dateRef = useRef<HTMLInputElement>(null);
+  const openPicker = () => {
+    const el = dateRef.current as (HTMLInputElement & { showPicker?: () => void }) | null;
+    try {
+      el?.showPicker?.();
+    } catch {
+      /* unsupported / not user-activated — the field still works */
+    }
+  };
+
+  const sourceLabel = SOURCES.find((s) => s.value === source)?.label ?? source;
+  const crimeLabel = CRIME_TYPES.find((c) => c.value === crimeType)?.label ?? crimeType;
+  const amountPretty = amount.trim() ? `Rp ${Number(amount).toLocaleString("id-ID")}` : "";
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setErr(null);
     try {
+      // Write the report brief onto the case, then log the freezable account.
+      const when = incidentAt ? new Date(incidentAt).toLocaleString() : "unknown time";
+      const summary =
+        `Reported via ${sourceLabel}. ${amountPretty || "an unspecified amount"} lost — ${crimeLabel}. Incident: ${when}.` +
+        (description.trim() ? `\n\n${description.trim()}` : "");
+      await onSaveReport({ crime_type: crimeType, summary });
+
       await addBankAccount({
         bank_name: form.bank_name.trim(),
         account_number: form.account_number.trim(),
@@ -624,15 +683,105 @@ function IntakeStage({
 
       {mode === "report" ? (
         <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1fr_320px]">
-          <form onSubmit={submit} className="space-y-3 rounded-card border border-line bg-card p-4">
-            <div className="eyebrow">Receiving account reported (to freeze)</div>
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-              <input required placeholder="Bank (e.g. BCA)" className={fieldCls}
-                value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} />
-              <input required placeholder="Account number" className={fieldCls}
-                value={form.account_number} onChange={(e) => setForm({ ...form, account_number: e.target.value })} />
-              <input placeholder="Holder name (optional)" className={fieldCls}
-                value={form.holder_name} onChange={(e) => setForm({ ...form, holder_name: e.target.value })} />
+          <form onSubmit={submit} className="space-y-4 rounded-card border border-line bg-card p-4">
+            {/* the report */}
+            <div>
+              <div className="eyebrow mb-2">The report</div>
+              <label className="mb-1 block text-[11px] font-medium text-muted">Scam type</label>
+              <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {CRIME_TYPES.map((c) => {
+                  const on = crimeType === c.value;
+                  return (
+                    <button
+                      key={c.value}
+                      type="button"
+                      onClick={() => setCrimeType(c.value)}
+                      aria-pressed={on}
+                      className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-[12px] transition-colors ${
+                        on
+                          ? "border-accent bg-accent/10 font-semibold text-accent-bright"
+                          : "border-line bg-elevated text-muted hover:text-fg"
+                      }`}
+                    >
+                      <span aria-hidden className="text-[13px]">{c.glyph}</span>
+                      {c.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <label className="mb-1 block text-[11px] font-medium text-muted">Reported via</label>
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {SOURCES.map((s) => {
+                  const on = source === s.value;
+                  return (
+                    <button
+                      key={s.value}
+                      type="button"
+                      onClick={() => setSource(s.value)}
+                      aria-pressed={on}
+                      className={`rounded-lg border px-2.5 py-1 text-[11.5px] transition-colors ${
+                        on
+                          ? "border-accent bg-accent/10 font-semibold text-accent-bright"
+                          : "border-line bg-elevated text-muted hover:text-fg"
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-[11px] font-medium text-muted">Amount lost (IDR)</label>
+                  <input className={fieldCls} type="number" min="0" inputMode="numeric"
+                    placeholder="e.g. 25000000" value={amount}
+                    onChange={(e) => setAmount(e.target.value)} />
+                  {amountPretty && (
+                    <div className="mt-1 font-mono text-[11px] text-accent-bright">{amountPretty}</div>
+                  )}
+                </div>
+                <div>
+                  <div className="mb-1 flex items-center justify-between">
+                    <label className="text-[11px] font-medium text-muted">When it happened</label>
+                    <button type="button" onClick={() => setIncidentAt(nowLocal())}
+                      className="text-[10.5px] font-semibold text-accent-bright hover:underline">Now</button>
+                  </div>
+                  <div className="relative">
+                    <input ref={dateRef}
+                      className={`${fieldCls} cursor-pointer pr-9 [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:opacity-0`}
+                      type="datetime-local" max={nowLocal()} value={incidentAt}
+                      onChange={(e) => setIncidentAt(e.target.value)} onClick={openPicker} />
+                    <button type="button" onClick={openPicker} aria-label="Open calendar" tabIndex={-1}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[13px] text-muted transition-colors hover:text-accent-bright">📅</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* receiving account */}
+            <div className="border-t border-line pt-3.5">
+              <div className="eyebrow mb-2">Receiving account <span className="font-normal normal-case text-muted">· the account you freeze</span></div>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                <input required placeholder="Bank (e.g. BCA)" className={fieldCls}
+                  value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} />
+                <input required placeholder="Account number" className={fieldCls}
+                  value={form.account_number} onChange={(e) => setForm({ ...form, account_number: e.target.value })} />
+                <input placeholder="Holder name (optional)" className={fieldCls}
+                  value={form.holder_name} onChange={(e) => setForm({ ...form, holder_name: e.target.value })} />
+              </div>
+            </div>
+
+            {/* context */}
+            <div className="border-t border-line pt-3.5">
+              <label className="mb-1 block text-[11px] font-medium text-muted">
+                What happened <span className="text-muted">· optional, goes into the case brief</span>
+              </label>
+              <textarea
+                className="min-h-[64px] w-full rounded-lg border border-white/10 bg-card px-3 py-2 text-[13px] leading-relaxed text-fg outline-none placeholder:text-muted focus:border-accent/40"
+                placeholder="How the victim was contacted, promises made, transfers sent…"
+                value={description} onChange={(e) => setDescription(e.target.value)} />
             </div>
 
             <label className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-accent/30 bg-accent/[.06] px-3 py-2.5">
@@ -897,6 +1046,21 @@ export default function CaseFilePage() {
     void load();
   }, [load, view]);
 
+  // A brand-new case (still at Intake, nothing captured) opens straight on the
+  // intake form — the single victim-report entry point. Established cases open
+  // on the overview. Fires once per case.
+  const bootstrapped = useRef<string | null>(null);
+  useEffect(() => {
+    if (!activeCase || !rollup) return;
+    if (bootstrapped.current === activeCase.id) return;
+    bootstrapped.current = activeCase.id;
+    const captured =
+      (rollup.counts?.bank_accounts ?? 0) +
+      (rollup.counts?.crypto_transfers ?? 0) +
+      (rollup.sessions?.length ?? 0);
+    if (activeCase.stage === "intake" && captured === 0) setView("intake");
+  }, [activeCase, rollup]);
+
   const submitBank = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeCase) return;
@@ -986,11 +1150,8 @@ export default function CaseFilePage() {
           </button>
         </form>
         <div className="mt-3 text-[11.5px] text-muted">
-          or{" "}
-          <Link href="/intake" className="font-semibold text-accent-bright hover:underline">
-            start from a victim report →
-          </Link>{" "}
-          (opens a case, logs the account, and can freeze it in one step)
+          Opening a case lands you on the <b className="text-white/60">Intake</b> stage —
+          log the victim report, capture the receiving account, and freeze it in one step.
         </div>
       </div>
     );
@@ -1189,6 +1350,8 @@ export default function CaseFilePage() {
         <IntakeStage
           caseId={activeCase.id}
           banks={banks}
+          defaultCrimeType={activeCase.crime_type ?? undefined}
+          onSaveReport={(patch) => updateCase(activeCase.id, patch)}
           onLogged={load}
           onDone={(continueToFreeze) => {
             void advanceStage(activeCase.id, "freeze");

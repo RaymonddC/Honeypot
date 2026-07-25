@@ -13,17 +13,16 @@ const NAV_GROUPS: { label: string; items: { href: string; label: string; glyph: 
   {
     label: "Case workflow",
     items: [
-      { href: "/intake", label: "Intake", glyph: "✎" },
       { href: "/case", label: "Case File", glyph: "▤" },
     ],
   },
   {
-    label: "Tools",
+    label: "Operations",
     items: [
-      { href: "/honeypot", label: "Honeypot", glyph: "⬡" },
-      { href: "/bridge", label: "Bridge View", glyph: "⇌" },
-      { href: "/investigation", label: "Investigation", glyph: "◉" },
-      { href: "/actions", label: "Action Panel", glyph: "⚑" },
+      { href: "/honeypot", label: "Infiltrate", glyph: "⬡" },
+      { href: "/bridge", label: "Trace", glyph: "⇌" },
+      { href: "/investigation", label: "Takedown", glyph: "◉" },
+      { href: "/actions", label: "Uncover", glyph: "⚑" },
       { href: "/response", label: "Command Center", glyph: "▦" },
     ],
   },
