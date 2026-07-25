@@ -8,6 +8,7 @@
 
 import { useMemo, useState } from "react";
 import { useAuth } from "./auth-provider";
+import { GoogleSignInButton } from "./google-signin-button";
 import { AGENCIES, canDispatch, roleLabel } from "@/lib/auth/types";
 
 export function LoginForm() {
@@ -56,6 +57,10 @@ export function LoginForm() {
 
   return (
     <div className="w-full rounded-xl border border-line bg-card p-4">
+      {/* LIVE Google sign-in (hidden if no client id) — real auth; the picker
+          below is the demo path. */}
+      <GoogleSignInButton />
+
       {/* Agency picker — compact 2-col tile grid */}
       <fieldset>
         <legend className="eyebrow pb-1.5">Agency</legend>
