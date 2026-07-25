@@ -42,11 +42,28 @@ export interface ActiveCase {
   statusLabel: string;
 }
 
+/* ── Operations pipeline (INFILTRATE → TAKEDOWN → UNCOVER activity) ─────── */
+
+export interface OpsStat {
+  label: string;
+  value: string;
+  /** Small context line under the figure. */
+  sub?: string;
+  /** Glyph for the tile. */
+  glyph?: string;
+  /** Accent color for the figure. */
+  color?: string;
+}
+
 /* ── Aggregate screen payload ──────────────────────────────────────────── */
 
 export interface ResponseMetrics {
   /** Order: cases · time-to-freeze · at risk · frozen · recovery rate. */
   tiles: MetricTile[];
+  /** Operational pipeline stats (honeypot · wallets · documents · dispatch). */
+  ops: OpsStat[];
+  /** Time-to-freeze improvement vs manual baseline, e.g. "42×". */
+  improvement?: string;
   /** Time-to-freeze trend, minutes per case/period (sparkline). */
   trend: number[];
   /** Latest trend value label, e.g. "27 min". */

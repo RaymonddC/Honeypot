@@ -22,6 +22,7 @@ import type {
   ActiveCase,
   CaseRisk,
   MetricTile,
+  OpsStat,
   RangeKey,
   ResponseMetrics,
 } from "./types";
@@ -135,6 +136,34 @@ function buildTiles(m: any, frozenCount: number | null): MetricTile[] {
   ];
 }
 
+/* ── Operations pipeline ───────────────────────────────────────────────── */
+
+const intStr = (v: unknown): string => {
+  const n = num(v);
+  return n != null ? Math.round(n).toLocaleString("en-US") : "—";
+};
+
+function buildOps(m: any): OpsStat[] {
+  const hp = m?.honeypot ?? {};
+  const a = m?.actions ?? {};
+  const generated = num(a?.bundles_generated);
+  const dispatched = num(a?.bundles_dispatched);
+  return [
+    { label: "Honeypot sessions", glyph: "⬡", value: intStr(first(hp?.active_sessions, hp?.sessions)), sub: "INFILTRATE" },
+    { label: "Entities confirmed", glyph: "◇", value: intStr(hp?.entities_confirmed), sub: "wallets · accounts" },
+    { label: "Wallets scored", glyph: "◉", value: intStr(m?.wallets_scored), sub: "TAKEDOWN graph", color: EMERALD },
+    { label: "Documents generated", glyph: "⚑", value: intStr(a?.documents_generated), sub: "UNCOVER" },
+    {
+      label: "Bundles dispatched",
+      glyph: "↗",
+      value: dispatched != null ? `${dispatched}${generated != null ? `/${generated}` : ""}` : "—",
+      sub: "human-gated",
+      color: CYAN,
+    },
+    { label: "Agency notifications", glyph: "📡", value: intStr(a?.notifications_mock), sub: "routed" },
+  ];
+}
+
 /* ── Trend ─────────────────────────────────────────────────────────────── */
 
 function normalizeTrend(m: any): number[] {
@@ -233,9 +262,15 @@ export async function fetchResponseMetrics(
         : last != null && baselineMin > 0
           ? Math.round((1 - last / baselineMin) * 100)
           : null;
+    const improvement =
+      factor != null && factor > 1
+        ? `${factor >= 10 ? Math.round(factor) : factor.toFixed(1)}×`
+        : undefined;
 
     return {
       tiles,
+      ops: buildOps(m),
+      improvement,
       trend,
       trendNow:
         last != null

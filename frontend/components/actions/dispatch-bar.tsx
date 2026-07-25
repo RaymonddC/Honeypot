@@ -7,8 +7,9 @@
  * the POC-mode explainer.
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ActionBundle } from "@/lib/actions/types";
+import { DispatchReceipt } from "@/components/actions/dispatch-receipt";
 
 export function DispatchBar({
   bundle,
@@ -20,12 +21,29 @@ export function DispatchBar({
   onDispatch: () => void;
 }) {
   const [armed, setArmed] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
+
+  // Pop the receipt automatically the moment a dispatch completes.
+  const wasDispatched = useRef(bundle.dispatched);
+  useEffect(() => {
+    if (bundle.dispatched && !wasDispatched.current) setShowReceipt(true);
+    wasDispatched.current = bundle.dispatched;
+  }, [bundle.dispatched]);
 
   return (
     <div className="mt-3.5 rounded-card border border-line bg-card">
       <div className="flex items-center justify-between gap-3 border-b border-line px-3.5 py-3">
         <span className="eyebrow">Dispatch · human-gated</span>
         <div className="flex items-center gap-2">
+          {bundle.dispatched && (
+            <button
+              type="button"
+              onClick={() => setShowReceipt(true)}
+              className="h-7 rounded-lg border border-accent/30 bg-accent/10 px-3 text-[11px] font-semibold text-accent-bright transition-colors hover:bg-accent/20"
+            >
+              ⧉ Receipt
+            </button>
+          )}
           {armed && !bundle.dispatched && (
             <button
               type="button"
@@ -74,6 +92,10 @@ export function DispatchBar({
           <b className="text-accent-bright">{bundle.evidenceHash}</b>
         </span>
       </div>
+
+      {showReceipt && (
+        <DispatchReceipt bundle={bundle} onClose={() => setShowReceipt(false)} />
+      )}
     </div>
   );
 }
