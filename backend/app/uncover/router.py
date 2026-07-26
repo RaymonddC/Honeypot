@@ -45,14 +45,21 @@ async def post_generate(
     chain: ChainDataAdapter = ChainAdapterDep,
     fiat: FiatDataAdapter = FiatAdapterDep,
     repo: UncoverRepository = RepoDep,
-    _auth: AuthContext = Depends(get_current_user),  # any authenticated role
+    auth: AuthContext = Depends(get_current_user),  # any authenticated role
 ) -> ActionBundle:
     """One click → many artifacts: freeze PDF + LTKM/STR draft + evidence pack.
 
     Documents are generated, SHA-256 hashed, audit-chained, and returned as a
-    **draft** bundle with the routing plan. Nothing is dispatched.
+    **draft** bundle with the routing plan. Nothing is dispatched. The signing
+    agency/officer on the letters is the authenticated identity.
     """
-    return await service.generate_bundle(body, chain, fiat, repo=repo)
+    return await service.generate_bundle(
+        body, chain, fiat, repo=repo,
+        agency=auth.agency.name,
+        agency_type=auth.agency.type,
+        officer_name=auth.user.name,
+        officer_role=auth.role,  # slug → title mapped in the document generator
+    )
 
 
 @router.get("/actions/{action_id}", response_model=ActionBundle)

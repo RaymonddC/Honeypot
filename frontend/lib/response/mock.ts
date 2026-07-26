@@ -4,8 +4,17 @@
  * is unreachable so the screen always renders standalone.
  */
 
-import type { ActiveCase, MetricTile, ResponseMetrics, RangeKey } from "./types";
+import type { ActiveCase, MetricTile, OpsStat, ResponseMetrics, RangeKey } from "./types";
 import { CYAN, EMERALD } from "./types";
+
+export const MOCK_OPS: OpsStat[] = [
+  { label: "Honeypot sessions", glyph: "⬡", value: "3", sub: "INFILTRATE" },
+  { label: "Entities confirmed", glyph: "◇", value: "17", sub: "wallets · accounts" },
+  { label: "Wallets scored", glyph: "◉", value: "42", sub: "TAKEDOWN graph", color: EMERALD },
+  { label: "Documents generated", glyph: "⚑", value: "9", sub: "UNCOVER" },
+  { label: "Bundles dispatched", glyph: "↗", value: "3/5", sub: "human-gated", color: CYAN },
+  { label: "Agency notifications", glyph: "📡", value: "8", sub: "routed" },
+];
 
 export const MOCK_TILES: MetricTile[] = [
   {
@@ -61,6 +70,8 @@ export const MOCK_CASES: ActiveCase[] = [
 export function buildMockMetrics(range: RangeKey = "30d"): ResponseMetrics {
   return {
     tiles: MOCK_TILES,
+    ops: MOCK_OPS,
+    improvement: "27×",
     trend: MOCK_TREND,
     trendNow: "27 min",
     trendTag: "↓ 96% vs baseline",

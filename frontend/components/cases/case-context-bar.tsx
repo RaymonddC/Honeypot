@@ -24,7 +24,7 @@ const STAGE_TASK: Record<CaseStage, string> = {
 };
 
 // Routes that are NOT part of a case workflow → no bar.
-const HIDDEN = ["/home", "/case", "/intake", "/settings", "/guide", "/login"];
+const HIDDEN = ["/home", "/case", "/settings", "/guide", "/login"];
 
 export function CaseContextBar() {
   const pathname = usePathname();

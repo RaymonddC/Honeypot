@@ -53,10 +53,23 @@ function Glyph({ children }: { children: React.ReactNode }) {
 
 export default function HomePage() {
   const router = useRouter();
-  const { cases, activeCase, setActiveCase } = useCases();
+  const { cases, activeCase, setActiveCase, createCase } = useCases();
   const [wallet, setWallet] = useState("");
+  const [creating, setCreating] = useState(false);
 
   const recent = cases.slice(0, 4);
+
+  // New report = open a fresh case; the Case File opens straight on its Intake
+  // stage (the single victim-report form now lives there).
+  const startReport = async () => {
+    setCreating(true);
+    try {
+      await createCase({ title: `Scam report — ${new Date().toISOString().slice(0, 10)}` });
+      router.push("/case");
+    } finally {
+      setCreating(false);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-[980px]">
@@ -99,12 +112,14 @@ export default function HomePage() {
                 >
                   Continue case →
                 </Link>
-                <Link
-                  href="/intake"
-                  className="h-9 rounded-lg border border-white/10 bg-elevated px-4 text-xs font-semibold leading-9 text-fg transition-colors hover:bg-white/[.07]"
+                <button
+                  type="button"
+                  onClick={startReport}
+                  disabled={creating}
+                  className="h-9 rounded-lg border border-white/10 bg-elevated px-4 text-xs font-semibold text-fg transition-colors hover:bg-white/[.07] disabled:opacity-60"
                 >
-                  New report
-                </Link>
+                  {creating ? "Opening…" : "New report"}
+                </button>
               </div>
             </div>
           ) : (
@@ -118,12 +133,14 @@ export default function HomePage() {
                   the case, records the account, and can freeze it in one step.
                 </p>
               </div>
-              <Link
-                href="/intake"
-                className="h-9 rounded-lg bg-accent px-4 text-xs font-semibold leading-9 text-[#04140d] transition-colors hover:bg-accent-bright"
+              <button
+                type="button"
+                onClick={startReport}
+                disabled={creating}
+                className="h-9 rounded-lg bg-accent px-4 text-xs font-semibold text-[#04140d] transition-colors hover:bg-accent-bright disabled:opacity-60"
               >
-                ✎ New report (Intake) →
-              </Link>
+                {creating ? "Opening…" : "✎ New report (Intake) →"}
+              </button>
             </div>
           )}
 
@@ -207,11 +224,11 @@ export default function HomePage() {
 
         <p className="mt-4 border-t border-line pt-3.5 text-[10.5px] leading-relaxed text-muted">
           Tools are standalone — use them to explore or answer a quick question.
-          When you&apos;re working a real case, start from{" "}
-          <Link href="/intake" className="text-accent-bright hover:underline">
-            Intake
+          When you&apos;re working a real case, start from the{" "}
+          <Link href="/case" className="text-accent-bright hover:underline">
+            Case File
           </Link>{" "}
-          so everything attaches to the case file.
+          so everything attaches to the case.
         </p>
       </section>
     </div>

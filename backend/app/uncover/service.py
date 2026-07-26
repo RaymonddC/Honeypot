@@ -255,6 +255,11 @@ async def assemble_context(
     chain_adapter: ChainDataAdapter,
     fiat_adapter: FiatDataAdapter,
     generated_at: datetime | None = None,
+    *,
+    agency: str | None = None,
+    agency_type: str = "",
+    officer_name: str = "",
+    officer_role: str = "",
 ) -> docs.DocumentContext:
     wallets: list[docs.WalletTarget] = []
     accounts: list[docs.AccountTarget] = []
@@ -291,6 +296,11 @@ async def assemble_context(
         crime_type=req.crime_type,
         data_mode="poc" if getattr(chain_adapter, "data_mode", "poc") == "poc" else "live",
         generated_at=generated_at or datetime.now(timezone.utc),
+        # requesting_agency keeps its model default unless a real agency is passed.
+        **({"requesting_agency": agency} if agency else {}),
+        agency_type=agency_type,
+        officer_name=officer_name,
+        officer_role=officer_role,
         wallets=wallets,
         accounts=accounts,
         timeline=timeline,
@@ -321,10 +331,18 @@ async def generate_bundle(
     fiat_adapter: FiatDataAdapter,
     *,
     repo: UncoverRepository,
+    agency: str | None = None,
+    agency_type: str = "",
+    officer_name: str = "",
+    officer_role: str = "",
 ) -> ActionBundle:
     """One click → many artifacts. Generates + hashes + stores, returns a draft."""
     outputs = list(dict.fromkeys(req.outputs)) or list(DEFAULT_OUTPUTS)
-    ctx = await assemble_context(req, chain_adapter, fiat_adapter)
+    ctx = await assemble_context(
+        req, chain_adapter, fiat_adapter,
+        agency=agency, agency_type=agency_type,
+        officer_name=officer_name, officer_role=officer_role,
+    )
 
     generated: list[docs.GeneratedDocument] = []
     goaml_draft: dict | None = None

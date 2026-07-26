@@ -59,8 +59,16 @@ type Screen = {
 
 const SCREENS: Screen[] = [
   {
+    glyph: "▤",
+    name: "Case File",
+    href: "/case",
+    see: "The spine screen — the active case, a stage tracker (Intake → Freeze → Trace → Takedown → Report → Recovery → Closed), and every account, wallet, session and document attached to it.",
+    doWhat:
+      "Open a case and it lands on Intake: log the victim report (type, amount, receiving account) or run a honeypot. Each stage opens the tool it needs, right below the tracker.",
+  },
+  {
     glyph: "⬡",
-    name: "Honeypot",
+    name: "Infiltrate",
     href: "/honeypot",
     see: "Scam sessions, a hash-chained transcript, extracted entities, and the syndicate profile.",
     doWhat:
@@ -68,21 +76,21 @@ const SCREENS: Screen[] = [
   },
   {
     glyph: "⇌",
-    name: "Bridge View",
+    name: "Trace",
     href: "/bridge",
     see: "A Sankey of the money flow (bank → QRIS → crypto), mule accounts, and correlations.",
     doWhat: "Simulate or inspect how a case's funds moved across channels.",
   },
   {
     glyph: "◉",
-    name: "Investigation",
+    name: "Takedown",
     href: "/investigation",
     see: "An interactive wallet graph with per-wallet risk, reasoning, and fired typologies.",
     doWhat: "Enter a wallet, expand hops, click a node to read its risk breakdown.",
   },
   {
     glyph: "⚑",
-    name: "Action Panel",
+    name: "Uncover",
     href: "/actions",
     see: "A document generator for freeze requests and suspicious-transaction reports.",
     doWhat: "Generate a document, review it, then dispatch to the relevant agencies.",
@@ -91,7 +99,7 @@ const SCREENS: Screen[] = [
     glyph: "▦",
     name: "Command Center",
     href: "/response",
-    see: "Agency-wide KPI dashboard — funds at risk / frozen, recovery rate, average time-to-freeze.",
+    see: "Agency-wide KPI dashboard — funds at risk / frozen, recovery rate, time-to-freeze, and the operations pipeline (honeypot sessions, wallets scored, documents, dispatches).",
     doWhat: "Track outcomes across ALL cases over a chosen time range (outside any single case).",
   },
   {
@@ -218,11 +226,13 @@ export default function GuidePage() {
           ))}
         </div>
         <p className="mt-3 text-[12px] leading-relaxed text-muted">
-          A scammer chat surfaces a wallet and a mule account. That wallet feeds
-          the bridge (fiat ↔ crypto) and the graph (risk scoring); the scored
-          targets feed the action panel, which emits the freeze request and
-          agency notifications. Everything is custody-hashed from the first
-          message to the final document.
+          It all hangs off a <a href="/case" className="text-accent-bright hover:underline">Case File</a>.
+          You start at its <span className="text-fg/80">Intake</span> stage — log a victim
+          report or run a honeypot — then the stage tracker walks the case through the four
+          modules. A scammer chat (or a report) surfaces a wallet and a mule account; that
+          wallet feeds the bridge (fiat ↔ crypto) and the graph (risk scoring); the scored
+          targets feed Uncover, which emits the freeze request and agency notifications.
+          Everything is custody-hashed from the first message to the final document.
         </p>
       </Card>
 
@@ -334,7 +344,7 @@ export default function GuidePage() {
 
       <p className="mb-2 mt-1 text-center text-[11px] text-muted">
         Tip: the fastest way to see the full chain is to start a honeypot
-        session, then take the disclosed wallet into the Investigation graph.
+        session, then take the disclosed wallet into the Takedown graph.
       </p>
     </div>
   );
