@@ -14,7 +14,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useCases } from "@/components/cases/case-provider";
-import { addBankAccount } from "@/lib/casedata/api";
+import { addBankAccount, addCryptoTransfer } from "@/lib/casedata/api";
+import { GOLDEN } from "@/lib/demo/golden-thread";
 import type { HpEntity } from "@/lib/honeypot/types";
 import { entityIcon, formatConf } from "@/lib/honeypot/types";
 
@@ -33,16 +34,35 @@ function PromoteControl({
   if (e.type === "crypto_wallet") {
     // Avoid deep-linking a truncated display value (mock/offline).
     if (full.includes("…")) return null;
-    // In-case: open the case's Takedown tab on this address; standalone: link out.
+    // In-case: attach the wallet to the case (as the fiat→crypto on-ramp edge,
+    // so it threads on to Trace → Takedown → Uncover), then open Takedown on it.
     if (onTraceWallet)
       return (
         <button
           type="button"
-          onClick={() => onTraceWallet(full)}
-          title="Trace this wallet in Takedown"
-          className="flex-none rounded-md border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent-bright transition-colors hover:bg-accent/20"
+          disabled={state === "busy"}
+          onClick={async () => {
+            setState("busy");
+            try {
+              if (activeCaseId)
+                await addCryptoTransfer({
+                  from_addr: GOLDEN.onrampSender,
+                  to_addr: full,
+                  value: GOLDEN.amountUsdt,
+                  ts: new Date().toISOString(),
+                  chain: "tron",
+                  category: "onramp",
+                  case_id: activeCaseId,
+                });
+            } catch {
+              /* non-fatal — still open the live trace */
+            }
+            onTraceWallet(full);
+          }}
+          title="Attach to case & trace this wallet in Takedown"
+          className="flex-none rounded-md border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent-bright transition-colors hover:bg-accent/20 disabled:opacity-40"
         >
-          Trace →
+          {state === "busy" ? "…" : "Trace →"}
         </button>
       );
     return (
@@ -68,7 +88,6 @@ function PromoteControl({
       <button
         type="button"
         disabled={!activeCaseId || state === "busy"}
-        title={activeCaseId ? "Track on this case → BridgeWatch" : "Open a case to attach"}
         onClick={async () => {
           setState("busy");
           try {
@@ -78,11 +97,25 @@ function PromoteControl({
               category: "scam",
               case_id: activeCaseId,
             });
+            // Golden-thread shortcut: promoting the known mule account also links
+            // its collection wallet as the fiat→crypto on-ramp, so the whole
+            // Trace → Takedown → Uncover chain lights up from this one click.
+            if (activeCaseId && full === GOLDEN.bank.accountNumber)
+              await addCryptoTransfer({
+                from_addr: GOLDEN.onrampSender,
+                to_addr: GOLDEN.wallet,
+                value: GOLDEN.amountUsdt,
+                ts: new Date().toISOString(),
+                chain: "tron",
+                category: "onramp",
+                case_id: activeCaseId,
+              });
             setState("done");
           } catch {
             setState("err");
           }
         }}
+        title={activeCaseId ? "Track on this case → links the on-ramp wallet" : "Open a case to attach"}
         className="flex-none rounded-md border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent-bright transition-colors hover:bg-accent/20 disabled:opacity-40"
       >
         {state === "busy" ? "…" : state === "err" ? "retry" : "+ Case"}

@@ -20,6 +20,8 @@ import { StatRow } from "@/components/bridge/stat-row";
 import { TraceReport } from "@/components/bridge/trace-report";
 import { fetchBridgeData } from "@/lib/bridge/api";
 import type { BridgeData } from "@/lib/bridge/types";
+import type { CaseBridge } from "@/lib/demo/golden-thread";
+import { idrShort, usdtShort } from "@/lib/demo/golden-thread";
 
 // Sankey colour key (fiat → crypto ramp) — shown under the chart.
 const LEGEND: Array<[string, string]> = [
@@ -45,12 +47,15 @@ export function BridgePanel({
   embedded = false,
   onOpenTakedown,
   caseTitle,
+  caseBridge,
 }: {
   embedded?: boolean;
   /** Handoff: score a wallet in Takedown (the top on-ramp's, or a specific one). */
   onOpenTakedown?: (addr?: string) => void;
   /** Active case name — stamped on the downloadable trace report. */
   caseTitle?: string;
+  /** The case's own fiat→crypto on-ramp edge (bank account → collection wallet). */
+  caseBridge?: CaseBridge | null;
 }) {
   const router = useRouter();
   const [data, setData] = useState<BridgeData | null>(null);
@@ -187,6 +192,45 @@ export function BridgePanel({
             </div>
 
             <div>
+              {caseBridge && (
+                <div className="mb-3.5 rounded-card border border-accent/30 bg-accent/[.06]">
+                  <div className="flex items-center justify-between border-b border-accent/20 px-3.5 py-2.5">
+                    <span className="eyebrow text-accent-bright">This case · on-ramp</span>
+                    <span className="rounded-md border border-accent/30 bg-accent/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-accent-bright">
+                      conf {caseBridge.confidence.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="px-3.5 py-3">
+                    {/* fiat account → crypto wallet, the bridge the honeypot surfaced */}
+                    <div className="flex items-center gap-2 text-[11px]">
+                      <span className="rounded-md bg-[#f5a524]/15 px-1.5 py-0.5 font-mono text-[10.5px] text-[#f5a524]">
+                        {caseBridge.bankLabel}
+                      </span>
+                      <span className="text-muted" aria-hidden>→</span>
+                      <span className="min-w-0 flex-1 truncate rounded-md bg-[#06b6d4]/15 px-1.5 py-0.5 font-mono text-[10.5px] text-[#22d3ee]">
+                        {caseBridge.wallet}
+                      </span>
+                    </div>
+                    {caseBridge.bankHolder && (
+                      <div className="mt-1 text-[10px] text-muted">a.n. {caseBridge.bankHolder}</div>
+                    )}
+                    {caseBridge.amountUsdt > 0 && (
+                      <div className="mt-2 font-mono text-[11px] text-fg">
+                        {idrShort(caseBridge.amountIdr)}{" "}
+                        <span className="text-muted">≈</span>{" "}
+                        <b className="text-accent-bright">{usdtShort(caseBridge.amountUsdt)}</b>
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => goTakedown(caseBridge.wallet)}
+                      className="mt-2.5 h-7 w-full rounded-lg bg-accent px-3 text-[11px] font-semibold text-[#04140d] transition-colors hover:bg-accent-bright"
+                    >
+                      Trace this wallet in Takedown →
+                    </button>
+                  </div>
+                </div>
+              )}
               <OnRampFeed alerts={data.alerts} onTrace={goTakedown} />
               <MuleStatsCard mules={data.mules} />
             </div>

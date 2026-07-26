@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useCases } from "@/components/cases/case-provider";
 import { addBankAccount, addCryptoTransfer } from "@/lib/casedata/api";
+import { GOLDEN, deriveCaseBridge } from "@/lib/demo/golden-thread";
 import { CASE_STAGES, fetchRollup, type Case, type CaseRollup, type CaseStage } from "@/lib/cases/api";
 import { HoneypotPanel } from "@/components/honeypot/panel";
 import { BridgePanel } from "@/components/bridge/panel";
@@ -1171,6 +1172,9 @@ export default function CaseFilePage() {
     ),
   );
   const firstWallet = caseWallets[0];
+  // The case's own fiat→crypto on-ramp (bank account → collection wallet) — the
+  // bridge the honeypot lead surfaced; drives the "This case" card in Trace.
+  const caseBridge = deriveCaseBridge(banks, caseWallets);
   const viewTool = view === "overview" ? "overview" : STAGE_TAB[view];
   const viewToolLabel =
     view === "intake"
@@ -1365,6 +1369,7 @@ export default function CaseFilePage() {
           embedded
           onOpenTakedown={(addr) => openView("takedown", addr)}
           caseTitle={activeCase.title}
+          caseBridge={caseBridge}
         />
       )}
       {viewTool === "investigation" && (
@@ -1373,7 +1378,27 @@ export default function CaseFilePage() {
           key={investigateAddr ?? firstWallet ?? "idle"}
           initialAddress={investigateAddr ?? firstWallet}
           caseWallets={caseWallets}
-          onSendToActions={() => openView("report")}
+          onSendToActions={async (addr) => {
+            // Ensure the clicked wallet is on the case so the freeze desk (Uncover)
+            // packages it, then open the Report/Uncover stage.
+            if (addr && !caseWallets.includes(addr)) {
+              try {
+                await addCryptoTransfer({
+                  from_addr: GOLDEN.onrampSender,
+                  to_addr: addr,
+                  value: GOLDEN.amountUsdt,
+                  ts: new Date().toISOString(),
+                  chain: "tron",
+                  category: "onramp",
+                  case_id: activeCase.id,
+                });
+                await load();
+              } catch {
+                /* non-fatal — the stage still opens */
+              }
+            }
+            openView("report");
+          }}
         />
       )}
       {viewTool === "actions" && (view === "freeze" || view === "report") && (
