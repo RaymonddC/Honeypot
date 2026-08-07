@@ -61,9 +61,15 @@ GET  /bridge/mules?case=                         → [mule_cluster]
 ```
 POST /actions/generate  {case, entities, outputs[freeze|ltkm|alert|pack]}  → action_bundle (draft)
 GET  /actions/{id}                              → action_bundle (+docs, status)
-POST /actions/{id}/dispatch                     → status            # human-gated; POC mock / LIVE
+POST /actions/{id}/dispatch                     → action_bundle     # human-gated; POC mock / LIVE
 GET  /documents/{id}                            → PDF binary        # download (hashed)
+GET  /notifications?status=&agency_type=&case_id=  → [notification]  # dispatch log / outbox (RLS-scoped)
+POST /notifications/{id}/retry                  → notification      # role-gated; re-dispatch a failed one
 ```
+> `notification` = `{id, action_id, case_id, target_agency, agency_type, channel,
+> status(mock|queued|sending|sent|failed), attempt_count, last_error, sent_at, idempotency_key}`.
+> LIVE dispatch signs the webhook (`X-ITTU-Signature` HMAC-SHA256 + `X-ITTU-Idempotency-Key`);
+> durable delivery via the `dispatch_notifications` actor when `ITTU_NOTIFICATION_DELIVERY=worker`.
 
 ## Dashboard & shared
 ```

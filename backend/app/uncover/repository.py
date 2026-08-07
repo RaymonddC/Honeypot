@@ -120,6 +120,22 @@ class UncoverRepository(Protocol):
         flip a status flag."""
         ...
 
+    # -- notifications (the dispatch outbox / feed, C1) ----------------------- #
+    async def list_notifications(self) -> list["NotificationOut"]:
+        """Every dispatch record the caller may see (RLS-scoped under
+        Postgres), newest first — the Dispatch Log feed reads this."""
+        ...
+
+    async def get_notification(self, notification_id: str) -> "NotificationOut | None":
+        """One notification by its ``ntf_…`` public id (for retry)."""
+        ...
+
+    async def update_notification(self, note: "NotificationOut") -> None:
+        """Persist a single notification's delivery-lifecycle fields
+        (status/attempt_count/last_error/sent_at) after a (re)dispatch —
+        without rewriting the whole owning bundle."""
+        ...
+
     # -- test/seed hook --------------------------------------------------------- #
     def reset(self) -> None:
         """Clear all stored state — existing test hook (``service.reset_stores``).
@@ -157,6 +173,29 @@ class InMemoryUncoverRepository:
         if document_id in self._documents:
             self._documents[document_id].status = status
 
+    # -- notifications (embedded in their bundle in memory) ------------------- #
+    async def list_notifications(self) -> list[NotificationOut]:
+        # Flatten every bundle's notifications; newest bundles last → reverse
+        # so the freshest dispatch is first, matching the Postgres ordering.
+        notes: list[NotificationOut] = []
+        for bundle in self._bundles.values():
+            notes.extend(bundle.notifications)
+        return list(reversed(notes))
+
+    async def get_notification(self, notification_id: str) -> NotificationOut | None:
+        for bundle in self._bundles.values():
+            for n in bundle.notifications:
+                if n.id == notification_id:
+                    return n
+        return None
+
+    async def update_notification(self, note: NotificationOut) -> None:
+        for bundle in self._bundles.values():
+            for i, n in enumerate(bundle.notifications):
+                if n.id == note.id:
+                    bundle.notifications[i] = note
+                    return
+
     def reset(self) -> None:
         self._bundles.clear()
         self._documents.clear()
@@ -175,6 +214,29 @@ def _memory_repository() -> InMemoryUncoverRepository:
 # app.core.db.get_optional_tenant_session). See the module docstring +
 # migration 20260717_08 for the schema reasoning.
 # --------------------------------------------------------------------------- #
+
+
+def _notification_out_from_row(
+    n: NotificationModel, *, action_id: str, case_id: str | None
+) -> NotificationOut:
+    """Map a persisted notification row → the API model. ``action_id``/
+    ``case_id`` come from the owning bundle (the FK join) rather than being
+    duplicated on the row — see the module docstring."""
+    return NotificationOut(
+        id=n.public_id,
+        action_id=action_id,
+        case_id=case_id or "",
+        target_agency=n.target_agency,
+        agency_type=n.agency_type,
+        channel=n.channel or "",
+        status=n.status,
+        data_mode=n.data_mode,
+        sent_at=n.sent_at,
+        payload=n.payload or {},
+        idempotency_key=n.idempotency_key,
+        attempt_count=n.attempt_count or 0,
+        last_error=n.last_error,
+    )
 
 
 def _document_out_from_row(svc, row: ActionDocumentModel) -> "DocumentOut":
@@ -248,6 +310,9 @@ class PostgresUncoverRepository:
                 status=n.status,
                 data_mode=self._data_mode,
                 sent_at=n.sent_at,
+                idempotency_key=n.idempotency_key,
+                attempt_count=n.attempt_count,
+                last_error=n.last_error,
             )
             n_stmt = pg_insert(NotificationModel).values(id=uuid.uuid4(), public_id=n.id, **n_values)
             n_stmt = n_stmt.on_conflict_do_update(
@@ -298,18 +363,7 @@ class PostgresUncoverRepository:
             )
         ).scalars().all()
         notifications = [
-            NotificationOut(
-                id=n.public_id,
-                action_id=row.public_id,  # derived via the FK join — see module docstring
-                case_id=row.case_id,      # derived via the FK join — see module docstring
-                target_agency=n.target_agency,
-                agency_type=n.agency_type,
-                channel=n.channel or "",
-                status=n.status,
-                data_mode=n.data_mode,
-                sent_at=n.sent_at,
-                payload=n.payload or {},
-            )
+            _notification_out_from_row(n, action_id=row.public_id, case_id=row.case_id)
             for n in ntf_rows
         ]
 
@@ -390,6 +444,61 @@ class PostgresUncoverRepository:
                 "WHERE public_id = :pid AND agency_id = :aid"
             ),
             {"status": status, "pid": document_id, "aid": self._agency_id},
+        )
+
+    # -- notifications (join back to the owning bundle for action_id/case_id) - #
+
+    def _notifications_select(self):
+        # NotificationModel + the owning bundle's public_id/case_id, agency-scoped.
+        return (
+            select(
+                NotificationModel,
+                ActionBundleModel.public_id,
+                ActionBundleModel.case_id,
+            )
+            .join(ActionBundleModel, NotificationModel.bundle_id == ActionBundleModel.id)
+            .where(NotificationModel.agency_id == self._agency_id)
+        )
+
+    async def list_notifications(self) -> list[NotificationOut]:
+        rows = (
+            await self._session.execute(
+                self._notifications_select().order_by(NotificationModel.created_at.desc())
+            )
+        ).all()
+        return [
+            _notification_out_from_row(n, action_id=pid, case_id=cid)
+            for (n, pid, cid) in rows
+        ]
+
+    async def get_notification(self, notification_id: str) -> NotificationOut | None:
+        row = (
+            await self._session.execute(
+                self._notifications_select().where(
+                    NotificationModel.public_id == notification_id
+                )
+            )
+        ).one_or_none()
+        if row is None:
+            return None
+        n, pid, cid = row
+        return _notification_out_from_row(n, action_id=pid, case_id=cid)
+
+    async def update_notification(self, note: NotificationOut) -> None:
+        await self._session.execute(
+            text(
+                "UPDATE action.notifications SET status = :status, "
+                "attempt_count = :attempts, last_error = :err, sent_at = :sent_at, "
+                "updated_at = now() WHERE public_id = :pid AND agency_id = :aid"
+            ),
+            {
+                "status": note.status,
+                "attempts": note.attempt_count,
+                "err": note.last_error,
+                "sent_at": note.sent_at,
+                "pid": note.id,
+                "aid": self._agency_id,
+            },
         )
 
     # -- test/seed hook ---------------------------------------------------------- #

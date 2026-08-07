@@ -4,22 +4,28 @@
 > This is the short prioritized list; full rationale, effort, and triggers live in
 > [`Production-Roadmap.md`](Production-Roadmap.md). Status legend: S/M/L = small/medium/large effort.
 
-_Last updated: 2026-07-24 · branch `main`._
+_Last updated: 2026-08-08 · branch `main`._
 
 ---
 
 ## ✅ Done — core is feature-complete
 All four pillars + honeypot (text **and** live-mic voice), Response dashboard, and the case-centric
 hub. Live blockchain tracing (async jobs, hardened, cycle-fix). Auth/RLS + Google OAuth. LLM brain
-live in prod. Persistence (Postgres/Neon, dual in-memory/Postgres repositories). **270 backend tests
-green**, frontend build green.
+live in prod. Persistence (Postgres/Neon, dual in-memory/Postgres repositories). **C1 dispatch
+delivery** — production-ready notification layer (HMAC-signed webhooks, idempotency keys, durable
+retried delivery via the Dramatiq actor, `GET /api/notifications` outbox feed + retry, Dispatch Log
+on the Response dashboard). **282 backend tests green**, frontend build green.
 
 ## 🟢 Actionable now — buildable today (no external gate)
 - [ ] **B1 — TTS (ElevenLabs)** · S · already wired, needs a key + adapter impl. **Biggest visible
       payoff** — natural voice on the honeypot call (the demo's wow moment).
-- [ ] **C1 — Notifications** · S · completes the dispatch → notify action loop.
-- [ ] **A1-prod — Dramatiq executor swap** · S–M · *deferred by choice* — async already works
-      in-process; build only when there's real concurrency (submit→poll contract is a drop-in).
+- [x] **C1 — Notifications** · ~~S~~ M · **DONE (2026-08-08)** — built production-ready, not a demo
+      shim: signed + idempotent + retried LIVE delivery (`ITTU_NOTIFICATION_DELIVERY=worker`),
+      agency outbox feed, POC mock path unchanged. Flip `ITTU_MODE=live` + set the webhook URL/secret
+      to dispatch for real.
+- [ ] **A1-prod — Dramatiq executor swap** (investigation jobs) · S–M · *deferred by choice* — async
+      already works in-process; build only when there's real concurrency (submit→poll contract is a
+      drop-in). *(Note: C1 already stood up the Dramatiq delivery actor + broker for notifications.)*
 - [ ] **Go-live hardening** · M · contract tests per LIVE adapter, observability/uptime, a security +
       RLS-isolation review, separate DB per mode. Only when heading to real production.
 

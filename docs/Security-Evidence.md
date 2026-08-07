@@ -30,6 +30,15 @@
 - **Per-entity provenance:** every `intel.entities` row logs message → method → confidence →
   review_status. Un-validated LLM entities are never treated as actionable.
 - **Voice:** call audio + STT transcript + diarization hashed alongside text.
+- **Outbound dispatch authenticity (C1):** every LIVE agency notification is signed so the *recipient*
+  can prove it genuinely came from ITTU and wasn't replayed or forged — the dispatch itself is
+  evidence. When `ITTU_NOTIFICATION_WEBHOOK_SECRET` is set, each webhook POST carries
+  `X-ITTU-Signature: t=<unix_ts>,v1=<hex>` where `hex = HMAC_SHA256(secret, f"{t}.{raw_body}")`, plus
+  `X-ITTU-Timestamp`. **Recipient verification:** recompute `v1` over `"{t}.{body}"` with the shared
+  secret (constant-time compare) and reject if `t` is outside a small window (replay guard). An
+  `X-ITTU-Idempotency-Key` (also on the packet's stored row) makes at-least-once redelivery safe — the
+  recipient dedupes so a retry never double-actions a freeze/STR. Delivery state
+  (`status/attempt_count/last_error`) is tracked per notification for an audit trail.
 
 ## 4. Explainability contract (evidentiary credibility > raw accuracy)
 - Every risk score / flag / correlation carries **confidence + explicit reasoning + evidence**

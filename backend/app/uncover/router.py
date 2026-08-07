@@ -17,7 +17,7 @@ from app.core.adapters import ChainDataAdapter, FiatDataAdapter
 from app.core.auth import DISPATCH_ROLES, AuthContext, get_current_user, require_role
 from app.uncover import service
 from app.uncover.metrics import RangeKey, ResponseMetrics, compute_metrics
-from app.uncover.notifications import NotificationSink
+from app.uncover.notifications import NotificationOut, NotificationSink
 from app.uncover.repository import UncoverRepository
 from app.uncover.service import (
     ActionBundle,
@@ -25,6 +25,7 @@ from app.uncover.service import (
     ChainAdapterDep,
     FiatAdapterDep,
     GenerateRequest,
+    NotificationNotFoundError,
     RepoDep,
     SinkDep,
 )
@@ -100,6 +101,38 @@ async def post_dispatch(
     if bundle is None:
         raise _not_found("action", action_id)
     return bundle
+
+
+@router.get("/notifications", response_model=list[NotificationOut])
+async def get_notifications(
+    repo: UncoverRepository = RepoDep,
+    status: str | None = Query(default=None, description="mock|queued|sending|sent|failed"),
+    agency_type: str | None = Query(default=None, description="bank|exchange|regulator|police"),
+    case_id: str | None = Query(default=None),
+    _auth: AuthContext = Depends(get_current_user),  # read route needs identity
+) -> list[NotificationOut]:
+    """The Dispatch Log / agency outbox: every notification ITTU has fired
+    (RLS-scoped to the caller's agency under Postgres), newest first, with
+    optional status/agency-type/case filters."""
+    return await service.list_notifications(
+        repo=repo, status=status, agency_type=agency_type, case_id=case_id
+    )
+
+
+@router.post("/notifications/{notification_id}/retry", response_model=NotificationOut)
+async def post_notification_retry(
+    notification_id: str,
+    sink: NotificationSink = SinkDep,
+    repo: UncoverRepository = RepoDep,
+    _auth: AuthContext = Depends(require_role(DISPATCH_ROLES)),
+) -> NotificationOut:
+    """Re-dispatch a failed notification (idempotent — the recipient dedupes on
+    the reused key; an already-``sent`` one no-ops). Role-gated like dispatch:
+    it's an outward action."""
+    try:
+        return await service.retry_notification(notification_id, sink, repo=repo)
+    except NotificationNotFoundError:
+        raise _not_found("notification", notification_id)
 
 
 @router.get("/documents/{document_id}")
