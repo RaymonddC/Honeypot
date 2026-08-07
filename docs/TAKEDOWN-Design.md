@@ -126,7 +126,7 @@ Each returns a fired-flag + score + **evidence** (the specific txs/nodes) for th
   tags, reasoning); **path highlight** source→destination.
 - **Pattern flags panel** — which of the 5 fired + evidence.
 - **Glass Box reasoning panel** — reuse ELSA `ReasoningPanel`; shows the "why" behind each score.
-- **Rule-based vs ML toggle** — side-by-side comparison.
+- **Rule-based vs ML toggle** — side-by-side comparison. *(designed, not built — no such UI toggle today.)*
 - **Export** → feeds **Action Panel** (freeze/LTKM) and **Bridge View** (the crypto side).
 
 ---
@@ -140,7 +140,15 @@ Graph Builder (NetworkX) → Feature Engine (12 features → `chain.wallet_featu
 ---
 
 ## Performance & drift
-- Subgraphs small → NetworkX fine; keep **hop depth ≤3** (Gary) / ≤5–6 max (combinatorial blow-up).
+- **Async job model:** `POST /api/investigate` returns `202 {job_id}` and runs the trace off-request
+  (in-process job, `app/takedown/jobs.py`); client polls `GET /api/investigate/jobs/{id}`. The request
+  never blocks/times out and CPU-bound scoring is off the event loop. (`GET /api/takedown/model-card`
+  exposes scorer metadata.)
+- **Cycles computed once per investigation** (`scoring.py cycles_by_address`) — calling `simple_cycles`
+  per wallet was a multi-minute hang on busy wallets; now <1s.
+- Subgraphs small → NetworkX fine; keep **hop depth ≤3** / ≤5–6 max (combinatorial blow-up). LIVE
+  bounds the BFS (`app/takedown/service.py`: 8 addrs/hop, 1 page/addr, 25 total, concurrency 4) and
+  the client traces LIVE at **hops=1** for a lean first view; POC (fixtures) is uncapped.
 - **Cache** TRONSCAN/TronGrid responses (rate limits); persist to Postgres for cross-investigation reuse.
 - **Concept drift** (Elliptic models collapse after regime change) → periodic IF retraining +
   score-distribution monitoring (post-MVP).

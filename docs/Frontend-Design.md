@@ -29,7 +29,10 @@ terminal" dark forensics console.
 > CDN-link fonts. The **real app uses Inter + JetBrains Mono** (ELSA already vendors these).
 
 ## App shell
-- **Left module rail:** Investigation · Bridge View · Action Panel · Response · Honeypot (+ intel group).
+- **Left module rail** (`components/app-shell.tsx`), two groups renamed to the pillars:
+  **Case workflow** — Case File (`/case`); **Operations** — Infiltrate (`/honeypot`), Trace (`/bridge`),
+  Takedown (`/investigation`), Uncover (`/actions`), Command Center (`/response`). Plus `/home` (hub),
+  `/guide`, `/settings`, and a revamped `/login` (demo agency+role picker + Google sign-in).
 - **Top bar:** case switcher (`#ITU-2026-xxxx`), agency context chip, **POC/LIVE mode badge**, user.
 - **Main canvas:** per-screen. Multi-agency context is always visible (RLS-backed).
 

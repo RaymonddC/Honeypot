@@ -1,9 +1,12 @@
 # ITTU — Live Voice Calls (design spec)
 
-**Status:** design / backlog. Today's `/honeypot/call` is a faithful *simulation*
-(scripted transcript spoken by the browser). This doc specs the path to **real
-telephony** — a live phone call where the AI persona speaks and listens — and
-answers "is there a free option?".
+**Status:** `/honeypot/call` has **two modes, both shipped**: (1) a scripted-replay
+*simulation* (transcript spoken by the browser), and (2) a **live interactive mic mode**
+(`live-call-view.tsx`) — the browser's Web Speech API does real STT client-side, feeding a
+real backend `/turn` → LLM gateway (keyless deterministic persona fallback when no key). So
+"Tier B — in-browser live mic, fully free" below is **already built**. This doc specs the
+remaining path to **real telephony** (Tier A — a live phone call over PSTN) and the streaming
+server-side STT/TTS behind it — that part is still stub/backlog.
 
 ## Where we are (P4b, shipped)
 The voice honeypot reuses the whole text pipeline; only the transport + audio are

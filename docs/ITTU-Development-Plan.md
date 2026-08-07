@@ -2,9 +2,10 @@
 
 > **ITTU** (Infiltrate, Trace, Takedown & Uncover) — AI-powered financial-crime forensics
 > platform for Indonesia's digital finance ecosystem.
-> Status: **greenfield / planning**. Source: `PIDI Subs 2.pdf` (23-page proposal).
-> This doc consolidates 4 parallel research streams (Honeypot, Forensics, Stack, Reg/Market)
-> and proposes the build. **No code written yet — this is plan-only.**
+> Status: **historical plan — the build is done** (P0–P5 shipped on `main`; see `Build-Phases.md`
+> and `Production-Roadmap.md` for current state). Source: `PIDI Subs 2.pdf` (23-page proposal).
+> This doc consolidates the original 4 research streams (Honeypot, Forensics, Stack, Reg/Market)
+> and the proposed build — kept as the decisions/research record, not a live to-do list.
 
 ---
 

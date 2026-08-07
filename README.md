@@ -1,13 +1,15 @@
 # ITTU — Infiltrate, Trace, Takedown & Uncover
 
-AI-powered financial-crime forensics platform for Indonesia. **Phase 0 scaffold** —
-bootable monorepo, no business logic yet. Design docs live in [`docs/`](docs/)
-(start with `docs/README.md` and `docs/Build-Phases.md`).
+AI-powered financial-crime forensics platform for Indonesia. **P0–P5 shipped** — all four
+pillars (Infiltrate honeypot incl. live-mic voice, Trace, Takedown, Uncover) + Response
+dashboard + a case-centric hub, with auth/RLS, live blockchain tracing (async jobs), and the
+LLM brain in prod. Design docs live in [`docs/`](docs/) (start with `docs/README.md`;
+current state in `docs/Build-Phases.md` + `docs/Production-Roadmap.md`).
 
 ```
 backend/    FastAPI modular monolith (Python 3.12) — SQLAlchemy async + Alembic,
             Dramatiq workers, adapter/MODE registry
-frontend/   Next.js 16 + TypeScript + Tailwind — ELSA-anchored dark shell, 5 screens
+frontend/   Next.js 16 + TypeScript + Tailwind — ELSA-anchored dark shell, case hub + 4 pillars
 docs/       full planning + design set
 ```
 

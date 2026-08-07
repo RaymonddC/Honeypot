@@ -22,6 +22,8 @@ Live: frontend `honeypot-brown.vercel.app` · backend `honeypot-aa88.onrender.co
 - [ ] **Confirm the 9Router VPS is up** so the persona improvises for real. If it's down, ITTU *gracefully falls back to the scripted persona* — the demo still works, just less dynamic. (Tell: the reply's `model` shows `poc-interactive-stall-1` when scripted vs `anthropic/claude-…` when live.)
 - [ ] **Log in** as the demo investigator (Budi Santoso · Bareskrim Polri) so you land in the console.
 - [ ] Have two tabs ready: **`/honeypot/call`** (the call) and **`/investigation`** (the graph).
+      *(The real front door is the `/home` → `/case` hub; the run-of-show opens on the honeypot call
+      for the wow, but you can frame `/case` as "where an analyst lives" if a judge asks about workflow.)*
 - [ ] Silence notifications, set browser zoom ~100–110%, mic unmuted.
 
 ---

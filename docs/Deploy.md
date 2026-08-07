@@ -36,8 +36,8 @@ in-memory state + FastAPI lifespan behave exactly like local.
 **One-time via the Blueprint (`render.yaml` at repo root):**
 1. Render → **New → Blueprint** → connect this repo → **Apply**. It reads `render.yaml`
    (Docker web service, region Singapore, health check `/health`, `autoDeploy: true`).
-2. After the first deploy, set the env var **`ITTU_CORS_ORIGINS`** to your Vercel origin,
-   e.g. `["https://honeypot-brown.vercel.app"]` (Render dashboard → the service → Environment).
+2. **`ITTU_CORS_ORIGINS` is already baked into `render.yaml`** (`["https://honeypot-brown.vercel.app"]`)
+   — only override it in the Render dashboard if your Vercel origin differs.
    `ITTU_JWT_SECRET` is auto-generated; `ITTU_MODE=poc` is preset.
 3. Copy the service URL (e.g. `https://ittu-api.onrender.com`) → set it as
    **`NEXT_PUBLIC_API_URL`** in Vercel → redeploy the frontend.
