@@ -41,18 +41,20 @@ Every module's external touchpoints map to exactly one of these — no ad-hoc HT
 
 ## Config shape (pydantic-settings)
 
+Single `Settings` class (`backend/app/core/config.py`), env-prefixed `ITTU_`:
+
 ```python
-class ModeSettings(BaseSettings):
-    mode: Literal["poc", "live"] = "poc"                 # global default (safe)
-    module_modes: dict[str, Literal["poc","live"]] = {}  # per-module override
+class Settings(BaseSettings):
+    mode: Literal["poc", "live"] = "poc"                  # global default (safe)
+    module_modes: dict[str, Literal["poc","live"]] = {}   # per-module override
     # e.g. ITTU_MODULE_MODES='{"takedown":"live","infiltrate":"poc"}'
 
-class ProviderSettings(BaseSettings):
-    blockchain_provider: str = "tronscan"     # tronscan|trongrid|bitquery
-    llm_gateway_url: str                       # self-hosted LiteLLM endpoint
-    stt_provider: str = "whisper"
-    tts_provider: str = "google"
-    # credentials pulled from env / secrets, never in code
+    # provider credentials/selection — pulled from env, never in code:
+    tronscan_api_key: str = ""                            # TRONSCAN (LIVE blockchain)
+    llm_model / llm_api_key / llm_api_base                # LLM gateway
+    tts_provider: str = "browser"                         # browser (POC) | google|elevenlabs (LIVE)
+    google_client_id: str = ""                            # LIVE Google OAuth audience
+    oauth_provision: str = ""                             # email→agency/role allowlist (JSON)
 ```
 
 ```

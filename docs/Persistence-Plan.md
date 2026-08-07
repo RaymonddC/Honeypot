@@ -1,7 +1,13 @@
 # ITTU — Persistence + Auth Foundation Plan
 
-Turning the in-memory POC into a restart-durable, multi-tenant product. Drafted
-from a full recon of the current surface.
+> **STATUS (superseded — historical plan): P-1…P-4 are BUILT.** This doc reads as a
+> forward plan, but the wiring it describes is done: RLS + the non-owning `ittu_app`
+> role (migrations 05/06/08–10), `core.evidence_manifest` + `chain.graph_snapshots`,
+> and dual in-memory/Postgres repositories selected by `settings.persistence` for
+> INFILTRATE (`app/infiltrate/repository.py`), UNCOVER (`app/uncover/repository.py`),
+> AUTH/users (`app/core/user_repository.py`), and case data (`app/casedata`, `app/cases`).
+> Google OAuth is live (`app/auth/router.py:post_google_login`). Read below as the
+> rationale/design record, not an open to-do list.
 
 ## The key insight
 **The database layer is ~90% built and completely unused at request time.** We

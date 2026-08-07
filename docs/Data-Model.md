@@ -29,13 +29,14 @@
 ## Schema domains (Postgres, one DB, module-prefixed schemas)
 
 ```
-core.*        agencies, users, roles, cases, case_shares, audit_log, evidence_manifest
+core.*        agencies, users, roles, cases (+stage), case_shares, audit_log, evidence_manifest
 intel.*       personas, scam_sessions, messages, entities, syndicates, syndicate_members,
               crime_classifications                       (INFILTRATE)
 chain.*       wallets, transactions, wallet_features, wallet_risk_scores, address_tags,
               graph_snapshots                             (TRACE + TAKEDOWN)
 fiat.*        fiat_accounts, fiat_transactions, correlations   (TRACE / BridgeWatch)
-action.*      action_documents, notifications              (UNCOVER)
+casedata.*    bank_accounts, crypto_transfers              (case-scoped rollup, agency RLS)
+action.*      action_bundles, action_documents, notifications  (UNCOVER)
 ```
 
 ---
@@ -62,6 +63,8 @@ core.roles(id, name, agency_type, permissions jsonb)   -- role→permission temp
 core.cases(
   id uuid pk, agency_id uuid fk→agencies,           -- owning agency
   title text, status text check (status in ('open','active','closed','archived')),
+  stage text not null default 'intake',             -- lifecycle: intake|freeze|trace|
+                                                    --   takedown|report|recovery|closed
   crime_type text, summary text,
   data_mode text check (data_mode in ('poc','live')) not null,
   created_by uuid fk→users, created_at, updated_at, deleted_at)
@@ -274,8 +277,11 @@ CREATE POLICY case_access ON core.cases USING (
 );
 ```
 
-- **Child tables** (messages, entities, transactions, documents…) resolve their case/agency and apply
-  the same predicate (directly on `agency_id`, or via their parent `case_id`).
+- **Agency-owned child tables** (intel `messages`/`entities`, `action.*`, `casedata.*`, `chain.graph_snapshots`)
+  resolve their case/agency and apply the same predicate (directly on `agency_id`, or via parent `case_id`).
+- **Shared raw-ledger tables are NOT RLS'd** — `chain.transactions`/`wallets`, `fiat.fiat_transactions`/`correlations`
+  carry no `agency_id`: they're public-chain / reference facts shared across agencies, not agency-owned
+  (deliberate exclusion, migration `20260715_06_rls_and_manifest.py`). Only per-case *snapshots* of them are scoped.
 - **Regulators** (PPATK/OJK) may get a broader policy variant (e.g. read across shared cases for their
   supervised entities) — modeled as additional `USING` branches keyed on `app.current_role`, never as
   a blanket bypass.

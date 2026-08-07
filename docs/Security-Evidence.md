@@ -21,8 +21,9 @@
 - App-level tenant filtering is defense-in-depth *on top of* RLS, never instead of it.
 
 ## 3. Chain of custody (tamper-evident evidence)
-- **Hash chain:** `intel.messages`, `action.action_documents`, and `core.audit_log` each carry
-  `sha256` + `prev_sha256` → any alteration is detectable. Append-only; edits create new versions.
+- **Hash chain:** `intel.messages` and `core.audit_log` carry `sha256` + `prev_sha256` → a tamper of any
+  link breaks the chain. `action.action_documents` carries `sha256` only — each generated document is
+  **independently** hashed as evidence (not chained doc-to-doc). Append-only; edits create new versions.
 - **Preserved originals** stored separately from enriched/derived data.
 - **`core.evidence_manifest`** per session/case records model + prompt + pipeline versions →
   reproducible & explainable in court.
