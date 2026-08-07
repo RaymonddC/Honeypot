@@ -95,9 +95,22 @@
 - **POC:** mock sink — `notifications.status='mock'`, UI shows "would dispatch to Bank X / Exchange Y /
   PPATK". Fully demo-able, nothing leaves the system.
 - **LIVE:** real channels — secure webhook/API, email, **goAML STR submission**, and **IASC** account-
-  freeze integration (IASC already operates the freeze mechanism across 79+ member banks).
-- **Delivery:** Dramatiq actors with retries; status `mock|queued|sent|failed|acknowledged` tracked
-  per target → feeds the Response Dashboard's time-to-freeze metric.
+  freeze integration (IASC already operates the freeze mechanism across 79+ member banks). Today's wired
+  channel is a signed webhook (`ITTU_NOTIFICATION_WEBHOOK_URL`); no channel configured → fail loud.
+- **Delivery (C1, production-ready):** status lifecycle `mock | queued | sending | sent | failed`
+  tracked per target (`attempt_count`, `last_error`, `updated_at`) → feeds the Response Dashboard.
+  - **Sync path** (default, `ITTU_NOTIFICATION_DELIVERY=sync`): the LIVE sink POSTs inline during the
+    dispatch request. Simple, no worker/Redis needed.
+  - **Durable worker path** (`=worker`, LIVE + Postgres): dispatch persists each notification as
+    `queued` and hands delivery to the **`dispatch_notifications` Dramatiq actor** — retries with
+    backoff, off-request, status tracked on the row. Idempotent on `sent` (safe at-least-once).
+  - **Authenticity:** every LIVE POST carries an `X-ITTU-Idempotency-Key` (so a retry never
+    double-actions a freeze/STR at the recipient) and, when `ITTU_NOTIFICATION_WEBHOOK_SECRET` is set,
+    an HMAC-SHA256 `X-ITTU-Signature: t=<ts>,v1=<hex>` the recipient verifies (see Security-Evidence §
+    Webhook signing).
+- **Outbox feed + retry:** `GET /api/notifications` (RLS-scoped, filters: status/agency_type/case) is
+  the agency **Dispatch Log** (on the Response dashboard); `POST /api/notifications/{id}/retry`
+  (role-gated) re-dispatches a failed one, reusing the same idempotency key.
 
 ### 5. Action Panel UI (frontend — reuse ELSA design system)
 - One-click **Generate** → preview all documents inline; **edit** the LTKM subject/narrative fields;

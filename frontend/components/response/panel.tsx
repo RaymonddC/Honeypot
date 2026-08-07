@@ -13,6 +13,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CasesTable } from "@/components/response/cases-table";
+import { DispatchLog } from "@/components/response/dispatch-log";
 import { MetricTiles } from "@/components/response/metric-tiles";
 import { TrendSparkline } from "@/components/response/trend-sparkline";
 import { fetchResponseMetrics } from "@/lib/response/api";
@@ -157,6 +158,11 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
             </div>
 
             <CasesTable cases={data.cases} />
+          </div>
+
+          {/* ── dispatch log (agency outbox) ───────────────────────── */}
+          <div className="mt-3.5">
+            <DispatchLog />
           </div>
         </>
       ) : (

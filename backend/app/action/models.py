@@ -22,7 +22,7 @@ evidentiary isolation — LIVE evidence views never read POC rows.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, LargeBinary, Text, Uuid
+from sqlalchemy import DateTime, ForeignKey, Integer, LargeBinary, Text, Uuid
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -116,9 +116,22 @@ class Notification(Base):
     payload: Mapped[dict | None] = mapped_column(JSONB)
     status: Mapped[str] = mapped_column(
         Text, nullable=False, default="mock"
-    )  # mock|queued|sent|failed
+    )  # mock|queued|sending|sent|failed
     data_mode: Mapped[str] = mapped_column(Text, nullable=False, default="poc")
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow, nullable=False
+    )
+    # --- Delivery lifecycle (C1: production-ready dispatch) -------------------
+    # Idempotency token sent to the recipient (X-ITTU-Idempotency-Key + packet)
+    # so an at-least-once retry never double-actions a freeze at the agency.
+    idempotency_key: Mapped[str | None] = mapped_column(Text, unique=True)
+    # Delivery attempts made (0 for POC mock / queued-but-untried); climbs on retry.
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Last failure reason (HTTP status / transport error) — null on success/mock.
+    last_error: Mapped[str | None] = mapped_column(Text)
+    # Bumped on every status transition (queued→sending→sent/failed, retries).
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow,
+        nullable=False,
     )

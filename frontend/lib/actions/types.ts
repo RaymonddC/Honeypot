@@ -46,6 +46,7 @@ export type DispatchStatus =
   | "draft" // pre-dispatch: generated, awaiting analyst confirmation
   | "mock" // dispatched into the POC mock sink
   | "queued"
+  | "sending" // LIVE: in-flight to the recipient webhook (worker delivery)
   | "sent"
   | "failed"
   | "acknowledged";
@@ -89,6 +90,7 @@ export const STATUS_COLORS: Record<DispatchStatus, string> = {
   draft: "rgba(255,255,255,.34)",
   mock: "#f5a524",
   queued: "#f5a524",
+  sending: "#38bdf8",
   sent: "#34d399",
   acknowledged: "#34d399",
   failed: "#ef4444",
@@ -98,6 +100,7 @@ export const STATUS_LABELS: Record<DispatchStatus, string> = {
   draft: "· draft",
   mock: "● mock",
   queued: "● queued",
+  sending: "● sending",
   sent: "● sent",
   acknowledged: "● ack’d",
   failed: "● failed",

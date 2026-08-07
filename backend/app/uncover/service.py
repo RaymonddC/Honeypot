@@ -25,10 +25,13 @@ from app.takedown.service import investigate
 from app.trace.service import build_bridge
 from app.uncover import documents as docs
 from app.uncover.custody import AuditEntry, audit_log
+from app.core.config import get_settings
 from app.uncover.notifications import (
     NotificationOut,
     NotificationSink,
     RoutingTarget,
+    dispatch_notifications,
+    new_idempotency_key,
     route_targets,
 )
 from app.uncover.repository import (
@@ -399,6 +402,87 @@ async def generate_bundle(
     return bundle
 
 
+def _queued_notification(
+    bundle: ActionBundle, target: RoutingTarget, packet: dict
+) -> NotificationOut:
+    """A notification persisted as ``queued`` for the durable worker to pick up
+    (LIVE worker mode). Carries the idempotency key + the full packet (minus the
+    agency fields, which are their own columns) the actor redelivers from."""
+    return NotificationOut(
+        id=f"ntf_{uuid.uuid4().hex[:12]}",
+        action_id=bundle.id,
+        case_id=bundle.case_id,
+        target_agency=target.agency,
+        agency_type=target.agency_type,
+        channel=target.channel,
+        status="queued",
+        data_mode=bundle.data_mode,
+        idempotency_key=new_idempotency_key(),
+        attempt_count=0,
+        payload={k: v for k, v in packet.items() if k not in ("agency", "agency_type")},
+    )
+
+
+async def list_notifications(
+    *,
+    repo: UncoverRepository,
+    status: str | None = None,
+    agency_type: str | None = None,
+    case_id: str | None = None,
+) -> list[NotificationOut]:
+    """The Dispatch Log feed: every notification the caller may see (RLS-scoped
+    under Postgres), newest first, with optional filters."""
+    notes = await repo.list_notifications()
+    if status:
+        notes = [n for n in notes if n.status == status]
+    if agency_type:
+        notes = [n for n in notes if n.agency_type == agency_type]
+    if case_id:
+        notes = [n for n in notes if n.case_id == case_id]
+    return notes
+
+
+class NotificationNotFoundError(Exception):
+    pass
+
+
+async def retry_notification(
+    notification_id: str, sink: NotificationSink, *, repo: UncoverRepository
+) -> NotificationOut:
+    """Re-dispatch a single notification. ``sent`` is a no-op (idempotent).
+
+    LIVE worker mode re-queues the row and re-enqueues the durable actor; the
+    sync path (POC mock / LIVE-sync) re-POSTs inline, reusing the SAME
+    idempotency key so the recipient can dedupe a redelivery."""
+    note = await repo.get_notification(notification_id)
+    if note is None:
+        raise NotificationNotFoundError(notification_id)
+    if note.status == "sent":
+        return note
+
+    settings = get_settings()
+    if note.data_mode == "live" and settings.notification_delivery == "worker":
+        note.status = "queued"
+        note.last_error = None
+        await repo.update_notification(note)
+        dispatch_notifications.send(note.id)
+        return note
+
+    packet = {
+        **note.payload,
+        "agency": note.target_agency,
+        "agency_type": note.agency_type,
+        "idempotency_key": note.idempotency_key,
+    }
+    fresh = await sink.dispatch(packet)
+    note.status = fresh.status
+    note.last_error = fresh.last_error
+    note.sent_at = fresh.sent_at
+    note.attempt_count = (note.attempt_count or 0) + (fresh.attempt_count or 0)
+    await repo.update_notification(note)
+    return note
+
+
 async def dispatch_bundle(
     action_id: str, sink: NotificationSink, *, repo: UncoverRepository
 ) -> ActionBundle | None:
@@ -413,6 +497,18 @@ async def dispatch_bundle(
         return None
     if bundle.status == "dispatched":
         raise AlreadyDispatchedError(action_id)
+
+    settings = get_settings()
+    # Durable worker delivery: LIVE + explicit opt-in. Persist each notification
+    # as `queued` and hand real delivery to the Dramatiq actor (retries/backoff,
+    # off-request). Requires Postgres — the actor reads the queued row in another
+    # process — so fail loud rather than silently drop into the sync path.
+    use_worker = bundle.data_mode == "live" and settings.notification_delivery == "worker"
+    if use_worker and settings.persistence != "postgres":
+        raise RuntimeError(
+            "ITTU_NOTIFICATION_DELIVERY=worker requires ITTU_PERSISTENCE=postgres "
+            "(the delivery actor reads the queued notification row cross-process)."
+        )
 
     notifications: list[NotificationOut] = []
     for target in bundle.routing_plan:
@@ -430,7 +526,10 @@ async def dispatch_bundle(
             ],
             "reason": target.reason,
         }
-        notifications.append(await sink.dispatch(packet))
+        if use_worker:
+            notifications.append(_queued_notification(bundle, target, packet))
+        else:
+            notifications.append(await sink.dispatch(packet))
 
     now = datetime.now(timezone.utc)
     for d in bundle.documents:
@@ -440,6 +539,14 @@ async def dispatch_bundle(
     bundle.status = "dispatched"
     bundle.dispatched_at = now
     await repo.save_bundle(bundle)  # persists the envelope + the notifications above
+
+    if use_worker:
+        # Enqueue AFTER persistence. The actor is idempotent and treats a
+        # not-yet-visible row as transient (retries), so enqueue-before-commit
+        # of the request transaction is tolerated; a production refinement is a
+        # transactional outbox. POC/sync paths never reach here.
+        for n in notifications:
+            dispatch_notifications.send(n.id)
 
     audit_log.record(
         action="action.bundle.dispatched",

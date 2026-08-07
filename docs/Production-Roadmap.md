@@ -15,7 +15,7 @@ MODE. So this roadmap is mostly "fill in the LIVE adapters + turn on persistence
 |---|---|---|---|---|
 | **LLM brain** | infiltrate | `LiteLLMGateway` | ✅ **LIVE in prod** | — (9Router/Claude, done) |
 | **Blockchain** | takedown | `TronscanAdapter` | ✅ **live-validated + hardened** | flip `takedown=live`; set `ITTU_TRONSCAN_API_KEY` for limits |
-| **Notifications** | uncover | `LiveNotificationSink` | 🟠 stub, easy | wire email/SMS/webhook |
+| **Notifications** | uncover | `LiveNotificationSink` + `dispatch_notifications` actor | ✅ **production-ready** | flip `uncover=live`; set webhook URL/secret (+ `=worker` for durable retries) |
 | **TTS (voice)** | infiltrate | `ElevenLabs/GoogleTTSAdapter` | 🟢 **wired, needs key** | add key, verify audio |
 | **STT (voice)** | infiltrate | `WhisperSTTAdapter` | 🔴 stub | streaming transcription |
 | **Text channel** | infiltrate | `TelegramChannelAdapter` | 🔴 stub | bot + webhook + mapping |
@@ -112,9 +112,17 @@ Trigger to revisit the Dramatiq swap: real multi-agency concurrent use. For inge
 
 ## 5. Track C — Fiat + notifications
 
-### C1 — Notifications · 🟠 easy
-- **Work:** `LiveNotificationSink` → real email (SES/Resend) / SMS / webhook for dispatched freeze orders + LTKM filings. Currently a mock sink.
-- **Effort:** S.
+### C1 — Notifications · ✅ done (2026-08-08, production-ready)
+- **Shipped:** signed + idempotent + durable-retried LIVE webhook delivery for dispatched freeze
+  orders + LTKM filings. `LiveNotificationSink` (sync) + the **`dispatch_notifications` Dramatiq actor**
+  (durable worker path, `ITTU_NOTIFICATION_DELIVERY=worker`, LIVE+Postgres), HMAC-SHA256 signing
+  (`X-ITTU-Signature`) + `X-ITTU-Idempotency-Key`, status lifecycle `queued→sending→sent/failed` with
+  `attempt_count`/`last_error`. `GET /api/notifications` outbox feed + `POST /notifications/{id}/retry`,
+  Dispatch Log on the Response dashboard. POC mock path unchanged. Migration `20260724_12`.
+- **To go live:** `ITTU_MODE=live` (or module override) + `ITTU_NOTIFICATION_WEBHOOK_URL` (+ `_SECRET`);
+  optionally `=worker` with a running `dramatiq app.workers` + Redis.
+- **Remaining (optional):** additional native channels (email SES/Resend, goAML/IASC direct) behind the
+  same sink Protocol; a transactional outbox for exactly-once enqueue.
 
 ### C2 — Fiat feed · 🔴 institutional
 - **Work:** `BankFeedAdapter` → a real bank / **PPATK** transaction feed to correlate against on-chain flows.
@@ -146,7 +154,7 @@ Trigger to revisit the Dramatiq swap: real multi-agency concurrent use. For inge
 | 1 | **F1 Persistence** | nothing is "production" without it | M–L | — |
 | 2 | **F2 Auth + RLS** | multi-agency isolation on real data | M | needs F1 |
 | 3 | **A1 Blockchain live** | mostly built, real intel, high ROI | S–M | — |
-| 4 | **C1 Notifications** | quick, completes the action loop | S | — |
+| ✅ | **C1 Notifications** | ~~quick, completes the action loop~~ **done — production-ready** | M | — |
 | 5 | **B1 ElevenLabs TTS** | quick, big quality jump | S | — |
 | 6 | **A2 Telegram channel** | real inbound infiltration | M | Polri |
 | 7 | **B2+B3 STT + Twilio** | real phone calls | L | Polri |

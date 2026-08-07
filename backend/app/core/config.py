@@ -65,6 +65,26 @@ class Settings(BaseSettings):
     # receives each dispatch packet as JSON POST. Empty = fail loud (no
     # silent mock fallback — Adapter-MODE principle #3).
     notification_webhook_url: str = ""    # ITTU_NOTIFICATION_WEBHOOK_URL
+    # HMAC-SHA256 signing key. When set, every LIVE dispatch carries an
+    # `X-ITTU-Signature: t=<ts>,v1=<hex>` header the recipient verifies to
+    # prove the packet is genuinely from ITTU (and, via the timestamp, isn't a
+    # replay). Empty = unsigned POST (acceptable only on a trusted internal
+    # endpoint; set it for any cross-org agency webhook). Booleans-only leaves
+    # the API — the key itself never appears in a response or a stored payload.
+    notification_webhook_secret: str = ""   # ITTU_NOTIFICATION_WEBHOOK_SECRET
+    # LIVE delivery engine: "sync" POSTs inline during the dispatch request
+    # (simple, no infra); "worker" persists each notification as `queued` and
+    # hands delivery to the `dispatch_notifications` Dramatiq actor (durable,
+    # retried, off-request — the production path). "worker" requires
+    # ITTU_PERSISTENCE=postgres (the actor reads the row cross-process) and a
+    # running `dramatiq app.workers` + Redis; it fails loud otherwise. POC
+    # (mock sink) ignores this entirely.
+    notification_delivery: Literal["sync", "worker"] = "sync"
+    # Worker delivery retry budget + backoff (ms) for the Dramatiq actor.
+    notification_max_retries: int = 3
+    notification_retry_backoff_ms: int = 30_000
+    # Per-webhook HTTP timeout (seconds).
+    notification_webhook_timeout_seconds: float = 15.0
 
     # CORS: origins allowed to call the API. Kept as a STRING (not list[str]) so
     # pydantic-settings never tries to JSON-decode the env var and crash on deploy.
