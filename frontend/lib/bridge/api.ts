@@ -263,7 +263,7 @@ function deriveStats(
   const bridged = pick("bridged_usd", "bridged_to_crypto_usd", "total_crypto_usd", "bridged_usdt");
   const correlated =
     pick("correlated_onramps", "correlated_on_ramps", "correlations") ??
-    (alerts.length || null);
+    alerts.length; // 0 is a real count — `alerts.length || null` rendered it as "—"
 
   const idr = inflow != null ? formatIDR(inflow) : "—";
   const m = idr.match(/^(.*) (T|M)$/); // split unit suffix for styling

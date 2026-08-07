@@ -139,9 +139,12 @@ function freezeLetter(doc: ActionDocument, ctx: LetterContext): string {
   if (!rows.length)
     rows.push(`<tr><td>1.</td><td>—</td><td class="mono">${esc(field(doc, "value") ?? "—")}</td><td>Objek pemblokiran</td></tr>`);
 
+  // Tembusan lists the agencies copied on THIS letter — names only. Appending
+  // each target's bundle action leaked another document's instruction onto the
+  // freeze letter (e.g. "PPATK — Submit LTKM").
   const cc = ctx.targets.length
     ? `<div class="cc">Tembusan (cc):<ol>${ctx.targets
-        .map((t) => `<li>${esc(t.name)}${t.action ? ` — ${esc(t.action)}` : ""}</li>`)
+        .map((t) => `<li>${esc(t.name)}</li>`)
         .join("")}</ol></div>`
     : "";
 
