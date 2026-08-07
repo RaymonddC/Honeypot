@@ -136,6 +136,7 @@ export function InvestigationPanel({
   const detailsRef = useRef<Record<string, WalletDetail>>({});
   const [detail, setDetail] = useState<WalletDetail | null>(null);
   const traceSeq = useRef(0);
+  const selectSeq = useRef(0); // bumps on every wallet selection (not just new traces)
 
   // TAKEDOWN is LIVE when its module (or the global default) is LIVE. In LIVE a
   // failed trace shows an honest state instead of fabricated mock data.
@@ -151,16 +152,21 @@ export function InvestigationPanel({
       src: DataSource,
       seq: number,
     ) => {
+      const sel = ++selectSeq.current;
       setSelected(id);
       const cached = detailsRef.current[id];
       if (cached) {
         setDetail(cached);
+        setDetailLoading(false); // a prior in-flight fetch must not keep dimming this card
         return;
       }
       setDetailLoading(true);
       const node = g.nodes.find((n) => n.id === id);
       const d = await fetchWalletDetail(id, node, src, g);
-      if (seq !== traceSeq.current) return; // superseded by a newer trace
+      // Ignore if a newer trace OR a newer selection superseded this fetch —
+      // otherwise a slow uncached fetch clobbers a later (cached) selection,
+      // showing the wrong wallet's risk/score and packaging the wrong wallet.
+      if (seq !== traceSeq.current || sel !== selectSeq.current) return;
       detailsRef.current[id] = d;
       setDetail(d);
       setDetailLoading(false);

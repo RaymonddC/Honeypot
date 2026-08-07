@@ -167,13 +167,10 @@ function normalizeCorrelations(raw: any): OnRampAlert[] {
         );
 
       // The depositing wallet (launderer feeding the exchange) — the Takedown
-      // target. Fall back to the hot-wallet address, then any flat field.
-      const walletRaw = first(
-        crypto.from_addr,
-        crypto.to_addr,
-        c?.crypto_wallet,
-        c?.wallet,
-      );
+      // target. Do NOT fall back to crypto.to_addr: that's the exchange hot
+      // wallet, which would make wallet === toAddr → a self-referencing "+case"
+      // transfer and the wrong (exchange) address sent to Takedown.
+      const walletRaw = first(crypto.from_addr, c?.crypto_wallet, c?.wallet);
       const okAddr = (v: unknown) =>
         v != null && String(v).length >= 4 ? String(v) : undefined;
       const wallet = okAddr(walletRaw);

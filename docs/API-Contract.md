@@ -41,12 +41,13 @@ GET  /syndicates?case=                         → [syndicate]
 
 ## TAKEDOWN (Investigation Screen)
 ```
-POST /investigate       {address, chain}       → {graph, scores}   # ingest+score, async job ok
-GET  /wallets/{addr}                            → wallet (+features)
-GET  /wallets/{addr}/graph?hops=3               → {nodes, edges}    # Cytoscape elements
-POST /wallets/{addr}/expand  {node}            → {nodes, edges}     # lazy BFS
-GET  /wallets/{addr}/risk                       → risk_score (+reasoning, patterns)
+POST /investigate            {address, chain, hops?}  → 202 {job_id}          # ASYNC — runs off-request
+GET  /investigate/jobs/{id}                            → {status, result?|error?}  # poll: pending|running|done|error
+GET  /wallets/{addr}/graph?hops=3                      → {nodes, edges}         # Cytoscape elements (lazy BFS)
+GET  /wallets/{addr}/risk                              → risk_score (+reasoning, patterns)
+GET  /takedown/model-card                              → model metadata (scorer, features, typologies)
 ```
+`POST /investigate` is an **in-process async job** (app/takedown/jobs.py): returns a job id immediately, the trace runs in the background, the client polls `/investigate/jobs/{id}`. `done` carries `{result:{graph,scores}}`; `error` carries `{code}` (`provider_rate_limited` / `provider_unavailable`). This keeps the request from ever timing out. LIVE clients pass `hops=1` for a lean first view. (Executor is in-process today; the submit→poll contract is queue-shaped so it can swap to a Dramatiq worker later — see Production-Roadmap A1-prod.)
 
 ## TRACE (Bridge View)
 ```

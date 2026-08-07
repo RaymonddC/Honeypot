@@ -134,6 +134,7 @@ export function WalletGraph({
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    setTip(null); // clear any hover tooltip from the previous graph before rebuild
 
     const ids = new Set(graph.nodes.map((n) => n.id));
     const elements = [

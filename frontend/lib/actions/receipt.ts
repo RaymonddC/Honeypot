@@ -54,7 +54,11 @@ export function receiptFilename(): string {
 
 export function buildDispatchReceiptHtml(bundle: ActionBundle): string {
   const now = new Date();
-  const ref = `DSP-${(bundle.caseRef.match(/\d+/)?.[0] ?? "0417").slice(-4)}/${now.getFullYear()}`;
+  // Match the letters' ref logic (letter.ts refNo): capture digits+dashes so the
+  // case suffix is consistent across the bundle. `/\d+/` alone grabbed only the
+  // year ("2026" from "ITU-2026-0417") → DSP-2026 while letters cited 0417.
+  const caseNum = (bundle.caseRef.match(/(\d[\d-]*)/)?.[1] ?? "0417").replace(/-/g, "");
+  const ref = `DSP-${caseNum.slice(-4)}/${now.getFullYear()}`;
   const rows = bundle.targets
     .map(
       (t, i) => `
