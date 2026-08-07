@@ -12,7 +12,7 @@
 | **Funds at risk** | Σ exposure of flagged wallets/accounts in open cases | `chain.wallet_risk_scores`, `fiat.correlations`, `chain.wallets` |
 | **Funds frozen** | Σ amounts on acknowledged freeze requests | `action.action_documents` (freeze) + `notifications` ack |
 | **Recovery rate** | funds frozen ÷ funds at risk (case-weighted); benchmark vs. IASC 4.76% baseline | derived |
-| **Sessions / entities (honeypot)** | active sessions, entities extracted (confirmed) | `intel.scam_sessions`, `intel.entities` |
+| **Sessions / entities (honeypot)** | active sessions, entities extracted (confirmed) | POC: `BASELINE_HONEYPOT` constant (`app/uncover/metrics.py`) — deterministic stand-in until INFILTRATE persistence lands; not yet from `intel.scam_sessions`/`entities` |
 | **Wallets scored** | count risk-scored this period | `chain.wallet_risk_scores` |
 
 ## Behavior

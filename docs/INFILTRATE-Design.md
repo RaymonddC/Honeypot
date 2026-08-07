@@ -144,6 +144,9 @@ pressure tactics, caller-ID numbers, call-recording evidence). Proven by **Apate
   split across messages, "the account I mentioned") + **relationship extraction** (who controls which
   account). Anthropic structured output.
 - **Layer C — fine-tuned IndoBERT NER** (IPerFEX / BiLSTM-CRF) for person/org/alias → feeds clustering.
+  **[DESIGNED, NOT BUILT]** — only Layers A+B run today (`app/infiltrate/extraction.py`); no IndoBERT/NER
+  model in the code. Likewise the §11 "kill switch" / abuse-monitoring controls and a WhatsApp channel
+  adapter are design intent (only `TelegramChannelAdapter`, a fail-loud LIVE stub, exists).
 - **Reconciliation:** dedupe → cross-validate every Layer-B output through Layer-A validators →
   confidence-score → provenance-log (message_id, turn, method). Un-validated LLM entities are never
   stored as actionable.

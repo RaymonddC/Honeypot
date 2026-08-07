@@ -67,8 +67,8 @@
 ### 3. Correlation Engine (the bridge)
 - Matches fiat-side behavioral signatures (deposit timing, aggregated amounts, account velocity)
   against crypto-side deposit patterns: **amount match within fee tolerance** (IDR→USDT via a rate
-  source) **AND timing within a 30-minute window**. `pandas` + `scipy` for time-series correlation +
-  fuzzy amount matching.
+  source) **AND timing within a 30-minute window**. Implemented in **pure Python** (`app/trace/correlation.py`)
+  — no pandas/scipy — for time-series correlation + fuzzy amount matching.
 - Emits `fiat.correlations` (`fiat_tx_id`, `crypto_tx_id`, `time_delta_seconds`, `amount_match`,
   `confidence`). Each becomes a `[:CORRELATED]` edge in the graph model.
 

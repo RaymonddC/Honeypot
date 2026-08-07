@@ -62,7 +62,11 @@
 - Fans out to the document generators, then to custody, then (on confirm) to the Notification Hub.
 - Idempotent + transactional: docs are persisted before dispatch; a failed dispatch never loses the docs.
 
-### 2. Document Generators (Jinja2 assemble → ReportLab render)
+### 2. Document Generators (ReportLab flowables in Python — no Jinja2)
+> Server builds real PDFs directly with ReportLab `Paragraph`/`Table` flowables (`app/uncover/documents.py`).
+> The frontend *separately* re-renders the same documents as **client-side HTML** for the in-app preview
+> (`frontend/lib/actions/letter.ts` freeze/LTKM, `receipt.ts` dispatch) — the downloadable evidence is the
+> server PDF (`GET /api/documents/{id}`, custody-hashed).
 - **(a) Account/Wallet Freeze Request PDF** — auto-populated: target wallet(s)/account(s), tx hashes,
   risk scores + reasoning, timestamps, case reference, requesting agency, legal basis (UU ITE / POJK
   27/2024–23/2025). Template variants: **bank account freeze** vs **exchange wallet freeze/flag**.
