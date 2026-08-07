@@ -26,6 +26,7 @@ screens (`/home`, `/case`, `/guide`) now front the four pillars. Source: `../PID
 | **[Security-Evidence.md](Security-Evidence.md)** | RLS, chain-of-custody, explainability, legal anchors. |
 | **[Identity-Access-Architecture.md](Identity-Access-Architecture.md)** | Target IdP/RBAC/RLS model — Keycloak broker, delegated admin, role-mapping, cross-agency sharing. |
 | **[Frontend-Design.md](Frontend-Design.md)** | Design system (ELSA tokens) + screen designs + [live mockup](https://claude.ai/code/artifact/d592d92c-de21-45f8-b609-ab88e7fd8661). |
+| **[Backlog.md](Backlog.md)** | The living "what we're aiming for" board — prioritized, gated vs actionable. |
 | **[Build-Phases.md](Build-Phases.md)** | Phase tracker (P0–P5) — current build status. |
 | **[Production-Roadmap.md](Production-Roadmap.md)** | Per-boundary go-live status + tracks A/B/C + A1-prod (async/ingestion). |
 | **[Persistence-Plan.md](Persistence-Plan.md)** | Postgres/RLS + dual in-memory/Postgres repositories (superseded — built). |
