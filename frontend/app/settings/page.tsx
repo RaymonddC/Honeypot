@@ -30,6 +30,10 @@ const VOICE_PROVIDER_COPY: Record<
     label: "ElevenLabs",
     sub: "Backend audio · GET /sessions/{id}/audio/{seq}",
   },
+  gemini: {
+    label: "Gemini TTS",
+    sub: "Backend audio · style-controlled persona (AI Studio)",
+  },
   google: {
     label: "Google TTS",
     sub: "Backend audio · GET /sessions/{id}/audio/{seq}",

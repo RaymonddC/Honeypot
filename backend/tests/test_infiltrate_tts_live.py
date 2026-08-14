@@ -2,15 +2,20 @@
 bytes, caches them (no re-paying the provider), and degrades to browser-speech
 marks if synthesis fails. Zero network — a fake adapter stands in for ElevenLabs."""
 
+import base64
+
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.config import Settings
 from app.infiltrate.service import get_tts_adapter
 from app.infiltrate.voice import (
+    GeminiTTSAdapter,
     TTSResult,
     VoiceMarkTTSAdapter,
     reset_audio_cache,
+    select_live_tts_adapter,
     synthesize_line,
 )
 from app.main import app
@@ -121,3 +126,61 @@ def test_audio_endpoint_degrades_to_marks_on_synth_failure():
     assert mark["audio_url"] is None
     assert mark["seq"] == seq
     assert mark["duration_seconds"] > 0
+
+
+# --------------------------------------------------------------------------- #
+# Gemini TTS adapter — PCM→WAV, style prompt, fail-loud, factory (httpx mocked)
+# --------------------------------------------------------------------------- #
+
+
+class _FakeGeminiHttpx:
+    last_json: dict | None = None
+    pcm = b""
+
+    def __init__(self, *a, **k):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *a):
+        return None
+
+    async def post(self, url, headers=None, json=None, **k):
+        _FakeGeminiHttpx.last_json = json
+        payload = {
+            "candidates": [
+                {"content": {"parts": [{"inlineData": {
+                    "mimeType": "audio/L16;codec=pcm;rate=24000",
+                    "data": base64.b64encode(_FakeGeminiHttpx.pcm).decode(),
+                }}]}}
+            ]
+        }
+        return httpx.Response(200, json=payload, request=httpx.Request("POST", url))
+
+
+async def test_gemini_wraps_pcm_as_playable_wav(monkeypatch):
+    monkeypatch.setattr("app.infiltrate.voice.httpx.AsyncClient", _FakeGeminiHttpx)
+    _FakeGeminiHttpx.pcm = b"\x11\x22\x33\x44" * 20
+
+    r = await GeminiTTSAdapter(Settings(gemini_api_key="k")).synthesize("halo bu", "persona")
+
+    assert r.mime_type == "audio/wav"
+    assert r.audio_bytes[:4] == b"RIFF" and r.audio_bytes[8:12] == b"WAVE"
+    assert _FakeGeminiHttpx.pcm in r.audio_bytes  # PCM payload preserved under the header
+
+    sent = _FakeGeminiHttpx.last_json
+    # persona style directive is prepended (Gemini follows it, doesn't read it aloud)
+    assert "nenek" in sent["contents"][0]["parts"][0]["text"]
+    voice = sent["generationConfig"]["speechConfig"]["voiceConfig"]["prebuiltVoiceConfig"]
+    assert voice["voiceName"] == "Sulafat"
+
+
+def test_gemini_fails_loud_without_key():
+    with pytest.raises(NotImplementedError, match="ITTU_GEMINI_API_KEY"):
+        GeminiTTSAdapter(Settings(gemini_api_key=""))
+
+
+def test_live_factory_selects_gemini():
+    tts = select_live_tts_adapter(Settings(tts_provider="gemini", gemini_api_key="k"))
+    assert tts.provider == "gemini"

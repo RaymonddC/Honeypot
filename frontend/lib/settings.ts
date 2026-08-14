@@ -7,9 +7,9 @@
  * NEXT_PUBLIC_* build defaults; secrets never live here — API keys stay
  * server-side and GET /api/config only exposes *presence* booleans:
  *
- *   voiceProvider  browser | elevenlabs | google
+ *   voiceProvider  browser | elevenlabs | gemini | google
  *                    browser        → BrowserTTSProvider (free Web Speech API)
- *                    elevenlabs/google → BackendAudioProvider
+ *                    elevenlabs/gemini/google → BackendAudioProvider
  *                                     (GET /api/sessions/{id}/audio/{seq})
  *   callMode       scripted | live-mic
  *                    scripted → P4b replay (agent loop pre-run server-side)
@@ -33,6 +33,7 @@ import type { Mode, ModuleMode } from "@/lib/auth/types";
 export const VOICE_PROVIDER_SETTINGS = [
   "browser",
   "elevenlabs",
+  "gemini",
   "google",
 ] as const;
 export type VoiceProviderSetting = (typeof VOICE_PROVIDER_SETTINGS)[number];

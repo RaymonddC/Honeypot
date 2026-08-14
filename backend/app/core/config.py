@@ -104,6 +104,12 @@ class Settings(BaseSettings):
     # Real-voice provider keys (booleans only ever leave the API — never the key).
     elevenlabs_api_key: str = ""          # ITTU_ELEVENLABS_API_KEY
     google_tts_api_key: str = ""          # ITTU_GOOGLE_TTS_API_KEY
+    # Gemini TTS (Google AI Studio) — generative, natural-language STYLE control
+    # (the persona is prompted to sound like a confused, hesitant grandmother,
+    # which flat WaveNet voices can't do). Key is an AI Studio key, DISTINCT from
+    # the Cloud-TTS key above. Indonesian is auto-detected from the text.
+    gemini_api_key: str = ""              # ITTU_GEMINI_API_KEY
+    gemini_tts_model: str = "gemini-2.5-flash-preview-tts"  # ITTU_GEMINI_TTS_MODEL
 
     # --- LLM (live brain, paid + opt-in) --------------------------------------
     # Engaged only when INFILTRATE MODE=live or a session is started with

@@ -32,6 +32,7 @@ LIVE (clean stubs, fail loud, never silently degrade):
 
 import base64
 import hashlib
+import struct
 from collections import OrderedDict
 from typing import Protocol
 
@@ -557,6 +558,102 @@ class GoogleTTSAdapter:
         )
 
 
+def _pcm_rate_from_mime(mime: str) -> int:
+    """Parse the sample rate out of a ``audio/L16;codec=pcm;rate=24000`` mime."""
+    for chunk in mime.split(";"):
+        chunk = chunk.strip()
+        if chunk.startswith("rate="):
+            try:
+                return int(chunk[5:])
+            except ValueError:
+                break
+    return 24000
+
+
+def _pcm_to_wav(pcm: bytes, *, sample_rate: int = 24000, bits: int = 16, channels: int = 1) -> bytes:
+    """Wrap raw little-endian PCM in a 44-byte WAV header so a browser
+    ``<audio>`` can play it (Gemini returns headerless PCM)."""
+    block_align = channels * bits // 8
+    byte_rate = sample_rate * block_align
+    header = struct.pack(
+        "<4sI4s4sIHHIIHH4sI",
+        b"RIFF", 36 + len(pcm), b"WAVE",
+        b"fmt ", 16, 1, channels, sample_rate, byte_rate, block_align, bits,
+        b"data", len(pcm),
+    )
+    return header + pcm
+
+
+class GeminiTTSAdapter:
+    """LIVE — Google **Gemini TTS** (AI Studio), generative + style-controllable.
+
+    Key: ``ITTU_GEMINI_API_KEY`` (an AI Studio key, DISTINCT from the Cloud-TTS
+    key ``GoogleTTSAdapter`` uses) — fails loudly at construction without it;
+    sent only as the ``x-goog-api-key`` header, never returned in a response.
+
+    Chosen for its **natural-language style control**: the persona voice is
+    prompted to sound like a confused, hesitant elderly woman (a delivery the
+    flat WaveNet voices can't produce) — the whole point of A/B-ing it against
+    ElevenLabs. Gemini returns headerless PCM (24kHz/16-bit/mono) which we wrap
+    as WAV; Indonesian is auto-detected from the text.
+    """
+
+    data_mode: Mode = "live"
+    provider = "gemini"
+    # Prebuilt voices (docs list 30) — warm for the persona, firmer for the
+    # scammer. Tunable; the style directive below does most of the emotional work.
+    _VOICE_NAMES = {"persona": "Sulafat", "scammer": "Charon"}
+    # Leading style instruction Gemini follows but does NOT read aloud.
+    _STYLE = {
+        "persona": "Ucapkan dengan lembut dan pelan, seperti seorang nenek tua "
+                   "yang bingung dan ragu-ragu:",
+        "scammer": "Ucapkan dengan percaya diri dan mendesak, seperti seorang "
+                   "telemarketer yang memaksa:",
+    }
+
+    def __init__(self, settings: Settings | None = None):
+        settings = settings or get_settings()
+        self._api_key = settings.gemini_api_key
+        self._model = settings.gemini_tts_model
+        if not self._api_key:
+            raise NotImplementedError(
+                "LIVE GeminiTTSAdapter is not usable in this build: no key is "
+                "configured. Set ITTU_GEMINI_API_KEY (a Google AI Studio key), "
+                "or set ITTU_TTS_PROVIDER=browser for the keyless POC voice."
+            )
+
+    async def synthesize(self, text: str, voice: str = "persona") -> TTSResult:
+        voice_name = self._VOICE_NAMES.get(voice, self._VOICE_NAMES["persona"])
+        style = self._STYLE.get(voice, "")
+        prompt = f"{style} {text}".strip()
+        async with httpx.AsyncClient(timeout=_TTS_TIMEOUT_SECONDS) as client:
+            resp = await client.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/"
+                f"{self._model}:generateContent",
+                headers={"x-goog-api-key": self._api_key},
+                json={
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {
+                        "responseModalities": ["AUDIO"],
+                        "speechConfig": {
+                            "voiceConfig": {
+                                "prebuiltVoiceConfig": {"voiceName": voice_name}
+                            }
+                        },
+                    },
+                },
+            )
+            resp.raise_for_status()
+            inline = resp.json()["candidates"][0]["content"]["parts"][0]["inlineData"]
+            pcm = base64.b64decode(inline["data"])
+            rate = _pcm_rate_from_mime(inline.get("mimeType", ""))
+        return TTSResult(
+            provider=self.provider, voice=voice, text=text,
+            duration_seconds=estimate_duration(text),
+            audio_bytes=_pcm_to_wav(pcm, sample_rate=rate), mime_type="audio/wav",
+        )
+
+
 class HiggsfieldTTSAdapter(_LiveTTSStub):
     """LIVE stub — Higgsfield speech synthesis (not wired yet, fails loud)."""
 
@@ -569,6 +666,7 @@ LIVE_TTS_PROVIDERS: dict[str, type] = {
     GoogleTTSAdapter.provider: GoogleTTSAdapter,
     HiggsfieldTTSAdapter.provider: HiggsfieldTTSAdapter,
     ElevenLabsTTSAdapter.provider: ElevenLabsTTSAdapter,
+    GeminiTTSAdapter.provider: GeminiTTSAdapter,
 }
 
 
