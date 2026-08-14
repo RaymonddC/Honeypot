@@ -81,6 +81,26 @@ failure **degrades** to browser-speech marks so a TTS outage never breaks the ca
 flip the Control Panel's voice provider. Works in the browser call view *and* any future live
 path; keyless POC stays on browser TTS.
 
+#### TTS provider matrix — quality vs cost vs commercial
+All providers below are **hosted (no GPU on our side)** and speak Bahasa Indonesia. Selected via
+`ITTU_TTS_PROVIDER` + the matching key; each fails loud if selected without its key. The
+`/audio/{seq}` endpoint serves the synthesized bytes (browser plays them); the POC `browser` path
+returns voice marks instead.
+
+| Provider | `ITTU_TTS_PROVIDER` | Free tier | Commercial on free? | Voice / notes | Status |
+|---|---|---|---|---|---|
+| Browser SpeechSynthesis | `browser` (default) | free, offline | ✅ | robotic; POC — no key | shipped |
+| **Google Cloud TTS** (id-ID WaveNet) | `google` | **1M chars/mo, forever** | ✅ **yes** | natural but a bit flat — the standout free+commercial option | wired |
+| **Gemini TTS** (AI Studio) | `gemini` | rate-limited free | ❌ (paid billing for prod) | most expressive — style-prompted "confused grandmother" persona | wired |
+| ElevenLabs | `elevenlabs` | ~10k credits (~10 min/mo) | ❌ | best raw quality | wired |
+| Qwen-Audio-3.0-TTS | *(not wired)* | 1M chars (new users) | likely ✅ | good, ~3× cheaper than ElevenLabs | candidate |
+
+**Pick:** free + commercial-safe (Polri/gov prod) → **Google Cloud WaveNet**. Best emotional
+delivery → **Gemini** (free to A/B, paid for prod) or **ElevenLabs** ($6/mo Starter for
+commercial). **Keys** — two different Google products, two different keys: Google Cloud TTS →
+`console.cloud.google.com` (enable *Cloud Text-to-Speech API* → Credentials → API key); Gemini →
+`aistudio.google.com/apikey`.
+
 ## Recommended sequence
 1. **Voice-quality upgrade** (ElevenLabs/Google TTS) — small, big wow, no telephony.
 2. **Tier-A Twilio demo** — real phone rings, AI converses (needs your Twilio account +
