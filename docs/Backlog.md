@@ -17,8 +17,12 @@ retried delivery via the Dramatiq actor, `GET /api/notifications` outbox feed + 
 on the Response dashboard). **282 backend tests green**, frontend build green.
 
 ## 🟢 Actionable now — buildable today (no external gate)
-- [ ] **B1 — TTS (ElevenLabs)** · S · already wired, needs a key + adapter impl. **Biggest visible
-      payoff** — natural voice on the honeypot call (the demo's wow moment).
+- [x] **B1 — TTS (ElevenLabs)** · S · **DONE (2026-08-08)** — code path complete end-to-end: the
+      `ElevenLabsTTSAdapter` synthesizes real audio, the `/audio/{seq}` endpoint now **serves the bytes**
+      (was discarding them), cached to avoid re-paying the provider, and degrades to browser speech if
+      synthesis fails. **Only remaining step is operational:** set `ITTU_TTS_PROVIDER=elevenlabs` +
+      `ITTU_ELEVENLABS_API_KEY` on Render and flip the Control Panel to hear the natural voice (the
+      demo's wow moment). Keyless POC still uses browser TTS.
 - [x] **C1 — Notifications** · ~~S~~ M · **DONE (2026-08-08)** — built production-ready, not a demo
       shim: signed + idempotent + retried LIVE delivery (`ITTU_NOTIFICATION_DELIVERY=worker`),
       agency outbox feed, POC mock path unchanged. Flip `ITTU_MODE=live` + set the webhook URL/secret

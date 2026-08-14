@@ -69,10 +69,17 @@ live, the AI answers in voice. Real two-way live voice, **zero phone bill**:
 - Same `agent.run_session` in the middle. Not a "phone call", but ~90% of the wow with no
   cost and no accounts.
 
-### Voice quality upgrade (independent of telephony)
-Swapping the robotic browser voice → a natural one is **just `ITTU_TTS_PROVIDER` + one
-adapter** (ElevenLabs / Google / Higgsfield), thanks to the P4b abstraction. Cheapest
-perceived-quality jump; works in the current browser view *and* in any live path.
+### Voice quality upgrade (independent of telephony) · ✅ code complete (B1, 2026-08-08)
+Swapping the robotic browser voice → a natural one is **just `ITTU_TTS_PROVIDER` + a key**,
+thanks to the P4b abstraction. The full audio path is now wired end-to-end:
+`ElevenLabsTTSAdapter.synthesize()` → **`GET /api/sessions/{id}/audio/{seq}` serves the audio
+bytes** (`audio/mpeg`) — previously it synthesized then discarded them, so LIVE audio never
+reached the browser — → the frontend `BackendAudioProvider` plays them. Bytes are cached
+(`synthesize_line`, bounded LRU) so a replay never re-pays the provider, and a synthesis
+failure **degrades** to browser-speech marks so a TTS outage never breaks the call.
+**To hear it:** set `ITTU_TTS_PROVIDER=elevenlabs` + `ITTU_ELEVENLABS_API_KEY` on Render and
+flip the Control Panel's voice provider. Works in the browser call view *and* any future live
+path; keyless POC stays on browser TTS.
 
 ## Recommended sequence
 1. **Voice-quality upgrade** (ElevenLabs/Google TTS) — small, big wow, no telephony.

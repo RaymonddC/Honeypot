@@ -31,6 +31,8 @@ LIVE (clean stubs, fail loud, never silently degrade):
 """
 
 import base64
+import hashlib
+from collections import OrderedDict
 from typing import Protocol
 
 import httpx
@@ -587,3 +589,45 @@ def select_live_tts_adapter(settings: Settings | None = None) -> TTSAdapter:
             f"Known providers: {sorted(LIVE_TTS_PROVIDERS)}."
         )
     return impl(settings)
+
+
+# --------------------------------------------------------------------------- #
+# Synthesized-audio cache (LIVE) — a real provider call costs money + latency;
+# the same line (a persona greeting, a read-back) recurs across a call and
+# across sessions, so cache the bytes by (provider, voice, text). Bounded LRU,
+# process-local — fine for the single-worker POC/demo; a shared cache (Redis /
+# object store) is the multi-worker production upgrade behind this same helper.
+# --------------------------------------------------------------------------- #
+
+_AUDIO_CACHE: "OrderedDict[str, TTSResult]" = OrderedDict()
+_AUDIO_CACHE_CAP = 256
+
+
+def _audio_cache_key(provider: str, voice: str, text: str) -> str:
+    return hashlib.sha256(f"{provider}\x1f{voice}\x1f{text}".encode()).hexdigest()
+
+
+def reset_audio_cache() -> None:  # test hook
+    _AUDIO_CACHE.clear()
+
+
+async def synthesize_line(tts: TTSAdapter, text: str, voice: str = "persona") -> TTSResult:
+    """Synthesize one line through ``tts``, caching LIVE audio bytes so a replay
+    or a repeated line never re-hits (or re-pays) the provider. POC voice marks
+    carry no bytes and are cheap, so they're passed straight through, uncached."""
+    if getattr(tts, "data_mode", "poc") != "live":
+        return await tts.synthesize(text, voice=voice)
+
+    key = _audio_cache_key(tts.provider, voice, text)
+    hit = _AUDIO_CACHE.get(key)
+    if hit is not None:
+        _AUDIO_CACHE.move_to_end(key)
+        return hit
+
+    result = await tts.synthesize(text, voice=voice)
+    if result.audio_bytes:
+        _AUDIO_CACHE[key] = result
+        _AUDIO_CACHE.move_to_end(key)
+        while len(_AUDIO_CACHE) > _AUDIO_CACHE_CAP:
+            _AUDIO_CACHE.popitem(last=False)
+    return result

@@ -16,6 +16,7 @@ Endpoints compute in-memory from the offline replay adapter (POC pattern,
 mirrors P1–P3). LIVE channel/LLM adapters fail loudly — never silent network.
 """
 
+import logging
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -41,9 +42,15 @@ from app.infiltrate.service import (
     TurnOut,
     TurnRequest,
 )
-from app.infiltrate.voice import TTSAdapter, VoiceMarkOut
+from app.infiltrate.voice import (
+    TTSAdapter,
+    VoiceMarkOut,
+    estimate_duration,
+    synthesize_line,
+)
 
 router = APIRouter(tags=["infiltrate"])
+logger = logging.getLogger(__name__)
 
 
 def _not_found(kind: str, item_id: str) -> HTTPException:
@@ -148,10 +155,17 @@ async def get_session_audio(
     repo: InfiltrateRepository = RepoDep,
     _auth: AuthContext = Depends(get_current_user),  # P-4a: read routes need identity
 ) -> VoiceMarkOut | Response:
-    """Audio for one voice-session line. POC: per-line voice marks (speaker +
-    est. duration, ``audio_url=null`` — the browser's SpeechSynthesis speaks
-    it). LIVE: the configured ``ITTU_TTS_PROVIDER`` streams real audio.
-    Text-session messages have no audio → 204."""
+    """Audio for one voice-session line.
+
+    - **LIVE** (`ITTU_TTS_PROVIDER=elevenlabs|google`): returns the synthesized
+      audio **bytes** (`audio/mpeg`) — cached so a replay never re-pays the
+      provider. If synthesis fails (bad key, rate limit, network) the call must
+      not break: it **degrades** to the voice-marks path below so the browser
+      speaks the line, exactly like POC.
+    - **POC** (default `browser`): per-line voice marks (speaker + est.
+      duration, `audio_url=null`) — the browser's SpeechSynthesis speaks it.
+    - Text-session messages have no audio → 204.
+    """
     session = await service.get_session(session_id, repo=repo)
     if session is None:
         raise _not_found("session", session_id)
@@ -160,18 +174,40 @@ async def get_session_audio(
         raise _not_found("message", f"{session_id}#{seq}")
     if session.channel_type != "voice":
         return Response(status_code=204)
-    result = await tts.synthesize(
-        message.content, voice=message.meta.get("speaker", "persona")
-    )
+
+    speaker = message.meta.get("speaker", "persona")
+    result = None
+    try:
+        result = await synthesize_line(tts, message.content, voice=speaker)
+    except Exception as exc:  # noqa: BLE001 — never let a TTS outage break the call
+        logger.warning(
+            "TTS synth failed for %s#%s (provider=%s) — degrading to browser speech: %s",
+            session_id, seq, getattr(tts, "provider", "?"), exc,
+        )
+
+    if result is not None and result.audio_bytes:
+        return Response(
+            content=result.audio_bytes,
+            media_type=result.mime_type,
+            headers={
+                "X-TTS-Provider": result.provider,
+                "Cache-Control": "private, max-age=3600",
+            },
+        )
+
+    # POC marks (or degraded LIVE) → the browser speaks `text` on its own.
+    duration = message.meta.get("duration_seconds")
+    if duration is None:
+        duration = result.duration_seconds if result else estimate_duration(message.content)
     return VoiceMarkOut(
         session_id=session_id,
         seq=seq,
-        speaker=message.meta.get("speaker", "persona"),
-        text=result.text,
-        duration_seconds=message.meta.get("duration_seconds", result.duration_seconds),
+        speaker=speaker,
+        text=message.content,
+        duration_seconds=duration,
         offset_seconds=message.meta.get("offset_seconds", 0.0),
-        audio_url=result.audio_url,
-        provider=result.provider,
+        audio_url=None,
+        provider=result.provider if result else getattr(tts, "provider", "poc-voice-marks"),
     )
 
 
