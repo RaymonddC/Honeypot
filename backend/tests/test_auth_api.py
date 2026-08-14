@@ -1,7 +1,8 @@
 """AUTH API — demo login → JWT → /me, token lifecycle, MODE gating (P5).
 
-TestClient, no DB, no network. POC demo login is the default path; the Google
-LIVE path fails closed in POC and is stubbed (501) when google-auth is absent.
+TestClient, no DB, no network. POC demo (mock) login is the default path; the
+Google path works in POC or LIVE once ITTU_GOOGLE_CLIENT_ID is set (audience
+always verified) and is stubbed (501) when google-auth is absent.
 """
 
 import importlib.util
@@ -156,10 +157,18 @@ def test_token_missing_required_claim_401():
 # --- MODE gating: POC ⇄ LIVE login paths ----------------------------------------
 
 
-def test_google_login_disabled_in_poc():
-    r = client.post("/api/auth/google", json={"id_token": "whatever"})
+def test_google_login_unavailable_without_client_id():
+    """No ITTU_GOOGLE_CLIENT_ID → Google login unavailable (403), and the token
+    is never verified without an audience — applies in POC and LIVE alike."""
+    settings = get_settings()
+    prior = settings.google_client_id
+    settings.google_client_id = ""
+    try:
+        r = client.post("/api/auth/google", json={"id_token": "whatever"})
+    finally:
+        settings.google_client_id = prior
     assert r.status_code == 403
-    assert r.json()["error"]["code"] == "google_login_disabled"
+    assert r.json()["error"]["code"] == "google_login_unavailable"
 
 
 def test_demo_login_disabled_in_live(auth_live):
@@ -246,13 +255,75 @@ def test_google_login_bad_token_401(auth_live):
     assert r.json()["error"]["code"] == "invalid_google_token"
 
 
-def test_google_login_disabled_in_poc_even_with_a_would_be_valid_token():
-    """MODE gate is checked BEFORE verification even runs — POC never mints a
-    JWT from a Google token, valid or not (no mock needed: the route 403s
-    before it ever imports google-auth)."""
-    r = client.post("/api/auth/google", json={"id_token": "irrelevant"})
-    assert r.status_code == 403
-    assert r.json()["error"]["code"] == "google_login_disabled"
+@_needs_google_auth
+def test_google_login_poc_still_verifies_the_token():
+    """POC does NOT blindly trust — with a client ID set, the id_token audience
+    is still verified, so a bogus token is 401, never a minted JWT."""
+    settings = get_settings()
+    prior = settings.google_client_id
+    settings.google_client_id = "test-client-id.apps.googleusercontent.com"
+    try:
+        with patch(
+            "google.oauth2.id_token.verify_oauth2_token",
+            side_effect=ValueError("bad token"),
+        ):
+            r = client.post("/api/auth/google", json={"id_token": "bogus"})
+    finally:
+        settings.google_client_id = prior
+    assert r.status_code == 401
+    assert r.json()["error"]["code"] == "invalid_google_token"
+
+
+@_needs_google_auth
+def test_google_login_poc_non_provisioned_gets_default_demo_identity():
+    """POC + client ID set: a verified Google account that isn't seeded or
+    allowlisted logs in with the default demo identity (Bareskrim /
+    police-investigator) — the demo path, no more open than mock login."""
+    from app.core.auth import _USERS, _user_id
+
+    settings = get_settings()
+    prior = settings.google_client_id
+    settings.google_client_id = "test-client-id.apps.googleusercontent.com"
+    try:
+        with patch("google.oauth2.id_token.verify_oauth2_token") as mock_verify:
+            mock_verify.return_value = {"email": "judge@gmail.com", "name": "Judge Demo"}
+            r = client.post("/api/auth/google", json={"id_token": "mock-valid-token"})
+    finally:
+        settings.google_client_id = prior
+        _USERS.pop(str(_user_id("judge@gmail.com")), None)  # don't leak into other tests
+
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["user"]["email"] == "judge@gmail.com"
+    assert body["user"]["name"] == "Judge Demo"
+    assert body["agency"]["slug"] == "bareskrim"
+    assert body["role"] == "police-investigator"
+
+
+@_needs_google_auth
+def test_google_login_poc_allowlisted_email_uses_allowlist_identity():
+    """POC still honors ITTU_OAUTH_PROVISION — an allowlisted email gets that
+    agency/role, not the generic default demo identity."""
+    from app.core.auth import _USERS, _user_id
+
+    settings = get_settings()
+    prior_cid, prior_prov = settings.google_client_id, settings.oauth_provision
+    settings.google_client_id = "test-client-id.apps.googleusercontent.com"
+    settings.oauth_provision = (
+        '[{"email":"poctester@gmail.com","agency":"ppatk","role":"regulator-analyst"}]'
+    )
+    try:
+        with patch("google.oauth2.id_token.verify_oauth2_token") as mock_verify:
+            mock_verify.return_value = {"email": "poctester@gmail.com", "name": "POC Tester"}
+            r = client.post("/api/auth/google", json={"id_token": "mock-valid-token"})
+    finally:
+        settings.google_client_id, settings.oauth_provision = prior_cid, prior_prov
+        _USERS.pop(str(_user_id("poctester@gmail.com")), None)
+
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["agency"]["slug"] == "ppatk"
+    assert body["role"] == "regulator-analyst"
 
 
 @_needs_google_auth
@@ -273,8 +344,8 @@ def test_google_login_live_without_client_id_fails_loud():
         settings.module_modes.pop("auth", None)
         settings.google_client_id = prior_client_id
 
-    assert r.status_code == 500
-    assert r.json()["error"]["code"] == "google_client_id_unset"
+    assert r.status_code == 403
+    assert r.json()["error"]["code"] == "google_login_unavailable"
 
 
 @_needs_google_auth
