@@ -11,10 +11,12 @@ from fastapi.testclient import TestClient
 from app.core.config import Settings
 from app.infiltrate.service import get_tts_adapter
 from app.infiltrate.voice import (
+    LIVE_TTS_PROVIDERS,
     GeminiTTSAdapter,
     TTSResult,
     VoiceMarkTTSAdapter,
     reset_audio_cache,
+    resolve_tts_adapter,
     select_live_tts_adapter,
     synthesize_line,
 )
@@ -184,3 +186,80 @@ def test_gemini_fails_loud_without_key():
 def test_live_factory_selects_gemini():
     tts = select_live_tts_adapter(Settings(tts_provider="gemini", gemini_api_key="k"))
     assert tts.provider == "gemini"
+
+
+# --------------------------------------------------------------------------- #
+# Per-request provider override — A/B from the portal, no backend restart
+# --------------------------------------------------------------------------- #
+
+
+class _UnkeyedTTS:
+    """A LIVE provider whose key is unset — raises at construction (like an
+    unkeyed GeminiTTSAdapter), so the endpoint must degrade to marks."""
+
+    provider = "gemini"
+
+    def __init__(self, settings=None):
+        raise NotImplementedError("no key")
+
+
+class _FakeSelectableTTS:
+    data_mode = "live"
+    provider = "gemini"
+
+    def __init__(self, settings=None):
+        pass
+
+    async def synthesize(self, text: str, voice: str = "persona") -> TTSResult:
+        return TTSResult(
+            provider=self.provider, voice=voice, text=text,
+            duration_seconds=1.0, audio_bytes=b"FAKEGEMINIBYTES", mime_type="audio/mpeg",
+        )
+
+
+def test_provider_override_browser_returns_marks():
+    app.dependency_overrides[get_tts_adapter] = lambda: VoiceMarkTTSAdapter()
+    s = _start_voice()
+    seq = _first_voice_seq(s["id"])
+    r = client.get(f"/api/sessions/{s['id']}/audio/{seq}", params={"provider": "browser"})
+    assert r.status_code == 200
+    assert "json" in r.headers["content-type"]
+    assert r.json()["audio_url"] is None
+
+
+def test_provider_override_unkeyed_degrades_to_marks(monkeypatch):
+    app.dependency_overrides[get_tts_adapter] = lambda: VoiceMarkTTSAdapter()
+    monkeypatch.setitem(LIVE_TTS_PROVIDERS, "gemini", _UnkeyedTTS)
+    s = _start_voice()
+    seq = _first_voice_seq(s["id"])
+    r = client.get(f"/api/sessions/{s['id']}/audio/{seq}", params={"provider": "gemini"})
+    assert r.status_code == 200  # a bad/unkeyed override never 500s — degrades
+    assert "json" in r.headers["content-type"]
+    assert r.json()["audio_url"] is None
+
+
+def test_provider_override_selects_registered_adapter(monkeypatch):
+    app.dependency_overrides[get_tts_adapter] = lambda: VoiceMarkTTSAdapter()
+    monkeypatch.setitem(LIVE_TTS_PROVIDERS, "gemini", _FakeSelectableTTS)
+    s = _start_voice()
+    seq = _first_voice_seq(s["id"])
+
+    # ?provider=gemini → the fake gemini bytes, not the env default
+    r = client.get(f"/api/sessions/{s['id']}/audio/{seq}", params={"provider": "gemini"})
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "audio/mpeg"
+    assert r.headers["x-tts-provider"] == "gemini"
+    assert r.content == b"FAKEGEMINIBYTES"
+
+    # no param → env default (POC marks) unchanged (backward-compatible)
+    r2 = client.get(f"/api/sessions/{s['id']}/audio/{seq}")
+    assert "json" in r2.headers["content-type"]
+    assert r2.json()["audio_url"] is None
+
+
+def test_resolve_tts_adapter_routing():
+    d = VoiceMarkTTSAdapter()
+    assert resolve_tts_adapter(None, default=d) is d        # no override → default
+    assert resolve_tts_adapter("nope", default=d) is d      # unknown → default
+    browser = resolve_tts_adapter("browser", default=d)     # browser → fresh marks
+    assert isinstance(browser, VoiceMarkTTSAdapter) and browser is not d

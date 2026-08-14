@@ -689,6 +689,27 @@ def select_live_tts_adapter(settings: Settings | None = None) -> TTSAdapter:
     return impl(settings)
 
 
+def resolve_tts_adapter(provider: str | None, *, default: TTSAdapter) -> TTSAdapter:
+    """Pick the TTS adapter for ONE request. ``provider`` is an optional
+    per-request override (the Control Panel voice choice); ``default`` is the
+    env-configured adapter (``ITTU_TTS_PROVIDER``). This is what lets an operator
+    A/B ElevenLabs/Gemini/Google live from the portal with no backend restart —
+    keys are still read once at startup, only the choice is per-request.
+
+    Unknown/empty → ``default``; "browser"/"poc" → voice marks; a known LIVE
+    provider → its adapter (may raise ``NotImplementedError`` if its key is
+    unset — the caller degrades to marks)."""
+    if not provider:
+        return default
+    name = provider.strip().lower()
+    if name in ("browser", "poc", "marks"):
+        return VoiceMarkTTSAdapter()
+    impl = LIVE_TTS_PROVIDERS.get(name)
+    if impl is None:
+        return default
+    return impl(get_settings())
+
+
 # --------------------------------------------------------------------------- #
 # Synthesized-audio cache (LIVE) — a real provider call costs money + latency;
 # the same line (a persona greeting, a read-back) recurs across a call and

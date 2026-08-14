@@ -85,7 +85,9 @@ path; keyless POC stays on browser TTS.
 All providers below are **hosted (no GPU on our side)** and speak Bahasa Indonesia. Selected via
 `ITTU_TTS_PROVIDER` + the matching key; each fails loud if selected without its key. The
 `/audio/{seq}` endpoint serves the synthesized bytes (browser plays them); the POC `browser` path
-returns voice marks instead.
+returns voice marks instead. **Switching is per-request** (`GET /audio/{seq}?provider=…`, set by the
+Control Panel voice picker) — flip the provider and the next call uses it live, **no backend
+restart**; all provider keys just need to be set at startup.
 
 | Provider | `ITTU_TTS_PROVIDER` | Free tier | Commercial on free? | Voice / notes | Status |
 |---|---|---|---|---|---|

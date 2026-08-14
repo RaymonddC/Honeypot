@@ -46,6 +46,7 @@ from app.infiltrate.voice import (
     TTSAdapter,
     VoiceMarkOut,
     estimate_duration,
+    resolve_tts_adapter,
     synthesize_line,
 )
 
@@ -151,6 +152,10 @@ async def get_session_messages(
 async def get_session_audio(
     session_id: str,
     seq: int,
+    provider: str | None = Query(
+        default=None,
+        description="per-request TTS override: elevenlabs|gemini|google|browser",
+    ),
     tts: TTSAdapter = TTSDep,
     repo: InfiltrateRepository = RepoDep,
     _auth: AuthContext = Depends(get_current_user),  # P-4a: read routes need identity
@@ -178,11 +183,15 @@ async def get_session_audio(
     speaker = message.meta.get("speaker", "persona")
     result = None
     try:
-        result = await synthesize_line(tts, message.content, voice=speaker)
+        # ``?provider=`` overrides the env-configured adapter per request, so an
+        # operator can A/B ElevenLabs/Gemini/Google from the Control Panel with
+        # no backend restart. Absent = env default; a missing key still degrades.
+        adapter = resolve_tts_adapter(provider, default=tts)
+        result = await synthesize_line(adapter, message.content, voice=speaker)
     except Exception as exc:  # noqa: BLE001 — never let a TTS outage break the call
         logger.warning(
             "TTS synth failed for %s#%s (provider=%s) — degrading to browser speech: %s",
-            session_id, seq, getattr(tts, "provider", "?"), exc,
+            session_id, seq, provider or getattr(tts, "provider", "?"), exc,
         )
 
     if result is not None and result.audio_bytes:

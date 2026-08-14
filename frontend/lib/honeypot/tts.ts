@@ -223,13 +223,19 @@ export class BackendAudioProvider implements VoiceProvider {
   private timer = new LineTimer();
   private audio: HTMLAudioElement | null = null;
 
-  constructor(private readonly sessionId: string) {}
+  constructor(
+    private readonly sessionId: string,
+    private readonly provider?: string,
+  ) {}
 
   async speak(line: SpeakableLine): Promise<void> {
     let durationSec = line.durationSec;
     try {
+      // ?provider lets the backend A/B the real voice per request (no restart),
+      // so flipping the Control Panel voice provider takes effect on the next line.
+      const q = this.provider ? `?provider=${encodeURIComponent(this.provider)}` : "";
       const res = await apiFetch(
-        `/sessions/${encodeURIComponent(this.sessionId)}/audio/${line.seq}`,
+        `/sessions/${encodeURIComponent(this.sessionId)}/audio/${line.seq}${q}`,
       );
       const type = res.headers.get("content-type") ?? "";
       if (res.ok && res.status !== 204) {
@@ -322,6 +328,6 @@ export function voiceProviderKind(): VoiceProviderKind {
  */
 export function createVoiceProvider(sessionId: string): VoiceProvider {
   return voiceProviderKind() === "backend"
-    ? new BackendAudioProvider(sessionId)
+    ? new BackendAudioProvider(sessionId, voiceProviderSetting())
     : new BrowserTTSProvider();
 }
