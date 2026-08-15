@@ -32,6 +32,10 @@ on the Response dashboard). **282 backend tests green**, frontend build green.
       drop-in). *(Note: C1 already stood up the Dramatiq delivery actor + broker for notifications.)*
 - [ ] **Go-live hardening** · M · contract tests per LIVE adapter, observability/uptime, a security +
       RLS-isolation review, separate DB per mode. Only when heading to real production.
+- [ ] **Audit trail — broaden & surface** · M · *later (parked 2026-08-14, not urgent)* — a user-facing /
+      admin audit view over the existing custody hash-chain + `core.audit_log` (who did what, when —
+      logins, dispatches, entity reviews, config changes). Foundations already exist (message/doc
+      SHA-256 chain, `action_bundle.audit`, `core.audit_log`); this is exposing + extending them.
 
 ## 🔒 Gated — blocked on external approval (start the conversations now, don't build yet)
 - [ ] **A2 — Telegram channel** · M · **Polri** authorization
