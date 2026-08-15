@@ -118,6 +118,11 @@ class Settings(BaseSettings):
     # the Cloud-TTS key above. Indonesian is auto-detected from the text.
     gemini_api_key: str = ""              # ITTU_GEMINI_API_KEY
     gemini_tts_model: str = "gemini-2.5-flash-preview-tts"  # ITTU_GEMINI_TTS_MODEL
+    # Per-role prebuilt Gemini voice (one of the ~30 named voices, e.g. Sulafat,
+    # Charon, Kore). Overridable per-request from the Control Panel; the style
+    # directive in the adapter does most of the emotional work regardless.
+    gemini_voice_persona: str = "Sulafat"   # ITTU_GEMINI_VOICE_PERSONA (warm)
+    gemini_voice_scammer: str = "Charon"    # ITTU_GEMINI_VOICE_SCAMMER (firmer)
 
     # --- LLM (live brain, paid + opt-in) --------------------------------------
     # Engaged only when INFILTRATE MODE=live or a session is started with

@@ -22,7 +22,9 @@ import {
   type VoiceProviderSetting,
 } from "@/lib/settings";
 import {
+  GEMINI_VOICES,
   checkElevenLabsVoice,
+  checkGemini,
   fetchElevenLabsVoices,
   type VoiceCheckResult,
   type VoicesResult,
@@ -335,6 +337,156 @@ function AdvancedVoice({
   );
 }
 
+/* ── Advanced voice (Gemini) — per-role voice picker + "Test Gemini" ──────── */
+
+function describeGeminiCheck(res: VoiceCheckResult): { ok: boolean; label: string } {
+  if (res.ok) return { ok: true, label: "✓ ready — playing sample…" };
+  if (res.error === "no_key")
+    return { ok: false, label: "no Gemini key set on the server" };
+  const s = res.status;
+  if (s === 429 || res.error === "http_429")
+    return { ok: false, label: "✗ quota exceeded — enable billing (free tier = 10/day)" };
+  if (s === 403 || res.error === "http_403")
+    return { ok: false, label: "✗ key rejected — check the AI Studio key" };
+  if (s === 400 || res.error === "http_400")
+    return { ok: false, label: "✗ not a valid voice name (check spelling)" };
+  if (s === 404 || res.error === "http_404")
+    return { ok: false, label: "✗ model not available in your region" };
+  if (res.error?.startsWith("config:"))
+    return { ok: false, label: `✗ ${res.error.slice(7).trim()}` };
+  if (res.error?.startsWith("http_"))
+    return { ok: false, label: `✗ Gemini error (${s ?? res.error})` };
+  return { ok: false, label: "✗ couldn't reach Gemini / backend" };
+}
+
+function AdvancedGemini({
+  settings,
+  update,
+}: {
+  settings: ClientSettings;
+  update: (patch: Partial<ClientSettings>) => void;
+}) {
+  type Role = "persona" | "scammer";
+  const [results, setResults] = useState<Record<Role, VoiceCheckResult | null>>({
+    persona: null,
+    scammer: null,
+  });
+  const [testing, setTesting] = useState<Record<Role, boolean>>({
+    persona: false,
+    scammer: false,
+  });
+
+  // ▶ Test synthesizes the entered voice (blank = server default) and plays the
+  // sample if it works — the button click is the user gesture Audio.play() needs.
+  // Validates the voice name + key + quota + region in one call.
+  const testVoice = async (role: Role, voiceName: string) => {
+    setTesting((t) => ({ ...t, [role]: true }));
+    try {
+      const r = await checkGemini(role, voiceName.trim());
+      if (r.audioBlob) {
+        const url = URL.createObjectURL(r.audioBlob);
+        const audio = new Audio(url);
+        audio.onended = () => URL.revokeObjectURL(url);
+        void audio.play().catch(() => URL.revokeObjectURL(url));
+      }
+      setResults((s) => ({ ...s, [role]: r }));
+    } finally {
+      setTesting((t) => ({ ...t, [role]: false }));
+    }
+  };
+
+  const listId = "gemini-voice-names";
+
+  const renderVoiceField = (
+    role: Role,
+    label: string,
+    fallback: string,
+    value: string,
+    onChange: (v: string) => void,
+  ) => {
+    const res = results[role];
+    const st = res ? describeGeminiCheck(res) : null;
+    const busy = testing[role];
+    return (
+      <label key={role} className="grid gap-1">
+        <span className="text-[11px] font-medium text-fg">{label}</span>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            list={listId}
+            value={value}
+            placeholder={`server default (${fallback})`}
+            spellCheck={false}
+            onChange={(e) => onChange(e.target.value)}
+            className={`${VOICE_INPUT_CLS} flex-1`}
+          />
+          <button
+            type="button"
+            onClick={() => void testVoice(role, value)}
+            disabled={busy}
+            title="Play a short sample in this voice (checks key + quota)"
+            className="h-8 shrink-0 rounded-lg border border-line bg-elevated px-2.5 text-[11px] font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-50"
+          >
+            {busy ? "…" : "▶ Test"}
+          </button>
+        </div>
+        {st && (
+          <span className={`text-[10px] ${st.ok ? "text-accent-bright" : "text-risk-high"}`}>
+            {st.label}
+          </span>
+        )}
+      </label>
+    );
+  };
+
+  return (
+    <div className="border-t border-line pt-3.5">
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <div className="eyebrow">Advanced voice · Gemini</div>
+        <a
+          href="https://ai.google.dev/gemini-api/docs/speech-generation"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[10px] text-accent-bright hover:underline"
+        >
+          Voice docs ↗
+        </a>
+      </div>
+      <p className="mb-2.5 text-[10.5px] text-muted">
+        Per-request overrides — no restart. Blank = server default. Type any
+        prebuilt voice (suggestions below) — the style directive does the
+        emotional shaping, the voice sets timbre. ▶ Test plays a sample and spends
+        one Gemini request (free tier = 10/day).
+      </p>
+
+      <datalist id={listId}>
+        {GEMINI_VOICES.map((v) => (
+          <option key={v.name} value={v.name}>
+            {v.tone}
+          </option>
+        ))}
+      </datalist>
+
+      <div className="grid gap-2.5">
+        {renderVoiceField(
+          "persona",
+          "Persona voice",
+          "Sulafat",
+          settings.geminiVoicePersona,
+          (v) => update({ geminiVoicePersona: v }),
+        )}
+        {renderVoiceField(
+          "scammer",
+          "Scammer voice",
+          "Charon",
+          settings.geminiVoiceScammer,
+          (v) => update({ geminiVoiceScammer: v }),
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ── Backend status (read-only) ──────────────────────────────────────────── */
 
 function ModeChip({ mode }: { mode: "POC" | "LIVE" }) {
@@ -515,6 +667,9 @@ export default function SettingsPage() {
 
         {settings.voiceProvider === "elevenlabs" && (
           <AdvancedVoice settings={settings} update={update} />
+        )}
+        {settings.voiceProvider === "gemini" && (
+          <AdvancedGemini settings={settings} update={update} />
         )}
 
         <div className="flex items-center justify-between border-t border-line pt-3.5">

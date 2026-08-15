@@ -602,8 +602,10 @@ class GeminiTTSAdapter:
 
     data_mode: Mode = "live"
     provider = "gemini"
-    # Prebuilt voices (docs list 30) — warm for the persona, firmer for the
-    # scammer. Tunable; the style directive below does most of the emotional work.
+    # Prebuilt-voice fallbacks (docs list 30) — warm for the persona, firmer for
+    # the scammer. The effective per-role voice is read from settings in
+    # __init__ (Control-Panel overridable); the style directive below does most
+    # of the emotional work regardless.
     _VOICE_NAMES = {"persona": "Sulafat", "scammer": "Charon"}
     # Leading style instruction Gemini follows but does NOT read aloud.
     _STYLE = {
@@ -644,9 +646,15 @@ class GeminiTTSAdapter:
                 f"Current value: {self._model!r}"
             )
         self._model = model
+        # Effective per-role voice: settings (Control-Panel overridable) →
+        # class fallback. Blank settings fall back to the warm/firm defaults.
+        self._voice_names = {
+            "persona": settings.gemini_voice_persona or self._VOICE_NAMES["persona"],
+            "scammer": settings.gemini_voice_scammer or self._VOICE_NAMES["scammer"],
+        }
 
     async def synthesize(self, text: str, voice: str = "persona") -> TTSResult:
-        voice_name = self._VOICE_NAMES.get(voice, self._VOICE_NAMES["persona"])
+        voice_name = self._voice_names.get(voice, self._voice_names["persona"])
         style = self._STYLE.get(voice, "")
         prompt = f"{style} {text}".strip()
         async with httpx.AsyncClient(timeout=_TTS_TIMEOUT_SECONDS) as client:
@@ -859,5 +867,54 @@ async def check_elevenlabs_voice(
         if resp.is_success:
             return {"ok": True, "audio": resp.content}
         return {"ok": False, "status": resp.status_code, "error": f"http_{resp.status_code}"}
+    except httpx.HTTPError as exc:
+        return {"ok": False, "error": f"transport:{type(exc).__name__}"}
+
+
+async def check_gemini(
+    settings: "Settings | None" = None,
+    voice: str = "persona",
+    text: str = "Halo, selamat siang, apa kabar?",
+    voice_name: str = "",
+) -> dict:
+    """Readiness check for Gemini TTS via a short test synthesis, so the Control
+    Panel can tell whether Gemini is usable BEFORE a call silently degrades.
+
+    Runs the exact ``generateContent`` path a honeypot line uses and maps the
+    outcome to a clear signal: ``{ok:True, audio}`` (ready — the WAV sample can
+    be played), or ``{ok:False, status?, error?}`` where error is
+    ``no_key`` | ``config:<msg>`` (bad model name) | ``http_<code>`` (e.g. 429 =
+    quota, 400 = invalid voice name / bad model, 404 = region, 403 = key
+    rejected) | ``transport:<Type>``. When ``voice_name`` is given, that exact
+    prebuilt voice is tested (so the Control Panel can validate a just-typed
+    voice); blank tests the role's configured default. The key is only ever sent
+    as the ``x-goog-api-key`` header, never returned."""
+    settings = settings or get_settings()
+    if not settings.gemini_api_key:
+        return {"ok": False, "error": "no_key"}
+    try:
+        adapter = GeminiTTSAdapter(settings)
+    except NotImplementedError as exc:
+        # Missing key is handled above; this is a bad model-name config.
+        return {"ok": False, "error": f"config: {str(exc).splitlines()[0][:120]}"}
+    if voice_name.strip():
+        adapter._voice_names[voice] = voice_name.strip()
+    try:
+        result = await adapter.synthesize(text, voice)
+        return {"ok": True, "audio": result.audio_bytes}
+    except RuntimeError as exc:
+        # GeminiTTSAdapter raises "Gemini TTS <status>: <body>" on HTTP errors,
+        # or "Gemini TTS returned no audio: …" on a 200 with no audio part.
+        msg = str(exc)
+        status: int | None = None
+        if msg.startswith("Gemini TTS "):
+            head = msg[len("Gemini TTS ") :].split(":", 1)[0].strip()
+            if head.isdigit():
+                status = int(head)
+        return {
+            "ok": False,
+            "status": status,
+            "error": f"http_{status}" if status else msg[:160],
+        }
     except httpx.HTTPError as exc:
         return {"ok": False, "error": f"transport:{type(exc).__name__}"}

@@ -49,6 +49,7 @@ from app.infiltrate.voice import (
     TTSAdapter,
     VoiceMarkOut,
     check_elevenlabs_voice,
+    check_gemini,
     estimate_duration,
     list_elevenlabs_voices,
     resolve_tts_adapter,
@@ -69,6 +70,8 @@ _VOICE_OVERRIDE_FIELDS: dict[str, dict[str, str]] = {
     },
     "gemini": {
         "model": "gemini_tts_model",
+        "voice_persona": "gemini_voice_persona",
+        "voice_scammer": "gemini_voice_scammer",
     },
 }
 
@@ -147,6 +150,40 @@ async def get_tts_voice_check(
     return JSONResponse(
         {
             "voice_id": voice_id,
+            "ok": False,
+            "status": res.get("status"),
+            "error": res.get("error"),
+        }
+    )
+
+
+@router.get("/tts/gemini-check")
+async def get_tts_gemini_check(
+    voice: str = Query("persona", description="persona|scammer — picks the sample line"),
+    voice_name: str = Query("", description="prebuilt voice to test; blank = configured default"),
+    _auth: AuthContext = Depends(get_current_user),  # Control Panel is post-login
+) -> Response:
+    """Readiness check for Gemini TTS: run a short **test synthesis** (the exact
+    ``generateContent`` path a call uses) in the given voice and, on success,
+    return the WAV so the Control Panel PLAYS a sample. ``voice_name`` tests a
+    just-typed prebuilt voice (blank = the role's configured default). On
+    failure, return a JSON body ``{provider:'gemini', ok:false, status?, error?}``
+    — where error is ``no_key`` / ``config:…`` (bad model) / ``http_429`` (quota →
+    enable billing) / ``http_400`` (invalid voice name / bad model) / ``http_404``
+    (region) / ``http_403`` (key rejected). Turns a silent degrade-to-browser
+    into a one-click diagnosis. NB: each check spends one Gemini request (the free
+    tier is only 10/day). The key stays server-side."""
+    text = _VOICE_SAMPLE.get(voice, "Halo, selamat siang, apa kabar?")
+    res = await check_gemini(voice=voice, text=text, voice_name=voice_name)
+    if res.get("ok") and res.get("audio"):
+        return Response(
+            content=res["audio"],
+            media_type="audio/wav",
+            headers={"X-Voice-Check": "ok", "Cache-Control": "no-store"},
+        )
+    return JSONResponse(
+        {
+            "provider": "gemini",
             "ok": False,
             "status": res.get("status"),
             "error": res.get("error"),

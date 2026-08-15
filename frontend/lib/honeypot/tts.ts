@@ -362,15 +362,25 @@ export function createVoiceProvider(sessionId: string): VoiceProvider {
   if (voiceProviderKind() !== "backend") return new BrowserTTSProvider();
   const s = getSettings();
   const provider = voiceProviderSetting();
-  // `model` + the voice IDs are ElevenLabs-specific settings in the Control
-  // Panel. Only forward them when ElevenLabs is the selected provider — sending
-  // an ElevenLabs model id (e.g. "eleven_flash_v2_5") to Gemini/Google is
-  // meaningless (Gemini's model comes from ITTU_GEMINI_TTS_MODEL; Google has no
-  // model param) and just produces noisy "ignoring override" backend logs.
-  const elevenlabs = provider === "elevenlabs";
-  return new BackendAudioProvider(sessionId, provider, {
-    model: elevenlabs ? s.ttsModel : undefined,
-    voicePersona: elevenlabs ? s.ttsVoicePersona : undefined,
-    voiceScammer: elevenlabs ? s.ttsVoiceScammer : undefined,
-  });
+  // Each provider gets only the overrides that mean something to it, so we
+  // never forward (and the backend never has to ignore) a param from the wrong
+  // provider:
+  //   • ElevenLabs → model + voice IDs from the ElevenLabs fields.
+  //   • Gemini     → per-role prebuilt voice names (model comes from
+  //                  ITTU_GEMINI_TTS_MODEL; Gemini has no per-call model here).
+  //   • Google     → nothing (fixed WaveNet id-ID voices, no model param).
+  let overrides: VoiceOverrides = {};
+  if (provider === "elevenlabs") {
+    overrides = {
+      model: s.ttsModel,
+      voicePersona: s.ttsVoicePersona,
+      voiceScammer: s.ttsVoiceScammer,
+    };
+  } else if (provider === "gemini") {
+    overrides = {
+      voicePersona: s.geminiVoicePersona,
+      voiceScammer: s.geminiVoiceScammer,
+    };
+  }
+  return new BackendAudioProvider(sessionId, provider, overrides);
 }

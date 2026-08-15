@@ -53,6 +53,10 @@ export interface ClientSettings {
   ttsModel: string;
   ttsVoicePersona: string;
   ttsVoiceScammer: string;
+  // Advanced voice (Gemini) — per-role prebuilt voice name (e.g. Sulafat,
+  // Charon). "" = use the server default. Sent only when provider is gemini.
+  geminiVoicePersona: string;
+  geminiVoiceScammer: string;
 }
 
 const STORAGE_KEY = "ittu.settings";
@@ -82,6 +86,8 @@ export function envDefaults(): ClientSettings {
     ttsModel: "",
     ttsVoicePersona: "",
     ttsVoiceScammer: "",
+    geminiVoicePersona: "",
+    geminiVoiceScammer: "",
   };
 }
 
@@ -122,6 +128,14 @@ export function getSettings(): ClientSettings {
         typeof s.ttsVoicePersona === "string" ? s.ttsVoicePersona : d.ttsVoicePersona,
       ttsVoiceScammer:
         typeof s.ttsVoiceScammer === "string" ? s.ttsVoiceScammer : d.ttsVoiceScammer,
+      geminiVoicePersona:
+        typeof s.geminiVoicePersona === "string"
+          ? s.geminiVoicePersona
+          : d.geminiVoicePersona,
+      geminiVoiceScammer:
+        typeof s.geminiVoiceScammer === "string"
+          ? s.geminiVoiceScammer
+          : d.geminiVoiceScammer,
     };
   }
   return cache;
