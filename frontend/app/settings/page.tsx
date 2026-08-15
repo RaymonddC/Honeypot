@@ -195,6 +195,14 @@ function AdvancedVoice({
     scammer: false,
   });
   const [listResult, setListResult] = useState<VoicesResult | null>(null);
+  // Last voice ID that tested OK per role — what a failed Test reverts to.
+  // ElevenLabs IDs are opaque per-account strings with no client-side list to
+  // validate against, so (unlike Gemini/Google) the revert trigger is a failed
+  // Test, not red-on-type. Seeded with the currently-saved value (assumed good).
+  const lastGood = useRef<Record<Role, string>>({
+    persona: settings.ttsVoicePersona,
+    scammer: settings.ttsVoiceScammer,
+  });
 
   // Best-effort voice list for the autocomplete datalist — harmless if the key
   // lacks the Voices-read scope (the ▶ Test button's real check is a synth).
@@ -209,8 +217,9 @@ function AdvancedVoice({
   }, []);
 
   // Play a short sample in the given voice (button click = the user gesture that
-  // lets Audio.play() run). On failure, show the reason.
-  const testVoice = async (role: Role, rawId: string) => {
+  // lets Audio.play() run). On success, remember it as good; on failure, show
+  // the reason AND revert the field to the last voice that worked.
+  const testVoice = async (role: Role, rawId: string, onChange: (v: string) => void) => {
     const voiceId = rawId.trim();
     if (!voiceId) return;
     setTesting((t) => ({ ...t, [role]: true }));
@@ -223,6 +232,11 @@ function AdvancedVoice({
         void audio.play().catch(() => URL.revokeObjectURL(url));
       }
       setResults((s) => ({ ...s, [role]: r }));
+      if (r.ok) {
+        lastGood.current[role] = voiceId; // this ID works — the new revert target
+      } else {
+        onChange(lastGood.current[role] ?? ""); // failed → revert to last working
+      }
     } finally {
       setTesting((t) => ({ ...t, [role]: false }));
     }
@@ -252,12 +266,15 @@ function AdvancedVoice({
             value={value}
             placeholder="server default"
             spellCheck={false}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={(e) => {
+              onChange(e.target.value);
+              setResults((s) => ({ ...s, [role]: null })); // clear stale Test label
+            }}
             className={`${VOICE_INPUT_CLS} flex-1`}
           />
           <button
             type="button"
-            onClick={() => void testVoice(role, value)}
+            onClick={() => void testVoice(role, value, onChange)}
             disabled={!value.trim() || busy}
             title="Play a short sample in this voice"
             className="h-8 shrink-0 rounded-lg border border-line bg-elevated px-2.5 text-[11px] font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-50"
@@ -299,7 +316,8 @@ function AdvancedVoice({
       </div>
       <p className="mb-2.5 text-[10.5px] text-muted">
         Per-request overrides — no restart. Blank = the server default. ▶ Test plays a
-        short sample in that voice — uses a few ElevenLabs credits.
+        short sample (uses a few ElevenLabs credits); a failed Test reverts to your
+        last working voice.
       </p>
 
       {voices.length > 0 && (
