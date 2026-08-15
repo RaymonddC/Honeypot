@@ -322,6 +322,55 @@ export default function SettingsPage() {
           onChange={(v) => update({ sttSource: v })}
         />
 
+        {settings.voiceProvider === "elevenlabs" && (
+          <div className="border-t border-line pt-3.5">
+            <div className="eyebrow mb-1">Advanced voice · ElevenLabs</div>
+            <p className="mb-2.5 text-[10.5px] text-muted">
+              Per-request overrides — no restart. Blank = the server default;
+              voice IDs come from your ElevenLabs Voices page.
+            </p>
+            <div className="grid gap-2.5">
+              <label className="grid gap-1">
+                <span className="text-[11px] font-medium text-fg">Model</span>
+                <input
+                  type="text"
+                  value={settings.ttsModel}
+                  placeholder="eleven_flash_v2_5"
+                  spellCheck={false}
+                  onChange={(e) => update({ ttsModel: e.target.value })}
+                  className="h-8 rounded-lg border border-line bg-elevated px-3 font-mono text-[11px] text-fg outline-none transition-colors focus:border-accent/40"
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="text-[11px] font-medium text-fg">
+                  Persona voice ID
+                </span>
+                <input
+                  type="text"
+                  value={settings.ttsVoicePersona}
+                  placeholder="server default"
+                  spellCheck={false}
+                  onChange={(e) => update({ ttsVoicePersona: e.target.value })}
+                  className="h-8 rounded-lg border border-line bg-elevated px-3 font-mono text-[11px] text-fg outline-none transition-colors focus:border-accent/40"
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="text-[11px] font-medium text-fg">
+                  Scammer voice ID
+                </span>
+                <input
+                  type="text"
+                  value={settings.ttsVoiceScammer}
+                  placeholder="server default"
+                  spellCheck={false}
+                  onChange={(e) => update({ ttsVoiceScammer: e.target.value })}
+                  className="h-8 rounded-lg border border-line bg-elevated px-3 font-mono text-[11px] text-fg outline-none transition-colors focus:border-accent/40"
+                />
+              </label>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between border-t border-line pt-3.5">
           <p className="text-[10.5px] text-muted">
             Overrides this browser&apos;s build defaults (NEXT_PUBLIC_*). Clear

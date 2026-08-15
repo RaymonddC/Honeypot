@@ -8,7 +8,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.config import Settings
+from app.core.config import Settings, get_settings
 from app.infiltrate.service import get_tts_adapter
 from app.infiltrate.voice import (
     LIVE_TTS_PROVIDERS,
@@ -200,6 +200,54 @@ def test_elevenlabs_reads_model_and_voices_from_settings():
     )
     assert a._model == "eleven_flash_v2_5"
     assert a._voice_ids == {"persona": "Voice-P", "scammer": "Voice-S"}
+
+
+def test_audio_endpoint_applies_voice_overrides(monkeypatch):
+    """?model=&voice_persona= reach the adapter via a Settings copy — and the
+    cached settings singleton is never mutated (model_copy, not assignment)."""
+    recorded: dict[str, str] = {}
+
+    class _FakeEleven:
+        data_mode = "live"
+        provider = "elevenlabs"
+
+        def __init__(self, settings):
+            # Mirror the real adapter so the audio cache signature distinguishes
+            # a voice-override request from a plain one.
+            self._model = settings.elevenlabs_model
+            self._voice_ids = {
+                "persona": settings.elevenlabs_voice_persona,
+                "scammer": settings.elevenlabs_voice_scammer,
+            }
+            recorded["model"] = self._model
+            recorded["voice_persona"] = self._voice_ids["persona"]
+
+        async def synthesize(self, text: str, voice: str = "persona") -> TTSResult:
+            return TTSResult(
+                provider=self.provider, voice=voice, text=text,
+                duration_seconds=1.0, audio_bytes=b"OVR-bytes", mime_type="audio/mpeg",
+            )
+
+    monkeypatch.setitem(LIVE_TTS_PROVIDERS, "elevenlabs", _FakeEleven)
+    env_default = get_settings().elevenlabs_model
+
+    s = _start_voice()
+    seq = _first_voice_seq(s["id"])
+
+    r = client.get(
+        f"/api/sessions/{s['id']}/audio/{seq}"
+        "?provider=elevenlabs&model=MDL-X&voice_persona=VP-1"
+    )
+    assert r.status_code == 200 and r.content == b"OVR-bytes"
+    assert recorded["model"] == "MDL-X"
+    assert recorded["voice_persona"] == "VP-1"
+    # the lru_cached settings singleton is untouched — overrides use model_copy
+    assert get_settings().elevenlabs_model == env_default
+
+    # a request WITHOUT overrides uses the unmodified env settings
+    r2 = client.get(f"/api/sessions/{s['id']}/audio/{seq}?provider=elevenlabs")
+    assert r2.status_code == 200
+    assert recorded["model"] == env_default
 
 
 # --------------------------------------------------------------------------- #

@@ -218,6 +218,13 @@ interface VoiceMarks {
  * and simply starts playing real audio the moment a LIVE TTS adapter is
  * configured server-side.
  */
+/** Per-request voice config overrides (Control Panel "Advanced voice"). */
+export interface VoiceOverrides {
+  model?: string;
+  voicePersona?: string;
+  voiceScammer?: string;
+}
+
 export class BackendAudioProvider implements VoiceProvider {
   readonly name = "backend";
   private audio: HTMLAudioElement | null = null;
@@ -229,14 +236,24 @@ export class BackendAudioProvider implements VoiceProvider {
   constructor(
     private readonly sessionId: string,
     private readonly provider?: string,
+    private readonly overrides?: VoiceOverrides,
   ) {}
 
   async speak(line: SpeakableLine): Promise<void> {
     this.usingFallback = false;
     try {
-      // ?provider lets the backend A/B the real voice per request (no restart),
-      // so flipping the Control Panel voice provider takes effect on the next line.
-      const q = this.provider ? `?provider=${encodeURIComponent(this.provider)}` : "";
+      // ?provider (+ optional model/voice overrides) lets the backend A/B the
+      // real voice per request (no restart), so Control Panel changes take
+      // effect on the next line.
+      const params = new URLSearchParams();
+      if (this.provider) params.set("provider", this.provider);
+      if (this.overrides?.model) params.set("model", this.overrides.model);
+      if (this.overrides?.voicePersona)
+        params.set("voice_persona", this.overrides.voicePersona);
+      if (this.overrides?.voiceScammer)
+        params.set("voice_scammer", this.overrides.voiceScammer);
+      const qs = params.toString();
+      const q = qs ? `?${qs}` : "";
       const res = await apiFetch(
         `/sessions/${encodeURIComponent(this.sessionId)}/audio/${line.seq}${q}`,
       );
@@ -331,7 +348,11 @@ export function voiceProviderKind(): VoiceProviderKind {
  * duration-timer voice-marks while the server adapter is still poc).
  */
 export function createVoiceProvider(sessionId: string): VoiceProvider {
-  return voiceProviderKind() === "backend"
-    ? new BackendAudioProvider(sessionId, voiceProviderSetting())
-    : new BrowserTTSProvider();
+  if (voiceProviderKind() !== "backend") return new BrowserTTSProvider();
+  const s = getSettings();
+  return new BackendAudioProvider(sessionId, voiceProviderSetting(), {
+    model: s.ttsModel,
+    voicePersona: s.ttsVoicePersona,
+    voiceScammer: s.ttsVoiceScammer,
+  });
 }

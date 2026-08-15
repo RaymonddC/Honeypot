@@ -53,6 +53,17 @@ from app.infiltrate.voice import (
 router = APIRouter(tags=["infiltrate"])
 logger = logging.getLogger(__name__)
 
+# Per-request voice overrides (Control Panel "Advanced voice"): query param →
+# Settings field name, scoped by provider. ElevenLabs only for now; other
+# providers drop in the same way (add their model/voice Settings fields here).
+_VOICE_OVERRIDE_FIELDS: dict[str, dict[str, str]] = {
+    "elevenlabs": {
+        "model": "elevenlabs_model",
+        "voice_persona": "elevenlabs_voice_persona",
+        "voice_scammer": "elevenlabs_voice_scammer",
+    },
+}
+
 
 def _not_found(kind: str, item_id: str) -> HTTPException:
     return HTTPException(
@@ -156,6 +167,9 @@ async def get_session_audio(
         default=None,
         description="per-request TTS override: elevenlabs|gemini|google|browser",
     ),
+    model: str | None = Query(default=None, description="TTS model override (provider-specific)"),
+    voice_persona: str | None = Query(default=None, description="voice ID for the persona speaker"),
+    voice_scammer: str | None = Query(default=None, description="voice ID for the scammer speaker"),
     tts: TTSAdapter = TTSDep,
     repo: InfiltrateRepository = RepoDep,
     _auth: AuthContext = Depends(get_current_user),  # P-4a: read routes need identity
@@ -184,9 +198,16 @@ async def get_session_audio(
     result = None
     try:
         # ``?provider=`` overrides the env-configured adapter per request, so an
-        # operator can A/B ElevenLabs/Gemini/Google from the Control Panel with
-        # no backend restart. Absent = env default; a missing key still degrades.
-        adapter = resolve_tts_adapter(provider, default=tts)
+        # operator can A/B ElevenLabs/Gemini/Google from the Control Panel with no
+        # backend restart. ``model``/``voice_*`` are optional per-request config
+        # overrides (Advanced voice) applied on a Settings copy — never mutating
+        # the singleton. Absent = env default; a bad value still degrades to marks.
+        overrides: dict[str, str] = {}
+        _values = {"model": model, "voice_persona": voice_persona, "voice_scammer": voice_scammer}
+        for param, field in _VOICE_OVERRIDE_FIELDS.get((provider or "").strip().lower(), {}).items():
+            if _values[param]:
+                overrides[field] = _values[param]
+        adapter = resolve_tts_adapter(provider, default=tts, overrides=overrides or None)
         result = await synthesize_line(adapter, message.content, voice=speaker)
     except Exception as exc:  # noqa: BLE001 — never let a TTS outage break the call
         logger.warning(

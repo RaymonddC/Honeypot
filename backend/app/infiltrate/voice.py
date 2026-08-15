@@ -691,12 +691,19 @@ def select_live_tts_adapter(settings: Settings | None = None) -> TTSAdapter:
     return impl(settings)
 
 
-def resolve_tts_adapter(provider: str | None, *, default: TTSAdapter) -> TTSAdapter:
+def resolve_tts_adapter(
+    provider: str | None, *, default: TTSAdapter, overrides: dict | None = None
+) -> TTSAdapter:
     """Pick the TTS adapter for ONE request. ``provider`` is an optional
     per-request override (the Control Panel voice choice); ``default`` is the
     env-configured adapter (``ITTU_TTS_PROVIDER``). This is what lets an operator
     A/B ElevenLabs/Gemini/Google live from the portal with no backend restart —
     keys are still read once at startup, only the choice is per-request.
+
+    ``overrides`` is an optional dict of ``Settings`` field names → values (e.g.
+    a Control-Panel model / voice-id override). Applied via ``model_copy`` — a
+    per-request COPY of the cached settings, never a mutation of the singleton —
+    so adapters pick it up with no adapter-side changes.
 
     Unknown/empty → ``default``; "browser"/"poc" → voice marks; a known LIVE
     provider → its adapter (may raise ``NotImplementedError`` if its key is
@@ -709,7 +716,10 @@ def resolve_tts_adapter(provider: str | None, *, default: TTSAdapter) -> TTSAdap
     impl = LIVE_TTS_PROVIDERS.get(name)
     if impl is None:
         return default
-    return impl(get_settings())
+    settings = get_settings()
+    if overrides:
+        settings = settings.model_copy(update=overrides)  # copy — never mutate the singleton
+    return impl(settings)
 
 
 # --------------------------------------------------------------------------- #
@@ -724,8 +734,17 @@ _AUDIO_CACHE: "OrderedDict[str, TTSResult]" = OrderedDict()
 _AUDIO_CACHE_CAP = 256
 
 
-def _audio_cache_key(provider: str, voice: str, text: str) -> str:
-    return hashlib.sha256(f"{provider}\x1f{voice}\x1f{text}".encode()).hexdigest()
+def _audio_cache_key(provider: str, voice: str, text: str, signature: str = "") -> str:
+    return hashlib.sha256(
+        f"{provider}\x1f{voice}\x1f{signature}\x1f{text}".encode()
+    ).hexdigest()
+
+
+def _adapter_cache_signature(tts: "TTSAdapter") -> str:
+    """Fold per-request config (model / voice-id overrides) into the cache key so
+    changing a voice from the Control Panel isn't masked by a stale cache hit for
+    the same (provider, voice, text)."""
+    return f"{getattr(tts, '_model', '')}\x1f{getattr(tts, '_voice_ids', '')}"
 
 
 def reset_audio_cache() -> None:  # test hook
@@ -739,7 +758,9 @@ async def synthesize_line(tts: TTSAdapter, text: str, voice: str = "persona") ->
     if getattr(tts, "data_mode", "poc") != "live":
         return await tts.synthesize(text, voice=voice)
 
-    key = _audio_cache_key(tts.provider, voice, text)
+    key = _audio_cache_key(
+        tts.provider, voice, text, signature=_adapter_cache_signature(tts)
+    )
     hit = _AUDIO_CACHE.get(key)
     if hit is not None:
         _AUDIO_CACHE.move_to_end(key)
