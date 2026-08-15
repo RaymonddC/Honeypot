@@ -258,9 +258,12 @@ async def get_session_audio(
         adapter = resolve_tts_adapter(provider, default=tts, overrides=overrides or None)
         result = await synthesize_line(adapter, message.content, voice=speaker)
     except Exception as exc:  # noqa: BLE001 — never let a TTS outage break the call
+        # Log the type + repr (never blank, unlike str() on empty-message errors)
+        # so the real reason is visible when a provider degrades to browser speech.
         logger.warning(
-            "TTS synth failed for %s#%s (provider=%s) — degrading to browser speech: %s",
-            session_id, seq, provider or getattr(tts, "provider", "?"), exc,
+            "TTS synth failed for %s#%s (provider=%s) — degrading to browser speech: %s: %r",
+            session_id, seq, provider or getattr(tts, "provider", "?"),
+            type(exc).__name__, exc,
         )
 
     if result is not None and result.audio_bytes:

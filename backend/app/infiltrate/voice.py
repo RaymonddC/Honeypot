@@ -645,8 +645,18 @@ class GeminiTTSAdapter:
                     },
                 },
             )
-            resp.raise_for_status()
-            inline = resp.json()["candidates"][0]["content"]["parts"][0]["inlineData"]
+            if not resp.is_success:
+                # Surface Google's error body (model-not-found / key-invalid /
+                # region-unsupported / quota) instead of a bare HTTPStatusError.
+                raise RuntimeError(f"Gemini TTS {resp.status_code}: {resp.text[:300]}")
+            data = resp.json()
+            try:
+                inline = data["candidates"][0]["content"]["parts"][0]["inlineData"]
+            except (KeyError, IndexError, TypeError) as exc:
+                # 200 but no audio (safety block / unexpected shape) — say so.
+                raise RuntimeError(
+                    f"Gemini TTS returned no audio: {str(data)[:300]}"
+                ) from exc
             pcm = base64.b64decode(inline["data"])
             rate = _pcm_rate_from_mime(inline.get("mimeType", ""))
         return TTSResult(
