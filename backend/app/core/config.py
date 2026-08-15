@@ -103,6 +103,12 @@ class Settings(BaseSettings):
     tts_provider: str = "browser"
     # Real-voice provider keys (booleans only ever leave the API — never the key).
     elevenlabs_api_key: str = ""          # ITTU_ELEVENLABS_API_KEY
+    # Flash = low-latency model (~sub-second, multilingual incl. id-ID) — better
+    # for a live call than the slower eleven_multilingual_v2. Voice IDs are
+    # per-account; override if the defaults aren't in your ElevenLabs library.
+    elevenlabs_model: str = "eleven_flash_v2_5"             # ITTU_ELEVENLABS_MODEL
+    elevenlabs_voice_persona: str = "21m00Tcm4TlvDq8ikWAM"  # ITTU_ELEVENLABS_VOICE_PERSONA (Rachel)
+    elevenlabs_voice_scammer: str = "pNInz6obpgDQGcFmaJgB"  # ITTU_ELEVENLABS_VOICE_SCAMMER (Adam)
     google_tts_api_key: str = ""          # ITTU_GOOGLE_TTS_API_KEY
     # Gemini TTS (Google AI Studio) — generative, natural-language STYLE control
     # (the persona is prompted to sound like a confused, hesitant grandmother,

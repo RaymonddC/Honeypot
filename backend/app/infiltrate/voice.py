@@ -468,12 +468,6 @@ class ElevenLabsTTSAdapter:
 
     data_mode: Mode = "live"
     provider = "elevenlabs"
-    # Multilingual prebuilt voices: warm older female (persona) vs male (scammer).
-    _VOICE_IDS = {
-        "persona": "21m00Tcm4TlvDq8ikWAM",   # Rachel
-        "scammer": "pNInz6obpgDQGcFmaJgB",   # Adam
-    }
-    _MODEL_ID = "eleven_multilingual_v2"      # id-ID capable
     # https://elevenlabs.io/docs/api-reference/text-to-speech/convert — default
     # output_format the API itself uses; set explicitly rather than relying on
     # the provider default (belt-and-braces against a future default change).
@@ -489,9 +483,17 @@ class ElevenLabsTTSAdapter:
                 "configured. Set ITTU_ELEVENLABS_API_KEY, or set "
                 "ITTU_TTS_PROVIDER=browser for the keyless POC voice."
             )
+        # Model + per-account voice IDs are env-configurable (config.py): the
+        # flash model keeps call latency low, and the voice IDs can be pointed at
+        # voices that actually exist in the operator's ElevenLabs library.
+        self._model = settings.elevenlabs_model
+        self._voice_ids = {
+            "persona": settings.elevenlabs_voice_persona,
+            "scammer": settings.elevenlabs_voice_scammer,
+        }
 
     async def synthesize(self, text: str, voice: str = "persona") -> TTSResult:
-        voice_id = self._VOICE_IDS.get(voice, self._VOICE_IDS["persona"])
+        voice_id = self._voice_ids.get(voice, self._voice_ids["persona"])
         async with httpx.AsyncClient(timeout=_TTS_TIMEOUT_SECONDS) as client:
             resp = await client.post(
                 f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
@@ -499,7 +501,7 @@ class ElevenLabsTTSAdapter:
                 headers={"xi-api-key": self._api_key, "accept": "audio/mpeg"},
                 json={
                     "text": text,
-                    "model_id": self._MODEL_ID,
+                    "model_id": self._model,
                     "voice_settings": self._VOICE_SETTINGS,
                 },
             )

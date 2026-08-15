@@ -220,8 +220,11 @@ interface VoiceMarks {
  */
 export class BackendAudioProvider implements VoiceProvider {
   readonly name = "backend";
-  private timer = new LineTimer();
   private audio: HTMLAudioElement | null = null;
+  // Speaks any line the backend can't voice (POC marks, or a LIVE provider that
+  // failed / has no key) so the call is NEVER silent — this is the fallback.
+  private readonly fallback = new BrowserTTSProvider();
+  private usingFallback = false;
 
   constructor(
     private readonly sessionId: string,
@@ -229,7 +232,7 @@ export class BackendAudioProvider implements VoiceProvider {
   ) {}
 
   async speak(line: SpeakableLine): Promise<void> {
-    let durationSec = line.durationSec;
+    this.usingFallback = false;
     try {
       // ?provider lets the backend A/B the real voice per request (no restart),
       // so flipping the Control Panel voice provider takes effect on the next line.
@@ -255,14 +258,15 @@ export class BackendAudioProvider implements VoiceProvider {
             await this.play(url);
             return;
           }
-          if (marks.duration_seconds > 0) durationSec = marks.duration_seconds;
         }
       }
     } catch {
-      /* backend unreachable — fall through to the timer */
+      /* backend unreachable — fall through to browser speech below */
     }
-    // POC: no audio bytes yet → keep the call timeline via duration marks.
-    await this.timer.run(durationSec * 1000);
+    // No backend audio (POC marks, a failed/unkeyed LIVE provider, or 204) →
+    // SPEAK via the browser so the line is never silent.
+    this.usingFallback = true;
+    await this.fallback.speak(line);
   }
 
   private play(url: string): Promise<void> {
@@ -285,12 +289,12 @@ export class BackendAudioProvider implements VoiceProvider {
 
   pause(): void {
     this.audio?.pause();
-    this.timer.pause();
+    if (this.usingFallback) this.fallback.pause();
   }
 
   resume(): void {
     void this.audio?.play().catch(() => undefined);
-    this.timer.resume();
+    if (this.usingFallback) this.fallback.resume();
   }
 
   cancel(): void {
@@ -301,7 +305,7 @@ export class BackendAudioProvider implements VoiceProvider {
       audio.src = "";
       this.audio = null;
     }
-    this.timer.cancel();
+    if (this.usingFallback) this.fallback.cancel();
   }
 }
 

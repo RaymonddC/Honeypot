@@ -12,6 +12,7 @@ from app.core.config import Settings
 from app.infiltrate.service import get_tts_adapter
 from app.infiltrate.voice import (
     LIVE_TTS_PROVIDERS,
+    ElevenLabsTTSAdapter,
     GeminiTTSAdapter,
     TTSResult,
     VoiceMarkTTSAdapter,
@@ -186,6 +187,19 @@ def test_gemini_fails_loud_without_key():
 def test_live_factory_selects_gemini():
     tts = select_live_tts_adapter(Settings(tts_provider="gemini", gemini_api_key="k"))
     assert tts.provider == "gemini"
+
+
+def test_elevenlabs_reads_model_and_voices_from_settings():
+    a = ElevenLabsTTSAdapter(
+        Settings(
+            elevenlabs_api_key="k",
+            elevenlabs_model="eleven_flash_v2_5",
+            elevenlabs_voice_persona="Voice-P",
+            elevenlabs_voice_scammer="Voice-S",
+        )
+    )
+    assert a._model == "eleven_flash_v2_5"
+    assert a._voice_ids == {"persona": "Voice-P", "scammer": "Voice-S"}
 
 
 # --------------------------------------------------------------------------- #
