@@ -361,9 +361,16 @@ export function voiceProviderKind(): VoiceProviderKind {
 export function createVoiceProvider(sessionId: string): VoiceProvider {
   if (voiceProviderKind() !== "backend") return new BrowserTTSProvider();
   const s = getSettings();
-  return new BackendAudioProvider(sessionId, voiceProviderSetting(), {
-    model: s.ttsModel,
-    voicePersona: s.ttsVoicePersona,
-    voiceScammer: s.ttsVoiceScammer,
+  const provider = voiceProviderSetting();
+  // `model` + the voice IDs are ElevenLabs-specific settings in the Control
+  // Panel. Only forward them when ElevenLabs is the selected provider — sending
+  // an ElevenLabs model id (e.g. "eleven_flash_v2_5") to Gemini/Google is
+  // meaningless (Gemini's model comes from ITTU_GEMINI_TTS_MODEL; Google has no
+  // model param) and just produces noisy "ignoring override" backend logs.
+  const elevenlabs = provider === "elevenlabs";
+  return new BackendAudioProvider(sessionId, provider, {
+    model: elevenlabs ? s.ttsModel : undefined,
+    voicePersona: elevenlabs ? s.ttsVoicePersona : undefined,
+    voiceScammer: elevenlabs ? s.ttsVoiceScammer : undefined,
   });
 }
