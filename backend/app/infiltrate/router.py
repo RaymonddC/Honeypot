@@ -21,6 +21,7 @@ from typing import Literal
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from app.core.auth import AuthContext, get_current_user
@@ -105,23 +106,49 @@ async def get_tts_voices(
 
 
 class TtsVoiceCheckOut(BaseModel):
+    """JSON error shape when a voice check fails (success returns audio bytes)."""
+
     voice_id: str
     ok: bool
     status: int | None = None
-    error: str | None = None  # no_key | http_401 | http_404 | http_422 | transport:<Type>
+    error: str | None = None  # no_key | http_401 | http_402 | http_404 | http_422 | transport:<Type>
 
 
-@router.get("/tts/voice-check", response_model=TtsVoiceCheckOut)
+# Short per-speaker sample line so the played preview reflects real usage.
+_VOICE_SAMPLE = {
+    "persona": "Halo, selamat siang, iya betul ini Ibu Sari.",
+    "scammer": "Halo Bu, ada penawaran investasi spesial untuk Anda.",
+}
+
+
+@router.get("/tts/voice-check")
 async def get_tts_voice_check(
     voice_id: str = Query(..., min_length=1),
+    voice: str = Query("persona", description="persona|scammer — picks the sample line"),
     _auth: AuthContext = Depends(get_current_user),  # Control Panel is post-login
-) -> TtsVoiceCheckOut:
-    """Validate one ElevenLabs voice ID by a tiny **test synthesis** — uses the
+) -> Response:
+    """Test one ElevenLabs voice ID by a short **test synthesis** and return the
+    audio so the Control Panel PLAYS a sample (not just validates). Uses the
     Text-to-Speech scope (the exact call a honeypot line makes), so it works
     even with a key restricted to TTS (unlike GET /tts/voices, which needs the
-    Voices-read scope). The key never leaves the server."""
-    res = await check_elevenlabs_voice(voice_id)
-    return TtsVoiceCheckOut(voice_id=voice_id, **res)
+    Voices-read scope). The key never leaves the server. On failure, returns a
+    JSON body ``{voice_id, ok:false, status?, error?}`` instead of audio."""
+    text = _VOICE_SAMPLE.get(voice, "Halo, selamat siang, apa kabar?")
+    res = await check_elevenlabs_voice(voice_id, text=text)
+    if res.get("ok") and res.get("audio"):
+        return Response(
+            content=res["audio"],
+            media_type="audio/mpeg",
+            headers={"X-Voice-Check": "ok", "Cache-Control": "no-store"},
+        )
+    return JSONResponse(
+        {
+            "voice_id": voice_id,
+            "ok": False,
+            "status": res.get("status"),
+            "error": res.get("error"),
+        }
+    )
 
 
 @router.get("/personas", response_model=list[PersonaOut])

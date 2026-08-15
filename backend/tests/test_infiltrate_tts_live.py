@@ -386,7 +386,8 @@ class _FakeElevenHttpx:
 async def test_check_elevenlabs_voice_ok(monkeypatch):
     monkeypatch.setattr("app.infiltrate.voice.httpx.AsyncClient", _FakeElevenHttpx)
     _FakeElevenHttpx.status = 200
-    assert await check_elevenlabs_voice("v1", Settings(elevenlabs_api_key="k")) == {"ok": True}
+    res = await check_elevenlabs_voice("v1", Settings(elevenlabs_api_key="k"))
+    assert res["ok"] is True and res["audio"] == b"audio"  # audio returned to play
 
 
 async def test_check_elevenlabs_voice_bad_id(monkeypatch):
@@ -401,3 +402,27 @@ async def test_check_elevenlabs_voice_no_key():
         "ok": False,
         "error": "no_key",
     }
+
+
+def test_voice_check_endpoint_returns_audio(monkeypatch):
+    async def _fake(voice_id, settings=None, text=""):
+        return {"ok": True, "audio": b"MP3-bytes"}
+
+    monkeypatch.setattr("app.infiltrate.router.check_elevenlabs_voice", _fake)
+    r = client.get("/api/tts/voice-check?voice_id=v1&voice=persona")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "audio/mpeg"
+    assert r.headers.get("x-voice-check") == "ok"
+    assert r.content == b"MP3-bytes"
+
+
+def test_voice_check_endpoint_returns_json_on_failure(monkeypatch):
+    async def _fake(voice_id, settings=None, text=""):
+        return {"ok": False, "status": 404, "error": "http_404"}
+
+    monkeypatch.setattr("app.infiltrate.router.check_elevenlabs_voice", _fake)
+    r = client.get("/api/tts/voice-check?voice_id=bad&voice=persona")
+    assert r.status_code == 200
+    assert "json" in r.headers["content-type"]
+    body = r.json()
+    assert body["ok"] is False and body["status"] == 404

@@ -44,25 +44,36 @@ export async function fetchElevenLabsVoices(): Promise<VoicesResult> {
 export interface VoiceCheckResult {
   ok: boolean;
   status?: number;
-  /** no_key | http_401 | http_404 | http_422 | transport:<Type> | unreachable */
+  /** no_key | http_401 | http_402 | http_404 | http_422 | transport:<Type> | unreachable */
   error?: string;
+  /** On success, the synthesized sample to play in that voice. */
+  audioBlob?: Blob;
 }
 
 /**
- * Validate ONE voice ID by a tiny backend test-synth (GET /api/tts/voice-check).
- * Uses the Text-to-Speech scope the call itself uses, so it works even with a
- * key restricted to TTS (unlike listing voices). The key stays server-side.
+ * Test ONE voice ID by a short backend test-synth (GET /api/tts/voice-check):
+ * on success returns the AUDIO (a sample line in that voice) so the caller can
+ * play it; on failure returns {ok:false, status, error}. `voice` picks the
+ * per-speaker sample line. Uses the Text-to-Speech scope the call itself uses,
+ * so it works even with a key restricted to TTS. The key stays server-side.
  */
-export async function checkElevenLabsVoice(voiceId: string): Promise<VoiceCheckResult> {
+export async function checkElevenLabsVoice(
+  voiceId: string,
+  voice: "persona" | "scammer" = "persona",
+): Promise<VoiceCheckResult> {
   try {
-    const res = await apiFetch(`/tts/voice-check?voice_id=${encodeURIComponent(voiceId)}`);
-    if (!res.ok) return { ok: false, status: res.status, error: `http_${res.status}` };
-    const data = (await res.json()) as VoiceCheckResult;
-    return {
-      ok: Boolean(data.ok),
-      status: data.status,
-      error: data.error,
-    };
+    const res = await apiFetch(
+      `/tts/voice-check?voice_id=${encodeURIComponent(voiceId)}&voice=${voice}`,
+    );
+    const type = res.headers.get("content-type") ?? "";
+    if (res.ok && type.startsWith("audio/")) {
+      return { ok: true, audioBlob: await res.blob() };
+    }
+    if (type.includes("json")) {
+      const data = (await res.json()) as { ok?: boolean; status?: number; error?: string };
+      return { ok: Boolean(data.ok), status: data.status, error: data.error };
+    }
+    return { ok: false, status: res.status, error: `http_${res.status}` };
   } catch {
     return { ok: false, error: "unreachable" };
   }

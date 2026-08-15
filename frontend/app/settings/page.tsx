@@ -157,12 +157,14 @@ const VOICE_INPUT_CLS =
   "h-8 rounded-lg border border-line bg-elevated px-3 font-mono text-[11px] text-fg outline-none transition-colors focus:border-accent/40";
 
 function describeVoiceCheck(res: VoiceCheckResult): { ok: boolean; label: string } {
-  if (res.ok) return { ok: true, label: "✓ valid — plays" };
+  if (res.ok) return { ok: true, label: "✓ playing sample…" };
   if (res.error === "no_key")
     return { ok: false, label: "no ElevenLabs key set on the server" };
   const s = res.status;
   if (s === 401 || res.error === "http_401")
     return { ok: false, label: "✗ key rejected — check API key" };
+  if (s === 402 || res.error === "http_402")
+    return { ok: false, label: "✗ out of credits — upgrade or wait for reset" };
   if (s === 404 || s === 422 || res.error === "http_404" || res.error === "http_422")
     return { ok: false, label: "✗ not a usable voice ID (not in your library)" };
   if (res.error?.startsWith("http_"))
@@ -177,69 +179,88 @@ function AdvancedVoice({
   settings: ClientSettings;
   update: (patch: Partial<ClientSettings>) => void;
 }) {
-  const [checking, setChecking] = useState(false);
+  type Role = "persona" | "scammer";
+  const [results, setResults] = useState<Record<Role, VoiceCheckResult | null>>({
+    persona: null,
+    scammer: null,
+  });
+  const [testing, setTesting] = useState<Record<Role, boolean>>({
+    persona: false,
+    scammer: false,
+  });
   const [listResult, setListResult] = useState<VoicesResult | null>(null);
-  // Test-synth results keyed by voice id (persona/scammer may share one).
-  const [synthResults, setSynthResults] = useState<Record<string, VoiceCheckResult>>({});
 
-  const runCheck = async () => {
-    setChecking(true);
+  // Best-effort voice list for the autocomplete datalist — harmless if the key
+  // lacks the Voices-read scope (the ▶ Test button's real check is a synth).
+  useEffect(() => {
+    let alive = true;
+    void fetchElevenLabsVoices().then((r) => {
+      if (alive) setListResult(r);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Play a short sample in the given voice (button click = the user gesture that
+  // lets Audio.play() run). On failure, show the reason.
+  const testVoice = async (role: Role, rawId: string) => {
+    const voiceId = rawId.trim();
+    if (!voiceId) return;
+    setTesting((t) => ({ ...t, [role]: true }));
     try {
-      // Best-effort listing for the autocomplete datalist — harmless if the key
-      // lacks the Voices-read scope; the button's real check is the test-synth.
-      setListResult(await fetchElevenLabsVoices());
-
-      const ids = Array.from(
-        new Set(
-          [settings.ttsVoicePersona, settings.ttsVoiceScammer]
-            .map((v) => v.trim())
-            .filter(Boolean),
-        ),
-      );
-      const entries = await Promise.all(
-        ids.map(async (id) => [id, await checkElevenLabsVoice(id)] as const),
-      );
-      setSynthResults(Object.fromEntries(entries));
+      const r = await checkElevenLabsVoice(voiceId, role);
+      if (r.audioBlob) {
+        const url = URL.createObjectURL(r.audioBlob);
+        const audio = new Audio(url);
+        audio.onended = () => URL.revokeObjectURL(url);
+        void audio.play().catch(() => URL.revokeObjectURL(url));
+      }
+      setResults((s) => ({ ...s, [role]: r }));
     } finally {
-      setChecking(false);
+      setTesting((t) => ({ ...t, [role]: false }));
     }
   };
 
   const listId = "el-voice-ids";
   const voices = listResult?.voices ?? [];
 
-  // Per-field validity from the test-synth (works with a TTS-scoped key).
-  const fieldStatus = (id: string): { ok: boolean; label: string } | null => {
-    const res = synthResults[id.trim()];
-    return id.trim() && res ? describeVoiceCheck(res) : null;
-  };
-
-  const VoiceField = ({
-    label,
-    value,
-    onChange,
-  }: {
-    label: string;
-    value: string;
-    onChange: (v: string) => void;
-  }) => {
-    const st = fieldStatus(value);
+  // Rendered as a function call (not a nested <Component/>) so the input keeps
+  // focus across keystrokes.
+  const renderVoiceField = (
+    role: Role,
+    label: string,
+    value: string,
+    onChange: (v: string) => void,
+  ) => {
+    const res = results[role];
+    const st = value.trim() && res ? describeVoiceCheck(res) : null;
+    const busy = testing[role];
     return (
-      <label className="grid gap-1">
+      <label key={role} className="grid gap-1">
         <span className="text-[11px] font-medium text-fg">{label}</span>
-        <input
-          type="text"
-          list={voices.length > 0 ? listId : undefined}
-          value={value}
-          placeholder="server default"
-          spellCheck={false}
-          onChange={(e) => onChange(e.target.value)}
-          className={VOICE_INPUT_CLS}
-        />
-        {st && (
-          <span
-            className={`text-[10px] ${st.ok ? "text-accent-bright" : "text-risk-high"}`}
+        <div className="flex gap-2">
+          <input
+            type="text"
+            list={voices.length > 0 ? listId : undefined}
+            value={value}
+            placeholder="server default"
+            spellCheck={false}
+            onChange={(e) => onChange(e.target.value)}
+            className={`${VOICE_INPUT_CLS} flex-1`}
+          />
+          <button
+            type="button"
+            onClick={() => void testVoice(role, value)}
+            disabled={!value.trim() || busy}
+            title="Play a short sample in this voice"
+            className="h-8 shrink-0 rounded-lg border border-line bg-elevated px-2.5 text-[11px] font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-50"
           >
+            {busy ? "…" : "▶ Test"}
+          </button>
+        </div>
+        {st && (
+          <span className={`text-[10px] ${st.ok ? "text-accent-bright" : "text-risk-high"}`}>
             {st.label}
           </span>
         )}
@@ -271,8 +292,8 @@ function AdvancedVoice({
         </div>
       </div>
       <p className="mb-2.5 text-[10.5px] text-muted">
-        Per-request overrides — no restart. Blank = the server default; voice IDs
-        come from your ElevenLabs Voices page.
+        Per-request overrides — no restart. Blank = the server default. ▶ Test plays a
+        short sample in that voice — uses a few ElevenLabs credits.
       </p>
 
       {voices.length > 0 && (
@@ -297,30 +318,18 @@ function AdvancedVoice({
             className={VOICE_INPUT_CLS}
           />
         </label>
-        <VoiceField
-          label="Persona voice ID"
-          value={settings.ttsVoicePersona}
-          onChange={(v) => update({ ttsVoicePersona: v })}
-        />
-        <VoiceField
-          label="Scammer voice ID"
-          value={settings.ttsVoiceScammer}
-          onChange={(v) => update({ ttsVoiceScammer: v })}
-        />
-      </div>
-
-      <div className="mt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
-        <button
-          type="button"
-          onClick={runCheck}
-          disabled={checking}
-          className="h-7 rounded-lg border border-line bg-elevated px-3 text-[11px] font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-60"
-        >
-          {checking ? "Testing…" : "Test voices"}
-        </button>
-        <span className="text-[10px] text-muted">
-          Plays a 1-word sample to verify each voice — uses a few ElevenLabs credits.
-        </span>
+        {renderVoiceField(
+          "persona",
+          "Persona voice ID",
+          settings.ttsVoicePersona,
+          (v) => update({ ttsVoicePersona: v }),
+        )}
+        {renderVoiceField(
+          "scammer",
+          "Scammer voice ID",
+          settings.ttsVoiceScammer,
+          (v) => update({ ttsVoiceScammer: v }),
+        )}
       </div>
     </div>
   );

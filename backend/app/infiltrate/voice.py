@@ -808,15 +808,19 @@ async def list_elevenlabs_voices(settings: "Settings | None" = None) -> list[dic
 
 
 async def check_elevenlabs_voice(
-    voice_id: str, settings: "Settings | None" = None
+    voice_id: str,
+    settings: "Settings | None" = None,
+    text: str = "Halo, selamat siang, apa kabar?",
 ) -> dict:
-    """Validate one ElevenLabs voice ID via a minimal synthesis.
+    """Validate one ElevenLabs voice ID via a short synthesis, returning the
+    audio so the Control Panel can PLAY a sample (not just validate).
 
     Uses the **Text-to-Speech** scope (the same call the honeypot makes), not
     the Voices-list endpoint — so it works even with a key restricted to TTS,
     and it tests the exact path a live call uses. Returns
-    ``{ok: bool, status?: int, error?: str}``; the key is only ever sent as the
-    ``xi-api-key`` header. A tiny one-word ``text`` keeps the credit cost low."""
+    ``{ok: True, audio: bytes}`` on success, else
+    ``{ok: False, status?: int, error?: str}``; the key is only ever sent as
+    the ``xi-api-key`` header."""
     settings = settings or get_settings()
     if not settings.elevenlabs_api_key:
         return {"ok": False, "error": "no_key"}
@@ -829,10 +833,10 @@ async def check_elevenlabs_voice(
                     "xi-api-key": settings.elevenlabs_api_key,
                     "accept": "audio/mpeg",
                 },
-                json={"text": "tes", "model_id": settings.elevenlabs_model},
+                json={"text": text, "model_id": settings.elevenlabs_model},
             )
         if resp.is_success:
-            return {"ok": True}
+            return {"ok": True, "audio": resp.content}
         return {"ok": False, "status": resp.status_code, "error": f"http_{resp.status_code}"}
     except httpx.HTTPError as exc:
         return {"ok": False, "error": f"transport:{type(exc).__name__}"}
