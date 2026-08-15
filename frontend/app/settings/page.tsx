@@ -234,8 +234,11 @@ function AdvancedVoice({
       setResults((s) => ({ ...s, [role]: r }));
       if (r.ok) {
         lastGood.current[role] = voiceId; // this ID works — the new revert target
-      } else {
-        onChange(lastGood.current[role] ?? ""); // failed → revert to last working
+      } else if (r.status === 404 || r.status === 422) {
+        // Only a genuine bad-voice error reverts. Quota (402) / key (401) /
+        // network errors aren't the voice's fault — keep the ID and let the
+        // label say why (out of credits / key rejected / unreachable).
+        onChange(lastGood.current[role] ?? "");
       }
     } finally {
       setTesting((t) => ({ ...t, [role]: false }));
@@ -316,8 +319,9 @@ function AdvancedVoice({
       </div>
       <p className="mb-2.5 text-[10.5px] text-muted">
         Per-request overrides — no restart. Blank = the server default. ▶ Test plays a
-        short sample (uses a few ElevenLabs credits); a failed Test reverts to your
-        last working voice.
+        short sample (uses a few credits) and says why if it fails — out of credits,
+        key rejected, or a bad voice ID. Only a bad voice ID reverts to your last
+        working voice.
       </p>
 
       {voices.length > 0 && (
