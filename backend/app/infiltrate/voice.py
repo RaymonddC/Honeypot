@@ -795,3 +795,34 @@ async def list_elevenlabs_voices(settings: "Settings | None" = None) -> list[dic
             {"id": v["voice_id"], "name": v.get("name", "")}
             for v in resp.json().get("voices", [])
         ]
+
+
+async def check_elevenlabs_voice(
+    voice_id: str, settings: "Settings | None" = None
+) -> dict:
+    """Validate one ElevenLabs voice ID via a minimal synthesis.
+
+    Uses the **Text-to-Speech** scope (the same call the honeypot makes), not
+    the Voices-list endpoint — so it works even with a key restricted to TTS,
+    and it tests the exact path a live call uses. Returns
+    ``{ok: bool, status?: int, error?: str}``; the key is only ever sent as the
+    ``xi-api-key`` header. A tiny one-word ``text`` keeps the credit cost low."""
+    settings = settings or get_settings()
+    if not settings.elevenlabs_api_key:
+        return {"ok": False, "error": "no_key"}
+    try:
+        async with httpx.AsyncClient(timeout=_TTS_TIMEOUT_SECONDS) as client:
+            resp = await client.post(
+                f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+                params={"output_format": "mp3_44100_128"},
+                headers={
+                    "xi-api-key": settings.elevenlabs_api_key,
+                    "accept": "audio/mpeg",
+                },
+                json={"text": "tes", "model_id": settings.elevenlabs_model},
+            )
+        if resp.is_success:
+            return {"ok": True}
+        return {"ok": False, "status": resp.status_code, "error": f"http_{resp.status_code}"}
+    except httpx.HTTPError as exc:
+        return {"ok": False, "error": f"transport:{type(exc).__name__}"}

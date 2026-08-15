@@ -47,6 +47,7 @@ from app.infiltrate.service import (
 from app.infiltrate.voice import (
     TTSAdapter,
     VoiceMarkOut,
+    check_elevenlabs_voice,
     estimate_duration,
     list_elevenlabs_voices,
     resolve_tts_adapter,
@@ -101,6 +102,26 @@ async def get_tts_voices(
     except httpx.HTTPError as exc:
         # bad key / ElevenLabs down — surface a short reason, never the key
         return TtsVoicesOut(configured=True, error=f"lookup_failed: {type(exc).__name__}")
+
+
+class TtsVoiceCheckOut(BaseModel):
+    voice_id: str
+    ok: bool
+    status: int | None = None
+    error: str | None = None  # no_key | http_401 | http_404 | http_422 | transport:<Type>
+
+
+@router.get("/tts/voice-check", response_model=TtsVoiceCheckOut)
+async def get_tts_voice_check(
+    voice_id: str = Query(..., min_length=1),
+    _auth: AuthContext = Depends(get_current_user),  # Control Panel is post-login
+) -> TtsVoiceCheckOut:
+    """Validate one ElevenLabs voice ID by a tiny **test synthesis** — uses the
+    Text-to-Speech scope (the exact call a honeypot line makes), so it works
+    even with a key restricted to TTS (unlike GET /tts/voices, which needs the
+    Voices-read scope). The key never leaves the server."""
+    res = await check_elevenlabs_voice(voice_id)
+    return TtsVoiceCheckOut(voice_id=voice_id, **res)
 
 
 @router.get("/personas", response_model=list[PersonaOut])

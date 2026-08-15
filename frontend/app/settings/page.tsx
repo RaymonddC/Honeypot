@@ -21,7 +21,12 @@ import {
   type SttSourceSetting,
   type VoiceProviderSetting,
 } from "@/lib/settings";
-import { fetchElevenLabsVoices, type VoicesResult } from "@/lib/honeypot/voices";
+import {
+  checkElevenLabsVoice,
+  fetchElevenLabsVoices,
+  type VoiceCheckResult,
+  type VoicesResult,
+} from "@/lib/honeypot/voices";
 
 const VOICE_PROVIDER_COPY: Record<
   VoiceProviderSetting,
@@ -151,6 +156,20 @@ function SegmentedControl<T extends string>({
 const VOICE_INPUT_CLS =
   "h-8 rounded-lg border border-line bg-elevated px-3 font-mono text-[11px] text-fg outline-none transition-colors focus:border-accent/40";
 
+function describeVoiceCheck(res: VoiceCheckResult): { ok: boolean; label: string } {
+  if (res.ok) return { ok: true, label: "✓ valid — plays" };
+  if (res.error === "no_key")
+    return { ok: false, label: "no ElevenLabs key set on the server" };
+  const s = res.status;
+  if (s === 401 || res.error === "http_401")
+    return { ok: false, label: "✗ key rejected — check API key" };
+  if (s === 404 || s === 422 || res.error === "http_404" || res.error === "http_422")
+    return { ok: false, label: "✗ not a usable voice ID (not in your library)" };
+  if (res.error?.startsWith("http_"))
+    return { ok: false, label: `✗ ElevenLabs error (${s ?? res.error})` };
+  return { ok: false, label: "✗ couldn't reach ElevenLabs / backend" };
+}
+
 function AdvancedVoice({
   settings,
   update,
@@ -159,27 +178,40 @@ function AdvancedVoice({
   update: (patch: Partial<ClientSettings>) => void;
 }) {
   const [checking, setChecking] = useState(false);
-  const [result, setResult] = useState<VoicesResult | null>(null);
+  const [listResult, setListResult] = useState<VoicesResult | null>(null);
+  // Test-synth results keyed by voice id (persona/scammer may share one).
+  const [synthResults, setSynthResults] = useState<Record<string, VoiceCheckResult>>({});
 
   const runCheck = async () => {
     setChecking(true);
     try {
-      setResult(await fetchElevenLabsVoices());
+      // Best-effort listing for the autocomplete datalist — harmless if the key
+      // lacks the Voices-read scope; the button's real check is the test-synth.
+      setListResult(await fetchElevenLabsVoices());
+
+      const ids = Array.from(
+        new Set(
+          [settings.ttsVoicePersona, settings.ttsVoiceScammer]
+            .map((v) => v.trim())
+            .filter(Boolean),
+        ),
+      );
+      const entries = await Promise.all(
+        ids.map(async (id) => [id, await checkElevenLabsVoice(id)] as const),
+      );
+      setSynthResults(Object.fromEntries(entries));
     } finally {
       setChecking(false);
     }
   };
 
   const listId = "el-voice-ids";
-  const voices = result?.voices ?? [];
+  const voices = listResult?.voices ?? [];
 
-  // Per-field validity: only meaningful once a check succeeded and the id is non-empty.
+  // Per-field validity from the test-synth (works with a TTS-scoped key).
   const fieldStatus = (id: string): { ok: boolean; label: string } | null => {
-    if (!id || !result || !result.configured || result.error) return null;
-    const match = voices.find((v) => v.id === id);
-    return match
-      ? { ok: true, label: `✓ ${match.name}` }
-      : { ok: false, label: "✗ not in your library" };
+    const res = synthResults[id.trim()];
+    return id.trim() && res ? describeVoiceCheck(res) : null;
   };
 
   const VoiceField = ({
@@ -277,28 +309,18 @@ function AdvancedVoice({
         />
       </div>
 
-      <div className="mt-2.5 flex items-center gap-2.5">
+      <div className="mt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
         <button
           type="button"
           onClick={runCheck}
           disabled={checking}
           className="h-7 rounded-lg border border-line bg-elevated px-3 text-[11px] font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-60"
         >
-          {checking ? "Checking…" : "Check voices"}
+          {checking ? "Testing…" : "Test voices"}
         </button>
-        {result && (
-          <span className="text-[10.5px] text-muted">
-            {!result.configured ? (
-              "No ElevenLabs key set on the server"
-            ) : result.error ? (
-              <span className="text-risk-high">
-                Couldn&apos;t reach ElevenLabs (check the key)
-              </span>
-            ) : (
-              `${result.voices.length} voices available`
-            )}
-          </span>
-        )}
+        <span className="text-[10px] text-muted">
+          Plays a 1-word sample to verify each voice — uses a few ElevenLabs credits.
+        </span>
       </div>
     </div>
   );

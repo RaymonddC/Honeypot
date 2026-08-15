@@ -40,3 +40,30 @@ export async function fetchElevenLabsVoices(): Promise<VoicesResult> {
     return { configured: false, voices: [], error: "unreachable" };
   }
 }
+
+export interface VoiceCheckResult {
+  ok: boolean;
+  status?: number;
+  /** no_key | http_401 | http_404 | http_422 | transport:<Type> | unreachable */
+  error?: string;
+}
+
+/**
+ * Validate ONE voice ID by a tiny backend test-synth (GET /api/tts/voice-check).
+ * Uses the Text-to-Speech scope the call itself uses, so it works even with a
+ * key restricted to TTS (unlike listing voices). The key stays server-side.
+ */
+export async function checkElevenLabsVoice(voiceId: string): Promise<VoiceCheckResult> {
+  try {
+    const res = await apiFetch(`/tts/voice-check?voice_id=${encodeURIComponent(voiceId)}`);
+    if (!res.ok) return { ok: false, status: res.status, error: `http_${res.status}` };
+    const data = (await res.json()) as VoiceCheckResult;
+    return {
+      ok: Boolean(data.ok),
+      status: data.status,
+      error: data.error,
+    };
+  } catch {
+    return { ok: false, error: "unreachable" };
+  }
+}

@@ -16,6 +16,7 @@ from app.infiltrate.voice import (
     GeminiTTSAdapter,
     TTSResult,
     VoiceMarkTTSAdapter,
+    check_elevenlabs_voice,
     reset_audio_cache,
     list_elevenlabs_voices,
     resolve_tts_adapter,
@@ -357,3 +358,46 @@ def test_resolve_tts_adapter_routing():
     assert resolve_tts_adapter("nope", default=d) is d      # unknown → default
     browser = resolve_tts_adapter("browser", default=d)     # browser → fresh marks
     assert isinstance(browser, VoiceMarkTTSAdapter) and browser is not d
+
+
+# --------------------------------------------------------------------------- #
+# check_elevenlabs_voice — test-synth validation (works with a TTS-scoped key)
+# --------------------------------------------------------------------------- #
+
+
+class _FakeElevenHttpx:
+    status = 200
+
+    def __init__(self, *a, **k):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *a):
+        return None
+
+    async def post(self, url, **k):
+        return httpx.Response(
+            _FakeElevenHttpx.status, content=b"audio", request=httpx.Request("POST", url)
+        )
+
+
+async def test_check_elevenlabs_voice_ok(monkeypatch):
+    monkeypatch.setattr("app.infiltrate.voice.httpx.AsyncClient", _FakeElevenHttpx)
+    _FakeElevenHttpx.status = 200
+    assert await check_elevenlabs_voice("v1", Settings(elevenlabs_api_key="k")) == {"ok": True}
+
+
+async def test_check_elevenlabs_voice_bad_id(monkeypatch):
+    monkeypatch.setattr("app.infiltrate.voice.httpx.AsyncClient", _FakeElevenHttpx)
+    _FakeElevenHttpx.status = 404
+    res = await check_elevenlabs_voice("bad", Settings(elevenlabs_api_key="k"))
+    assert res == {"ok": False, "status": 404, "error": "http_404"}
+
+
+async def test_check_elevenlabs_voice_no_key():
+    assert await check_elevenlabs_voice("v1", Settings(elevenlabs_api_key="")) == {
+        "ok": False,
+        "error": "no_key",
+    }
