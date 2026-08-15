@@ -107,8 +107,10 @@ class Settings(BaseSettings):
     # for a live call than the slower eleven_multilingual_v2. Voice IDs are
     # per-account; override if the defaults aren't in your ElevenLabs library.
     elevenlabs_model: str = "eleven_flash_v2_5"             # ITTU_ELEVENLABS_MODEL
-    elevenlabs_voice_persona: str = "21m00Tcm4TlvDq8ikWAM"  # ITTU_ELEVENLABS_VOICE_PERSONA (Rachel)
-    elevenlabs_voice_scammer: str = "pNInz6obpgDQGcFmaJgB"  # ITTU_ELEVENLABS_VOICE_SCAMMER (Adam)
+    # Generic FALLBACK voice IDs — set your real per-account IDs in .env
+    # (ITTU_ELEVENLABS_VOICE_PERSONA / _SCAMMER), not here in code.
+    elevenlabs_voice_persona: str = "21m00Tcm4TlvDq8ikWAM"  # ITTU_ELEVENLABS_VOICE_PERSONA (fallback: Rachel)
+    elevenlabs_voice_scammer: str = "pNInz6obpgDQGcFmaJgB"  # ITTU_ELEVENLABS_VOICE_SCAMMER (fallback: Adam)
     google_tts_api_key: str = ""          # ITTU_GOOGLE_TTS_API_KEY
     # Gemini TTS (Google AI Studio) — generative, natural-language STYLE control
     # (the persona is prompted to sound like a confused, hesitant grandmother,
