@@ -95,7 +95,7 @@ async def test_synthesize_sends_output_format_and_voice_settings(monkeypatch):
     await adapter.synthesize("hi", voice="persona")
     call = _FakeAsyncClient.calls[0]
     assert call["params"] == {"output_format": "mp3_44100_128"}
-    assert call["json"]["model_id"] == "eleven_multilingual_v2"
+    assert call["json"]["model_id"] == "eleven_flash_v2_5"
     assert "voice_settings" in call["json"]
     assert "stability" in call["json"]["voice_settings"]
     assert "similarity_boost" in call["json"]["voice_settings"]
