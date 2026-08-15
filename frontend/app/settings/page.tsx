@@ -234,10 +234,10 @@ function AdvancedVoice({
       setResults((s) => ({ ...s, [role]: r }));
       if (r.ok) {
         lastGood.current[role] = voiceId; // this ID works — the new revert target
-      } else if (r.status === 404 || r.status === 422) {
-        // Only a genuine bad-voice error reverts. Quota (402) / key (401) /
-        // network errors aren't the voice's fault — keep the ID and let the
-        // label say why (out of credits / key rejected / unreachable).
+      } else {
+        // Any failure reverts to the last working voice; the label (kept below)
+        // says exactly why — out of credits / key rejected / not a usable ID /
+        // unreachable — so the user knows whether it's the voice or the account.
         onChange(lastGood.current[role] ?? "");
       }
     } finally {
@@ -257,7 +257,9 @@ function AdvancedVoice({
     onChange: (v: string) => void,
   ) => {
     const res = results[role];
-    const st = value.trim() && res ? describeVoiceCheck(res) : null;
+    // Always show a Test result (even after reverting to the blank default) so
+    // the reason for a failure/revert stays visible until the user edits again.
+    const st = res ? describeVoiceCheck(res) : null;
     const busy = testing[role];
     return (
       <label key={role} className="grid gap-1">
@@ -319,9 +321,8 @@ function AdvancedVoice({
       </div>
       <p className="mb-2.5 text-[10.5px] text-muted">
         Per-request overrides — no restart. Blank = the server default. ▶ Test plays a
-        short sample (uses a few credits) and says why if it fails — out of credits,
-        key rejected, or a bad voice ID. Only a bad voice ID reverts to your last
-        working voice.
+        short sample (uses a few credits). Any failed Test reverts to your last working
+        voice and says why — out of credits, key rejected, or a bad voice ID.
       </p>
 
       {voices.length > 0 && (
@@ -425,6 +426,9 @@ function VoiceComboField({
         void audio.play().catch(() => URL.revokeObjectURL(url));
       }
       setRes(r);
+      // Any failed Test reverts to the last committed voice; the reason (kept in
+      // the label below) tells the user why — quota / key / voice not available.
+      if (!r.ok) setDraft(value);
     } finally {
       setBusy(false);
     }
