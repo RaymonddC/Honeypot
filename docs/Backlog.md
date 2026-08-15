@@ -36,6 +36,16 @@ on the Response dashboard). **282 backend tests green**, frontend build green.
       admin audit view over the existing custody hash-chain + `core.audit_log` (who did what, when —
       logins, dispatches, entity reviews, config changes). Foundations already exist (message/doc
       SHA-256 chain, `action_bundle.audit`, `core.audit_log`); this is exposing + extending them.
+- [ ] **`alembic check` drift reconciliation** · S–M · *parked 2026-08-15* — enable the model↔migration
+      autogenerate check as a CI guard. Blocked by pre-existing drift it surfaces: casedata index/FK
+      naming, `wallet_risk_scores.wallet_id` nullability, a `messages` unique constraint. Runtime drift
+      guard (fail-loud at boot) + single-head/apply-to-head CI tests already shipped; this is the last leg.
+- [ ] **Qwen TTS provider** · S · *researched & skipped 2026-08-16, optional* — only the **hosted
+      Qwen-Audio-3.0-TTS-Flash** (DashScope) has Indonesian; the open-source Qwen3-TTS does not. Cheap
+      (~$0.013/1K chars) + expressive/voice-cloning, but "free" is a **90-day trial**, not ongoing (Google
+      TTS stays free monthly), needs a new **Alibaba DashScope key**, and Alibaba Cloud is a data-governance
+      flag for LIVE forensics. Doesn't fill a gap (Google/Gemini/ElevenLabs already wired). Wire as a
+      flip-to-LIVE adapter (`ITTU_QWEN_API_KEY`) only if its voices are wanted.
 
 ## 🔒 Gated — blocked on external approval (start the conversations now, don't build yet)
 - [ ] **A2 — Telegram channel** · M · **Polri** authorization
