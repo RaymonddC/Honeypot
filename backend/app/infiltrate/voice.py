@@ -623,6 +623,27 @@ class GeminiTTSAdapter:
                 "configured. Set ITTU_GEMINI_API_KEY (a Google AI Studio key), "
                 "or set ITTU_TTS_PROVIDER=browser for the keyless POC voice."
             )
+        # Normalize + validate the model name early so operators get a clear
+        # message rather than the API's "unexpected model name format" 400.
+        # Accept EITHER a bare model id ("gemini-2.5-flash-preview-tts") or a
+        # "models/..."-prefixed resource name; we strip the prefix because the
+        # request URL below already includes "/models/" (keeping it would send
+        # ".../models/models/..." → 404). The only hard error is an empty value
+        # or the human display name (which contains spaces).
+        model = str(self._model or "").strip()
+        if model.startswith("models/"):
+            model = model[len("models/"):]
+        if not model or " " in model:
+            raise NotImplementedError(
+                "LIVE GeminiTTSAdapter requires ITTU_GEMINI_TTS_MODEL to be a\n"
+                "Gemini TTS model id. Only the *-tts preview models return audio:\n"
+                "  ITTU_GEMINI_TTS_MODEL=gemini-2.5-flash-preview-tts   (default)\n"
+                "  ITTU_GEMINI_TTS_MODEL=gemini-2.5-pro-preview-tts\n"
+                "Do NOT use a text model (e.g. 'gemini-2.5-flash') or the display\n"
+                "name 'Gemini 2.5 Flash Native Audio Dialog'.\n"
+                f"Current value: {self._model!r}"
+            )
+        self._model = model
 
     async def synthesize(self, text: str, voice: str = "persona") -> TTSResult:
         voice_name = self._VOICE_NAMES.get(voice, self._VOICE_NAMES["persona"])

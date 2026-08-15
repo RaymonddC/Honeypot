@@ -67,6 +67,9 @@ _VOICE_OVERRIDE_FIELDS: dict[str, dict[str, str]] = {
         "voice_persona": "elevenlabs_voice_persona",
         "voice_scammer": "elevenlabs_voice_scammer",
     },
+    "gemini": {
+        "model": "gemini_tts_model",
+    },
 }
 
 
@@ -282,6 +285,20 @@ async def get_session_audio(
         for param, field in _VOICE_OVERRIDE_FIELDS.get((provider or "").strip().lower(), {}).items():
             if _values[param]:
                 overrides[field] = _values[param]
+        # Defensive: if an operator accidentally passes an ElevenLabs model id
+        # (e.g. "eleven_flash_v2_5") to Gemini via the Control Panel `model=`
+        # query param, that's invalid for Gemini and will produce a 404/400.
+        # Drop obviously-ElevenLabs values rather than forwarding them to the
+        # Gemini adapter; the call proceeds on the configured Gemini model. Any
+        # other value is passed through — the adapter normalizes/validates it
+        # (accepts bare "gemini-2.5-flash-preview-tts" or a "models/…" form).
+        if (provider or "").strip().lower() == "gemini" and overrides.get("gemini_tts_model"):
+            val = overrides["gemini_tts_model"]
+            if val.lower().startswith("eleven"):
+                logger.warning(
+                    "Ignoring ElevenLabs model override %r for provider=gemini", val
+                )
+                overrides.pop("gemini_tts_model", None)
         adapter = resolve_tts_adapter(provider, default=tts, overrides=overrides or None)
         result = await synthesize_line(adapter, message.content, voice=speaker)
     except Exception as exc:  # noqa: BLE001 — never let a TTS outage break the call
