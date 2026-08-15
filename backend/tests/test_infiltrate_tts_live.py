@@ -17,6 +17,7 @@ from app.infiltrate.voice import (
     TTSResult,
     VoiceMarkTTSAdapter,
     reset_audio_cache,
+    list_elevenlabs_voices,
     resolve_tts_adapter,
     select_live_tts_adapter,
     synthesize_line,
@@ -200,6 +201,37 @@ def test_elevenlabs_reads_model_and_voices_from_settings():
     )
     assert a._model == "eleven_flash_v2_5"
     assert a._voice_ids == {"persona": "Voice-P", "scammer": "Voice-S"}
+
+
+class _FakeVoicesHttpx:
+    def __init__(self, *a, **k):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *a):
+        return None
+
+    async def get(self, url, headers=None, **k):
+        return httpx.Response(
+            200,
+            json={"voices": [
+                {"voice_id": "v1", "name": "Rachel"},
+                {"voice_id": "v2", "name": "Adam"},
+            ]},
+            request=httpx.Request("GET", url),
+        )
+
+
+async def test_list_elevenlabs_voices_maps_id_and_name(monkeypatch):
+    monkeypatch.setattr("app.infiltrate.voice.httpx.AsyncClient", _FakeVoicesHttpx)
+    voices = await list_elevenlabs_voices(Settings(elevenlabs_api_key="k"))
+    assert voices == [{"id": "v1", "name": "Rachel"}, {"id": "v2", "name": "Adam"}]
+
+
+async def test_list_elevenlabs_voices_empty_without_key():
+    assert await list_elevenlabs_voices(Settings(elevenlabs_api_key="")) == []
 
 
 def test_audio_endpoint_applies_voice_overrides(monkeypatch):

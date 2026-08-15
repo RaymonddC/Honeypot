@@ -773,3 +773,25 @@ async def synthesize_line(tts: TTSAdapter, text: str, voice: str = "persona") ->
         while len(_AUDIO_CACHE) > _AUDIO_CACHE_CAP:
             _AUDIO_CACHE.popitem(last=False)
     return result
+
+
+async def list_elevenlabs_voices(settings: "Settings | None" = None) -> list[dict[str, str]]:
+    """The voices the configured ElevenLabs key can synthesize (id + name).
+
+    Empty if no key. Raises ``httpx.HTTPError`` on a transport/auth failure —
+    the caller decides how to surface it. The key is only ever sent as the
+    ``xi-api-key`` header, never returned. Powers the Control Panel's
+    "Check voices" button (catch a bad voice ID before a call)."""
+    settings = settings or get_settings()
+    if not settings.elevenlabs_api_key:
+        return []
+    async with httpx.AsyncClient(timeout=_TTS_TIMEOUT_SECONDS) as client:
+        resp = await client.get(
+            "https://api.elevenlabs.io/v1/voices",
+            headers={"xi-api-key": settings.elevenlabs_api_key},
+        )
+        resp.raise_for_status()
+        return [
+            {"id": v["voice_id"], "name": v.get("name", "")}
+            for v in resp.json().get("voices", [])
+        ]

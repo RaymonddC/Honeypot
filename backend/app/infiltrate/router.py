@@ -19,10 +19,12 @@ mirrors P1–P3). LIVE channel/LLM adapters fail loudly — never silent network
 import logging
 from typing import Literal
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel
 
 from app.core.auth import AuthContext, get_current_user
+from app.core.config import get_settings
 from app.infiltrate import service
 from app.infiltrate.channels import ChannelAdapter
 from app.infiltrate.gateway import LLMGateway
@@ -46,6 +48,7 @@ from app.infiltrate.voice import (
     TTSAdapter,
     VoiceMarkOut,
     estimate_duration,
+    list_elevenlabs_voices,
     resolve_tts_adapter,
     synthesize_line,
 )
@@ -74,6 +77,30 @@ def _not_found(kind: str, item_id: str) -> HTTPException:
 
 class ReviewRequest(BaseModel):
     status: Literal["unverified", "confirmed", "rejected", "poisoned"]
+
+
+class TtsVoicesOut(BaseModel):
+    provider: str = "elevenlabs"
+    configured: bool          # is an ElevenLabs key set server-side
+    voices: list[dict] = []   # [{id, name}] the key can synthesize
+    error: str | None = None  # short reason if the lookup failed
+
+
+@router.get("/tts/voices", response_model=TtsVoicesOut)
+async def get_tts_voices(
+    _auth: AuthContext = Depends(get_current_user),  # Control Panel is post-login
+) -> TtsVoicesOut:
+    """List the voices the server's ElevenLabs key can synthesize (id + name),
+    so the Control Panel can flag a bad voice ID before a call. The key never
+    leaves the server — only voice id/name reach the browser."""
+    settings = get_settings()
+    if not settings.elevenlabs_api_key:
+        return TtsVoicesOut(configured=False)
+    try:
+        return TtsVoicesOut(configured=True, voices=await list_elevenlabs_voices(settings))
+    except httpx.HTTPError as exc:
+        # bad key / ElevenLabs down — surface a short reason, never the key
+        return TtsVoicesOut(configured=True, error=f"lookup_failed: {type(exc).__name__}")
 
 
 @router.get("/personas", response_model=list[PersonaOut])

@@ -17,9 +17,11 @@ import {
   useSettings,
   type BackendConfigStatus,
   type CallModeSetting,
+  type ClientSettings,
   type SttSourceSetting,
   type VoiceProviderSetting,
 } from "@/lib/settings";
+import { fetchElevenLabsVoices, type VoicesResult } from "@/lib/honeypot/voices";
 
 const VOICE_PROVIDER_COPY: Record<
   VoiceProviderSetting,
@@ -141,6 +143,164 @@ function SegmentedControl<T extends string>({
         })}
       </div>
     </fieldset>
+  );
+}
+
+/* ── Advanced voice (ElevenLabs) — overrides + "Check voices" ─────────────── */
+
+const VOICE_INPUT_CLS =
+  "h-8 rounded-lg border border-line bg-elevated px-3 font-mono text-[11px] text-fg outline-none transition-colors focus:border-accent/40";
+
+function AdvancedVoice({
+  settings,
+  update,
+}: {
+  settings: ClientSettings;
+  update: (patch: Partial<ClientSettings>) => void;
+}) {
+  const [checking, setChecking] = useState(false);
+  const [result, setResult] = useState<VoicesResult | null>(null);
+
+  const runCheck = async () => {
+    setChecking(true);
+    try {
+      setResult(await fetchElevenLabsVoices());
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const listId = "el-voice-ids";
+  const voices = result?.voices ?? [];
+
+  // Per-field validity: only meaningful once a check succeeded and the id is non-empty.
+  const fieldStatus = (id: string): { ok: boolean; label: string } | null => {
+    if (!id || !result || !result.configured || result.error) return null;
+    const match = voices.find((v) => v.id === id);
+    return match
+      ? { ok: true, label: `✓ ${match.name}` }
+      : { ok: false, label: "✗ not in your library" };
+  };
+
+  const VoiceField = ({
+    label,
+    value,
+    onChange,
+  }: {
+    label: string;
+    value: string;
+    onChange: (v: string) => void;
+  }) => {
+    const st = fieldStatus(value);
+    return (
+      <label className="grid gap-1">
+        <span className="text-[11px] font-medium text-fg">{label}</span>
+        <input
+          type="text"
+          list={voices.length > 0 ? listId : undefined}
+          value={value}
+          placeholder="server default"
+          spellCheck={false}
+          onChange={(e) => onChange(e.target.value)}
+          className={VOICE_INPUT_CLS}
+        />
+        {st && (
+          <span
+            className={`text-[10px] ${st.ok ? "text-accent-bright" : "text-risk-high"}`}
+          >
+            {st.label}
+          </span>
+        )}
+      </label>
+    );
+  };
+
+  return (
+    <div className="border-t border-line pt-3.5">
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <div className="eyebrow">Advanced voice · ElevenLabs</div>
+        <div className="flex gap-3">
+          <a
+            href="https://elevenlabs.io/app/voices"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] text-accent-bright hover:underline"
+          >
+            Open Voices ↗
+          </a>
+          <a
+            href="https://elevenlabs.io/app/settings/api-keys"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] text-muted hover:underline"
+          >
+            Get API key ↗
+          </a>
+        </div>
+      </div>
+      <p className="mb-2.5 text-[10.5px] text-muted">
+        Per-request overrides — no restart. Blank = the server default; voice IDs
+        come from your ElevenLabs Voices page.
+      </p>
+
+      {voices.length > 0 && (
+        <datalist id={listId}>
+          {voices.map((v) => (
+            <option key={v.id} value={v.id}>
+              {v.name}
+            </option>
+          ))}
+        </datalist>
+      )}
+
+      <div className="grid gap-2.5">
+        <label className="grid gap-1">
+          <span className="text-[11px] font-medium text-fg">Model</span>
+          <input
+            type="text"
+            value={settings.ttsModel}
+            placeholder="eleven_flash_v2_5"
+            spellCheck={false}
+            onChange={(e) => update({ ttsModel: e.target.value })}
+            className={VOICE_INPUT_CLS}
+          />
+        </label>
+        <VoiceField
+          label="Persona voice ID"
+          value={settings.ttsVoicePersona}
+          onChange={(v) => update({ ttsVoicePersona: v })}
+        />
+        <VoiceField
+          label="Scammer voice ID"
+          value={settings.ttsVoiceScammer}
+          onChange={(v) => update({ ttsVoiceScammer: v })}
+        />
+      </div>
+
+      <div className="mt-2.5 flex items-center gap-2.5">
+        <button
+          type="button"
+          onClick={runCheck}
+          disabled={checking}
+          className="h-7 rounded-lg border border-line bg-elevated px-3 text-[11px] font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-60"
+        >
+          {checking ? "Checking…" : "Check voices"}
+        </button>
+        {result && (
+          <span className="text-[10.5px] text-muted">
+            {!result.configured ? (
+              "No ElevenLabs key set on the server"
+            ) : result.error ? (
+              <span className="text-risk-high">
+                Couldn&apos;t reach ElevenLabs (check the key)
+              </span>
+            ) : (
+              `${result.voices.length} voices available`
+            )}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -323,52 +483,7 @@ export default function SettingsPage() {
         />
 
         {settings.voiceProvider === "elevenlabs" && (
-          <div className="border-t border-line pt-3.5">
-            <div className="eyebrow mb-1">Advanced voice · ElevenLabs</div>
-            <p className="mb-2.5 text-[10.5px] text-muted">
-              Per-request overrides — no restart. Blank = the server default;
-              voice IDs come from your ElevenLabs Voices page.
-            </p>
-            <div className="grid gap-2.5">
-              <label className="grid gap-1">
-                <span className="text-[11px] font-medium text-fg">Model</span>
-                <input
-                  type="text"
-                  value={settings.ttsModel}
-                  placeholder="eleven_flash_v2_5"
-                  spellCheck={false}
-                  onChange={(e) => update({ ttsModel: e.target.value })}
-                  className="h-8 rounded-lg border border-line bg-elevated px-3 font-mono text-[11px] text-fg outline-none transition-colors focus:border-accent/40"
-                />
-              </label>
-              <label className="grid gap-1">
-                <span className="text-[11px] font-medium text-fg">
-                  Persona voice ID
-                </span>
-                <input
-                  type="text"
-                  value={settings.ttsVoicePersona}
-                  placeholder="server default"
-                  spellCheck={false}
-                  onChange={(e) => update({ ttsVoicePersona: e.target.value })}
-                  className="h-8 rounded-lg border border-line bg-elevated px-3 font-mono text-[11px] text-fg outline-none transition-colors focus:border-accent/40"
-                />
-              </label>
-              <label className="grid gap-1">
-                <span className="text-[11px] font-medium text-fg">
-                  Scammer voice ID
-                </span>
-                <input
-                  type="text"
-                  value={settings.ttsVoiceScammer}
-                  placeholder="server default"
-                  spellCheck={false}
-                  onChange={(e) => update({ ttsVoiceScammer: e.target.value })}
-                  className="h-8 rounded-lg border border-line bg-elevated px-3 font-mono text-[11px] text-fg outline-none transition-colors focus:border-accent/40"
-                />
-              </label>
-            </div>
-          </div>
+          <AdvancedVoice settings={settings} update={update} />
         )}
 
         <div className="flex items-center justify-between border-t border-line pt-3.5">
