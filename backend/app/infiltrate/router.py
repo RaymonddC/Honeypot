@@ -50,6 +50,7 @@ from app.infiltrate.voice import (
     VoiceMarkOut,
     check_elevenlabs_voice,
     check_gemini,
+    check_google,
     estimate_duration,
     list_elevenlabs_voices,
     resolve_tts_adapter,
@@ -72,6 +73,10 @@ _VOICE_OVERRIDE_FIELDS: dict[str, dict[str, str]] = {
         "model": "gemini_tts_model",
         "voice_persona": "gemini_voice_persona",
         "voice_scammer": "gemini_voice_scammer",
+    },
+    "google": {
+        "voice_persona": "google_tts_voice_persona",
+        "voice_scammer": "google_tts_voice_scammer",
     },
 }
 
@@ -184,6 +189,37 @@ async def get_tts_gemini_check(
     return JSONResponse(
         {
             "provider": "gemini",
+            "ok": False,
+            "status": res.get("status"),
+            "error": res.get("error"),
+        }
+    )
+
+
+@router.get("/tts/google-check")
+async def get_tts_google_check(
+    voice: str = Query("persona", description="persona|scammer — picks the sample line"),
+    voice_name: str = Query("", description="id-ID voice to test; blank = configured default"),
+    _auth: AuthContext = Depends(get_current_user),  # Control Panel is post-login
+) -> Response:
+    """Readiness check for Google Cloud TTS: run a short **test synthesis** in the
+    given voice and, on success, return the MP3 so the Control Panel PLAYS a
+    sample. ``voice_name`` tests a just-picked id-ID voice (blank = the role's
+    configured default). On failure, return JSON
+    ``{provider:'google', ok:false, status?, error?}`` — error is ``no_key`` /
+    ``http_400`` (bad voice/params) / ``http_403`` (key rejected or Text-to-Speech
+    API not enabled) / ``http_429`` (quota). The key stays server-side."""
+    text = _VOICE_SAMPLE.get(voice, "Halo, selamat siang, apa kabar?")
+    res = await check_google(voice=voice, text=text, voice_name=voice_name)
+    if res.get("ok") and res.get("audio"):
+        return Response(
+            content=res["audio"],
+            media_type="audio/mpeg",
+            headers={"X-Voice-Check": "ok", "Cache-Control": "no-store"},
+        )
+    return JSONResponse(
+        {
+            "provider": "google",
             "ok": False,
             "status": res.get("status"),
             "error": res.get("error"),

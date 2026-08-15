@@ -20,7 +20,7 @@
  */
 
 import { API_BASE, apiFetch } from "@/lib/http";
-import { isKnownGeminiVoice } from "@/lib/honeypot/voices";
+import { isKnownGeminiVoice, isKnownGoogleVoice } from "@/lib/honeypot/voices";
 import { getSettings, type VoiceProviderSetting } from "@/lib/settings";
 
 /* ── Contract ──────────────────────────────────────────────────────────── */
@@ -387,6 +387,15 @@ export function createVoiceProvider(sessionId: string): VoiceProvider {
         : undefined,
       voiceScammer: isKnownGeminiVoice(s.geminiVoiceScammer)
         ? s.geminiVoiceScammer
+        : undefined,
+    };
+  } else if (provider === "google") {
+    overrides = {
+      voicePersona: isKnownGoogleVoice(s.googleVoicePersona)
+        ? s.googleVoicePersona
+        : undefined,
+      voiceScammer: isKnownGoogleVoice(s.googleVoiceScammer)
+        ? s.googleVoiceScammer
         : undefined,
     };
   }

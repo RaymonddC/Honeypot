@@ -57,6 +57,10 @@ export interface ClientSettings {
   // Charon). "" = use the server default. Sent only when provider is gemini.
   geminiVoicePersona: string;
   geminiVoiceScammer: string;
+  // Advanced voice (Google) — per-role id-ID voice (e.g. id-ID-Wavenet-A).
+  // "" = use the server default. Sent only when provider is google.
+  googleVoicePersona: string;
+  googleVoiceScammer: string;
 }
 
 const STORAGE_KEY = "ittu.settings";
@@ -88,6 +92,8 @@ export function envDefaults(): ClientSettings {
     ttsVoiceScammer: "",
     geminiVoicePersona: "",
     geminiVoiceScammer: "",
+    googleVoicePersona: "",
+    googleVoiceScammer: "",
   };
 }
 
@@ -136,6 +142,14 @@ export function getSettings(): ClientSettings {
         typeof s.geminiVoiceScammer === "string"
           ? s.geminiVoiceScammer
           : d.geminiVoiceScammer,
+      googleVoicePersona:
+        typeof s.googleVoicePersona === "string"
+          ? s.googleVoicePersona
+          : d.googleVoicePersona,
+      googleVoiceScammer:
+        typeof s.googleVoiceScammer === "string"
+          ? s.googleVoiceScammer
+          : d.googleVoiceScammer,
     };
   }
   return cache;

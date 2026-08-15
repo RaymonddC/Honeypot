@@ -23,10 +23,13 @@ import {
 } from "@/lib/settings";
 import {
   GEMINI_VOICES,
+  GOOGLE_VOICES,
   checkElevenLabsVoice,
   checkGemini,
+  checkGoogle,
   fetchElevenLabsVoices,
   isKnownGeminiVoice,
+  isKnownGoogleVoice,
   type VoiceCheckResult,
   type VoicesResult,
 } from "@/lib/honeypot/voices";
@@ -482,6 +485,141 @@ function AdvancedGemini({
   );
 }
 
+/* ── Advanced voice (Google) — per-role voice picker + "Test" ────────────── */
+
+function describeGoogleCheck(res: VoiceCheckResult): { ok: boolean; label: string } {
+  if (res.ok) return { ok: true, label: "✓ ready — playing sample…" };
+  if (res.error === "no_key")
+    return { ok: false, label: "no Google TTS key set on the server" };
+  const s = res.status;
+  if (s === 403 || res.error === "http_403")
+    return { ok: false, label: "✗ key rejected / Text-to-Speech API not enabled" };
+  if (s === 429 || res.error === "http_429")
+    return { ok: false, label: "✗ quota exceeded" };
+  if (s === 400 || res.error === "http_400")
+    return { ok: false, label: "✗ bad request (voice not available for id-ID)" };
+  if (res.error?.startsWith("http_"))
+    return { ok: false, label: `✗ Google error (${s ?? res.error})` };
+  return { ok: false, label: "✗ couldn't reach Google / backend" };
+}
+
+function AdvancedGoogle({
+  settings,
+  update,
+}: {
+  settings: ClientSettings;
+  update: (patch: Partial<ClientSettings>) => void;
+}) {
+  type Role = "persona" | "scammer";
+  const [results, setResults] = useState<Record<Role, VoiceCheckResult | null>>({
+    persona: null,
+    scammer: null,
+  });
+  const [testing, setTesting] = useState<Record<Role, boolean>>({
+    persona: false,
+    scammer: false,
+  });
+
+  const testVoice = async (role: Role, voiceName: string) => {
+    setTesting((t) => ({ ...t, [role]: true }));
+    try {
+      const r = await checkGoogle(role, voiceName.trim());
+      if (r.audioBlob) {
+        const url = URL.createObjectURL(r.audioBlob);
+        const audio = new Audio(url);
+        audio.onended = () => URL.revokeObjectURL(url);
+        void audio.play().catch(() => URL.revokeObjectURL(url));
+      }
+      setResults((s) => ({ ...s, [role]: r }));
+    } finally {
+      setTesting((t) => ({ ...t, [role]: false }));
+    }
+  };
+
+  const renderVoiceRow = (
+    role: Role,
+    label: string,
+    fallback: string,
+    value: string,
+    onChange: (v: string) => void,
+  ) => {
+    const res = results[role];
+    const st = res ? describeGoogleCheck(res) : null;
+    const busy = testing[role];
+    const selected = isKnownGoogleVoice(value) ? value : "";
+    return (
+      <label key={role} className="grid gap-1">
+        <span className="text-[11px] font-medium text-fg">{label}</span>
+        <div className="flex gap-2">
+          <select
+            value={selected}
+            onChange={(e) => onChange(e.target.value)}
+            className="h-8 flex-1 rounded-lg border border-line bg-elevated px-2.5 text-[11px] text-fg outline-none transition-colors focus:border-accent/40"
+          >
+            <option value="">Server default · {fallback}</option>
+            {GOOGLE_VOICES.map((v) => (
+              <option key={v.name} value={v.name}>
+                {v.name} · {v.tone}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => void testVoice(role, selected)}
+            disabled={busy}
+            title="Play a short sample in this voice (checks key + quota)"
+            className="h-8 shrink-0 rounded-lg border border-line bg-elevated px-2.5 text-[11px] font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-50"
+          >
+            {busy ? "…" : "▶ Test"}
+          </button>
+        </div>
+        {st && (
+          <span className={`text-[10px] ${st.ok ? "text-accent-bright" : "text-risk-high"}`}>
+            {st.label}
+          </span>
+        )}
+      </label>
+    );
+  };
+
+  return (
+    <div className="border-t border-line pt-3.5">
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <div className="eyebrow">Advanced voice · Google</div>
+        <a
+          href="https://cloud.google.com/text-to-speech/docs/voices"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[10px] text-accent-bright hover:underline"
+        >
+          Voice list ↗
+        </a>
+      </div>
+      <p className="mb-2.5 text-[10.5px] text-muted">
+        Per-request overrides — no restart. Flat WaveNet id-ID voices (no style
+        control). ▶ Test plays a sample; ~1M chars/month free.
+      </p>
+
+      <div className="grid gap-2.5">
+        {renderVoiceRow(
+          "persona",
+          "Persona voice",
+          "id-ID-Wavenet-A",
+          settings.googleVoicePersona,
+          (v) => update({ googleVoicePersona: v }),
+        )}
+        {renderVoiceRow(
+          "scammer",
+          "Scammer voice",
+          "id-ID-Wavenet-B",
+          settings.googleVoiceScammer,
+          (v) => update({ googleVoiceScammer: v }),
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ── Backend status (read-only) ──────────────────────────────────────────── */
 
 function ModeChip({ mode }: { mode: "POC" | "LIVE" }) {
@@ -665,6 +803,9 @@ export default function SettingsPage() {
         )}
         {settings.voiceProvider === "gemini" && (
           <AdvancedGemini settings={settings} update={update} />
+        )}
+        {settings.voiceProvider === "google" && (
+          <AdvancedGoogle settings={settings} update={update} />
         )}
 
         <div className="flex items-center justify-between border-t border-line pt-3.5">
