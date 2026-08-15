@@ -6,9 +6,11 @@ GET  /api/auth/me                                     → {user, agency, role}
 GET  /api/config                                      → effective MODE per module
                                                         + registered adapters
 
-Which login path is enabled is decided by ``effective_mode("auth")`` — the same
-MODE machinery as every other boundary. POC is the safe default; the Google
-path fails closed when the module is POC (never a silent fallthrough).
+Demo (mock) login is POC-only. Google login works in **either** mode once
+``ITTU_GOOGLE_CLIENT_ID`` is set (the id_token audience is always verified): in
+POC a verified account that isn't seeded/allowlisted gets a default demo
+identity; in LIVE it's provisioned-only (fail closed). ``effective_mode("auth")``
+is the same MODE machinery as every other boundary.
 """
 
 from typing import Literal
@@ -221,19 +223,30 @@ async def post_google_login(
     body: GoogleLoginRequest,
     repo: UserRepository = Depends(get_user_repository),
 ) -> TokenResponse:
-    """LIVE login: verify a Google OAuth ``id_token`` → mint our JWT.
+    """Google login: verify a Google OAuth ``id_token`` → mint our JWT.
 
-    Fails closed in POC (403); 501 when google-auth isn't installed (stub).
-    Users must be provisioned (seeded/registered) — no self-service signup.
-    User lookup/refresh goes through ``UserRepository`` (P-4b) — same
-    memory/Postgres toggle as the demo path.
+    Available in **either** MODE once ``ITTU_GOOGLE_CLIENT_ID`` is set (the
+    id_token audience is always verified). Provisioning differs by mode: in
+    **POC** a verified account that isn't seeded/allowlisted gets a default demo
+    identity (Bareskrim / police-investigator) — no more open than mock login,
+    and on fake POC data; in **LIVE** it fails closed (provisioned-only). An
+    ``ITTU_OAUTH_PROVISION`` allowlist entry is honored in both modes. 501 when
+    google-auth isn't installed (stub). Lookup/refresh goes through
+    ``UserRepository`` (P-4b) — same memory/Postgres toggle as the demo path.
     """
-    if _auth_mode() != "live":
+    settings = get_settings()
+    if not settings.google_client_id:
+        # Never verify a token without our expected audience: passing
+        # audience=None makes google-auth SKIP the aud check, so an id_token
+        # minted for ANY other OAuth client would verify. Fail loud (403) —
+        # Google login simply isn't configured (applies to POC and LIVE alike).
         raise HTTPException(
             status_code=403,
             detail={
-                "code": "google_login_disabled",
-                "message": "Google OAuth is the LIVE path; set module mode auth=live",
+                "code": "google_login_unavailable",
+                "message": "Google login is not configured — set ITTU_GOOGLE_CLIENT_ID "
+                "(the id_token audience cannot be verified without it). "
+                "Works in POC and LIVE once configured.",
             },
         )
 
@@ -245,24 +258,10 @@ async def post_google_login(
             status_code=501,
             detail={
                 "code": "google_auth_unavailable",
-                "message": "google-auth is not installed; LIVE Google login is stubbed",
+                "message": "google-auth is not installed; Google login is stubbed",
             },
         )
 
-    settings = get_settings()
-    if not settings.google_client_id:
-        # Fail loud (Adapter-MODE principle #3, docs/Security-Evidence.md): passing
-        # audience=None makes google-auth SKIP the aud check, so an id_token minted
-        # for ANY other OAuth client would verify and be accepted for a provisioned
-        # email. Never verify a token without our expected audience.
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "code": "google_client_id_unset",
-                "message": "ITTU_GOOGLE_CLIENT_ID is required for LIVE Google login "
-                "(the id_token audience cannot be verified without it)",
-            },
-        )
     try:
         info = google_id_token.verify_oauth2_token(
             body.id_token, google_requests.Request(), settings.google_client_id
@@ -276,18 +275,30 @@ async def post_google_login(
     email = info.get("email", "")
     user = await repo.find_by_email(email)
     if user is None:
-        # Not a seeded user — allow ONLY if an operator listed this email in
-        # ITTU_OAUTH_PROVISION (still no self-service signup; the allowlist IS
-        # the provisioning act). First login materializes the row below.
+        # Operator-allowlisted email (ITTU_OAUTH_PROVISION) → that agency/role;
+        # honored in both modes. First login materializes the row below.
         user = _provisioned_from_allowlist(email, settings)
     if user is None:
-        raise HTTPException(
-            status_code=403,
-            detail={
-                "code": "user_not_provisioned",
-                "message": f"{email} is not provisioned for any agency",
-            },
-        )
+        if _auth_mode() == "poc":
+            # POC demo: any Google-verified account gets a default demo identity
+            # (fake data, memory-mode — safe, no more open than mock login).
+            agency = find_agency("bareskrim")
+            user = SeedUser(
+                id=_user_id(email),
+                agency_id=agency.id,
+                email=email,
+                name=info.get("name") or email,
+                role=DEFAULT_ROLE_BY_AGENCY_TYPE[agency.type],
+            )
+        else:
+            # LIVE stays strict — provisioned users only, fail closed.
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "code": "user_not_provisioned",
+                    "message": f"{email} is not provisioned for any agency",
+                },
+            )
     # Refresh name from Google profile; keep provisioned agency + role. This
     # upsert also creates the row on an allowlisted user's first login.
     user = await repo.upsert(

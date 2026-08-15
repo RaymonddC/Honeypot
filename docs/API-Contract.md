@@ -15,7 +15,7 @@
 
 ## Auth & identity
 ```
-POST /auth/google        {id_token}          → {jwt, user}         # Google OAuth → our JWT
+POST /auth/google        {id_token}          → {jwt, user}         # Google OAuth → our JWT; POC+LIVE when ITTU_GOOGLE_CLIENT_ID set (POC → default demo identity, LIVE → provisioned-only)
 GET  /auth/me                                 → {user, agency, role}
 ```
 

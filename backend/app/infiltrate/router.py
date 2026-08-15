@@ -16,12 +16,16 @@ Endpoints compute in-memory from the offline replay adapter (POC pattern,
 mirrors P1–P3). LIVE channel/LLM adapters fail loudly — never silent network.
 """
 
+import logging
 from typing import Literal
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from app.core.auth import AuthContext, get_current_user
+from app.core.config import get_settings
 from app.infiltrate import service
 from app.infiltrate.channels import ChannelAdapter
 from app.infiltrate.gateway import LLMGateway
@@ -41,9 +45,29 @@ from app.infiltrate.service import (
     TurnOut,
     TurnRequest,
 )
-from app.infiltrate.voice import TTSAdapter, VoiceMarkOut
+from app.infiltrate.voice import (
+    TTSAdapter,
+    VoiceMarkOut,
+    check_elevenlabs_voice,
+    estimate_duration,
+    list_elevenlabs_voices,
+    resolve_tts_adapter,
+    synthesize_line,
+)
 
 router = APIRouter(tags=["infiltrate"])
+logger = logging.getLogger(__name__)
+
+# Per-request voice overrides (Control Panel "Advanced voice"): query param →
+# Settings field name, scoped by provider. ElevenLabs only for now; other
+# providers drop in the same way (add their model/voice Settings fields here).
+_VOICE_OVERRIDE_FIELDS: dict[str, dict[str, str]] = {
+    "elevenlabs": {
+        "model": "elevenlabs_model",
+        "voice_persona": "elevenlabs_voice_persona",
+        "voice_scammer": "elevenlabs_voice_scammer",
+    },
+}
 
 
 def _not_found(kind: str, item_id: str) -> HTTPException:
@@ -55,6 +79,76 @@ def _not_found(kind: str, item_id: str) -> HTTPException:
 
 class ReviewRequest(BaseModel):
     status: Literal["unverified", "confirmed", "rejected", "poisoned"]
+
+
+class TtsVoicesOut(BaseModel):
+    provider: str = "elevenlabs"
+    configured: bool          # is an ElevenLabs key set server-side
+    voices: list[dict] = []   # [{id, name}] the key can synthesize
+    error: str | None = None  # short reason if the lookup failed
+
+
+@router.get("/tts/voices", response_model=TtsVoicesOut)
+async def get_tts_voices(
+    _auth: AuthContext = Depends(get_current_user),  # Control Panel is post-login
+) -> TtsVoicesOut:
+    """List the voices the server's ElevenLabs key can synthesize (id + name),
+    so the Control Panel can flag a bad voice ID before a call. The key never
+    leaves the server — only voice id/name reach the browser."""
+    settings = get_settings()
+    if not settings.elevenlabs_api_key:
+        return TtsVoicesOut(configured=False)
+    try:
+        return TtsVoicesOut(configured=True, voices=await list_elevenlabs_voices(settings))
+    except httpx.HTTPError as exc:
+        # bad key / ElevenLabs down — surface a short reason, never the key
+        return TtsVoicesOut(configured=True, error=f"lookup_failed: {type(exc).__name__}")
+
+
+class TtsVoiceCheckOut(BaseModel):
+    """JSON error shape when a voice check fails (success returns audio bytes)."""
+
+    voice_id: str
+    ok: bool
+    status: int | None = None
+    error: str | None = None  # no_key | http_401 | http_402 | http_404 | http_422 | transport:<Type>
+
+
+# Short per-speaker sample line so the played preview reflects real usage.
+_VOICE_SAMPLE = {
+    "persona": "Halo, selamat siang, iya betul ini Ibu Sari.",
+    "scammer": "Halo Bu, ada penawaran investasi spesial untuk Anda.",
+}
+
+
+@router.get("/tts/voice-check")
+async def get_tts_voice_check(
+    voice_id: str = Query(..., min_length=1),
+    voice: str = Query("persona", description="persona|scammer — picks the sample line"),
+    _auth: AuthContext = Depends(get_current_user),  # Control Panel is post-login
+) -> Response:
+    """Test one ElevenLabs voice ID by a short **test synthesis** and return the
+    audio so the Control Panel PLAYS a sample (not just validates). Uses the
+    Text-to-Speech scope (the exact call a honeypot line makes), so it works
+    even with a key restricted to TTS (unlike GET /tts/voices, which needs the
+    Voices-read scope). The key never leaves the server. On failure, returns a
+    JSON body ``{voice_id, ok:false, status?, error?}`` instead of audio."""
+    text = _VOICE_SAMPLE.get(voice, "Halo, selamat siang, apa kabar?")
+    res = await check_elevenlabs_voice(voice_id, text=text)
+    if res.get("ok") and res.get("audio"):
+        return Response(
+            content=res["audio"],
+            media_type="audio/mpeg",
+            headers={"X-Voice-Check": "ok", "Cache-Control": "no-store"},
+        )
+    return JSONResponse(
+        {
+            "voice_id": voice_id,
+            "ok": False,
+            "status": res.get("status"),
+            "error": res.get("error"),
+        }
+    )
 
 
 @router.get("/personas", response_model=list[PersonaOut])
@@ -144,14 +238,28 @@ async def get_session_messages(
 async def get_session_audio(
     session_id: str,
     seq: int,
+    provider: str | None = Query(
+        default=None,
+        description="per-request TTS override: elevenlabs|gemini|google|browser",
+    ),
+    model: str | None = Query(default=None, description="TTS model override (provider-specific)"),
+    voice_persona: str | None = Query(default=None, description="voice ID for the persona speaker"),
+    voice_scammer: str | None = Query(default=None, description="voice ID for the scammer speaker"),
     tts: TTSAdapter = TTSDep,
     repo: InfiltrateRepository = RepoDep,
     _auth: AuthContext = Depends(get_current_user),  # P-4a: read routes need identity
 ) -> VoiceMarkOut | Response:
-    """Audio for one voice-session line. POC: per-line voice marks (speaker +
-    est. duration, ``audio_url=null`` — the browser's SpeechSynthesis speaks
-    it). LIVE: the configured ``ITTU_TTS_PROVIDER`` streams real audio.
-    Text-session messages have no audio → 204."""
+    """Audio for one voice-session line.
+
+    - **LIVE** (`ITTU_TTS_PROVIDER=elevenlabs|google`): returns the synthesized
+      audio **bytes** (`audio/mpeg`) — cached so a replay never re-pays the
+      provider. If synthesis fails (bad key, rate limit, network) the call must
+      not break: it **degrades** to the voice-marks path below so the browser
+      speaks the line, exactly like POC.
+    - **POC** (default `browser`): per-line voice marks (speaker + est.
+      duration, `audio_url=null`) — the browser's SpeechSynthesis speaks it.
+    - Text-session messages have no audio → 204.
+    """
     session = await service.get_session(session_id, repo=repo)
     if session is None:
         raise _not_found("session", session_id)
@@ -160,18 +268,54 @@ async def get_session_audio(
         raise _not_found("message", f"{session_id}#{seq}")
     if session.channel_type != "voice":
         return Response(status_code=204)
-    result = await tts.synthesize(
-        message.content, voice=message.meta.get("speaker", "persona")
-    )
+
+    speaker = message.meta.get("speaker", "persona")
+    result = None
+    try:
+        # ``?provider=`` overrides the env-configured adapter per request, so an
+        # operator can A/B ElevenLabs/Gemini/Google from the Control Panel with no
+        # backend restart. ``model``/``voice_*`` are optional per-request config
+        # overrides (Advanced voice) applied on a Settings copy — never mutating
+        # the singleton. Absent = env default; a bad value still degrades to marks.
+        overrides: dict[str, str] = {}
+        _values = {"model": model, "voice_persona": voice_persona, "voice_scammer": voice_scammer}
+        for param, field in _VOICE_OVERRIDE_FIELDS.get((provider or "").strip().lower(), {}).items():
+            if _values[param]:
+                overrides[field] = _values[param]
+        adapter = resolve_tts_adapter(provider, default=tts, overrides=overrides or None)
+        result = await synthesize_line(adapter, message.content, voice=speaker)
+    except Exception as exc:  # noqa: BLE001 — never let a TTS outage break the call
+        # Log the type + repr (never blank, unlike str() on empty-message errors)
+        # so the real reason is visible when a provider degrades to browser speech.
+        logger.warning(
+            "TTS synth failed for %s#%s (provider=%s) — degrading to browser speech: %s: %r",
+            session_id, seq, provider or getattr(tts, "provider", "?"),
+            type(exc).__name__, exc,
+        )
+
+    if result is not None and result.audio_bytes:
+        return Response(
+            content=result.audio_bytes,
+            media_type=result.mime_type,
+            headers={
+                "X-TTS-Provider": result.provider,
+                "Cache-Control": "private, max-age=3600",
+            },
+        )
+
+    # POC marks (or degraded LIVE) → the browser speaks `text` on its own.
+    duration = message.meta.get("duration_seconds")
+    if duration is None:
+        duration = result.duration_seconds if result else estimate_duration(message.content)
     return VoiceMarkOut(
         session_id=session_id,
         seq=seq,
-        speaker=message.meta.get("speaker", "persona"),
-        text=result.text,
-        duration_seconds=message.meta.get("duration_seconds", result.duration_seconds),
+        speaker=speaker,
+        text=message.content,
+        duration_seconds=duration,
         offset_seconds=message.meta.get("offset_seconds", 0.0),
-        audio_url=result.audio_url,
-        provider=result.provider,
+        audio_url=None,
+        provider=result.provider if result else getattr(tts, "provider", "poc-voice-marks"),
     )
 
 

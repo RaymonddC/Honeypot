@@ -31,6 +31,9 @@ LIVE (clean stubs, fail loud, never silently degrade):
 """
 
 import base64
+import hashlib
+import struct
+from collections import OrderedDict
 from typing import Protocol
 
 import httpx
@@ -465,12 +468,6 @@ class ElevenLabsTTSAdapter:
 
     data_mode: Mode = "live"
     provider = "elevenlabs"
-    # Multilingual prebuilt voices: warm older female (persona) vs male (scammer).
-    _VOICE_IDS = {
-        "persona": "21m00Tcm4TlvDq8ikWAM",   # Rachel
-        "scammer": "pNInz6obpgDQGcFmaJgB",   # Adam
-    }
-    _MODEL_ID = "eleven_multilingual_v2"      # id-ID capable
     # https://elevenlabs.io/docs/api-reference/text-to-speech/convert — default
     # output_format the API itself uses; set explicitly rather than relying on
     # the provider default (belt-and-braces against a future default change).
@@ -486,9 +483,17 @@ class ElevenLabsTTSAdapter:
                 "configured. Set ITTU_ELEVENLABS_API_KEY, or set "
                 "ITTU_TTS_PROVIDER=browser for the keyless POC voice."
             )
+        # Model + per-account voice IDs are env-configurable (config.py): the
+        # flash model keeps call latency low, and the voice IDs can be pointed at
+        # voices that actually exist in the operator's ElevenLabs library.
+        self._model = settings.elevenlabs_model
+        self._voice_ids = {
+            "persona": settings.elevenlabs_voice_persona,
+            "scammer": settings.elevenlabs_voice_scammer,
+        }
 
     async def synthesize(self, text: str, voice: str = "persona") -> TTSResult:
-        voice_id = self._VOICE_IDS.get(voice, self._VOICE_IDS["persona"])
+        voice_id = self._voice_ids.get(voice, self._voice_ids["persona"])
         async with httpx.AsyncClient(timeout=_TTS_TIMEOUT_SECONDS) as client:
             resp = await client.post(
                 f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
@@ -496,7 +501,7 @@ class ElevenLabsTTSAdapter:
                 headers={"xi-api-key": self._api_key, "accept": "audio/mpeg"},
                 json={
                     "text": text,
-                    "model_id": self._MODEL_ID,
+                    "model_id": self._model,
                     "voice_settings": self._VOICE_SETTINGS,
                 },
             )
@@ -555,6 +560,112 @@ class GoogleTTSAdapter:
         )
 
 
+def _pcm_rate_from_mime(mime: str) -> int:
+    """Parse the sample rate out of a ``audio/L16;codec=pcm;rate=24000`` mime."""
+    for chunk in mime.split(";"):
+        chunk = chunk.strip()
+        if chunk.startswith("rate="):
+            try:
+                return int(chunk[5:])
+            except ValueError:
+                break
+    return 24000
+
+
+def _pcm_to_wav(pcm: bytes, *, sample_rate: int = 24000, bits: int = 16, channels: int = 1) -> bytes:
+    """Wrap raw little-endian PCM in a 44-byte WAV header so a browser
+    ``<audio>`` can play it (Gemini returns headerless PCM)."""
+    block_align = channels * bits // 8
+    byte_rate = sample_rate * block_align
+    header = struct.pack(
+        "<4sI4s4sIHHIIHH4sI",
+        b"RIFF", 36 + len(pcm), b"WAVE",
+        b"fmt ", 16, 1, channels, sample_rate, byte_rate, block_align, bits,
+        b"data", len(pcm),
+    )
+    return header + pcm
+
+
+class GeminiTTSAdapter:
+    """LIVE — Google **Gemini TTS** (AI Studio), generative + style-controllable.
+
+    Key: ``ITTU_GEMINI_API_KEY`` (an AI Studio key, DISTINCT from the Cloud-TTS
+    key ``GoogleTTSAdapter`` uses) — fails loudly at construction without it;
+    sent only as the ``x-goog-api-key`` header, never returned in a response.
+
+    Chosen for its **natural-language style control**: the persona voice is
+    prompted to sound like a confused, hesitant elderly woman (a delivery the
+    flat WaveNet voices can't produce) — the whole point of A/B-ing it against
+    ElevenLabs. Gemini returns headerless PCM (24kHz/16-bit/mono) which we wrap
+    as WAV; Indonesian is auto-detected from the text.
+    """
+
+    data_mode: Mode = "live"
+    provider = "gemini"
+    # Prebuilt voices (docs list 30) — warm for the persona, firmer for the
+    # scammer. Tunable; the style directive below does most of the emotional work.
+    _VOICE_NAMES = {"persona": "Sulafat", "scammer": "Charon"}
+    # Leading style instruction Gemini follows but does NOT read aloud.
+    _STYLE = {
+        "persona": "Ucapkan dengan lembut dan pelan, seperti seorang nenek tua "
+                   "yang bingung dan ragu-ragu:",
+        "scammer": "Ucapkan dengan percaya diri dan mendesak, seperti seorang "
+                   "telemarketer yang memaksa:",
+    }
+
+    def __init__(self, settings: Settings | None = None):
+        settings = settings or get_settings()
+        self._api_key = settings.gemini_api_key
+        self._model = settings.gemini_tts_model
+        if not self._api_key:
+            raise NotImplementedError(
+                "LIVE GeminiTTSAdapter is not usable in this build: no key is "
+                "configured. Set ITTU_GEMINI_API_KEY (a Google AI Studio key), "
+                "or set ITTU_TTS_PROVIDER=browser for the keyless POC voice."
+            )
+
+    async def synthesize(self, text: str, voice: str = "persona") -> TTSResult:
+        voice_name = self._VOICE_NAMES.get(voice, self._VOICE_NAMES["persona"])
+        style = self._STYLE.get(voice, "")
+        prompt = f"{style} {text}".strip()
+        async with httpx.AsyncClient(timeout=_TTS_TIMEOUT_SECONDS) as client:
+            resp = await client.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/"
+                f"{self._model}:generateContent",
+                headers={"x-goog-api-key": self._api_key},
+                json={
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {
+                        "responseModalities": ["AUDIO"],
+                        "speechConfig": {
+                            "voiceConfig": {
+                                "prebuiltVoiceConfig": {"voiceName": voice_name}
+                            }
+                        },
+                    },
+                },
+            )
+            if not resp.is_success:
+                # Surface Google's error body (model-not-found / key-invalid /
+                # region-unsupported / quota) instead of a bare HTTPStatusError.
+                raise RuntimeError(f"Gemini TTS {resp.status_code}: {resp.text[:300]}")
+            data = resp.json()
+            try:
+                inline = data["candidates"][0]["content"]["parts"][0]["inlineData"]
+            except (KeyError, IndexError, TypeError) as exc:
+                # 200 but no audio (safety block / unexpected shape) — say so.
+                raise RuntimeError(
+                    f"Gemini TTS returned no audio: {str(data)[:300]}"
+                ) from exc
+            pcm = base64.b64decode(inline["data"])
+            rate = _pcm_rate_from_mime(inline.get("mimeType", ""))
+        return TTSResult(
+            provider=self.provider, voice=voice, text=text,
+            duration_seconds=estimate_duration(text),
+            audio_bytes=_pcm_to_wav(pcm, sample_rate=rate), mime_type="audio/wav",
+        )
+
+
 class HiggsfieldTTSAdapter(_LiveTTSStub):
     """LIVE stub — Higgsfield speech synthesis (not wired yet, fails loud)."""
 
@@ -567,6 +678,7 @@ LIVE_TTS_PROVIDERS: dict[str, type] = {
     GoogleTTSAdapter.provider: GoogleTTSAdapter,
     HiggsfieldTTSAdapter.provider: HiggsfieldTTSAdapter,
     ElevenLabsTTSAdapter.provider: ElevenLabsTTSAdapter,
+    GeminiTTSAdapter.provider: GeminiTTSAdapter,
 }
 
 
@@ -587,3 +699,144 @@ def select_live_tts_adapter(settings: Settings | None = None) -> TTSAdapter:
             f"Known providers: {sorted(LIVE_TTS_PROVIDERS)}."
         )
     return impl(settings)
+
+
+def resolve_tts_adapter(
+    provider: str | None, *, default: TTSAdapter, overrides: dict | None = None
+) -> TTSAdapter:
+    """Pick the TTS adapter for ONE request. ``provider`` is an optional
+    per-request override (the Control Panel voice choice); ``default`` is the
+    env-configured adapter (``ITTU_TTS_PROVIDER``). This is what lets an operator
+    A/B ElevenLabs/Gemini/Google live from the portal with no backend restart —
+    keys are still read once at startup, only the choice is per-request.
+
+    ``overrides`` is an optional dict of ``Settings`` field names → values (e.g.
+    a Control-Panel model / voice-id override). Applied via ``model_copy`` — a
+    per-request COPY of the cached settings, never a mutation of the singleton —
+    so adapters pick it up with no adapter-side changes.
+
+    Unknown/empty → ``default``; "browser"/"poc" → voice marks; a known LIVE
+    provider → its adapter (may raise ``NotImplementedError`` if its key is
+    unset — the caller degrades to marks)."""
+    if not provider:
+        return default
+    name = provider.strip().lower()
+    if name in ("browser", "poc", "marks"):
+        return VoiceMarkTTSAdapter()
+    impl = LIVE_TTS_PROVIDERS.get(name)
+    if impl is None:
+        return default
+    settings = get_settings()
+    if overrides:
+        settings = settings.model_copy(update=overrides)  # copy — never mutate the singleton
+    return impl(settings)
+
+
+# --------------------------------------------------------------------------- #
+# Synthesized-audio cache (LIVE) — a real provider call costs money + latency;
+# the same line (a persona greeting, a read-back) recurs across a call and
+# across sessions, so cache the bytes by (provider, voice, text). Bounded LRU,
+# process-local — fine for the single-worker POC/demo; a shared cache (Redis /
+# object store) is the multi-worker production upgrade behind this same helper.
+# --------------------------------------------------------------------------- #
+
+_AUDIO_CACHE: "OrderedDict[str, TTSResult]" = OrderedDict()
+_AUDIO_CACHE_CAP = 256
+
+
+def _audio_cache_key(provider: str, voice: str, text: str, signature: str = "") -> str:
+    return hashlib.sha256(
+        f"{provider}\x1f{voice}\x1f{signature}\x1f{text}".encode()
+    ).hexdigest()
+
+
+def _adapter_cache_signature(tts: "TTSAdapter") -> str:
+    """Fold per-request config (model / voice-id overrides) into the cache key so
+    changing a voice from the Control Panel isn't masked by a stale cache hit for
+    the same (provider, voice, text)."""
+    return f"{getattr(tts, '_model', '')}\x1f{getattr(tts, '_voice_ids', '')}"
+
+
+def reset_audio_cache() -> None:  # test hook
+    _AUDIO_CACHE.clear()
+
+
+async def synthesize_line(tts: TTSAdapter, text: str, voice: str = "persona") -> TTSResult:
+    """Synthesize one line through ``tts``, caching LIVE audio bytes so a replay
+    or a repeated line never re-hits (or re-pays) the provider. POC voice marks
+    carry no bytes and are cheap, so they're passed straight through, uncached."""
+    if getattr(tts, "data_mode", "poc") != "live":
+        return await tts.synthesize(text, voice=voice)
+
+    key = _audio_cache_key(
+        tts.provider, voice, text, signature=_adapter_cache_signature(tts)
+    )
+    hit = _AUDIO_CACHE.get(key)
+    if hit is not None:
+        _AUDIO_CACHE.move_to_end(key)
+        return hit
+
+    result = await tts.synthesize(text, voice=voice)
+    if result.audio_bytes:
+        _AUDIO_CACHE[key] = result
+        _AUDIO_CACHE.move_to_end(key)
+        while len(_AUDIO_CACHE) > _AUDIO_CACHE_CAP:
+            _AUDIO_CACHE.popitem(last=False)
+    return result
+
+
+async def list_elevenlabs_voices(settings: "Settings | None" = None) -> list[dict[str, str]]:
+    """The voices the configured ElevenLabs key can synthesize (id + name).
+
+    Empty if no key. Raises ``httpx.HTTPError`` on a transport/auth failure —
+    the caller decides how to surface it. The key is only ever sent as the
+    ``xi-api-key`` header, never returned. Powers the Control Panel's
+    "Check voices" button (catch a bad voice ID before a call)."""
+    settings = settings or get_settings()
+    if not settings.elevenlabs_api_key:
+        return []
+    async with httpx.AsyncClient(timeout=_TTS_TIMEOUT_SECONDS) as client:
+        resp = await client.get(
+            "https://api.elevenlabs.io/v1/voices",
+            headers={"xi-api-key": settings.elevenlabs_api_key},
+        )
+        resp.raise_for_status()
+        return [
+            {"id": v["voice_id"], "name": v.get("name", "")}
+            for v in resp.json().get("voices", [])
+        ]
+
+
+async def check_elevenlabs_voice(
+    voice_id: str,
+    settings: "Settings | None" = None,
+    text: str = "Halo, selamat siang, apa kabar?",
+) -> dict:
+    """Validate one ElevenLabs voice ID via a short synthesis, returning the
+    audio so the Control Panel can PLAY a sample (not just validate).
+
+    Uses the **Text-to-Speech** scope (the same call the honeypot makes), not
+    the Voices-list endpoint — so it works even with a key restricted to TTS,
+    and it tests the exact path a live call uses. Returns
+    ``{ok: True, audio: bytes}`` on success, else
+    ``{ok: False, status?: int, error?: str}``; the key is only ever sent as
+    the ``xi-api-key`` header."""
+    settings = settings or get_settings()
+    if not settings.elevenlabs_api_key:
+        return {"ok": False, "error": "no_key"}
+    try:
+        async with httpx.AsyncClient(timeout=_TTS_TIMEOUT_SECONDS) as client:
+            resp = await client.post(
+                f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+                params={"output_format": "mp3_44100_128"},
+                headers={
+                    "xi-api-key": settings.elevenlabs_api_key,
+                    "accept": "audio/mpeg",
+                },
+                json={"text": text, "model_id": settings.elevenlabs_model},
+            )
+        if resp.is_success:
+            return {"ok": True, "audio": resp.content}
+        return {"ok": False, "status": resp.status_code, "error": f"http_{resp.status_code}"}
+    except httpx.HTTPError as exc:
+        return {"ok": False, "error": f"transport:{type(exc).__name__}"}

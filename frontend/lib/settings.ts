@@ -7,9 +7,9 @@
  * NEXT_PUBLIC_* build defaults; secrets never live here — API keys stay
  * server-side and GET /api/config only exposes *presence* booleans:
  *
- *   voiceProvider  browser | elevenlabs | google
+ *   voiceProvider  browser | elevenlabs | gemini | google
  *                    browser        → BrowserTTSProvider (free Web Speech API)
- *                    elevenlabs/google → BackendAudioProvider
+ *                    elevenlabs/gemini/google → BackendAudioProvider
  *                                     (GET /api/sessions/{id}/audio/{seq})
  *   callMode       scripted | live-mic
  *                    scripted → P4b replay (agent loop pre-run server-side)
@@ -33,6 +33,7 @@ import type { Mode, ModuleMode } from "@/lib/auth/types";
 export const VOICE_PROVIDER_SETTINGS = [
   "browser",
   "elevenlabs",
+  "gemini",
   "google",
 ] as const;
 export type VoiceProviderSetting = (typeof VOICE_PROVIDER_SETTINGS)[number];
@@ -47,6 +48,11 @@ export interface ClientSettings {
   voiceProvider: VoiceProviderSetting;
   callMode: CallModeSetting;
   sttSource: SttSourceSetting;
+  // Advanced voice (ElevenLabs) — per-operator overrides passed to the backend
+  // per request; "" = use the server default (env). No restart needed.
+  ttsModel: string;
+  ttsVoicePersona: string;
+  ttsVoiceScammer: string;
 }
 
 const STORAGE_KEY = "ittu.settings";
@@ -73,6 +79,9 @@ export function envDefaults(): ClientSettings {
     voiceProvider,
     callMode: isCallMode(rawMode) ? rawMode : "scripted",
     sttSource: "web-speech",
+    ttsModel: "",
+    ttsVoicePersona: "",
+    ttsVoiceScammer: "",
   };
 }
 
@@ -108,6 +117,11 @@ export function getSettings(): ClientSettings {
         : d.voiceProvider,
       callMode: isCallMode(s.callMode) ? s.callMode : d.callMode,
       sttSource: "web-speech",
+      ttsModel: typeof s.ttsModel === "string" ? s.ttsModel : d.ttsModel,
+      ttsVoicePersona:
+        typeof s.ttsVoicePersona === "string" ? s.ttsVoicePersona : d.ttsVoicePersona,
+      ttsVoiceScammer:
+        typeof s.ttsVoiceScammer === "string" ? s.ttsVoiceScammer : d.ttsVoiceScammer,
     };
   }
   return cache;

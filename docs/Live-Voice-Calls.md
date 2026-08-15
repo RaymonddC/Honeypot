@@ -69,10 +69,39 @@ live, the AI answers in voice. Real two-way live voice, **zero phone bill**:
 - Same `agent.run_session` in the middle. Not a "phone call", but ~90% of the wow with no
   cost and no accounts.
 
-### Voice quality upgrade (independent of telephony)
-Swapping the robotic browser voice → a natural one is **just `ITTU_TTS_PROVIDER` + one
-adapter** (ElevenLabs / Google / Higgsfield), thanks to the P4b abstraction. Cheapest
-perceived-quality jump; works in the current browser view *and* in any live path.
+### Voice quality upgrade (independent of telephony) · ✅ code complete (B1, 2026-08-08)
+Swapping the robotic browser voice → a natural one is **just `ITTU_TTS_PROVIDER` + a key**,
+thanks to the P4b abstraction. The full audio path is now wired end-to-end:
+`ElevenLabsTTSAdapter.synthesize()` → **`GET /api/sessions/{id}/audio/{seq}` serves the audio
+bytes** (`audio/mpeg`) — previously it synthesized then discarded them, so LIVE audio never
+reached the browser — → the frontend `BackendAudioProvider` plays them. Bytes are cached
+(`synthesize_line`, bounded LRU) so a replay never re-pays the provider, and a synthesis
+failure **degrades** to browser-speech marks so a TTS outage never breaks the call.
+**To hear it:** set `ITTU_TTS_PROVIDER=elevenlabs` + `ITTU_ELEVENLABS_API_KEY` on Render and
+flip the Control Panel's voice provider. Works in the browser call view *and* any future live
+path; keyless POC stays on browser TTS.
+
+#### TTS provider matrix — quality vs cost vs commercial
+All providers below are **hosted (no GPU on our side)** and speak Bahasa Indonesia. Selected via
+`ITTU_TTS_PROVIDER` + the matching key; each fails loud if selected without its key. The
+`/audio/{seq}` endpoint serves the synthesized bytes (browser plays them); the POC `browser` path
+returns voice marks instead. **Switching is per-request** (`GET /audio/{seq}?provider=…`, set by the
+Control Panel voice picker) — flip the provider and the next call uses it live, **no backend
+restart**; all provider keys just need to be set at startup.
+
+| Provider | `ITTU_TTS_PROVIDER` | Free tier | Commercial on free? | Voice / notes | Status |
+|---|---|---|---|---|---|
+| Browser SpeechSynthesis | `browser` (default) | free, offline | ✅ | robotic; POC — no key | shipped |
+| **Google Cloud TTS** (id-ID WaveNet) | `google` | **1M chars/mo, forever** | ✅ **yes** | natural but a bit flat — the standout free+commercial option | wired |
+| **Gemini TTS** (AI Studio) | `gemini` | rate-limited free | ❌ (paid billing for prod) | most expressive — style-prompted "confused grandmother" persona | wired |
+| ElevenLabs | `elevenlabs` | ~10k credits (~10 min/mo) | ❌ | best raw quality | wired |
+| Qwen-Audio-3.0-TTS | *(not wired)* | 1M chars (new users) | likely ✅ | good, ~3× cheaper than ElevenLabs | candidate |
+
+**Pick:** free + commercial-safe (Polri/gov prod) → **Google Cloud WaveNet**. Best emotional
+delivery → **Gemini** (free to A/B, paid for prod) or **ElevenLabs** ($6/mo Starter for
+commercial). **Keys** — two different Google products, two different keys: Google Cloud TTS →
+`console.cloud.google.com` (enable *Cloud Text-to-Speech API* → Credentials → API key); Gemini →
+`aistudio.google.com/apikey`.
 
 ## Recommended sequence
 1. **Voice-quality upgrade** (ElevenLabs/Google TTS) — small, big wow, no telephony.

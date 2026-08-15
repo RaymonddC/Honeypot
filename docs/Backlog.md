@@ -17,8 +17,12 @@ retried delivery via the Dramatiq actor, `GET /api/notifications` outbox feed + 
 on the Response dashboard). **282 backend tests green**, frontend build green.
 
 ## 🟢 Actionable now — buildable today (no external gate)
-- [ ] **B1 — TTS (ElevenLabs)** · S · already wired, needs a key + adapter impl. **Biggest visible
-      payoff** — natural voice on the honeypot call (the demo's wow moment).
+- [x] **B1 — TTS (ElevenLabs)** · S · **DONE (2026-08-08)** — code path complete end-to-end: the
+      `ElevenLabsTTSAdapter` synthesizes real audio, the `/audio/{seq}` endpoint now **serves the bytes**
+      (was discarding them), cached to avoid re-paying the provider, and degrades to browser speech if
+      synthesis fails. **Only remaining step is operational:** set `ITTU_TTS_PROVIDER=elevenlabs` +
+      `ITTU_ELEVENLABS_API_KEY` on Render and flip the Control Panel to hear the natural voice (the
+      demo's wow moment). Keyless POC still uses browser TTS.
 - [x] **C1 — Notifications** · ~~S~~ M · **DONE (2026-08-08)** — built production-ready, not a demo
       shim: signed + idempotent + retried LIVE delivery (`ITTU_NOTIFICATION_DELIVERY=worker`),
       agency outbox feed, POC mock path unchanged. Flip `ITTU_MODE=live` + set the webhook URL/secret
@@ -28,6 +32,10 @@ on the Response dashboard). **282 backend tests green**, frontend build green.
       drop-in). *(Note: C1 already stood up the Dramatiq delivery actor + broker for notifications.)*
 - [ ] **Go-live hardening** · M · contract tests per LIVE adapter, observability/uptime, a security +
       RLS-isolation review, separate DB per mode. Only when heading to real production.
+- [ ] **Audit trail — broaden & surface** · M · *later (parked 2026-08-14, not urgent)* — a user-facing /
+      admin audit view over the existing custody hash-chain + `core.audit_log` (who did what, when —
+      logins, dispatches, entity reviews, config changes). Foundations already exist (message/doc
+      SHA-256 chain, `action_bundle.audit`, `core.audit_log`); this is exposing + extending them.
 
 ## 🔒 Gated — blocked on external approval (start the conversations now, don't build yet)
 - [ ] **A2 — Telegram channel** · M · **Polri** authorization

@@ -2,19 +2,25 @@
 
 The `POST /api/auth/google` path (verify a Google `id_token` → mint ITTU's JWT) is
 covered by tests with the verifier **mocked** (`tests/test_auth_api.py`), which prove
-every branch: POC-closed, valid→JWT, unknown→403, bad→401, no-client-id→500,
-allowlist→JWT. What tests *can't* cover is the real Google round-trip. This runbook
-does that — a one-time, ~10-minute click-through with a real Google account.
+every branch: unavailable-without-client-id→403, valid→JWT, unknown→(POC demo /
+LIVE 403), bad→401, allowlist→JWT. What tests *can't* cover is the real Google
+round-trip. This runbook does that — a one-time, ~10-minute click-through.
 
-## What the LIVE path enforces
+## What the path enforces
 
-- **MODE gate** — disabled unless the `auth` module is LIVE (`403 google_login_disabled`).
-- **Audience** — `ITTU_GOOGLE_CLIENT_ID` **must** be set; without it the endpoint
-  fails loud (`500 google_client_id_unset`) rather than verifying with no `aud`
-  (which google-auth would silently accept from *any* OAuth client).
-- **Provisioning, not signup** — a verified email logs in only if it's a seeded user
-  **or** listed in `ITTU_OAUTH_PROVISION` (`403 user_not_provisioned` otherwise).
-  First login materializes the user row; agency + role come from the allowlist.
+- **Availability** — Google login works in **either** MODE once
+  `ITTU_GOOGLE_CLIENT_ID` is set. Without it the endpoint fails loud
+  (`403 google_login_unavailable`) rather than verifying with no `aud` (which
+  google-auth would silently accept from *any* OAuth client).
+- **Audience** — every `id_token` is verified against `ITTU_GOOGLE_CLIENT_ID` in
+  POC and LIVE alike; a mismatch is `401 invalid_google_token`.
+- **Provisioning** — depends on MODE. **POC (demo):** a verified account that
+  isn't seeded/allowlisted gets a **default demo identity** (Bareskrim /
+  police-investigator) — no more open than mock login, on fake POC data.
+  **LIVE:** provisioned-only — a verified email logs in only if it's a seeded
+  user **or** listed in `ITTU_OAUTH_PROVISION` (`403 user_not_provisioned`
+  otherwise). The allowlist is honored in both modes. First login materializes
+  the user row; agency + role come from the allowlist.
 
 ## 1 · Create a Google OAuth Client ID (Web application)
 
@@ -82,10 +88,10 @@ error `code`):
 | Situation | Expected |
 |---|---|
 | Provisioned email, valid sign-in | `200` + JWT + `/me` echoes agency/role |
-| Email not seeded and not in `ITTU_OAUTH_PROVISION` | `403 user_not_provisioned` |
-| `ITTU_GOOGLE_CLIENT_ID` unset while LIVE | `500 google_client_id_unset` |
+| Email not seeded/allowlisted, **LIVE** | `403 user_not_provisioned` |
+| Email not seeded/allowlisted, **POC** | `200` + JWT with the default demo identity |
+| `ITTU_GOOGLE_CLIENT_ID` unset (either mode) | `403 google_login_unavailable` |
 | Client ID mismatch (probe ID ≠ backend ID) | `401 invalid_google_token` (aud) |
-| `auth` module still POC | `403 google_login_disabled` |
 
 Once the `200` path works against real Google and the failure rows behave, the LIVE
 OAuth path is validated. Revert `ITTU_MODULE_MODES` to POC (or leave `auth` LIVE if you

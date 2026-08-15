@@ -38,6 +38,10 @@ export interface SpeakableLine {
 
 export interface VoiceProvider {
   readonly name: string;
+  /** The provider that actually voiced the most recent `speak()` —
+   * "elevenlabs" | "gemini" | "google" | "browser". Lets the UI show whether a
+   * line was the real provider voice or the browser fallback. */
+  readonly lastProvider: string;
   /** Speak one line; resolves when the line has finished playing. */
   speak(line: SpeakableLine): Promise<void>;
   pause(): void;
@@ -104,6 +108,7 @@ class LineTimer {
  */
 export class BrowserTTSProvider implements VoiceProvider {
   readonly name = "browser";
+  readonly lastProvider = "browser"; // always speaks via the browser
   private timer = new LineTimer();
   private pending: (() => void) | null = null;
   private usingSynth = false;
@@ -218,23 +223,53 @@ interface VoiceMarks {
  * and simply starts playing real audio the moment a LIVE TTS adapter is
  * configured server-side.
  */
+/** Per-request voice config overrides (Control Panel "Advanced voice"). */
+export interface VoiceOverrides {
+  model?: string;
+  voicePersona?: string;
+  voiceScammer?: string;
+}
+
 export class BackendAudioProvider implements VoiceProvider {
   readonly name = "backend";
-  private timer = new LineTimer();
+  // The provider that voiced the most recent line — set per outcome in speak().
+  lastProvider = "browser";
   private audio: HTMLAudioElement | null = null;
+  // Speaks any line the backend can't voice (POC marks, or a LIVE provider that
+  // failed / has no key) so the call is NEVER silent — this is the fallback.
+  private readonly fallback = new BrowserTTSProvider();
+  private usingFallback = false;
 
-  constructor(private readonly sessionId: string) {}
+  constructor(
+    private readonly sessionId: string,
+    private readonly provider?: string,
+    private readonly overrides?: VoiceOverrides,
+  ) {}
 
   async speak(line: SpeakableLine): Promise<void> {
-    let durationSec = line.durationSec;
+    this.usingFallback = false;
     try {
+      // ?provider (+ optional model/voice overrides) lets the backend A/B the
+      // real voice per request (no restart), so Control Panel changes take
+      // effect on the next line.
+      const params = new URLSearchParams();
+      if (this.provider) params.set("provider", this.provider);
+      if (this.overrides?.model) params.set("model", this.overrides.model);
+      if (this.overrides?.voicePersona)
+        params.set("voice_persona", this.overrides.voicePersona);
+      if (this.overrides?.voiceScammer)
+        params.set("voice_scammer", this.overrides.voiceScammer);
+      const qs = params.toString();
+      const q = qs ? `?${qs}` : "";
       const res = await apiFetch(
-        `/sessions/${encodeURIComponent(this.sessionId)}/audio/${line.seq}`,
+        `/sessions/${encodeURIComponent(this.sessionId)}/audio/${line.seq}${q}`,
       );
       const type = res.headers.get("content-type") ?? "";
       if (res.ok && res.status !== 204) {
         if (type.startsWith("audio/")) {
           // Provider streams raw audio bytes.
+          this.lastProvider =
+            res.headers.get("x-tts-provider") || this.provider || "backend";
           const blob = await res.blob();
           await this.play(URL.createObjectURL(blob));
           return;
@@ -243,20 +278,23 @@ export class BackendAudioProvider implements VoiceProvider {
           const marks = (await res.json()) as VoiceMarks;
           if (marks.audio_url) {
             // LIVE: marks point at the synthesized audio.
+            this.lastProvider = marks.provider || "backend";
             const url = /^https?:\/\//.test(marks.audio_url)
               ? marks.audio_url
               : `${API_BASE}${marks.audio_url}`;
             await this.play(url);
             return;
           }
-          if (marks.duration_seconds > 0) durationSec = marks.duration_seconds;
         }
       }
     } catch {
-      /* backend unreachable — fall through to the timer */
+      /* backend unreachable — fall through to browser speech below */
     }
-    // POC: no audio bytes yet → keep the call timeline via duration marks.
-    await this.timer.run(durationSec * 1000);
+    // No backend audio (POC marks, a failed/unkeyed LIVE provider, or 204) →
+    // SPEAK via the browser so the line is never silent.
+    this.usingFallback = true;
+    this.lastProvider = "browser";
+    await this.fallback.speak(line);
   }
 
   private play(url: string): Promise<void> {
@@ -279,12 +317,12 @@ export class BackendAudioProvider implements VoiceProvider {
 
   pause(): void {
     this.audio?.pause();
-    this.timer.pause();
+    if (this.usingFallback) this.fallback.pause();
   }
 
   resume(): void {
     void this.audio?.play().catch(() => undefined);
-    this.timer.resume();
+    if (this.usingFallback) this.fallback.resume();
   }
 
   cancel(): void {
@@ -295,7 +333,7 @@ export class BackendAudioProvider implements VoiceProvider {
       audio.src = "";
       this.audio = null;
     }
-    this.timer.cancel();
+    if (this.usingFallback) this.fallback.cancel();
   }
 }
 
@@ -321,7 +359,11 @@ export function voiceProviderKind(): VoiceProviderKind {
  * duration-timer voice-marks while the server adapter is still poc).
  */
 export function createVoiceProvider(sessionId: string): VoiceProvider {
-  return voiceProviderKind() === "backend"
-    ? new BackendAudioProvider(sessionId)
-    : new BrowserTTSProvider();
+  if (voiceProviderKind() !== "backend") return new BrowserTTSProvider();
+  const s = getSettings();
+  return new BackendAudioProvider(sessionId, voiceProviderSetting(), {
+    model: s.ttsModel,
+    voicePersona: s.ttsVoicePersona,
+    voiceScammer: s.ttsVoiceScammer,
+  });
 }

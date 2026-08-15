@@ -16,7 +16,7 @@ MODE. So this roadmap is mostly "fill in the LIVE adapters + turn on persistence
 | **LLM brain** | infiltrate | `LiteLLMGateway` | ✅ **LIVE in prod** | — (9Router/Claude, done) |
 | **Blockchain** | takedown | `TronscanAdapter` | ✅ **live-validated + hardened** | flip `takedown=live`; set `ITTU_TRONSCAN_API_KEY` for limits |
 | **Notifications** | uncover | `LiveNotificationSink` + `dispatch_notifications` actor | ✅ **production-ready** | flip `uncover=live`; set webhook URL/secret (+ `=worker` for durable retries) |
-| **TTS (voice)** | infiltrate | `ElevenLabs/GoogleTTSAdapter` | 🟢 **wired, needs key** | add key, verify audio |
+| **TTS (voice)** | infiltrate | `ElevenLabs/GoogleTTSAdapter` | ✅ **code complete** | set `ITTU_TTS_PROVIDER`+key on Render; flip Control Panel |
 | **STT (voice)** | infiltrate | `WhisperSTTAdapter` | 🔴 stub | streaming transcription |
 | **Text channel** | infiltrate | `TelegramChannelAdapter` | 🔴 stub | bot + webhook + mapping |
 | **Voice channel** | infiltrate | `PstnChannelAdapter` | 🔴 stub | Twilio + media bridge |
@@ -95,9 +95,10 @@ Trigger to revisit the Dramatiq swap: real multi-agency concurrent use. For inge
 ## 4. Track B — Live voice stack
 (Full design in `Live-Voice-Calls.md`.)
 
-### B1 — TTS (ElevenLabs) · 🟢 wired, needs key
-- **Work:** set `ITTU_ELEVENLABS_API_KEY` + `ITTU_TTS_PROVIDER=elevenlabs`; verify `/audio/{seq}` streams real Bahasa audio; flip the control panel's voice provider. Browser-independent natural voice.
-- **Effort:** S. Biggest perceived-quality jump for the least work.
+### B1 — TTS (ElevenLabs) · ✅ done (2026-08-08, code complete)
+- **Shipped:** `ElevenLabsTTSAdapter`/`GoogleTTSAdapter` synthesize real audio; `GET /api/sessions/{id}/audio/{seq}` now **serves the synthesized bytes** (`audio/mpeg`) — the endpoint previously synthesized then discarded them, so LIVE audio never reached the browser. Bytes are cached (`synthesize_line`, bounded LRU by provider/voice/text) so a replay never re-pays the provider, and synthesis failure **degrades** to browser-speech marks so a TTS outage never breaks the call. Frontend `BackendAudioProvider` already plays the bytes.
+- **To go live (operational, no code):** `ITTU_TTS_PROVIDER=elevenlabs` + `ITTU_ELEVENLABS_API_KEY` on Render, then flip the Control Panel's voice provider. Keyless POC stays on browser TTS.
+- **Effort:** was S. Biggest perceived-quality jump for the least work.
 
 ### B2 — STT (Whisper streaming) · 🔴 build
 - **Work:** streaming transcription of real caller audio behind `STTAdapter` (Whisper / Deepgram / Google). Only needed once real audio is inbound (B3).
@@ -155,7 +156,7 @@ Trigger to revisit the Dramatiq swap: real multi-agency concurrent use. For inge
 | 2 | **F2 Auth + RLS** | multi-agency isolation on real data | M | needs F1 |
 | 3 | **A1 Blockchain live** | mostly built, real intel, high ROI | S–M | — |
 | ✅ | **C1 Notifications** | ~~quick, completes the action loop~~ **done — production-ready** | M | — |
-| 5 | **B1 ElevenLabs TTS** | quick, big quality jump | S | — |
+| ✅ | **B1 ElevenLabs TTS** | ~~quick, big quality jump~~ **done — code complete, needs key on Render** | S | — |
 | 6 | **A2 Telegram channel** | real inbound infiltration | M | Polri |
 | 7 | **B2+B3 STT + Twilio** | real phone calls | L | Polri |
 | 8 | **A3 tags / C2 fiat** | enrichment / institutional | M–L | partner |
