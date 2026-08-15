@@ -341,6 +341,119 @@ function AdvancedVoice({
   );
 }
 
+/* ── Shared voice combobox — type OR pick, ▶ Test, revert-on-invalid ──────── */
+
+/**
+ * One field for a per-role voice: a free-text input WITH a datalist of known
+ * voices (so you can type any value or pick a suggestion) + a ▶ Test button.
+ * Safety: a value that isn't a known voice is "red" and, on blur, **reverts** to
+ * the last committed value — so an invalid/unavailable voice can never stick.
+ * Only accepted values (a known voice, or blank = server default) are committed.
+ */
+function VoiceComboField({
+  label,
+  fallback,
+  value,
+  onCommit,
+  voices,
+  isKnown,
+  onTest,
+  describe,
+  datalistId,
+}: {
+  label: string;
+  fallback: string;
+  value: string;
+  onCommit: (v: string) => void;
+  voices: { name: string; tone: string }[];
+  isKnown: (v: string) => boolean;
+  onTest: (voiceName: string) => Promise<VoiceCheckResult>;
+  describe: (r: VoiceCheckResult) => { ok: boolean; label: string };
+  datalistId: string;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [res, setRes] = useState<VoiceCheckResult | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  // Sync when the committed value changes elsewhere (e.g. "Reset to defaults").
+  useEffect(() => setDraft(value), [value]);
+
+  const accepted = draft.trim() === "" || isKnown(draft.trim());
+  const red = draft.trim() !== "" && !accepted;
+
+  const onChange = (v: string) => {
+    setDraft(v);
+    setRes(null);
+    if (v.trim() === "" || isKnown(v.trim())) onCommit(v.trim()); // persist valid only
+  };
+  const onBlur = () => {
+    if (red) {
+      setDraft(value); // revert the unavailable value
+      setRes(null);
+    }
+  };
+  const test = async () => {
+    setBusy(true);
+    try {
+      const r = await onTest(draft.trim());
+      if (r.audioBlob) {
+        const url = URL.createObjectURL(r.audioBlob);
+        const audio = new Audio(url);
+        audio.onended = () => URL.revokeObjectURL(url);
+        void audio.play().catch(() => URL.revokeObjectURL(url));
+      }
+      setRes(r);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const st = red
+    ? { ok: false, label: "✗ not an available voice — reverts when you click away" }
+    : res
+      ? describe(res)
+      : null;
+
+  return (
+    <label className="grid gap-1">
+      <span className="text-[11px] font-medium text-fg">{label}</span>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          list={datalistId}
+          value={draft}
+          placeholder={`server default (${fallback})`}
+          spellCheck={false}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
+          className={`${VOICE_INPUT_CLS} flex-1 ${red ? "border-risk-high" : ""}`}
+        />
+        <button
+          type="button"
+          onClick={() => void test()}
+          disabled={busy}
+          title="Play a short sample in this voice (checks key + quota)"
+          className="h-8 shrink-0 rounded-lg border border-line bg-elevated px-2.5 text-[11px] font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-50"
+        >
+          {busy ? "…" : "▶ Test"}
+        </button>
+      </div>
+      <datalist id={datalistId}>
+        {voices.map((v) => (
+          <option key={v.name} value={v.name}>
+            {v.tone}
+          </option>
+        ))}
+      </datalist>
+      {st && (
+        <span className={`text-[10px] ${st.ok ? "text-accent-bright" : "text-risk-high"}`}>
+          {st.label}
+        </span>
+      )}
+    </label>
+  );
+}
+
 /* ── Advanced voice (Gemini) — per-role voice picker + "Test Gemini" ──────── */
 
 function describeGeminiCheck(res: VoiceCheckResult): { ok: boolean; label: string } {
@@ -370,82 +483,6 @@ function AdvancedGemini({
   settings: ClientSettings;
   update: (patch: Partial<ClientSettings>) => void;
 }) {
-  type Role = "persona" | "scammer";
-  const [results, setResults] = useState<Record<Role, VoiceCheckResult | null>>({
-    persona: null,
-    scammer: null,
-  });
-  const [testing, setTesting] = useState<Record<Role, boolean>>({
-    persona: false,
-    scammer: false,
-  });
-
-  // ▶ Test synthesizes the entered voice (blank = server default) and plays the
-  // sample if it works — the button click is the user gesture Audio.play() needs.
-  // Validates the voice name + key + quota + region in one call.
-  const testVoice = async (role: Role, voiceName: string) => {
-    setTesting((t) => ({ ...t, [role]: true }));
-    try {
-      const r = await checkGemini(role, voiceName.trim());
-      if (r.audioBlob) {
-        const url = URL.createObjectURL(r.audioBlob);
-        const audio = new Audio(url);
-        audio.onended = () => URL.revokeObjectURL(url);
-        void audio.play().catch(() => URL.revokeObjectURL(url));
-      }
-      setResults((s) => ({ ...s, [role]: r }));
-    } finally {
-      setTesting((t) => ({ ...t, [role]: false }));
-    }
-  };
-
-  const renderVoiceRow = (
-    role: Role,
-    label: string,
-    fallback: string,
-    value: string,
-    onChange: (v: string) => void,
-  ) => {
-    const res = results[role];
-    const st = res ? describeGeminiCheck(res) : null;
-    const busy = testing[role];
-    // A stale/unknown stored value falls back to "" (server default) in the UI.
-    const selected = isKnownGeminiVoice(value) ? value : "";
-    return (
-      <label key={role} className="grid gap-1">
-        <span className="text-[11px] font-medium text-fg">{label}</span>
-        <div className="flex gap-2">
-          <select
-            value={selected}
-            onChange={(e) => onChange(e.target.value)}
-            className="h-8 flex-1 rounded-lg border border-line bg-elevated px-2.5 text-[11px] text-fg outline-none transition-colors focus:border-accent/40"
-          >
-            <option value="">Server default · {fallback}</option>
-            {GEMINI_VOICES.map((v) => (
-              <option key={v.name} value={v.name}>
-                {v.name} · {v.tone}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={() => void testVoice(role, selected)}
-            disabled={busy}
-            title="Play a short sample in this voice (checks key + quota)"
-            className="h-8 shrink-0 rounded-lg border border-line bg-elevated px-2.5 text-[11px] font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-50"
-          >
-            {busy ? "…" : "▶ Test"}
-          </button>
-        </div>
-        {st && (
-          <span className={`text-[10px] ${st.ok ? "text-accent-bright" : "text-risk-high"}`}>
-            {st.label}
-          </span>
-        )}
-      </label>
-    );
-  };
-
   return (
     <div className="border-t border-line pt-3.5">
       <div className="mb-1 flex items-center justify-between gap-2">
@@ -460,26 +497,34 @@ function AdvancedGemini({
         </a>
       </div>
       <p className="mb-2.5 text-[10.5px] text-muted">
-        Per-request overrides — no restart. Pick a prebuilt voice (the tone is its
-        character); the style directive does the emotional shaping. ▶ Test plays a
-        sample and spends one Gemini request (free tier = 10/day).
+        Per-request overrides — no restart. Type or pick a prebuilt voice (the tone
+        is its character); the style directive does the emotional shaping. ▶ Test
+        plays a sample and spends one Gemini request (free tier = 10/day).
       </p>
 
       <div className="grid gap-2.5">
-        {renderVoiceRow(
-          "persona",
-          "Persona voice",
-          "Sulafat",
-          settings.geminiVoicePersona,
-          (v) => update({ geminiVoicePersona: v }),
-        )}
-        {renderVoiceRow(
-          "scammer",
-          "Scammer voice",
-          "Charon",
-          settings.geminiVoiceScammer,
-          (v) => update({ geminiVoiceScammer: v }),
-        )}
+        <VoiceComboField
+          label="Persona voice"
+          fallback="Sulafat"
+          value={settings.geminiVoicePersona}
+          onCommit={(v) => update({ geminiVoicePersona: v })}
+          voices={GEMINI_VOICES}
+          isKnown={isKnownGeminiVoice}
+          onTest={(name) => checkGemini("persona", name)}
+          describe={describeGeminiCheck}
+          datalistId="gemini-voices-persona"
+        />
+        <VoiceComboField
+          label="Scammer voice"
+          fallback="Charon"
+          value={settings.geminiVoiceScammer}
+          onCommit={(v) => update({ geminiVoiceScammer: v })}
+          voices={GEMINI_VOICES}
+          isKnown={isKnownGeminiVoice}
+          onTest={(name) => checkGemini("scammer", name)}
+          describe={describeGeminiCheck}
+          datalistId="gemini-voices-scammer"
+        />
       </div>
     </div>
   );
@@ -510,78 +555,6 @@ function AdvancedGoogle({
   settings: ClientSettings;
   update: (patch: Partial<ClientSettings>) => void;
 }) {
-  type Role = "persona" | "scammer";
-  const [results, setResults] = useState<Record<Role, VoiceCheckResult | null>>({
-    persona: null,
-    scammer: null,
-  });
-  const [testing, setTesting] = useState<Record<Role, boolean>>({
-    persona: false,
-    scammer: false,
-  });
-
-  const testVoice = async (role: Role, voiceName: string) => {
-    setTesting((t) => ({ ...t, [role]: true }));
-    try {
-      const r = await checkGoogle(role, voiceName.trim());
-      if (r.audioBlob) {
-        const url = URL.createObjectURL(r.audioBlob);
-        const audio = new Audio(url);
-        audio.onended = () => URL.revokeObjectURL(url);
-        void audio.play().catch(() => URL.revokeObjectURL(url));
-      }
-      setResults((s) => ({ ...s, [role]: r }));
-    } finally {
-      setTesting((t) => ({ ...t, [role]: false }));
-    }
-  };
-
-  const renderVoiceRow = (
-    role: Role,
-    label: string,
-    fallback: string,
-    value: string,
-    onChange: (v: string) => void,
-  ) => {
-    const res = results[role];
-    const st = res ? describeGoogleCheck(res) : null;
-    const busy = testing[role];
-    const selected = isKnownGoogleVoice(value) ? value : "";
-    return (
-      <label key={role} className="grid gap-1">
-        <span className="text-[11px] font-medium text-fg">{label}</span>
-        <div className="flex gap-2">
-          <select
-            value={selected}
-            onChange={(e) => onChange(e.target.value)}
-            className="h-8 flex-1 rounded-lg border border-line bg-elevated px-2.5 text-[11px] text-fg outline-none transition-colors focus:border-accent/40"
-          >
-            <option value="">Server default · {fallback}</option>
-            {GOOGLE_VOICES.map((v) => (
-              <option key={v.name} value={v.name}>
-                {v.name} · {v.tone}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={() => void testVoice(role, selected)}
-            disabled={busy}
-            title="Play a short sample in this voice (checks key + quota)"
-            className="h-8 shrink-0 rounded-lg border border-line bg-elevated px-2.5 text-[11px] font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-50"
-          >
-            {busy ? "…" : "▶ Test"}
-          </button>
-        </div>
-        {st && (
-          <span className={`text-[10px] ${st.ok ? "text-accent-bright" : "text-risk-high"}`}>
-            {st.label}
-          </span>
-        )}
-      </label>
-    );
-  };
-
   return (
     <div className="border-t border-line pt-3.5">
       <div className="mb-1 flex items-center justify-between gap-2">
@@ -596,25 +569,34 @@ function AdvancedGoogle({
         </a>
       </div>
       <p className="mb-2.5 text-[10.5px] text-muted">
-        Per-request overrides — no restart. Flat WaveNet id-ID voices (no style
-        control). ▶ Test plays a sample; ~1M chars/month free.
+        Per-request overrides — no restart. Type or pick a flat id-ID WaveNet /
+        Standard voice (no style control). ▶ Test plays a sample; ~1M chars/month
+        free.
       </p>
 
       <div className="grid gap-2.5">
-        {renderVoiceRow(
-          "persona",
-          "Persona voice",
-          "id-ID-Wavenet-A",
-          settings.googleVoicePersona,
-          (v) => update({ googleVoicePersona: v }),
-        )}
-        {renderVoiceRow(
-          "scammer",
-          "Scammer voice",
-          "id-ID-Wavenet-B",
-          settings.googleVoiceScammer,
-          (v) => update({ googleVoiceScammer: v }),
-        )}
+        <VoiceComboField
+          label="Persona voice"
+          fallback="id-ID-Wavenet-A"
+          value={settings.googleVoicePersona}
+          onCommit={(v) => update({ googleVoicePersona: v })}
+          voices={GOOGLE_VOICES}
+          isKnown={isKnownGoogleVoice}
+          onTest={(name) => checkGoogle("persona", name)}
+          describe={describeGoogleCheck}
+          datalistId="google-voices-persona"
+        />
+        <VoiceComboField
+          label="Scammer voice"
+          fallback="id-ID-Wavenet-B"
+          value={settings.googleVoiceScammer}
+          onCommit={(v) => update({ googleVoiceScammer: v })}
+          voices={GOOGLE_VOICES}
+          isKnown={isKnownGoogleVoice}
+          onTest={(name) => checkGoogle("scammer", name)}
+          describe={describeGoogleCheck}
+          datalistId="google-voices-scammer"
+        />
       </div>
     </div>
   );
