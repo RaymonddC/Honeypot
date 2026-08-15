@@ -38,6 +38,10 @@ export interface SpeakableLine {
 
 export interface VoiceProvider {
   readonly name: string;
+  /** The provider that actually voiced the most recent `speak()` —
+   * "elevenlabs" | "gemini" | "google" | "browser". Lets the UI show whether a
+   * line was the real provider voice or the browser fallback. */
+  readonly lastProvider: string;
   /** Speak one line; resolves when the line has finished playing. */
   speak(line: SpeakableLine): Promise<void>;
   pause(): void;
@@ -104,6 +108,7 @@ class LineTimer {
  */
 export class BrowserTTSProvider implements VoiceProvider {
   readonly name = "browser";
+  readonly lastProvider = "browser"; // always speaks via the browser
   private timer = new LineTimer();
   private pending: (() => void) | null = null;
   private usingSynth = false;
@@ -227,6 +232,8 @@ export interface VoiceOverrides {
 
 export class BackendAudioProvider implements VoiceProvider {
   readonly name = "backend";
+  // The provider that voiced the most recent line — set per outcome in speak().
+  lastProvider = "browser";
   private audio: HTMLAudioElement | null = null;
   // Speaks any line the backend can't voice (POC marks, or a LIVE provider that
   // failed / has no key) so the call is NEVER silent — this is the fallback.
@@ -261,6 +268,8 @@ export class BackendAudioProvider implements VoiceProvider {
       if (res.ok && res.status !== 204) {
         if (type.startsWith("audio/")) {
           // Provider streams raw audio bytes.
+          this.lastProvider =
+            res.headers.get("x-tts-provider") || this.provider || "backend";
           const blob = await res.blob();
           await this.play(URL.createObjectURL(blob));
           return;
@@ -269,6 +278,7 @@ export class BackendAudioProvider implements VoiceProvider {
           const marks = (await res.json()) as VoiceMarks;
           if (marks.audio_url) {
             // LIVE: marks point at the synthesized audio.
+            this.lastProvider = marks.provider || "backend";
             const url = /^https?:\/\//.test(marks.audio_url)
               ? marks.audio_url
               : `${API_BASE}${marks.audio_url}`;
@@ -283,6 +293,7 @@ export class BackendAudioProvider implements VoiceProvider {
     // No backend audio (POC marks, a failed/unkeyed LIVE provider, or 204) →
     // SPEAK via the browser so the line is never silent.
     this.usingFallback = true;
+    this.lastProvider = "browser";
     await this.fallback.speak(line);
   }
 

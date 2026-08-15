@@ -11,14 +11,18 @@ import { useEffect, useRef } from "react";
 import { formatConf } from "@/lib/honeypot/types";
 import type { VoiceLine } from "@/lib/honeypot/voice";
 import type { CallState } from "./call-view";
+import { ProviderBadge } from "./provider-badge";
 import { Waveform } from "./waveform";
 
 function CaptionLine({
   line,
   speaking,
+  provider,
 }: {
   line: VoiceLine;
   speaking: boolean;
+  /** The TTS provider that actually voiced this line, once it has played. */
+  provider?: string;
 }) {
   const isPersona = line.speaker === "persona";
   return (
@@ -43,6 +47,11 @@ function CaptionLine({
             className="!h-3"
           />
         )}
+        {provider && (
+          <span className="ml-auto normal-case">
+            <ProviderBadge provider={provider} />
+          </span>
+        )}
       </div>
       {line.text}
       {line.extractions.map((ex) => (
@@ -63,6 +72,7 @@ export function Captions({
   state,
   interim = null,
   emptyNote,
+  providerByLine,
 }: {
   lines: VoiceLine[];
   currentIndex: number;
@@ -71,6 +81,8 @@ export function Captions({
   interim?: { who: string; text: string } | null;
   /** Live-mic mode: replaces the idle placeholder copy. */
   emptyNote?: string;
+  /** line id → the TTS provider that voiced it (recorded after each line plays). */
+  providerByLine?: Record<string, string>;
 }) {
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -100,6 +112,7 @@ export function Captions({
             key={line.id}
             line={line}
             speaking={i === currentIndex && state === "live"}
+            provider={providerByLine?.[line.id]}
           />
         ))
       )}

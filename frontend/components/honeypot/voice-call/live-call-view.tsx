@@ -171,6 +171,8 @@ export function LiveCallView({
   const [micStatus, setMicStatus] = useState<MicStatus>("muted");
   const [personaSpeaking, setPersonaSpeaking] = useState(false);
   const [speakingLineId, setSpeakingLineId] = useState<string | null>(null);
+  // line id → the TTS provider that actually voiced it (captions badge).
+  const [providerByLine, setProviderByLine] = useState<Record<string, string>>({});
   const [thinking, setThinking] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
@@ -212,6 +214,7 @@ export function LiveCallView({
     setSpeakingLineId(line.id);
     try {
       await provider.speak(line);
+      setProviderByLine((m) => ({ ...m, [line.id]: provider.lastProvider }));
     } finally {
       personaSpeakingRef.current = false;
       if (runIdRef.current === runId) {
@@ -415,6 +418,7 @@ export function LiveCallView({
     const runId = ++runIdRef.current;
     setState("connecting");
     setLines([]);
+    setProviderByLine({});
     setEntities([]);
     setElapsed(0);
     setNotice(null);
@@ -560,6 +564,7 @@ export function LiveCallView({
           state={captionState}
           interim={interim ? { who: OPERATOR_WHO, text: interim } : null}
           emptyNote="Start the live call, then speak as the scammer — the AI persona answers in voice and the transcript appears here."
+          providerByLine={providerByLine}
         />
 
         {/* ── live controls ── */}

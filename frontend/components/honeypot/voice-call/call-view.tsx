@@ -77,6 +77,8 @@ export function CallView({ data }: { data: VoiceCallSession }) {
   const [state, setState] = useState<CallState>("idle");
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [elapsed, setElapsed] = useState(0);
+  // Which provider actually voiced each line (by line id, set after it plays) → captions badge.
+  const [providerByLine, setProviderByLine] = useState<Record<string, string>>({});
 
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -107,6 +109,8 @@ export function CallView({ data }: { data: VoiceCallSession }) {
         setCurrentIndex(i);
         await provider.speak(data.lines[i]);
         if (runIdRef.current !== runId) return;
+        const played = provider.lastProvider;
+        setProviderByLine((m) => ({ ...m, [data.lines[i].id]: played }));
         await waitIfPaused();
         if (runIdRef.current !== runId) return;
       }
@@ -137,6 +141,7 @@ export function CallView({ data }: { data: VoiceCallSession }) {
     flushResumeWaiters();
     setElapsed(0);
     setCurrentIndex(-1);
+    setProviderByLine({});
     void playFrom(0);
   };
 
@@ -212,7 +217,12 @@ export function CallView({ data }: { data: VoiceCallSession }) {
           />
         </div>
 
-        <Captions lines={data.lines} currentIndex={currentIndex} state={state} />
+        <Captions
+          lines={data.lines}
+          currentIndex={currentIndex}
+          state={state}
+          providerByLine={providerByLine}
+        />
 
         <CallControls
           state={state}
