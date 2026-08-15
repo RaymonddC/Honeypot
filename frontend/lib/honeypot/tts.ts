@@ -20,6 +20,7 @@
  */
 
 import { API_BASE, apiFetch } from "@/lib/http";
+import { isKnownGeminiVoice } from "@/lib/honeypot/voices";
 import { getSettings, type VoiceProviderSetting } from "@/lib/settings";
 
 /* ── Contract ──────────────────────────────────────────────────────────── */
@@ -377,9 +378,16 @@ export function createVoiceProvider(sessionId: string): VoiceProvider {
       voiceScammer: s.ttsVoiceScammer,
     };
   } else if (provider === "gemini") {
+    // Only forward a recognized voice — a stale/invalid value (e.g. left over in
+    // localStorage) is dropped so the backend uses its default instead of 400ing
+    // the call to browser speech.
     overrides = {
-      voicePersona: s.geminiVoicePersona,
-      voiceScammer: s.geminiVoiceScammer,
+      voicePersona: isKnownGeminiVoice(s.geminiVoicePersona)
+        ? s.geminiVoicePersona
+        : undefined,
+      voiceScammer: isKnownGeminiVoice(s.geminiVoiceScammer)
+        ? s.geminiVoiceScammer
+        : undefined,
     };
   }
   return new BackendAudioProvider(sessionId, provider, overrides);

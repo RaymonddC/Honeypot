@@ -607,6 +607,18 @@ class GeminiTTSAdapter:
     # __init__ (Control-Panel overridable); the style directive below does most
     # of the emotional work regardless.
     _VOICE_NAMES = {"persona": "Sulafat", "scammer": "Charon"}
+    # The ~30 documented prebuilt voices. An unknown name (typo / stale config)
+    # 400s at Google, which would drop a live call to browser speech. We coerce
+    # an unrecognized configured voice to the role default so the call stays on
+    # Gemini — defense in depth; the Control Panel also validates client-side.
+    # (A ▶ Test check bypasses this on purpose, to report the real 400.)
+    _KNOWN_VOICES = frozenset({
+        "Zephyr", "Puck", "Charon", "Kore", "Fenrir", "Leda", "Orus", "Aoede",
+        "Callirrhoe", "Autonoe", "Enceladus", "Iapetus", "Umbriel", "Algieba",
+        "Despina", "Erinome", "Algenib", "Rasalgethi", "Laomedeia", "Achernar",
+        "Alnilam", "Schedar", "Gacrux", "Pulcherrima", "Achird", "Zubenelgenubi",
+        "Vindemiatrix", "Sadachbia", "Sadaltager", "Sulafat",
+    })
     # Leading style instruction Gemini follows but does NOT read aloud.
     _STYLE = {
         "persona": "Ucapkan dengan lembut dan pelan, seperti seorang nenek tua "
@@ -647,10 +659,15 @@ class GeminiTTSAdapter:
             )
         self._model = model
         # Effective per-role voice: settings (Control-Panel overridable) →
-        # class fallback. Blank settings fall back to the warm/firm defaults.
+        # class fallback. A blank OR unrecognized name coerces to the warm/firm
+        # default so a live call never 400s to browser speech on a bad voice.
+        def _known(name: str, default: str) -> str:
+            name = (name or "").strip()
+            return name if name in self._KNOWN_VOICES else default
+
         self._voice_names = {
-            "persona": settings.gemini_voice_persona or self._VOICE_NAMES["persona"],
-            "scammer": settings.gemini_voice_scammer or self._VOICE_NAMES["scammer"],
+            "persona": _known(settings.gemini_voice_persona, self._VOICE_NAMES["persona"]),
+            "scammer": _known(settings.gemini_voice_scammer, self._VOICE_NAMES["scammer"]),
         }
 
     async def synthesize(self, text: str, voice: str = "persona") -> TTSResult:

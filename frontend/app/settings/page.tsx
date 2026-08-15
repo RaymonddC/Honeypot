@@ -26,6 +26,7 @@ import {
   checkElevenLabsVoice,
   checkGemini,
   fetchElevenLabsVoices,
+  isKnownGeminiVoice,
   type VoiceCheckResult,
   type VoicesResult,
 } from "@/lib/honeypot/voices";
@@ -395,9 +396,7 @@ function AdvancedGemini({
     }
   };
 
-  const listId = "gemini-voice-names";
-
-  const renderVoiceField = (
+  const renderVoiceRow = (
     role: Role,
     label: string,
     fallback: string,
@@ -407,22 +406,27 @@ function AdvancedGemini({
     const res = results[role];
     const st = res ? describeGeminiCheck(res) : null;
     const busy = testing[role];
+    // A stale/unknown stored value falls back to "" (server default) in the UI.
+    const selected = isKnownGeminiVoice(value) ? value : "";
     return (
       <label key={role} className="grid gap-1">
         <span className="text-[11px] font-medium text-fg">{label}</span>
         <div className="flex gap-2">
-          <input
-            type="text"
-            list={listId}
-            value={value}
-            placeholder={`server default (${fallback})`}
-            spellCheck={false}
+          <select
+            value={selected}
             onChange={(e) => onChange(e.target.value)}
-            className={`${VOICE_INPUT_CLS} flex-1`}
-          />
+            className="h-8 flex-1 rounded-lg border border-line bg-elevated px-2.5 text-[11px] text-fg outline-none transition-colors focus:border-accent/40"
+          >
+            <option value="">Server default · {fallback}</option>
+            {GEMINI_VOICES.map((v) => (
+              <option key={v.name} value={v.name}>
+                {v.name} · {v.tone}
+              </option>
+            ))}
+          </select>
           <button
             type="button"
-            onClick={() => void testVoice(role, value)}
+            onClick={() => void testVoice(role, selected)}
             disabled={busy}
             title="Play a short sample in this voice (checks key + quota)"
             className="h-8 shrink-0 rounded-lg border border-line bg-elevated px-2.5 text-[11px] font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-50"
@@ -453,29 +457,20 @@ function AdvancedGemini({
         </a>
       </div>
       <p className="mb-2.5 text-[10.5px] text-muted">
-        Per-request overrides — no restart. Blank = server default. Type any
-        prebuilt voice (suggestions below) — the style directive does the
-        emotional shaping, the voice sets timbre. ▶ Test plays a sample and spends
-        one Gemini request (free tier = 10/day).
+        Per-request overrides — no restart. Pick a prebuilt voice (the tone is its
+        character); the style directive does the emotional shaping. ▶ Test plays a
+        sample and spends one Gemini request (free tier = 10/day).
       </p>
 
-      <datalist id={listId}>
-        {GEMINI_VOICES.map((v) => (
-          <option key={v.name} value={v.name}>
-            {v.tone}
-          </option>
-        ))}
-      </datalist>
-
       <div className="grid gap-2.5">
-        {renderVoiceField(
+        {renderVoiceRow(
           "persona",
           "Persona voice",
           "Sulafat",
           settings.geminiVoicePersona,
           (v) => update({ geminiVoicePersona: v }),
         )}
-        {renderVoiceField(
+        {renderVoiceRow(
           "scammer",
           "Scammer voice",
           "Charon",

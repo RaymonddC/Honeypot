@@ -117,6 +117,13 @@ export const GEMINI_VOICES: { name: string; tone: string }[] = [
   { name: "Sulafat", tone: "Warm" },
 ];
 
+const GEMINI_VOICE_NAMES = new Set(GEMINI_VOICES.map((v) => v.name));
+
+/** True if `name` is a real Gemini prebuilt voice (empty = "" server default). */
+export function isKnownGeminiVoice(name: string): boolean {
+  return GEMINI_VOICE_NAMES.has(name.trim());
+}
+
 /**
  * Readiness check for Gemini TTS (GET /api/tts/gemini-check): runs a short
  * backend test-synth in the given voice and, on success, returns the AUDIO
