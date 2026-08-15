@@ -28,7 +28,13 @@ async def lifespan(app: FastAPI):
     # Later phases: warm caches, verify LIVE credentials, contract checks.
     # Seed one POC honeypot replay so the Honeypot console shows the live
     # demo narrative on first load (no manual POST needed). POC-only, idempotent.
+    from app.core.migration_guard import assert_schema_at_head
     from app.infiltrate.service import seed_demo_session
+
+    # Fail loud at boot if the Postgres schema is behind the code's migration
+    # head — a drifted schema 500s on the first write (e.g. the missing
+    # core.cases.stage column that broke "create case"). No-op in memory mode.
+    await assert_schema_at_head()
 
     # Print the live-LLM state on startup so it's obvious whether the interactive
     # persona will improvise (real key loaded) or fall back to the scripted stall.

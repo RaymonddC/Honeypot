@@ -13,6 +13,7 @@ from app.core.db import Base
 
 # Import model modules here as they land so autogenerate sees them.
 from app.action import models as action_models  # noqa: F401
+from app.casedata import models as casedata_models  # noqa: F401
 from app.core import models as core_models  # noqa: F401
 from app.chain import models  # noqa: F401
 from app.fiat import models as fiat_models  # noqa: F401
@@ -47,7 +48,14 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    # include_schemas=True so autogenerate / `alembic check` inspect the named
+    # schemas (core, fiat, intel, action, …), not just the default — otherwise
+    # every core.*/fiat.* table looks "missing" and check is all false positives.
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        include_schemas=True,
+    )
     with context.begin_transaction():
         context.run_migrations()
 
