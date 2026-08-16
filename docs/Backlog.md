@@ -56,6 +56,19 @@ on the Response dashboard). **282 backend tests green**, frontend build green.
       TTS stays free monthly), needs a new **Alibaba DashScope key**, and Alibaba Cloud is a data-governance
       flag for LIVE forensics. Doesn't fill a gap (Google/Gemini/ElevenLabs already wired). Wire as a
       flip-to-LIVE adapter (`ITTU_QWEN_API_KEY`) only if its voices are wanted.
+- ❌ **AI Rudder — evaluated & REJECTED (2026-08-16)** — enterprise AI voice-agent platform (BotLab,
+      no-code), 500+ clients, strong Indonesia/SEA footprint; built for loan collection, telemarketing,
+      KYC. **Rejected on architecture, not price: it owns the conversation**, so ITTU's persona loop,
+      entity extraction and SHA-256 hash-chained custody are all bypassed — you get transcripts
+      secondhand (no public API/webhook docs; enterprise sales only) and nothing court-usable out the
+      other end. That objection does **not** dissolve at scale — 1,000 concurrent calls have the same
+      problem as one, so there is no "use it later when we're bigger" path for the honeypot. It could
+      only ever fit a *different, non-forensic* workload (e.g. mass victim outreach/warning campaigns,
+      which need no evidence chain) — a separate product, not ITTU. Also: no self-serve (can't
+      prototype), opaque custom pricing, and a commercial third party processing + storing scam-call
+      content is a data-governance flag for law-enforcement evidence. **Keep as market context only**
+      (proof Indonesian voice AI works commercially — worth a capstone mention). Stay with Twilio as
+      dumb transport + our own STT/TTS/agent loop: the custody chain IS the product.
 - [ ] **Voice honeypot — outbound calling MVP** · L · *in progress 2026-08-16* — full architecture in
       [`Voice-Honeypot-Outbound.md`](Voice-Honeypot-Outbound.md): a number pool, a bulk-upload dial
       campaign (Dramatiq-paced, mirrors the C1 notification worker), and a triage queue that attaches
