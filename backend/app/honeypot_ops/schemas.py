@@ -22,6 +22,9 @@ from app.core.config import Mode
 NumberStatus = Literal["active", "retired", "rate_limited"]
 CampaignStatus = Literal["draft", "running", "paused", "completed"]
 TargetStatus = Literal["queued", "dialing", "no_answer", "engaged", "failed"]
+# A settled attempt's result. No "queued"/"dialing" — an attempt row is only
+# written once the attempt has an outcome.
+AttemptOutcome = Literal["engaged", "no_answer", "failed"]
 
 # E.164: a leading '+', a non-zero country code, then up to 14 more digits.
 _E164 = re.compile(r"^\+[1-9]\d{7,14}$")
@@ -150,13 +153,34 @@ class DialTargetOut(BaseModel):
     phone_number: str
     status: TargetStatus = "queued"
     # Dial attempts made so far. Requeue never resets this — it IS the retry
-    # history ("tried 3 times"), and the per-attempt call log lives on
-    # intel.scam_sessions.dial_target_id (§3.4), not here.
+    # count ("tried 3 times"). The attempt-by-attempt log is DialAttemptOut
+    # below; `status`/`last_error` here are only the LATEST outcome.
     attempt_count: int = 0
     last_error: str | None = None
     data_mode: Mode = "poc"
     created_at: datetime
     updated_at: datetime
+
+
+class DialAttemptOut(BaseModel):
+    """One row of the call log — a single dial attempt and what came of it.
+
+    Written for EVERY outcome, including the ones nobody answered, so an
+    investigator can reconstruct "tried three times: no answer at 14:03 and
+    16:20, engaged at 09:12". ``session_id`` is set only when the call actually
+    connected — that is the conversation (transcript + extracted intel) this
+    attempt produced.
+    """
+
+    id: str
+    target_id: str
+    attempt_no: int
+    outcome: AttemptOutcome
+    error: str | None = None
+    duration_seconds: int | None = None
+    session_id: str | None = None
+    data_mode: Mode = "poc"
+    started_at: datetime
 
 
 # Statuses a target can be requeued FROM. Deliberately excludes:

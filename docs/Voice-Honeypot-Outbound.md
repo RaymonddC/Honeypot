@@ -157,11 +157,44 @@ tables that produce sessions.
 > redundant. **Phase 4 must drop it** (and the mutual-FK `use_alter` dance Phase 1 needed
 > along with it). Do this before any code depends on it.
 
+### 3.3b `honeypot.dial_attempts` — the call log (CDR), one row per ATTEMPT
+
+**Added 2026-08-16 (migration `20260816_15`)**, closing a gap in phase 4: the dialer
+originally recorded a call only when it *connected*, so a no-answer or carrier failure left
+no per-attempt trace at all (`attempt_count` is a bare counter; `status`/`last_error` hold
+only the latest value). "Tried three times: no answer at 14:03 and 16:20, engaged at 09:12"
+was unreconstructible — and "never picks up" is itself intel about a target.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `target_id` | uuid FK → `dial_targets` (CASCADE) | indexed |
+| `attempt_no` | int | mirrors the target's `attempt_count` at the time (1-based) |
+| `outcome` | text | `engaged` \| `no_answer` \| `failed` |
+| `error` | text, nullable | carrier/transport reason on failure |
+| `duration_seconds` | int, nullable | 0 when nobody answered |
+| `session_id` | uuid, nullable FK → `intel.scam_sessions` | set ONLY for `engaged` — the conversation this attempt produced |
+| `data_mode` | text | POC attempts must never read as engagement evidence |
+| `started_at` | timestamptz | |
+
+`UNIQUE (target_id, attempt_no)` makes the actor's logging idempotent under Dramatiq's
+at-least-once redelivery. RLS policies the row two hops out (attempt → target → campaign),
+the same join-don't-denormalize choice §3.3 made — an un-policied table here would expose
+who every other agency has been calling.
+
+`session_id` lives here, not on `dial_targets` where §3.3 correctly removed it: on an
+attempt row it is unambiguous, because a row *is* one attempt.
+
 ### 3.4 New columns on `intel.scam_sessions` (voice/call-specific)
 
-**One `scam_sessions` row per call ATTEMPT** — this is the call log. A requeued target
-produces a second row, with its own transcript, duration, disposition and (later) recording.
-`attempt_count` on the target is just a counter; these rows are the actual history.
+**One `scam_sessions` row per *connected* attempt** — the conversation, with its transcript,
+extracted intel and custody chain. Not every attempt: a no-answer has no transcript and no
+intel, and the triage queue (§5) reads sessions as an analyst work queue, so filling it with
+silent attempts would make it a chore to work. Those attempts are logged in
+`honeypot.dial_attempts` (§3.3b) instead.
+
+**The two logs together:** requeue a target and dial again → a second `dial_attempts` row
+always, plus a second `scam_sessions` row if that attempt connected.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -180,7 +213,8 @@ accidental double-call from a police tool is not recoverable). Re-calling is ser
 - **A new campaign** — already works today; cross-campaign upload is never rejected.
 - **Requeue (to build in phase 4)** — reset ended targets (`no_answer` / `failed`, optionally
   `engaged`) back to `queued`, per-target or bulk ("requeue all no-answers"). `attempt_count`
-  is preserved as retry history; a new `scam_sessions` row is created per attempt.
+  is preserved as retry history; the next dial appends a `dial_attempts` row (§3.3b) — plus a
+  `scam_sessions` row if it connects.
 
 Duplicate target ROWS are deliberately never created: they would make per-status counts
 meaningless ("2 no_answer" = two numbers, or one number twice?) and break "was this number
@@ -278,6 +312,8 @@ which is a strong hint they're the same case even before a human confirms it.
 | `POST` | `/honeypot/campaigns/{id}/targets` | bulk-upload numbers (CSV body or JSON array) |
 | `POST` | `/honeypot/campaigns/{id}/start` \| `/pause` | lifecycle control |
 | `GET` | `/honeypot/campaigns/{id}` | progress rollup (counts by target status) |
+| `POST` | `/honeypot/campaigns/{id}/requeue` | send finished targets back to `queued` (§3.6) |
+| `GET` | `/honeypot/targets/{id}/attempts` | the call log for one target (§3.3b) |
 | `GET` | `/honeypot/triage` | unmatched voice sessions |
 | `POST` | `/honeypot/triage/{session_id}/attach` | `{case_id}` — attach to existing |
 | `POST` | `/honeypot/triage/{session_id}/promote` | create + attach a new case |
@@ -343,10 +379,13 @@ self-test-only line matters.
   GPU to run) against self-hosted Whisper **on real Indonesian call audio**: Bahasa
   accuracy + latency under live conditions decide it, and neither is predictable from
   docs. Choosing now would be a guess.
-- **Call log → ONE SESSION PER ATTEMPT (one-to-many).** Each dial attempt is its own
-  `scam_sessions` row linked by `dial_target_id`; `dial_targets.session_id` is dropped as
-  ambiguous (§3.3/§3.4). Requeue (§3.6) is how you call a number again — duplicate target
-  rows are never created.
+- **Call log → ONE `dial_attempts` ROW PER ATTEMPT (one-to-many).** Every attempt is logged
+  in `honeypot.dial_attempts` (§3.3b), including the ones nobody answered; a *connected*
+  attempt additionally gets an `intel.scam_sessions` row for the conversation (§3.4).
+  `dial_targets.session_id` is dropped as ambiguous (§3.3). Requeue (§3.6) is how you call a
+  number again — duplicate target rows are never created.
+  *(Revised 2026-08-16: phase 4 first logged only connected calls, which silently lost the
+  no-answer history. The CDR/conversation split keeps both without making triage a chore.)*
 - **Audio recording → DEFERRED, self-recording preferred when built** (§3.7). The
   hash-chained transcript already provides the evidence record at zero cost; when audio is
   added, capturing it from the Media Streams we already consume avoids Twilio's per-minute

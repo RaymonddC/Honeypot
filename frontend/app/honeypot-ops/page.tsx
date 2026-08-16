@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   createCampaign,
+  listAttempts,
   listCampaigns,
   listNumbers,
   listTargets,
@@ -28,6 +29,7 @@ import {
   startCampaign,
   updateNumber,
   uploadTargets,
+  type DialAttempt,
   type DialCampaign,
   type DialTarget,
   type HoneypotNumber,
@@ -464,23 +466,110 @@ function CampaignDetail({
         ) : (
           <ul className="max-h-52 space-y-1 overflow-y-auto">
             {targets.map((t) => (
-              <li
-                key={t.id}
-                className="flex items-center justify-between gap-2 rounded-lg bg-elevated px-2.5 py-1 text-[11px]"
-              >
-                <span className="font-mono text-fg">{t.phone_number}</span>
-                <span className="text-muted">
-                  {t.status}
-                  {t.attempt_count > 0 && ` · ${t.attempt_count} attempts`}
-                  {t.last_error && ` · ${t.last_error}`}
-                </span>
-              </li>
+              <TargetRow key={t.id} target={t} />
             ))}
           </ul>
         )}
       </div>
       <ErrorLine msg={error} />
     </div>
+  );
+}
+
+/* ── One target + its call log ───────────────────────────────────────────── */
+
+const ATTEMPT_STYLE: Record<string, string> = {
+  engaged: "text-accent-bright",
+  no_answer: "text-muted",
+  failed: "text-risk-high",
+};
+
+const ATTEMPT_COPY: Record<string, string> = {
+  engaged: "engaged",
+  no_answer: "no answer",
+  failed: "failed",
+};
+
+/**
+ * A dial target, expandable into its call log.
+ *
+ * `attempt_count` only says "tried 3 times"; the log says WHEN each attempt
+ * happened and what came of it — including the silent ones, since "never picks
+ * up" is itself intel. Loaded lazily on first expand: a campaign can hold
+ * hundreds of targets and most are never opened.
+ */
+function TargetRow({ target }: { target: DialTarget }) {
+  const [open, setOpen] = useState(false);
+  const [attempts, setAttempts] = useState<DialAttempt[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const toggle = async () => {
+    const next = !open;
+    setOpen(next);
+    if (!next || attempts !== null) return;
+    try {
+      setAttempts(await listAttempts(target.id));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "could not load the call log");
+    }
+  };
+
+  return (
+    <li className="rounded-lg bg-elevated text-[11px]">
+      <button
+        type="button"
+        onClick={() => void toggle()}
+        className="flex w-full items-center justify-between gap-2 px-2.5 py-1 text-left transition-colors hover:text-accent-bright"
+      >
+        <span className="font-mono text-fg">
+          <span className="mr-1 inline-block w-2 text-muted">
+            {open ? "▾" : "▸"}
+          </span>
+          {target.phone_number}
+        </span>
+        <span className="text-muted">
+          {target.status}
+          {target.attempt_count > 0 && ` · ${target.attempt_count} attempts`}
+          {target.last_error && ` · ${target.last_error}`}
+        </span>
+      </button>
+
+      {open && (
+        <div className="border-t border-line px-2.5 py-1.5">
+          {error ? (
+            <p className="text-[10.5px] text-risk-high">✗ {error}</p>
+          ) : attempts === null ? (
+            <p className="text-[10.5px] text-muted">Loading call log…</p>
+          ) : attempts.length === 0 ? (
+            <p className="text-[10.5px] text-muted">
+              Not dialed yet — no attempts logged.
+            </p>
+          ) : (
+            <ul className="space-y-0.5">
+              {attempts.map((a) => (
+                <li key={a.id} className="flex items-baseline gap-2 text-[10.5px]">
+                  <span className="w-8 shrink-0 font-mono text-muted">
+                    #{a.attempt_no}
+                  </span>
+                  <span
+                    className={`w-16 shrink-0 ${ATTEMPT_STYLE[a.outcome] ?? "text-fg"}`}
+                  >
+                    {ATTEMPT_COPY[a.outcome] ?? a.outcome}
+                  </span>
+                  <span className="text-muted">
+                    {fmtDate(a.started_at)}
+                    {a.outcome === "engaged" &&
+                      a.duration_seconds != null &&
+                      ` · ${a.duration_seconds}s`}
+                    {a.error && ` · ${a.error}`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </li>
   );
 }
 

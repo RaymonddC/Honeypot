@@ -18,14 +18,21 @@ The gate is the ROW's ``data_mode``, not ambient settings: a campaign created in
 POC must stay simulated even if the server is later flipped to LIVE, because its
 rows are already stamped as non-evidence.
 
-Call log (§3.4): a connected call creates ONE ``intel.scam_sessions`` row per
-attempt, linked by ``dial_target_id``. Requeue (§3.6) re-queues a finished
-target, so a target accumulates one session per engaged attempt — that set IS
-the call log. A no-answer or a failed dial creates NO session: those are not
-conversations (``ScamSession`` is "one engaged scammer conversation"), they have
-no transcript and no intel, and the triage queue (§5) reads sessions — filling it
-with no-answers would make it a chore rather than a work queue. Their history is
-on the target: ``attempt_count`` / ``status`` / ``last_error``.
+Call log (§3.4/§3.5) — TWO records, written together, deliberately separate:
+
+* ``honeypot.dial_attempts`` — one row for EVERY attempt, whatever happened.
+  This is the CDR: "tried three times, no answer at 14:03 and 16:20, engaged at
+  09:12". Requeue (§3.6) re-queues a settled target, so attempts accumulate.
+* ``intel.scam_sessions``    — one row per *connected* attempt only, carrying the
+  transcript, extracted intel, and custody chain, linked by ``dial_target_id``.
+
+A no-answer gets an attempt row but NO session: it is not a conversation
+(``ScamSession`` is "one engaged scammer conversation"), it has no transcript and
+no intel, and the triage queue (§5) reads sessions as an analyst work queue —
+filling it with silent attempts would make it a chore to work. But the attempt
+still has to be recorded, because "never picks up" is itself intel about a
+target; before ``dial_attempts`` existed that history collapsed into a bare
+``attempt_count``.
 """
 
 import asyncio
@@ -43,7 +50,7 @@ from sqlalchemy import select
 from app.core import broker as _broker  # noqa: F401
 from app.core.config import get_settings
 from app.core.db import get_worker_sessionmaker
-from app.honeypot_ops.models import DialCampaign, DialTarget
+from app.honeypot_ops.models import DialAttempt, DialCampaign, DialTarget
 
 _log = logging.getLogger("uvicorn.error")
 
@@ -153,7 +160,8 @@ async def _dial_one(dial_target_id: str) -> None:
 
         outcome, error, duration = simulate_outcome(phone, attempt)
 
-        # 3) settle the target, and log the call when it connected
+        # 3) settle the target, log the ATTEMPT (always), and the conversation
+        #    (only when it connected)
         retry = False
         async with session.begin():
             row = (
@@ -161,31 +169,33 @@ async def _dial_one(dial_target_id: str) -> None:
             ).scalar_one()
             row.last_error = error
             row.updated_at = _now()
+            started = _now()
+            session_row: ScamSession | None = None
 
             if outcome == "engaged":
                 row.status = "engaged"
-                started = _now()
-                session.add(
-                    ScamSession(
-                        id=uuid.uuid4(),
-                        public_id=f"sess_{uuid.uuid4().hex[:12]}",
-                        # §5 step 1: a campaign pinned to a case attaches directly.
-                        # Otherwise NULL → the triage queue (phase 6 matches/assigns).
-                        case_id=case_id,
-                        agency_id=agency_id,
-                        channel_type="voice",
-                        channel="pstn",
-                        channel_ref=phone,
-                        status="closed",  # the call is over (active|escalated|closed)
-                        data_mode=data_mode,
-                        started_at=started,
-                        ended_at=started,
-                        duration_seconds=duration,
-                        # recording_url stays NULL — recording is deferred (§3.7).
-                        disposition="engaged",
-                        dial_target_id=row.id,
-                    )
+                session_row = ScamSession(
+                    id=uuid.uuid4(),
+                    public_id=f"sess_{uuid.uuid4().hex[:12]}",
+                    # §5 step 1: a campaign pinned to a case attaches directly.
+                    # Otherwise NULL → the triage queue (phase 6 matches/assigns).
+                    case_id=case_id,
+                    agency_id=agency_id,
+                    channel_type="voice",
+                    channel="pstn",
+                    channel_ref=phone,
+                    status="closed",  # the call is over (active|escalated|closed)
+                    data_mode=data_mode,
+                    started_at=started,
+                    ended_at=started,
+                    duration_seconds=duration,
+                    # recording_url stays NULL — recording is deferred (§3.7).
+                    disposition="engaged",
+                    dial_target_id=row.id,
                 )
+                session.add(session_row)
+                # The attempt row's FK needs the session's id to exist.
+                await session.flush()
             elif outcome == "no_answer":
                 row.status = "no_answer"
             elif attempt >= settings.dial_max_retries:
@@ -193,6 +203,25 @@ async def _dial_one(dial_target_id: str) -> None:
             else:
                 row.status = "queued"
                 retry = True
+
+            # The CDR — written for engaged, no_answer AND failed alike, including
+            # the failures that will be retried below. A retried attempt is still
+            # an attempt: it occupied a line and told us something about the
+            # target, so it earns a row. UNIQUE(target_id, attempt_no) keeps a
+            # Dramatiq redelivery from double-logging the same one.
+            session.add(
+                DialAttempt(
+                    id=uuid.uuid4(),
+                    target_id=row.id,
+                    attempt_no=attempt,
+                    outcome=outcome,
+                    error=error,
+                    duration_seconds=duration,
+                    session_id=session_row.id if session_row is not None else None,
+                    data_mode=data_mode,
+                    started_at=started,
+                )
+            )
 
     if retry:
         raise DialAttemptError(error or "dial failed")

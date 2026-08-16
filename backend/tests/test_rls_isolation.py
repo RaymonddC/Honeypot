@@ -22,6 +22,7 @@ fixture — a function-scoped one would tear the server down between tests.
 
 import os
 import tempfile
+import uuid
 from pathlib import Path
 
 import pytest
@@ -185,3 +186,100 @@ async def test_owning_role_bypasses_rls_by_design(app_role_uri, seeded_sessions)
         await engine.dispose()
 
     assert seen == {AGENCY_A, AGENCY_B}
+
+
+# --------------------------------------------------------------------------- #
+# honeypot.dial_attempts — the call log, policed two joins out
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture(scope="session")
+async def seeded_attempts(app_role_uri):
+    """A campaign → target → attempt chain for agency A and for agency B.
+
+    Inserted as the OWNING role (setup, not the assertion). The attempt rows
+    carry no agency_id of their own — reaching the right one is exactly what the
+    policy's attempt → target → campaign join has to get right.
+    """
+    owner_async_uri, _app = app_role_uri
+    engine = create_async_engine(owner_async_uri)
+    try:
+        async with engine.begin() as conn:
+            for agency_id in (AGENCY_A, AGENCY_B):
+                camp, target = uuid.uuid4(), uuid.uuid4()
+                await conn.execute(
+                    sa.text(
+                        "INSERT INTO honeypot.dial_campaigns "
+                        "(id, public_id, agency_id, name, status, pacing_per_minute) "
+                        "VALUES (:id, :pid, :ag, 'rls test', 'running', 6)"
+                    ),
+                    {"id": camp, "pid": f"camp_rls_{agency_id[:8]}", "ag": agency_id},
+                )
+                await conn.execute(
+                    sa.text(
+                        "INSERT INTO honeypot.dial_targets "
+                        "(id, campaign_id, phone_number, status, attempt_count) "
+                        "VALUES (:id, :cid, :num, 'no_answer', 1)"
+                    ),
+                    {"id": target, "cid": camp, "num": f"+62811{agency_id[:7]}"},
+                )
+                await conn.execute(
+                    sa.text(
+                        "INSERT INTO honeypot.dial_attempts "
+                        "(id, target_id, attempt_no, outcome) "
+                        "VALUES (gen_random_uuid(), :tid, 1, 'no_answer')"
+                    ),
+                    {"tid": target},
+                )
+    finally:
+        await engine.dispose()
+
+
+async def test_rls_isolates_dial_attempts_by_agency(app_role_uri, seeded_attempts):
+    """Agency A sees only its own call log.
+
+    dial_attempts has no agency_id — ownership is two joins away (attempt →
+    target → campaign). An un-policied table here would expose who every other
+    agency has been calling and when, which is arguably more sensitive than the
+    target list itself.
+    """
+    _owner, app_async_uri = app_role_uri
+    engine = create_async_engine(app_async_uri)
+    try:
+        async with engine.connect() as conn, conn.begin():
+            await conn.execute(
+                sa.text("SELECT set_config('app.current_agency', :v, true)"),
+                {"v": AGENCY_A},
+            )
+            seen = (
+                await conn.execute(
+                    sa.text(
+                        "SELECT c.agency_id FROM honeypot.dial_attempts a "
+                        "JOIN honeypot.dial_targets t ON t.id = a.target_id "
+                        "JOIN honeypot.dial_campaigns c ON c.id = t.campaign_id"
+                    )
+                )
+            ).fetchall()
+            count = (
+                await conn.execute(sa.text("SELECT count(*) FROM honeypot.dial_attempts"))
+            ).scalar()
+    finally:
+        await engine.dispose()
+
+    assert {str(r[0]) for r in seen} == {AGENCY_A}
+    assert count == 1, "agency B's attempt row must be invisible, not merely unjoined"
+
+
+async def test_dial_attempts_fail_closed_on_null_agency(app_role_uri, seeded_attempts):
+    """No tenant context → no call history at all (fail closed, not open)."""
+    _owner, app_async_uri = app_role_uri
+    engine = create_async_engine(app_async_uri)
+    try:
+        async with engine.connect() as conn, conn.begin():
+            count = (
+                await conn.execute(sa.text("SELECT count(*) FROM honeypot.dial_attempts"))
+            ).scalar()
+    finally:
+        await engine.dispose()
+
+    assert count == 0

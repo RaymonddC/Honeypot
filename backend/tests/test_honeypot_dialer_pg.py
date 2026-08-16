@@ -191,6 +191,24 @@ async def _sessions(engine, target_id) -> list[sa.Row]:
         )
 
 
+async def _attempts(engine, target_id) -> list[sa.Row]:
+    """The call log (CDR) for a target, oldest attempt first."""
+    async with engine.connect() as conn:
+        return list(
+            (
+                await conn.execute(
+                    sa.text(
+                        "SELECT attempt_no, outcome, error, duration_seconds, "
+                        "session_id, data_mode, started_at "
+                        "FROM honeypot.dial_attempts WHERE target_id = :id "
+                        "ORDER BY attempt_no"
+                    ),
+                    {"id": target_id},
+                )
+            ).all()
+        )
+
+
 async def _requeue(engine, target_id) -> None:
     """What POST /requeue does: status back to queued, attempt_count untouched."""
     async with engine.begin() as conn:
@@ -405,5 +423,120 @@ def test_unknown_target_id_is_a_noop(owner_uri):
         async with _worker(owner_uri) as engine:  # noqa: F841 - needed for the patch
             await _dial_one(str(uuid.uuid4()))
             await _dial_one("not-a-uuid")
+
+    run_scenario(scenario)
+
+
+# --------------------------------------------------------------------------- #
+# The call log (honeypot.dial_attempts) — EVERY attempt, not just connected ones
+# --------------------------------------------------------------------------- #
+
+
+def test_unanswered_attempt_is_still_logged(owner_uri):
+    """The gap this table closes: a no-answer leaves a record.
+
+    Before it existed, an unanswered call vanished into ``attempt_count`` — the
+    target said "tried once" and nothing said when, or that nobody picked up.
+    """
+    async def scenario():
+        async with _worker(owner_uri) as engine:
+            number = _find_number(["no_answer"])
+            target_id = await _seed(engine, number=number)
+            await _dial_one(str(target_id))
+
+            (att,) = await _attempts(engine, target_id)
+            assert att.attempt_no == 1
+            assert att.outcome == "no_answer"
+            assert att.session_id is None, "a silent call is not a conversation"
+            assert att.started_at is not None
+
+            # ...and it still creates no session, so triage stays a work queue.
+            assert await _sessions(engine, target_id) == []
+
+    run_scenario(scenario)
+
+
+def test_requeue_then_dial_appends_a_second_attempt(owner_uri):
+    """THE user-facing invariant: requeue → dial gives 2+ log entries.
+
+    Deliberately uses a no-answer THEN an engaged call, the case the old
+    session-only log could not represent at all: the first attempt produced no
+    session, so the history would have shown a single entry for two real calls.
+    """
+    async def scenario():
+        async with _worker(owner_uri) as engine:
+            number = _find_number(["no_answer", "engaged"])
+            target_id = await _seed(engine, number=number)
+
+            await _dial_one(str(target_id))
+            await _requeue(engine, target_id)
+            await _dial_one(str(target_id))
+
+            log = await _attempts(engine, target_id)
+            assert [a.attempt_no for a in log] == [1, 2]
+            assert [a.outcome for a in log] == ["no_answer", "engaged"]
+            # Only the connected attempt links to a conversation.
+            assert log[0].session_id is None
+            assert log[1].session_id is not None
+            assert log[1].duration_seconds > 0
+
+            # One session for the one call that connected — the split holds.
+            assert len(await _sessions(engine, target_id)) == 1
+
+    run_scenario(scenario)
+
+
+def test_attempt_links_to_the_session_it_produced(owner_uri):
+    async def scenario():
+        async with _worker(owner_uri) as engine:
+            number = _find_number(["engaged"])
+            target_id = await _seed(engine, number=number)
+            await _dial_one(str(target_id))
+
+            (att,) = await _attempts(engine, target_id)
+            async with engine.connect() as conn:
+                sid = (
+                    await conn.execute(
+                        sa.text(
+                            "SELECT id FROM intel.scam_sessions WHERE dial_target_id = :t"
+                        ),
+                        {"t": target_id},
+                    )
+                ).scalar_one()
+            assert att.session_id == sid
+            assert att.duration_seconds > 0
+
+    run_scenario(scenario)
+
+
+def test_failed_attempts_are_each_logged_across_the_retry_budget(owner_uri):
+    """A retried failure is still a placed call, so each try earns a row."""
+    async def scenario():
+        async with _worker(owner_uri) as engine:
+            number = _find_number(["failed", "failed", "failed"])
+            target_id = await _seed(engine, number=number)
+
+            for _ in range(3):
+                with contextlib.suppress(DialAttemptError):
+                    await _dial_one(str(target_id))
+
+            log = await _attempts(engine, target_id)
+            assert [a.attempt_no for a in log] == [1, 2, 3]
+            assert {a.outcome for a in log} == {"failed"}
+            assert all(a.error for a in log), "the carrier reason is kept per attempt"
+            assert (await _target(engine, target_id)).status == "failed"
+
+    run_scenario(scenario)
+
+
+def test_attempt_log_carries_the_rows_data_mode(owner_uri):
+    """POC attempts must stay flagged as non-evidence (the codebase invariant)."""
+    async def scenario():
+        async with _worker(owner_uri) as engine:
+            number = _find_number(["engaged"])
+            target_id = await _seed(engine, number=number, data_mode="poc")
+            await _dial_one(str(target_id))
+            (att,) = await _attempts(engine, target_id)
+            assert att.data_mode == "poc"
 
     run_scenario(scenario)

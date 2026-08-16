@@ -22,11 +22,12 @@ from app.core.auth import AuthContext
 from app.core.auth import get_optional_current_user as _get_optional_current_user
 from app.core.config import get_settings
 from app.core.db import get_optional_tenant_session
-from app.honeypot_ops.models import DialCampaign, DialTarget, HoneypotNumber
+from app.honeypot_ops.models import DialAttempt, DialCampaign, DialTarget, HoneypotNumber
 from app.honeypot_ops.schemas import (
     REQUEUEABLE,
     AddNumberRequest,
     CreateCampaignRequest,
+    DialAttemptOut,
     DialCampaignOut,
     DialTargetOut,
     HoneypotNumberOut,
@@ -63,6 +64,8 @@ class HoneypotOpsRepository(Protocol):
     async def requeue_targets(
         self, campaign_id: str, req: RequeueRequest
     ) -> RequeueResult | None: ...
+
+    async def list_attempts(self, target_id: str) -> list[DialAttemptOut] | None: ...
 
     def reset(self) -> None:
         """Clear all state — memory-only test hook (see reset_stores)."""
@@ -117,6 +120,11 @@ class InMemoryHoneypotOpsRepository:
         self._numbers: list[HoneypotNumberOut] = []
         self._campaigns: list[DialCampaignOut] = []
         self._targets: list[DialTargetOut] = []
+        # The call log. Stays empty in practice: the `dial_target` actor is
+        # Postgres-only (it reads rows cross-process), so nothing dials in
+        # memory mode. Kept so `list_attempts` answers with the SAME shape in
+        # both impls — an empty log for a real target, None for an unknown one.
+        self._attempts: list[DialAttemptOut] = []
 
     # -- numbers ----------------------------------------------------------- #
 
@@ -257,10 +265,16 @@ class InMemoryHoneypotOpsRepository:
             requeued.append(updated)
         return RequeueResult(requeued=len(requeued), skipped=skipped, targets=requeued)
 
+    async def list_attempts(self, target_id: str) -> list[DialAttemptOut] | None:
+        if not any(t.id == target_id for t in self._targets):
+            return None
+        return [a for a in self._attempts if a.target_id == target_id]
+
     def reset(self) -> None:
         self._numbers.clear()
         self._campaigns.clear()
         self._targets.clear()
+        self._attempts.clear()
 
 
 @lru_cache
@@ -301,6 +315,20 @@ def _campaign_out(
         created_at=row.created_at,
         counts=counts,
         target_count=sum(counts.values()),
+    )
+
+
+def _attempt_out(row: DialAttempt) -> DialAttemptOut:
+    return DialAttemptOut(
+        id=str(row.id),
+        target_id=str(row.target_id),
+        attempt_no=row.attempt_no,
+        outcome=row.outcome,  # type: ignore[arg-type]
+        error=row.error,
+        duration_seconds=row.duration_seconds,
+        session_id=str(row.session_id) if row.session_id else None,
+        data_mode=row.data_mode,  # type: ignore[arg-type]
+        started_at=row.started_at,
     )
 
 
@@ -554,6 +582,31 @@ class PostgresHoneypotOpsRepository:
             skipped=skipped,
             targets=[_target_out(r, camp.public_id) for r in requeued],
         )
+
+    async def list_attempts(self, target_id: str) -> list[DialAttemptOut] | None:
+        """The call log for one target, oldest attempt first.
+
+        The target lookup is what enforces tenancy: ``dial_targets`` is itself
+        RLS-scoped through its campaign, so another agency's target simply isn't
+        found and this returns None (a 404) rather than leaking its call history.
+        """
+        try:
+            tid = uuid.UUID(target_id)
+        except ValueError:
+            return None
+        target = (
+            await self._session.execute(select(DialTarget).where(DialTarget.id == tid))
+        ).scalar_one_or_none()
+        if target is None:
+            return None
+        rows = (
+            await self._session.execute(
+                select(DialAttempt)
+                .where(DialAttempt.target_id == tid)
+                .order_by(DialAttempt.attempt_no)
+            )
+        ).scalars().all()
+        return [_attempt_out(r) for r in rows]
 
     def reset(self) -> None:
         raise NotImplementedError("reset() is a memory-only test hook.")

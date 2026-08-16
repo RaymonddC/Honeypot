@@ -54,16 +54,38 @@ export interface DialTarget {
   phone_number: string;
   status: TargetStatus;
   /**
-   * Dial attempts made. Requeue never resets this — it IS the retry history.
-   * There is deliberately no `session_id`: a target can be dialed many times,
-   * so the call log is one-to-many and lives on the sessions themselves
-   * (`scam_sessions.dial_target_id`).
+   * How many times this number has been dialed. Requeue never resets it.
+   * `status`/`last_error` are only the LATEST outcome — the attempt-by-attempt
+   * history is `DialAttempt` below (`GET /honeypot/targets/{id}/attempts`).
    */
   attempt_count: number;
   last_error: string | null;
   data_mode: string;
   created_at: string;
   updated_at: string;
+}
+
+/** What a settled dial attempt resulted in. */
+export type AttemptOutcome = "engaged" | "no_answer" | "failed";
+
+/**
+ * One row of the call log (CDR) — a single dial attempt.
+ *
+ * Written for EVERY attempt, including the ones nobody answered, so the history
+ * reads "tried 3 times: no answer at 14:03 and 16:20, engaged at 09:12".
+ * `session_id` is set only when the call connected — that's the conversation
+ * (transcript + extracted intel) the attempt produced.
+ */
+export interface DialAttempt {
+  id: string;
+  target_id: string;
+  attempt_no: number;
+  outcome: AttemptOutcome;
+  error: string | null;
+  duration_seconds: number | null;
+  session_id: string | null;
+  data_mode: string;
+  started_at: string;
 }
 
 /** Statuses a finished target can be requeued from (never queued/dialing). */
@@ -158,6 +180,13 @@ export function getCampaign(id: string) {
 
 export function listTargets(id: string) {
   return json<DialTarget[]>(`/honeypot/campaigns/${id}/targets`);
+}
+
+/** The call log for one target — every attempt, oldest first. */
+export function listAttempts(targetId: string) {
+  return json<DialAttempt[]>(
+    `/honeypot/targets/${encodeURIComponent(targetId)}/attempts`,
+  );
 }
 
 /** Bulk-add numbers: a JSON array, pasted CSV/newline text, or both. */

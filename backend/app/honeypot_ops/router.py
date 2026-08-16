@@ -33,6 +33,7 @@ from app.honeypot_ops.repository import (
 from app.honeypot_ops.schemas import (
     AddNumberRequest,
     CreateCampaignRequest,
+    DialAttemptOut,
     DialCampaignOut,
     DialTargetOut,
     HoneypotNumberOut,
@@ -191,6 +192,27 @@ async def list_targets(
     if targets is None:
         raise _not_found("campaign", campaign_id)
     return targets
+
+
+@router.get(
+    "/honeypot/targets/{target_id}/attempts", response_model=list[DialAttemptOut]
+)
+async def list_attempts(
+    target_id: str,
+    repo: HoneypotOpsRepository = RepoDep,
+    _auth: AuthContext = Depends(get_current_user),
+) -> list[DialAttemptOut]:
+    """The call log for one target — every attempt, oldest first.
+
+    Includes the attempts nobody answered, which is the point: `attempt_count`
+    on the target says "tried 3 times", this says when each one happened and
+    what came of it. An attempt that connected carries `session_id`, the
+    conversation (transcript + intel) it produced.
+    """
+    attempts = await repo.list_attempts(target_id)
+    if attempts is None:
+        raise _not_found("target", target_id)
+    return attempts
 
 
 @router.post("/honeypot/campaigns/{campaign_id}/start", response_model=DialCampaignOut)

@@ -388,3 +388,35 @@ def test_requeue_requires_auth():
     cid = _campaign()
     bare = TestClient(app)
     assert bare.post(f"/api/honeypot/campaigns/{cid}/requeue", json={}).status_code == 401
+
+
+# ── call log (dial_attempts) ────────────────────────────────────────────── #
+
+
+def test_attempts_are_empty_for_a_target_that_was_never_dialed():
+    """A real target with no attempts answers [] — not 404.
+
+    Memory mode never dials (the actor is Postgres-only), so this is the shape
+    the endpoint always has here; the dialer-side behaviour is proven against a
+    real Postgres in test_honeypot_dialer_pg.py.
+    """
+    cid = _campaign()
+    up = client.post(
+        f"/api/honeypot/campaigns/{cid}/targets", json={"numbers": ["+6281234567890"]}
+    ).json()
+    target_id = up["targets"][0]["id"]
+
+    r = client.get(f"/api/honeypot/targets/{target_id}/attempts")
+    assert r.status_code == 200, r.text
+    assert r.json() == []
+
+
+def test_attempts_404_for_an_unknown_target():
+    r = client.get("/api/honeypot/targets/tgt_nope/attempts")
+    assert r.status_code == 404
+    assert r.json()["error"]["code"] == "target_not_found"
+
+
+def test_attempts_require_auth():
+    anon = TestClient(app)
+    assert anon.get("/api/honeypot/targets/tgt_x/attempts").status_code == 401

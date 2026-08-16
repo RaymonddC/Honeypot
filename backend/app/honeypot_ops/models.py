@@ -4,6 +4,8 @@
 ``honeypot.dial_campaigns`` — one uploaded batch of numbers to work through.
 ``honeypot.dial_targets``   — one row per number in a campaign + durable dial
                               status/retry bookkeeping.
+``honeypot.dial_attempts``  — one row per DIAL ATTEMPT (the call log / CDR),
+                              including the ones nobody answered.
 
 ``dial_targets`` deliberately mirrors ``action.notifications``'s delivery
 lifecycle (``status``/``attempt_count``/``last_error``/``updated_at``): both are
@@ -20,7 +22,23 @@ Agency ownership: ``numbers`` and ``dial_campaigns`` carry ``agency_id`` and are
 RLS-scoped by it (migration 20260816_13). ``dial_targets`` has no ``agency_id``
 — it is reached only through its campaign, and its RLS policy joins through
 ``campaign_id`` rather than denormalizing the owner (see the migration docstring
-for why).
+for why). ``dial_attempts`` extends that one hop further (attempt → target →
+campaign), for the same reason.
+
+TWO LOGS, ONE CALL — the split that matters here (migration 20260816_15):
+
+* ``honeypot.dial_attempts`` — the **call log (CDR)**: one row per attempt,
+  whatever happened. A number tried three times has three rows, even if nobody
+  ever picked up. This is what answers "when did we call, and what happened?".
+* ``intel.scam_sessions``    — the **conversation**: one row per *connected*
+  attempt, carrying the transcript, extracted intel, and custody chain.
+
+They are deliberately not the same table. A no-answer has no transcript and no
+intel, so recording it as a session would put empty rows in front of the triage
+queue (design spec §5), which reads sessions as an analyst work queue. But it
+still has to be recorded *somewhere*, because "tried five times, never answered"
+is itself intel about a target — and before this table existed, that history was
+lost to a bare ``attempt_count`` counter.
 """
 
 import uuid
@@ -122,9 +140,13 @@ class DialTarget(Base):
     last_error: Mapped[str | None] = mapped_column(Text)
     # NB: there is deliberately NO session_id here (dropped in migration
     # 20260816_14). Requeue means one target is dialed many times, so the link is
-    # one-to-MANY and lives on the other side: ``intel.scam_sessions
-    # .dial_target_id``. That set of sessions IS the call log; a single FK here
-    # could only ever name "first" or "latest" and would silently lose history.
+    # one-to-MANY and lives on the other side: ``dial_attempts.session_id`` for
+    # the per-attempt link, and ``intel.scam_sessions.dial_target_id`` for the
+    # conversations. A single FK here could only ever name "first" or "latest"
+    # and would silently lose history.
+    #
+    # `status`/`last_error` below are the LATEST outcome only. The full
+    # attempt-by-attempt history is in ``honeypot.dial_attempts``.
     data_mode: Mapped[str] = mapped_column(Text, nullable=False, default="poc")  # poc|live
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow, nullable=False
@@ -132,4 +154,41 @@ class DialTarget(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow,
         nullable=False,
+    )
+
+
+class DialAttempt(Base):
+    """One dial ATTEMPT — the call-detail record. Written for every outcome."""
+
+    __tablename__ = "dial_attempts"
+    __table_args__ = (
+        # One row per attempt, enforced. Makes the actor's logging idempotent
+        # under Dramatiq at-least-once redelivery: a replayed attempt collides
+        # rather than quietly doubling the call history.
+        UniqueConstraint("target_id", "attempt_no", name="uq_dial_attempts_target_attempt"),
+        {"schema": SCHEMA},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=_uuid)
+    target_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey(f"{SCHEMA}.dial_targets.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    # Mirrors dial_targets.attempt_count at the moment of this attempt (1-based),
+    # so the log reads "attempt 2 of 3" without a window function.
+    attempt_no: Mapped[int] = mapped_column(Integer, nullable=False)
+    # engaged | no_answer | failed — the same vocabulary the dialer/target use.
+    outcome: Mapped[str] = mapped_column(Text, nullable=False)
+    # Carrier/transport reason on a failed attempt; NULL otherwise.
+    error: Mapped[str | None] = mapped_column(Text)
+    # 0 for an attempt nobody answered; the talk time for an engaged one.
+    duration_seconds: Mapped[int | None] = mapped_column(Integer)
+    # Set ONLY for `engaged` — the conversation this attempt produced. Unambiguous
+    # here (unlike on dial_targets) precisely because a row IS a single attempt.
+    session_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("intel.scam_sessions.id"), index=True
+    )
+    data_mode: Mapped[str] = mapped_column(Text, nullable=False, default="poc")  # poc|live
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, nullable=False
     )
