@@ -8,6 +8,16 @@ _Last updated: 2026-08-16 · branch `feat/c1-notifications-delivery`._
 
 ---
 
+## 🩹 Fixed this cycle (worth remembering — both were silent failures)
+- [x] **DB migration drift → broke "create case"** (2026-08-15) — the Neon DB was 3 migrations behind, so
+      `core.cases` had no `stage` column and every insert 500'd with nothing pointing at the cause. Fixed by
+      `alembic upgrade head`; **prevented** by a boot guard that refuses to start when the schema is behind
+      (`app/core/migration_guard.py`) plus CI integrity tests (single-head + apply-chain canary).
+- [x] **`casedata` grants missing for `ittu_app`** (2026-08-16, `6d93896`) — `create_app_role.sql` granted
+      every schema except `casedata`, so under Postgres persistence the analyst-entered bank-account /
+      crypto-transfer features hit `InsufficientPrivilege` with no hint. Verified DENIED→ACCESSIBLE on the
+      live DB; grants applied and the script fixed for fresh environments.
+
 ## ✅ Done — core is feature-complete
 All four pillars + honeypot (text **and** live-mic voice), Response dashboard, and the case-centric
 hub. Live blockchain tracing (async jobs, hardened, cycle-fix). Auth/RLS + Google OAuth. LLM brain
@@ -46,19 +56,26 @@ on the Response dashboard). **282 backend tests green**, frontend build green.
       TTS stays free monthly), needs a new **Alibaba DashScope key**, and Alibaba Cloud is a data-governance
       flag for LIVE forensics. Doesn't fill a gap (Google/Gemini/ElevenLabs already wired). Wire as a
       flip-to-LIVE adapter (`ITTU_QWEN_API_KEY`) only if its voices are wanted.
-- [ ] **Voice honeypot — outbound calling MVP** · L · *designed 2026-08-16, buildable in phases* — full
-      architecture in [`Voice-Honeypot-Outbound.md`](Voice-Honeypot-Outbound.md): a number pool, a
-      bulk-upload dial campaign (Dramatiq-paced, mirrors the C1 notification worker), and a triage queue
-      that attaches each connected call's session to a matched case or leaves it for an investigator to
-      assign. **Phases 1–4 + 6 (data model, case "calls" list, Numbers/Campaigns CRUD + UI, POC-simulated
-      dialing worker, triage/case-linking) need no Twilio account and no legal gate — buildable now.**
-      Phase 5 (the real `PstnChannelAdapter` + media bridge) is `Live-Voice-Calls.md`'s scope and is where
-      a Twilio account + the self-test-only line applies (see the Gated section below for dialing *real*
-      reported numbers).
-- [ ] **Case detail: "Calls / Conversations" list** · S · *quick win, part of the above* — the case rollup
-      already returns `sessions` (`cases/router.py`); today only counts are shown. Render the list
-      (number, date, duration, disposition, entity count) → expand into the existing transcript view.
-      Useful standalone even before the campaign feature ships.
+- [ ] **Voice honeypot — outbound calling MVP** · L · *in progress 2026-08-16* — full architecture in
+      [`Voice-Honeypot-Outbound.md`](Voice-Honeypot-Outbound.md): a number pool, a bulk-upload dial
+      campaign (Dramatiq-paced, mirrors the C1 notification worker), and a triage queue that attaches
+      each connected call's session to a matched case or leaves it for an investigator to assign.
+      - [x] **Phase 1 — data model** (`e69f938`) — `honeypot` schema (numbers, dial_campaigns,
+            dial_targets) + call columns on `intel.scam_sessions`, RLS on all three (dial_targets policed
+            via a join through its campaign).
+      - [x] **Phase 2 — case "Calls & conversations" list** (`b82726f`) — see the separate entry below.
+      - [x] **Phase 3 — Numbers + Campaigns CRUD + Honeypot Ops UI** (`7e4e9c8`) — `/api/honeypot/*`,
+            new `/honeypot-ops` page. Bulk upload reports per-row rejects instead of failing the batch;
+            a bare local number (`08…`) is REJECTED, never auto-prefixed to `+62` — guessing a country
+            code in a police dialer could call an unrelated real person.
+      - [ ] **Phase 4 — POC dial worker + Requeue + one-session-per-attempt call log** — in progress.
+      - [ ] **Phase 5 — real Twilio `PstnChannelAdapter` + media bridge** — `Live-Voice-Calls.md`'s
+            scope; needs a Twilio account. Self-test/demo numbers only (see Gated below for real targets).
+      - [ ] **Phase 6 — triage queue + case-linking** — can follow phase 4.
+- [x] **Case detail: "Calls / Conversations" list** · S · **DONE (2026-08-16, `b82726f`)** — session rows
+      on the case are now expandable into the existing transcript view, with `started_at` shown and voice
+      calls badged. Deliberately no mock fallback on that fetch: a mock transcript rendered under a real
+      case would be misleading evidence. Duration/recording/disposition columns arrive with phase 4/5.
 
 ## 🔒 Gated — blocked on external approval (start the conversations now, don't build yet)
 - [ ] **A2 — Telegram channel** · M · **Polri** authorization
