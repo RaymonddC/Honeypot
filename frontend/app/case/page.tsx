@@ -13,7 +13,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useCases } from "@/components/cases/case-provider";
 import { addBankAccount, addCryptoTransfer } from "@/lib/casedata/api";
 import { GOLDEN, deriveCaseBridge } from "@/lib/demo/golden-thread";
-import { CASE_STAGES, fetchRollup, type Case, type CaseRollup, type CaseStage } from "@/lib/cases/api";
+import {
+  CASE_STAGES,
+  fetchRollup,
+  type Case,
+  type CaseRollup,
+  type CaseSessionSummary,
+  type CaseStage,
+} from "@/lib/cases/api";
+import { fetchSessionTranscript } from "@/lib/honeypot/api";
+import type { HpMessage, HpSession } from "@/lib/honeypot/types";
+import { ChatTranscript } from "@/components/honeypot/chat-transcript";
 import { HoneypotPanel } from "@/components/honeypot/panel";
 import { BridgePanel } from "@/components/bridge/panel";
 import { InvestigationPanel } from "@/components/investigation/panel";
@@ -550,6 +560,150 @@ function daysOpen(iso: string): number {
   const d = new Date(iso).getTime();
   if (Number.isNaN(d)) return 0;
   return Math.max(0, Math.floor((Date.now() - d) / 86_400_000));
+}
+
+/* ── Honeypot sessions (chats + calls) on the case ────────────────────────── */
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** Compact "14 Aug, 09:32". Formatted explicitly (not toLocaleString) so the
+ *  layout is stable regardless of the viewer's locale. */
+function sessionWhen(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${d.getDate()} ${MONTHS[d.getMonth()]}, ${hh}:${mm}`;
+}
+
+// Prefer the backend's channel_type; fall back to the channel name so an older
+// cached rollup (pre-`channel_type`) still shows calls correctly.
+const VOICE_CHANNELS = new Set(["pstn", "wa_call", "voice"]);
+const isVoiceSession = (s: CaseSessionSummary): boolean =>
+  (s.channel_type ?? "").toLowerCase() === "voice" ||
+  VOICE_CHANNELS.has((s.channel ?? "").toLowerCase());
+
+type TranscriptState =
+  | { status: "loading" }
+  | { status: "error"; message: string }
+  | { status: "ready"; session: HpSession; messages: HpMessage[] };
+
+function CaseSessions({
+  sessions,
+  onOpenHoneypot,
+}: {
+  sessions: CaseSessionSummary[];
+  onOpenHoneypot: () => void;
+}) {
+  // One row open at a time — keeps this half-width card from growing unbounded.
+  const [openId, setOpenId] = useState<string | null>(null);
+  // Transcripts are fetched on first expand and cached per session.
+  const [transcripts, setTranscripts] = useState<Record<string, TranscriptState>>({});
+
+  const toggle = (id: string) => {
+    if (openId === id) {
+      setOpenId(null);
+      return;
+    }
+    setOpenId(id);
+    if (transcripts[id]?.status === "ready") return; // cached — no refetch
+    setTranscripts((t) => ({ ...t, [id]: { status: "loading" } }));
+    void fetchSessionTranscript(id)
+      .then((r) =>
+        setTranscripts((t) => ({
+          ...t,
+          [id]: { status: "ready", session: r.session, messages: r.messages },
+        })),
+      )
+      .catch((e: unknown) =>
+        setTranscripts((t) => ({
+          ...t,
+          [id]: {
+            status: "error",
+            message: e instanceof Error ? e.message : "could not load transcript",
+          },
+        })),
+      );
+  };
+
+  return (
+    <div className="rounded-card border border-line bg-card">
+      <div className="flex items-center justify-between border-b border-line px-3.5 py-2.5">
+        <span className="eyebrow">Calls &amp; conversations · {sessions.length}</span>
+        <button
+          type="button"
+          onClick={onOpenHoneypot}
+          className="text-[11px] text-accent-bright hover:underline"
+        >
+          Honeypot →
+        </button>
+      </div>
+      <div className="p-2">
+        {sessions.length === 0 ? (
+          <p className="px-1.5 py-2 text-[11px] text-muted">
+            None yet — start a call from the Honeypot with this case active.
+          </p>
+        ) : (
+          <ul className="space-y-1">
+            {sessions.map((s) => {
+              const open = openId === s.id;
+              const tr = transcripts[s.id];
+              const voice = isVoiceSession(s);
+              return (
+                <li key={s.id} className="rounded-lg bg-elevated">
+                  <button
+                    type="button"
+                    onClick={() => toggle(s.id)}
+                    aria-expanded={open}
+                    className="flex w-full items-start gap-2 px-2.5 py-1.5 text-left text-[11.5px] transition-colors hover:bg-white/[.04]"
+                  >
+                    <span className="mt-[1px] flex-none text-[10px] text-muted">
+                      {open ? "▾" : "▸"}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-x-1.5">
+                        {voice && (
+                          <span
+                            title="Voice call"
+                            className="rounded border border-accent/[.22] bg-accent/10 px-1 py-px font-mono text-[9.5px] uppercase tracking-[.06em] text-accent-bright"
+                          >
+                            ☎ call
+                          </span>
+                        )}
+                        <span className="font-mono text-fg">{s.channel_ref || s.channel}</span>
+                      </span>
+                      <span className="mt-px block text-muted">
+                        {sessionWhen(s.started_at)} · {s.crime_type ?? "—"} ·{" "}
+                        {s.entity_count} entities · {s.status}
+                      </span>
+                    </span>
+                  </button>
+
+                  {open && (
+                    <div className="border-t border-line px-2 pb-2 pt-2">
+                      {!tr || tr.status === "loading" ? (
+                        <p className="px-1.5 py-2 text-[11px] text-muted">Loading transcript…</p>
+                      ) : tr.status === "error" ? (
+                        <p className="px-1.5 py-2 text-[11px] text-risk-high">
+                          ✗ {tr.message} — open it in the Honeypot console instead.
+                        </p>
+                      ) : (
+                        <ChatTranscript
+                          session={tr.session}
+                          messages={tr.messages}
+                          heightClass="h-[320px]"
+                        />
+                      )}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // Intake has two entry paths, mirroring how real cases actually start:
@@ -1550,37 +1704,8 @@ export default function CaseFilePage() {
 
       {/* honeypot sessions + action documents attached to the case */}
       <div className="mt-3.5 grid grid-cols-1 gap-3.5 lg:grid-cols-2">
-        {/* Honeypot sessions (INFILTRATE) */}
-        <div className="rounded-card border border-line bg-card">
-          <div className="flex items-center justify-between border-b border-line px-3.5 py-2.5">
-            <span className="eyebrow">Honeypot sessions · {sessions.length}</span>
-            <button
-              type="button"
-              onClick={() => openTool("honeypot")}
-              className="text-[11px] text-accent-bright hover:underline"
-            >
-              Honeypot →
-            </button>
-          </div>
-          <div className="p-2">
-            {sessions.length === 0 ? (
-              <p className="px-1.5 py-2 text-[11px] text-muted">
-                None yet — start a call from the Honeypot with this case active.
-              </p>
-            ) : (
-              <ul className="space-y-1">
-                {sessions.map((s) => (
-                  <li key={s.id} className="rounded-lg bg-elevated px-2.5 py-1.5 text-[11.5px]">
-                    <span className="font-mono text-fg">{s.channel_ref || s.channel}</span>
-                    <span className="ml-2 text-muted">
-                      {s.crime_type ?? "—"} · {s.entity_count} entities · {s.status}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
+        {/* Honeypot sessions (INFILTRATE) — chats + calls, expand for transcript */}
+        <CaseSessions sessions={sessions} onOpenHoneypot={() => openTool("honeypot")} />
 
         {/* Action documents (UNCOVER) */}
         <div className="rounded-card border border-line bg-card">
