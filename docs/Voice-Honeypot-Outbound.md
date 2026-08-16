@@ -273,14 +273,21 @@ self-test-only line matters.
 
 ---
 
-## 9. Open decisions (need your call before/at build time)
+## 9. Decisions (settled 2026-08-16)
 
-- **Streaming STT provider for Indonesian** (carried over from `Live-Voice-Calls.md`,
-  still unresolved: Whisper self-hosted vs. a streaming STT API).
-- **Number provisioning**: does our app call Twilio's API to buy/configure numbers
-  (fuller automation, more scope), or do you provision in the Twilio console and just
-  *register* the number + SID in our app (less scope, faster to ship)? Doc above assumes
-  the latter for phase 3; can extend later.
-- **Auto-match matching strength** (§5 step 2): exact wallet/account match only, or also
-  fuzzy number/name signals? Start with exact-match only; widen later if triage volume
-  is too high.
+- **Number provisioning → REGISTER, don't provision.** Numbers are bought/configured in
+  the Twilio console; our app stores number + `twilio_sid` + label (the §3.1 schema
+  already holds this — no rewrite if we automate later). Rationale: API provisioning
+  means number search + purchase (real money) + webhook config + release — a subsystem
+  for something done a handful of times, and it keeps *spending money* a deliberate
+  human action rather than something an app can do in a loop.
+- **Auto-match strength → EXACT MATCH ONLY.** Attach a call to a case only on an exact
+  wallet address / bank account / phone-number hit (§5 step 2). Everything else goes to
+  triage. Rationale: a false auto-match silently contaminates a case file destined for
+  court — far worse than 10 seconds of investigator triage. Widen later against real
+  triage volume, not speculation.
+- **Streaming STT provider → DEFERRED to phase 5** (doesn't block phases 1–4/6). When we
+  get there, benchmark hosted streaming STT (Deepgram / Google STT — both do id-ID, no
+  GPU to run) against self-hosted Whisper **on real Indonesian call audio**: Bahasa
+  accuracy + latency under live conditions decide it, and neither is predictable from
+  docs. Choosing now would be a guess.
