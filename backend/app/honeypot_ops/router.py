@@ -7,20 +7,25 @@ GET/POST  /api/honeypot/campaigns             → list / create a campaign
 GET       /api/honeypot/campaigns/{id}        → one campaign + per-status counts
 GET       /api/honeypot/campaigns/{id}/targets→ its dial targets
 POST      /api/honeypot/campaigns/{id}/targets→ bulk-upload numbers (JSON/CSV paste)
-POST      /api/honeypot/campaigns/{id}/start  → draft|paused → running
+POST      /api/honeypot/campaigns/{id}/start  → draft|paused → running (+ enqueue)
 POST      /api/honeypot/campaigns/{id}/pause  → running → paused
+POST      /api/honeypot/campaigns/{id}/requeue→ finished targets → queued (§3.6)
 
-**Nothing here dials.** ``start`` only moves the status; enqueueing the
-``dial_target`` Dramatiq actor is phase 4, and real Twilio calls are phase 5
-(still behind the Polri gate for real targets — design spec §0).
+``start`` moves the status and, when ``ITTU_DIAL_ENQUEUE_ON_START`` is on under
+Postgres, hands the queued targets to the ``dial_target`` actor. That actor
+**simulates** in POC and fails loud in LIVE: real Twilio calls are phase 5, and
+dialing real reported numbers stays behind the Polri gate (design spec §0).
 
 All routes require an authenticated identity: numbers and campaigns are
 agency-owned under Postgres RLS.
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.auth import AuthContext, get_current_user
+from app.core.config import get_settings
 from app.honeypot_ops.repository import (
     HoneypotOpsRepository,
     get_honeypot_ops_repository,
@@ -31,10 +36,14 @@ from app.honeypot_ops.schemas import (
     DialCampaignOut,
     DialTargetOut,
     HoneypotNumberOut,
+    RequeueRequest,
+    RequeueResult,
     UpdateNumberRequest,
     UploadTargetsRequest,
     UploadTargetsResult,
 )
+
+logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter(tags=["honeypot-ops"])
 
@@ -214,7 +223,70 @@ async def start_campaign(
     updated = await repo.set_campaign_status(campaign_id, "running")
     if updated is None:  # pragma: no cover - existence checked above
         raise _not_found("campaign", campaign_id)
+
+    await _maybe_enqueue(repo, updated)
     return updated
+
+
+async def _maybe_enqueue(repo: HoneypotOpsRepository, camp: DialCampaignOut) -> None:
+    """Hand this campaign's queued targets to the ``dial_target`` actor.
+
+    Opt-in and doubly gated, because enqueueing is the step that makes a
+    campaign *do* something:
+
+    * ``ITTU_DIAL_ENQUEUE_ON_START`` (default **off**) — without it, ``start``
+      stays the pure status transition phase 3 shipped, so the UI is demoable
+      with no Redis and no worker running.
+    * Postgres persistence — the actor runs in another process and loads the
+      target by id, which the in-memory repo cannot serve.
+
+    Failure to enqueue is logged, not raised: the campaign IS running and its
+    targets are durably ``queued``, so a later start (or a worker catching up)
+    still dials them. Turning a broker hiccup into a 500 would falsely suggest
+    the campaign didn't start.
+    """
+    settings = get_settings()
+    if not settings.dial_enqueue_on_start or settings.persistence != "postgres":
+        return
+    targets = await repo.list_targets(camp.id) or []
+    queued = [t.id for t in targets if t.status == "queued"]
+    if not queued:
+        return
+    try:
+        from app.honeypot_ops.dialer import enqueue_campaign_targets
+
+        enqueue_campaign_targets(queued, pacing_per_minute=camp.pacing_per_minute)
+    except Exception as exc:  # noqa: BLE001 - a broker outage must not fail the start
+        logger.warning(
+            "dial enqueue failed for campaign %s (%d target(s) stay queued): %s: %s",
+            camp.id, len(queued), type(exc).__name__, exc,
+        )
+
+
+@router.post("/honeypot/campaigns/{campaign_id}/requeue", response_model=RequeueResult)
+async def requeue_targets(
+    campaign_id: str,
+    body: RequeueRequest | None = None,
+    repo: HoneypotOpsRepository = RepoDep,
+    _auth: AuthContext = Depends(get_current_user),
+) -> RequeueResult:
+    """Send finished targets back to ``queued`` so they are dialed again (§3.6).
+
+    This is how you call a number a second time. A campaign never holds two rows
+    for the same number — duplicate rows would make the per-status counts
+    meaningless — so re-calling is a state change on the existing target, and
+    ``attempt_count`` is preserved as the retry history.
+
+    Body: ``{target_ids: [...]}`` for specific targets, or ``{statuses: [...]}``
+    to sweep (default: every ``no_answer`` and ``failed``). Targets that are
+    ``queued`` or ``dialing`` are skipped and counted — never requeued, since a
+    ``dialing`` target has a call in flight and requeueing it would place a
+    second call to the same person.
+    """
+    result = await repo.requeue_targets(campaign_id, body or RequeueRequest())
+    if result is None:
+        raise _not_found("campaign", campaign_id)
+    return result
 
 
 @router.post("/honeypot/campaigns/{campaign_id}/pause", response_model=DialCampaignOut)

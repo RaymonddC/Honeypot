@@ -124,3 +124,34 @@ async def get_optional_tenant_session(
         return  # pragma: no cover - unreachable, _get_current_user always raises
     async for session in _tenant_scoped_session(auth):
         yield session
+
+
+# --------------------------------------------------------------------------- #
+# Worker-side sessions (Dramatiq actors — OUTSIDE any request/RLS scope)
+# --------------------------------------------------------------------------- #
+
+_worker_sessionmaker = None
+
+
+def get_worker_sessionmaker():
+    """Lazily-built sessionmaker for background actors, cached process-wide.
+
+    A Dramatiq actor runs with no request and no tenant context, so it connects
+    with the privileged (owning) role via ``ITTU_MIGRATION_DATABASE_URL`` when
+    set. That is deliberate: a trusted system worker is handed a row id and must
+    read that row to learn which agency owns it — it cannot set
+    ``app.current_agency`` beforehand, a chicken-and-egg RLS cannot resolve.
+    Falls back to ``ITTU_DATABASE_URL`` for single-role local setups.
+
+    Shared by the C1 notification dispatcher and the outbound dialer so both
+    resolve the worker role the same way.
+    """
+    global _worker_sessionmaker
+    if _worker_sessionmaker is None:
+        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+        s = get_settings()
+        url = s.migration_database_url or s.database_url
+        worker_engine = create_async_engine(url, pool_pre_ping=True)
+        _worker_sessionmaker = async_sessionmaker(worker_engine, expire_on_commit=False)
+    return _worker_sessionmaker

@@ -8,8 +8,10 @@
  * preferences (localStorage). Numbers and campaigns are shared, agency-scoped,
  * server-side operational data with their own lifecycle.
  *
- * Phase 3 = CRUD only. Starting a campaign moves its status; no call is placed
- * (the dial worker is phase 4, real Twilio calls phase 5).
+ * Starting a campaign marks it running and — only when the dialer is enabled
+ * server-side (ITTU_DIAL_ENQUEUE_ON_START) — hands its queued targets to the
+ * worker, which SIMULATES the call in POC. Real Twilio calls are phase 5.
+ * Requeue sends finished targets back to the queue to be dialed again.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -21,6 +23,7 @@ import {
   normalizeE164,
   pauseCampaign,
   registerNumber,
+  requeueTargets,
   splitPasted,
   startCampaign,
   updateNumber,
@@ -28,6 +31,9 @@ import {
   type DialCampaign,
   type DialTarget,
   type HoneypotNumber,
+  type RejectReason,
+  type RequeueResult,
+  type RequeueableStatus,
   type UploadTargetsResult,
 } from "@/lib/honeypot-ops/api";
 
@@ -254,6 +260,18 @@ function NumbersTab() {
 
 /* ── Campaign detail (targets + upload) ──────────────────────────────────── */
 
+/**
+ * Why each pasted row was rejected. `already_in_campaign` deliberately points at
+ * Requeue: the number IS in the campaign, and calling it again is a requeue, not
+ * a second row — two rows for one number would make the per-status counts
+ * meaningless.
+ */
+const REJECT_COPY: Record<RejectReason, string> = {
+  invalid: "not a valid E.164 number (include the country code, e.g. +62…)",
+  duplicate_in_upload: "listed twice in this paste",
+  already_in_campaign: "already a target here — use Requeue to call it again",
+};
+
 function CampaignDetail({
   campaign,
   onChanged,
@@ -264,6 +282,7 @@ function CampaignDetail({
   const [targets, setTargets] = useState<DialTarget[] | null>(null);
   const [paste, setPaste] = useState("");
   const [result, setResult] = useState<UploadTargetsResult | null>(null);
+  const [requeued, setRequeued] = useState<RequeueResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -315,6 +334,31 @@ function CampaignDetail({
     }
   };
 
+  // Requeue = call these numbers again. The campaign never gets a duplicate row
+  // for a number, so re-dialing is a state change on the existing target and the
+  // attempt history is kept.
+  const requeue = async (input: {
+    target_ids?: string[];
+    statuses?: RequeueableStatus[];
+  }) => {
+    setBusy(true);
+    try {
+      const res = await requeueTargets(campaign.id, input);
+      setRequeued(res);
+      setError(null);
+      await loadTargets();
+      onChanged();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "could not requeue");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const finished = (targets ?? []).filter((t) =>
+    ["no_answer", "failed"].includes(t.status),
+  );
+
   return (
     <div className="mt-2 border-t border-line pt-3">
       <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -335,10 +379,33 @@ function CampaignDetail({
         >
           Pause
         </button>
+        <button
+          type="button"
+          onClick={() => void requeue({ statuses: ["no_answer", "failed"] })}
+          disabled={busy || finished.length === 0}
+          title="Send every no-answer and failed target back to the queue so they are dialed again"
+          className={BTN_CLS}
+        >
+          Requeue {finished.length > 0 ? `(${finished.length})` : ""}
+        </button>
         <span className="text-[10px] text-muted">
-          Status changes only — no calls are placed yet.
+          Starting only marks the campaign running unless the dialer is enabled.
         </span>
       </div>
+
+      {requeued && (
+        <p className="mb-2 text-[10.5px]">
+          <span className="text-accent-bright">
+            ↻ {requeued.requeued} requeued
+          </span>
+          {requeued.skipped > 0 && (
+            <span className="text-muted">
+              {" "}
+              · {requeued.skipped} skipped (queued or mid-call)
+            </span>
+          )}
+        </p>
+      )}
 
       <label className="grid gap-1">
         <span className="text-[11px] font-medium text-fg">
@@ -378,7 +445,7 @@ function CampaignDetail({
               {result.rejected.map((r, i) => (
                 <li key={`${r.value}-${i}`} className="text-risk-high">
                   ✗ <span className="font-mono">{r.value || "(blank)"}</span> —{" "}
-                  {r.reason.replace(/_/g, " ")}
+                  {REJECT_COPY[r.reason]}
                 </li>
               ))}
             </ul>

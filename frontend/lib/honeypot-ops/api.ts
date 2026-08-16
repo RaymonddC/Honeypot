@@ -53,12 +53,27 @@ export interface DialTarget {
   campaign_id: string;
   phone_number: string;
   status: TargetStatus;
+  /**
+   * Dial attempts made. Requeue never resets this — it IS the retry history.
+   * There is deliberately no `session_id`: a target can be dialed many times,
+   * so the call log is one-to-many and lives on the sessions themselves
+   * (`scam_sessions.dial_target_id`).
+   */
   attempt_count: number;
   last_error: string | null;
-  session_id: string | null;
   data_mode: string;
   created_at: string;
   updated_at: string;
+}
+
+/** Statuses a finished target can be requeued from (never queued/dialing). */
+export type RequeueableStatus = "no_answer" | "failed" | "engaged";
+
+export interface RequeueResult {
+  requeued: number;
+  /** Targets skipped because they were queued or dialing (a call in flight). */
+  skipped: number;
+  targets: DialTarget[];
 }
 
 export type RejectReason =
@@ -162,6 +177,26 @@ export function startCampaign(id: string) {
 
 export function pauseCampaign(id: string) {
   return json<DialCampaign>(`/honeypot/campaigns/${id}/pause`, POST_JSON({}));
+}
+
+/**
+ * Send finished targets back to `queued` so they are dialed again — this is how
+ * you call a number a second time. A campaign never holds two rows for the same
+ * number, so re-calling is a state change on the existing target and
+ * `attempt_count` is preserved as history.
+ *
+ * Pass `target_ids` for specific targets, or `statuses` to sweep (the server
+ * defaults to every no_answer + failed). Targets that are queued or dialing are
+ * skipped — a dialing target has a call in flight.
+ */
+export function requeueTargets(
+  id: string,
+  input: { target_ids?: string[]; statuses?: RequeueableStatus[] } = {},
+) {
+  return json<RequeueResult>(
+    `/honeypot/campaigns/${id}/requeue`,
+    POST_JSON(input),
+  );
 }
 
 /* ── client-side helpers ───────────────────────────────────────────────── */

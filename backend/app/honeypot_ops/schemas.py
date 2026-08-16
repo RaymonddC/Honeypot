@@ -123,7 +123,14 @@ class UploadTargetsRequest(BaseModel):
 
 
 class RejectedNumber(BaseModel):
-    """One input row that did not become a target, and why."""
+    """One input row that did not become a target, and why.
+
+    ``already_in_campaign`` is not a dead end: the number IS in this campaign
+    already, and calling it again is what **Requeue** (§3.6) is for. A duplicate
+    target row is never created — two rows for one number would make the
+    per-status counts meaningless ("2 no_answer" = two numbers, or one twice?)
+    and break the "was this number called?" question the counts exist to answer.
+    """
 
     value: str
     reason: Literal["invalid", "duplicate_in_upload", "already_in_campaign"]
@@ -142,12 +149,44 @@ class DialTargetOut(BaseModel):
     campaign_id: str
     phone_number: str
     status: TargetStatus = "queued"
+    # Dial attempts made so far. Requeue never resets this — it IS the retry
+    # history ("tried 3 times"), and the per-attempt call log lives on
+    # intel.scam_sessions.dial_target_id (§3.4), not here.
     attempt_count: int = 0
     last_error: str | None = None
-    session_id: str | None = None
     data_mode: Mode = "poc"
     created_at: datetime
     updated_at: datetime
 
 
+# Statuses a target can be requeued FROM. Deliberately excludes:
+#   queued  — already waiting; requeueing is a no-op
+#   dialing — a call is IN FLIGHT; requeueing would double-dial a real person
+REQUEUEABLE: tuple[str, ...] = ("no_answer", "failed", "engaged")
+
+
+class RequeueRequest(BaseModel):
+    """Send finished targets back to ``queued`` so they are dialed again (§3.6).
+
+    Either name specific ``target_ids``, or leave them empty to requeue every
+    target in the campaign currently in one of ``statuses`` (the bulk
+    "requeue all no-answers" case). ``engaged`` is requeueable but not a
+    default: re-calling someone you already spoke to is a deliberate act.
+    """
+
+    target_ids: list[str] = Field(default_factory=list)
+    statuses: list[Literal["no_answer", "failed", "engaged"]] = Field(
+        default_factory=lambda: ["no_answer", "failed"]
+    )
+
+
+class RequeueResult(BaseModel):
+    requeued: int
+    # Targets skipped because they were queued/dialing — reported rather than
+    # silently ignored, so "requeue all" never looks like it lost rows.
+    skipped: int = 0
+    targets: list["DialTargetOut"] = Field(default_factory=list)
+
+
 UploadTargetsResult.model_rebuild()
+RequeueResult.model_rebuild()

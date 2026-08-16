@@ -120,12 +120,11 @@ class DialTarget(Base):
     attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # Last failure reason (Twilio error / transport) — null while queued/on success.
     last_error: Mapped[str | None] = mapped_column(Text)
-    # Set once the call connects and a session exists. Nullable + no FK cycle
-    # problem because ``scam_sessions.dial_target_id`` is likewise nullable —
-    # whichever row is written first leaves the other side NULL until linked.
-    session_id: Mapped[uuid.UUID | None] = mapped_column(
-        Uuid, ForeignKey("intel.scam_sessions.id"), index=True
-    )
+    # NB: there is deliberately NO session_id here (dropped in migration
+    # 20260816_14). Requeue means one target is dialed many times, so the link is
+    # one-to-MANY and lives on the other side: ``intel.scam_sessions
+    # .dial_target_id``. That set of sessions IS the call log; a single FK here
+    # could only ever name "first" or "latest" and would silently lose history.
     data_mode: Mapped[str] = mapped_column(Text, nullable=False, default="poc")  # poc|live
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow, nullable=False

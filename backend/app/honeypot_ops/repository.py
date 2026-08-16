@@ -24,12 +24,15 @@ from app.core.config import get_settings
 from app.core.db import get_optional_tenant_session
 from app.honeypot_ops.models import DialCampaign, DialTarget, HoneypotNumber
 from app.honeypot_ops.schemas import (
+    REQUEUEABLE,
     AddNumberRequest,
     CreateCampaignRequest,
     DialCampaignOut,
     DialTargetOut,
     HoneypotNumberOut,
     RejectedNumber,
+    RequeueRequest,
+    RequeueResult,
     UpdateNumberRequest,
     UploadTargetsResult,
     normalize_e164,
@@ -57,6 +60,9 @@ class HoneypotOpsRepository(Protocol):
         self, campaign_id: str, raw_numbers: list[str]
     ) -> UploadTargetsResult | None: ...
     async def list_targets(self, campaign_id: str) -> list[DialTargetOut] | None: ...
+    async def requeue_targets(
+        self, campaign_id: str, req: RequeueRequest
+    ) -> RequeueResult | None: ...
 
     def reset(self) -> None:
         """Clear all state — memory-only test hook (see reset_stores)."""
@@ -225,6 +231,32 @@ class InMemoryHoneypotOpsRepository:
             return None
         return [t for t in self._targets if t.campaign_id == campaign_id]
 
+    async def requeue_targets(
+        self, campaign_id: str, req: RequeueRequest
+    ) -> RequeueResult | None:
+        if not any(c.id == campaign_id for c in self._campaigns):
+            return None
+        wanted = set(req.target_ids)
+        statuses = set(req.statuses)
+        requeued: list[DialTargetOut] = []
+        skipped = 0
+        for i, t in enumerate(self._targets):
+            if t.campaign_id != campaign_id:
+                continue
+            picked = t.id in wanted if wanted else t.status in statuses
+            if not picked:
+                continue
+            if t.status not in REQUEUEABLE:
+                skipped += 1  # queued (no-op) or dialing (would double-dial)
+                continue
+            # attempt_count is NOT reset — it is the retry history.
+            updated = t.model_copy(
+                update={"status": "queued", "last_error": None, "updated_at": _now()}
+            )
+            self._targets[i] = updated
+            requeued.append(updated)
+        return RequeueResult(requeued=len(requeued), skipped=skipped, targets=requeued)
+
     def reset(self) -> None:
         self._numbers.clear()
         self._campaigns.clear()
@@ -280,7 +312,6 @@ def _target_out(row: DialTarget, campaign_public_id: str) -> DialTargetOut:
         status=row.status,  # type: ignore[arg-type]
         attempt_count=row.attempt_count,
         last_error=row.last_error,
-        session_id=str(row.session_id) if row.session_id else None,
         data_mode=row.data_mode,  # type: ignore[arg-type]
         created_at=row.created_at,
         updated_at=row.updated_at,
@@ -487,6 +518,42 @@ class PostgresHoneypotOpsRepository:
             )
         ).scalars().all()
         return [_target_out(r, camp.public_id) for r in rows]
+
+    async def requeue_targets(
+        self, campaign_id: str, req: RequeueRequest
+    ) -> RequeueResult | None:
+        camp = await self._campaign_row(campaign_id)
+        if camp is None:
+            return None
+        stmt = select(DialTarget).where(DialTarget.campaign_id == camp.id)
+        if req.target_ids:
+            ids: list[uuid.UUID] = []
+            for raw in req.target_ids:
+                try:
+                    ids.append(uuid.UUID(raw))
+                except ValueError:
+                    continue  # junk id → simply matches nothing
+            stmt = stmt.where(DialTarget.id.in_(ids or [uuid.uuid4()]))
+        else:
+            stmt = stmt.where(DialTarget.status.in_(list(req.statuses)))
+        rows = (await self._session.execute(stmt)).scalars().all()
+
+        requeued: list[DialTarget] = []
+        skipped = 0
+        for row in rows:
+            if row.status not in REQUEUEABLE:
+                skipped += 1  # queued (no-op) or dialing (would double-dial)
+                continue
+            row.status = "queued"
+            row.last_error = None
+            row.updated_at = _now()
+            requeued.append(row)
+        await self._session.flush()
+        return RequeueResult(
+            requeued=len(requeued),
+            skipped=skipped,
+            targets=[_target_out(r, camp.public_id) for r in requeued],
+        )
 
     def reset(self) -> None:
         raise NotImplementedError("reset() is a memory-only test hook.")

@@ -86,6 +86,20 @@ class Settings(BaseSettings):
     # Per-webhook HTTP timeout (seconds).
     notification_webhook_timeout_seconds: float = 15.0
 
+    # --- Outbound dialing (docs/Voice-Honeypot-Outbound.md §4) ----------------
+    # Retry budget + backoff (ms) for the `dial_target` Dramatiq actor, mirroring
+    # the notification worker's shape. A dial that fails to connect (busy /
+    # carrier reject) is retried up to this many times before the target settles
+    # as `failed`; the operator can still Requeue it afterwards.
+    dial_max_retries: int = 3
+    dial_retry_backoff_ms: int = 30_000
+    # Whether starting a campaign actually enqueues the dial actor. Off by
+    # default so `POST /campaigns/{id}/start` stays a pure status transition
+    # unless an operator opts in — enqueueing needs a running `dramatiq
+    # app.workers` + Redis, and in LIVE it would place real calls (Polri-gated,
+    # design spec §0). POC enqueue is safe: the actor simulates, never dials.
+    dial_enqueue_on_start: bool = False   # ITTU_DIAL_ENQUEUE_ON_START
+
     # CORS: origins allowed to call the API. Kept as a STRING (not list[str]) so
     # pydantic-settings never tries to JSON-decode the env var and crash on deploy.
     # ITTU_CORS_ORIGINS accepts any of:

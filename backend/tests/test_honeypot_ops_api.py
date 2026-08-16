@@ -224,7 +224,6 @@ def test_list_targets():
     assert len(targets) == 1
     assert targets[0]["status"] == "queued"
     assert targets[0]["attempt_count"] == 0
-    assert targets[0]["session_id"] is None  # nothing dialed in this phase
 
 
 # ── lifecycle (status only — no dialing in this phase) ──────────────────── #
@@ -261,8 +260,9 @@ def test_pause_non_running_campaign_is_conflict():
 
 
 def test_start_does_not_dial():
-    """Phase 3 is CRUD only: starting a campaign moves status and nothing else —
-    targets stay queued, with no session and no attempt."""
+    """Starting a campaign moves status and nothing else by default: targets stay
+    queued with no attempt. Enqueueing is opt-in (ITTU_DIAL_ENQUEUE_ON_START) and
+    needs Postgres, so the POC demo never requires Redis or a running worker."""
     cid = _campaign()
     client.post(f"/api/honeypot/campaigns/{cid}/targets", json={"numbers": ["+6281111111111"]})
     client.post(f"/api/honeypot/campaigns/{cid}/start")
@@ -270,4 +270,121 @@ def test_start_does_not_dial():
     targets = client.get(f"/api/honeypot/campaigns/{cid}/targets").json()
     assert [t["status"] for t in targets] == ["queued"]
     assert targets[0]["attempt_count"] == 0
-    assert targets[0]["session_id"] is None
+    # No session_id on a target: the call log is one-to-many and lives on
+    # intel.scam_sessions.dial_target_id (migration 20260816_14).
+    assert "session_id" not in targets[0]
+
+
+# ── requeue (§3.6) ──────────────────────────────────────────────────────── #
+
+
+def _seed_target(cid: str, number: str, *, status: str, attempts: int = 0):
+    """Put a target into a finished state without running the dialer.
+
+    The memory repo is the POC store and nothing in it dials, so a test that
+    needs a *worked* target sets the row directly. The real transitions are
+    covered against Postgres in test_honeypot_dialer_pg.py.
+    """
+    store = ops_repo._memory_repository()
+    for i, t in enumerate(store._targets):
+        if t.campaign_id == cid and t.phone_number == number:
+            store._targets[i] = t.model_copy(
+                update={"status": status, "attempt_count": attempts}
+            )
+            return store._targets[i]
+    raise AssertionError(f"no target {number} in {cid}")
+
+
+def test_requeue_resets_finished_targets_and_keeps_attempt_history():
+    cid = _campaign()
+    client.post(
+        f"/api/honeypot/campaigns/{cid}/targets",
+        json={"numbers": ["+6281111111111", "+6282222222222"]},
+    )
+    _seed_target(cid, "+6281111111111", status="no_answer", attempts=2)
+    _seed_target(cid, "+6282222222222", status="failed", attempts=3)
+
+    r = client.post(f"/api/honeypot/campaigns/{cid}/requeue", json={})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["requeued"] == 2
+    assert body["skipped"] == 0
+
+    targets = {t["phone_number"]: t for t in client.get(
+        f"/api/honeypot/campaigns/{cid}/targets"
+    ).json()}
+    assert targets["+6281111111111"]["status"] == "queued"
+    assert targets["+6282222222222"]["status"] == "queued"
+    # attempt_count is history, never reset — "tried 3 times" must survive.
+    assert targets["+6281111111111"]["attempt_count"] == 2
+    assert targets["+6282222222222"]["attempt_count"] == 3
+
+
+def test_requeue_never_touches_a_dialing_target():
+    """A dialing target has a call IN FLIGHT — requeueing it would place a
+    second call to the same person. It is skipped and counted, not silently
+    dropped."""
+    cid = _campaign()
+    client.post(f"/api/honeypot/campaigns/{cid}/targets", json={"numbers": ["+6283333333333"]})
+    _seed_target(cid, "+6283333333333", status="dialing", attempts=1)
+
+    body = client.post(
+        f"/api/honeypot/campaigns/{cid}/requeue",
+        json={"target_ids": [
+            t["id"] for t in client.get(f"/api/honeypot/campaigns/{cid}/targets").json()
+        ]},
+    ).json()
+    assert body["requeued"] == 0
+    assert body["skipped"] == 1
+    assert client.get(f"/api/honeypot/campaigns/{cid}/targets").json()[0]["status"] == "dialing"
+
+
+def test_requeue_defaults_skip_engaged_but_can_be_asked_for():
+    """Re-calling someone you already spoke to is deliberate, so `engaged` is
+    requeueable but not swept by default."""
+    cid = _campaign()
+    client.post(f"/api/honeypot/campaigns/{cid}/targets", json={"numbers": ["+6284444444444"]})
+    _seed_target(cid, "+6284444444444", status="engaged", attempts=1)
+
+    assert client.post(f"/api/honeypot/campaigns/{cid}/requeue", json={}).json()["requeued"] == 0
+
+    r = client.post(
+        f"/api/honeypot/campaigns/{cid}/requeue", json={"statuses": ["engaged"]}
+    )
+    assert r.json()["requeued"] == 1
+    assert client.get(f"/api/honeypot/campaigns/{cid}/targets").json()[0]["status"] == "queued"
+
+
+def test_requeue_by_target_id_selects_only_that_target():
+    cid = _campaign()
+    client.post(
+        f"/api/honeypot/campaigns/{cid}/targets",
+        json={"numbers": ["+6285555555555", "+6286666666666"]},
+    )
+    _seed_target(cid, "+6285555555555", status="no_answer", attempts=1)
+    _seed_target(cid, "+6286666666666", status="no_answer", attempts=1)
+    listed = client.get(f"/api/honeypot/campaigns/{cid}/targets").json()
+    picked = next(t for t in listed if t["phone_number"] == "+6285555555555")
+
+    body = client.post(
+        f"/api/honeypot/campaigns/{cid}/requeue", json={"target_ids": [picked["id"]]}
+    ).json()
+    assert body["requeued"] == 1
+
+    after = {t["phone_number"]: t["status"] for t in client.get(
+        f"/api/honeypot/campaigns/{cid}/targets"
+    ).json()}
+    assert after["+6285555555555"] == "queued"
+    assert after["+6286666666666"] == "no_answer"  # untouched
+
+
+def test_requeue_unknown_campaign_is_404():
+    r = client.post("/api/honeypot/campaigns/camp_nope/requeue", json={})
+    assert r.status_code == 404
+    assert r.json()["error"]["code"] == "campaign_not_found"
+
+
+def test_requeue_requires_auth():
+    cid = _campaign()
+    bare = TestClient(app)
+    assert bare.post(f"/api/honeypot/campaigns/{cid}/requeue", json={}).status_code == 401
