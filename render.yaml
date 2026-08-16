@@ -20,3 +20,51 @@ services:
       - key: ITTU_CORS_ORIGINS
         # The deployed frontend origin(s) allowed to call the API.
         value: '["https://honeypot-brown.vercel.app"]'
+
+  # ── Background worker (Dramatiq) ─────────────────────────────────────────────
+  # Consumes the queues the API enqueues into. WITHOUT this service, anything
+  # queued is never executed — messages just accumulate in Redis:
+  #   * C1 notification dispatch when ITTU_NOTIFICATION_DELIVERY=worker
+  #     (the default `sync` POSTs inline and does NOT need this service)
+  #   * outbound dialing when ITTU_DIAL_ENQUEUE_ON_START=true
+  #
+  # Same image as the API, different command: `dramatiq app.workers` instead of
+  # scripts/start.sh. That is deliberate — start.sh runs `alembic upgrade head`,
+  # and only ONE service may migrate on deploy or two containers race the same
+  # schema. The web service owns migrations; the worker only consumes.
+  #
+  # Requires a paid plan: Render background workers are not offered on free, and
+  # a sleeping worker is not a worker.
+  - type: worker
+    name: ittu-worker
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    dockerCommand: dramatiq app.workers
+    plan: starter
+    region: singapore
+    autoDeploy: true
+    envVars:
+      - key: ITTU_MODE
+        value: poc
+      # The actor loads its row by id in another process, so it needs the same
+      # database the API writes to — memory persistence cannot serve it.
+      - key: ITTU_PERSISTENCE
+        value: postgres
+      # Worker sessions connect as the OWNING role on purpose: a system actor is
+      # handed a row id and must read it to learn which agency owns it, which RLS
+      # cannot resolve (see app/core/db.py worker_session). Set both to the same
+      # Neon URLs the API uses.
+      - key: ITTU_DATABASE_URL
+        sync: false                  # set in the Render dashboard (secret)
+      - key: ITTU_MIGRATION_DATABASE_URL
+        sync: false                  # owner role — used for worker sessions, NOT migrations here
+      # The broker. Must be the SAME instance the API enqueues into, or the
+      # worker will sit idle on an empty queue while jobs pile up elsewhere.
+      - key: ITTU_REDIS_URL
+        sync: false                  # Render Key Value / Upstash connection string
+      # Only needed if this worker sends LIVE notifications.
+      - key: ITTU_NOTIFICATION_WEBHOOK_URL
+        sync: false
+      - key: ITTU_NOTIFICATION_WEBHOOK_SECRET
+        sync: false
