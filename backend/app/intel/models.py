@@ -86,6 +86,26 @@ class ScamSession(Base):
         DateTime(timezone=True), default=datetime.utcnow, nullable=False
     )
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # --- Voice-call specifics (migration 20260816_13, docs/Voice-Honeypot-Outbound.md)
+    # All nullable: a text session simply leaves them unset.
+    duration_seconds: Mapped[int | None] = mapped_column(Integer)
+    # Twilio recording of the call — evidence, same custody principle as
+    # core.evidence_manifest (stored/referenced, never re-derived).
+    recording_url: Mapped[str | None] = mapped_column(Text)
+    # How the call ended: engaged|no_answer|hung_up|voicemail.
+    disposition: Mapped[str | None] = mapped_column(Text)
+    # Back-reference to the campaign target that produced this call, for campaign
+    # reporting. Nullable — an inbound/manual session has no dial target. No FK
+    # ORM relationship: this and honeypot.dial_targets.session_id are a mutual
+    # link, and both sides stay nullable so either row can be written first.
+    # ``use_alter`` so SQLAlchemy adds this FK after both tables exist instead of
+    # failing to topologically sort the intel ⇄ honeypot cycle.
+    dial_target_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("honeypot.dial_targets.id", use_alter=True,
+                   name="fk_scam_sessions_dial_target_id"),
+        index=True,
+    )
 
 
 class Message(Base):

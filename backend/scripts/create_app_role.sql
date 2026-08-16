@@ -45,7 +45,7 @@ SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ittu_app') AS role_exists
 \endif
 
 -- Schema access: the app needs to see the schemas to resolve unqualified names.
-GRANT USAGE ON SCHEMA core, intel, chain, fiat, action TO ittu_app;
+GRANT USAGE ON SCHEMA core, intel, chain, fiat, action, honeypot TO ittu_app;
 
 -- Row-level data access. RLS policies (migrations 05/06) then restrict WHICH
 -- rows are visible/writable within these grants — this is table-level
@@ -55,6 +55,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA intel TO ittu_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA chain TO ittu_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA fiat TO ittu_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA action TO ittu_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA honeypot TO ittu_app;
 
 -- Sequences (SERIAL/IDENTITY columns, if any land later) need USAGE for nextval().
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA core TO ittu_app;
@@ -62,6 +63,7 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA intel TO ittu_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA chain TO ittu_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA fiat TO ittu_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA action TO ittu_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA honeypot TO ittu_app;
 
 -- Future tables/sequences created by later migrations (run AS the owning role)
 -- get the same grants automatically — this script does not need to be re-run
@@ -75,4 +77,6 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA chain
 ALTER DEFAULT PRIVILEGES IN SCHEMA fiat
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ittu_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA action
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ittu_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA honeypot
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ittu_app;

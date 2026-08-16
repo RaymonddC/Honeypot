@@ -17,6 +17,7 @@ from app.casedata import models as casedata_models  # noqa: F401
 from app.core import models as core_models  # noqa: F401
 from app.chain import models  # noqa: F401
 from app.fiat import models as fiat_models  # noqa: F401
+from app.honeypot_ops import models as honeypot_models  # noqa: F401
 from app.intel import models as intel_models  # noqa: F401
 
 config = context.config

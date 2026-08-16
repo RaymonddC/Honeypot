@@ -113,3 +113,82 @@ def test_full_chain_applies_and_has_case_stage(migrated_pg) -> None:
     rev, stage = asyncio.run(_check())
     assert rev == head, f"chain stopped at {rev!r}, expected head {head!r}"
     assert stage == 1, "core.cases.stage is missing — the exact drift that broke 'create case'"
+
+
+def test_honeypot_outbound_schema(migrated_pg) -> None:
+    """Migration 20260816_13 landed the outbound-calling schema
+    (docs/Voice-Honeypot-Outbound.md §3): the three honeypot.* tables with RLS
+    enabled, and the four nullable call columns on intel.scam_sessions.
+
+    RLS is asserted per table because ``dial_targets`` has no ``agency_id`` of
+    its own — it is policed via a join through its campaign, and an un-policied
+    ``dial_targets`` would expose every agency's investigation targets.
+    """
+    owner_uri, _ = migrated_pg
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    async def _check():
+        eng = create_async_engine(owner_uri)
+        try:
+            async with eng.connect() as conn:
+                tables = set(
+                    (
+                        await conn.execute(
+                            text(
+                                "SELECT table_name FROM information_schema.tables "
+                                "WHERE table_schema='honeypot'"
+                            )
+                        )
+                    ).scalars()
+                )
+                rls = dict(
+                    (
+                        await conn.execute(
+                            text(
+                                "SELECT c.relname, c.relrowsecurity FROM pg_class c "
+                                "JOIN pg_namespace n ON n.oid = c.relnamespace "
+                                "WHERE n.nspname='honeypot' AND c.relkind='r'"
+                            )
+                        )
+                    ).all()
+                )
+                policies = set(
+                    (
+                        await conn.execute(
+                            text(
+                                "SELECT p.polname FROM pg_policy p "
+                                "JOIN pg_class c ON c.oid = p.polrelid "
+                                "JOIN pg_namespace n ON n.oid = c.relnamespace "
+                                "WHERE n.nspname='honeypot'"
+                            )
+                        )
+                    ).scalars()
+                )
+                call_cols = set(
+                    (
+                        await conn.execute(
+                            text(
+                                "SELECT column_name FROM information_schema.columns "
+                                "WHERE table_schema='intel' AND table_name='scam_sessions' "
+                                "AND column_name IN ('duration_seconds','recording_url',"
+                                "'disposition','dial_target_id')"
+                            )
+                        )
+                    ).scalars()
+                )
+            return tables, rls, policies, call_cols
+        finally:
+            await eng.dispose()
+
+    tables, rls, policies, call_cols = asyncio.run(_check())
+
+    expected_tables = {"numbers", "dial_campaigns", "dial_targets"}
+    assert expected_tables <= tables, f"missing honeypot tables: {expected_tables - tables}"
+
+    for table in expected_tables:
+        assert rls.get(table) is True, f"honeypot.{table} has RLS disabled — cross-tenant leak"
+        assert f"{table}_access" in policies, f"honeypot.{table} has no access policy"
+
+    expected_cols = {"duration_seconds", "recording_url", "disposition", "dial_target_id"}
+    assert expected_cols == call_cols, f"missing scam_sessions call columns: {expected_cols - call_cols}"
