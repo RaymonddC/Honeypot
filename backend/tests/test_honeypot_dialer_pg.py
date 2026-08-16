@@ -44,7 +44,7 @@ def owner_uri():
     """Ephemeral Postgres migrated to head; yields the owner async URI.
 
     The dialer connects as the owning role by design (see
-    ``get_worker_sessionmaker``): a system actor is handed a row id and must read
+    ``worker_session``): a system actor is handed a row id and must read
     it to learn the owning agency, which it cannot do under RLS.
     """
     pgserver = pytest.importorskip("pgserver", reason="pgserver (dev extra) not installed")
@@ -101,12 +101,12 @@ async def _worker(uri: str):
     import app.core.db as core_db
 
     engine = create_async_engine(uri)
-    prior = core_db._worker_sessionmaker
-    core_db._worker_sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
+    prior = core_db._worker_sessionmaker_override
+    core_db._worker_sessionmaker_override = async_sessionmaker(engine, expire_on_commit=False)
     try:
         yield engine
     finally:
-        core_db._worker_sessionmaker = prior
+        core_db._worker_sessionmaker_override = prior
         await engine.dispose()
 
 

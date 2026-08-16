@@ -50,7 +50,7 @@ from sqlalchemy import select
 # See app/core/broker.py for why the ordering matters.
 from app.core import broker as _broker  # noqa: F401
 from app.core.config import get_settings
-from app.core.db import get_worker_sessionmaker
+from app.core.db import worker_session
 from app.honeypot_ops.models import DialAttempt, DialCampaign, DialTarget
 
 _log = logging.getLogger("uvicorn.error")
@@ -194,9 +194,8 @@ async def _dial_one(dial_target_id: str) -> None:
     from app.intel.models import ScamSession
 
     settings = get_settings()
-    sm = get_worker_sessionmaker()
 
-    async with sm() as session:
+    async with worker_session() as session:
         # 1) claim: queued → dialing, count the attempt
         async with session.begin():
             try:

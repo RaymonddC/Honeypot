@@ -16,6 +16,22 @@ process or pulled in by the API — see that module for why the ordering matters
 # Sets the Redis broker. Must precede the actor imports below.
 from app.core.broker import broker  # noqa: F401
 
+# Model registry (imported for side effects, like migrations/env.py does).
+# SQLAlchemy resolves a ForeignKey by TABLE NAME when the mapper is configured,
+# so every model module must be imported before an actor maps a row — otherwise
+# the first ORM write raises NoReferencedTableError (e.g. writing a ScamSession
+# fails on scam_sessions.agency_id -> core.agencies when app.core.models was
+# never imported). The API can't hit this because it imports every router, and
+# tests can't because they import broadly; a worker process only imports what
+# the actor chain happens to pull in, so it must be explicit here.
+from app.action import models as _action_models  # noqa: F401
+from app.casedata import models as _casedata_models  # noqa: F401
+from app.chain import models as _chain_models  # noqa: F401
+from app.core import models as _core_models  # noqa: F401
+from app.fiat import models as _fiat_models  # noqa: F401
+from app.honeypot_ops import models as _honeypot_models  # noqa: F401
+from app.intel import models as _intel_models  # noqa: F401
+
 # Actor registration (imported for side effects):
 #   dispatch_notifications — C1 signed/retried webhook delivery
 #   dial_target            — outbound honeypot dialing (POC-simulated in phase 4)

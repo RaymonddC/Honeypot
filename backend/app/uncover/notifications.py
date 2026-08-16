@@ -331,9 +331,9 @@ class NotificationDeliveryError(Exception):
 
 # The worker-side sessionmaker (privileged/owning role, no RLS scope) lives in
 # app.core.db so the notification dispatcher and the outbound dialer resolve it
-# identically — see get_worker_sessionmaker() for why a system actor connects
+# identically — see worker_session() for why a system actor connects
 # that way.
-from app.core.db import get_worker_sessionmaker as _get_worker_sessionmaker  # noqa: E402
+from app.core.db import worker_session as _worker_session  # noqa: E402
 
 
 async def _deliver_one(notification_public_id: str) -> None:
@@ -348,9 +348,7 @@ async def _deliver_one(notification_public_id: str) -> None:
     from app.action.models import Notification as NotificationModel
 
     settings = get_settings()
-    sm = _get_worker_sessionmaker()
-
-    async with sm() as session:
+    async with _worker_session() as session:
         # 1) claim: queued → sending, count the attempt
         async with session.begin():
             row = (
