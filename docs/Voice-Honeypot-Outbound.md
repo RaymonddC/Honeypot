@@ -146,20 +146,70 @@ tables that produce sessions.
 | `phone_number` | text | E.164, deduped within a campaign |
 | `status` | text | `queued` \| `dialing` \| `no_answer` \| `engaged` \| `failed` |
 | `attempt_count` | int, default 0 | mirrors `notifications.attempt_count` |
-| `last_error` | text, nullable | |
-| `session_id` | uuid, nullable FK → `intel.scam_sessions` | set once the call connects |
+| `last_error` | text, nullable | last attempt's failure reason |
 | `updated_at` | timestamptz | |
 
+> **⚠️ `session_id` is being REMOVED (decided 2026-08-16).** Phase 1 shipped a nullable
+> `dial_targets.session_id` FK, which assumed one call per target. With **Requeue** (§3.6) a
+> target is dialed repeatedly, so target→sessions is **one-to-many** and a single FK can only
+> hold "first" or "latest" — ambiguous either way. The reverse FK
+> `scam_sessions.dial_target_id` already carries the full history, so `session_id` is
+> redundant. **Phase 4 must drop it** (and the mutual-FK `use_alter` dance Phase 1 needed
+> along with it). Do this before any code depends on it.
+
 ### 3.4 New columns on `intel.scam_sessions` (voice/call-specific)
+
+**One `scam_sessions` row per call ATTEMPT** — this is the call log. A requeued target
+produces a second row, with its own transcript, duration, disposition and (later) recording.
+`attempt_count` on the target is just a counter; these rows are the actual history.
 
 | Column | Type | Notes |
 |---|---|---|
 | `duration_seconds` | int, nullable | call length |
-| `recording_url` | text, nullable | Twilio recording (evidence — same custody principle as `evidence_manifest`) |
+| `recording_url` | text, nullable | audio location — **deferred, see §3.7**; empty until then |
 | `disposition` | text, nullable | `engaged` \| `no_answer` \| `hung_up` \| `voicemail` |
-| `dial_target_id` | uuid, nullable FK → `honeypot.dial_targets` | back-reference for campaign reporting |
+| `dial_target_id` | uuid, nullable FK → `honeypot.dial_targets` | **the call-log link** — many sessions per target |
 
 `case_id` and `channel_ref` already exist — this is additive only.
+
+### 3.6 Requeue (call the same number again)
+
+Numbers are deduped **within a campaign** (a repeat in one paste is an accident, and an
+accidental double-call from a police tool is not recoverable). Re-calling is served two ways:
+
+- **A new campaign** — already works today; cross-campaign upload is never rejected.
+- **Requeue (to build in phase 4)** — reset ended targets (`no_answer` / `failed`, optionally
+  `engaged`) back to `queued`, per-target or bulk ("requeue all no-answers"). `attempt_count`
+  is preserved as retry history; a new `scam_sessions` row is created per attempt.
+
+Duplicate target ROWS are deliberately never created: they would make per-status counts
+meaningless ("2 no_answer" = two numbers, or one number twice?) and break "was this number
+called?". The `already_in_campaign` reject message should point at Requeue, not read as a
+dead end.
+
+### 3.7 Call recording — DEFERRED (decided 2026-08-16)
+
+**The transcript is already saved for free and is the primary evidence.** Our own STT feeds
+the agent loop, and every utterance lands in `intel.messages` — SHA-256 hash-chained for
+custody. So a call is already fully logged and court-reproducible without any audio.
+
+Audio recording is wanted **later**, and when we add it there are two routes:
+
+| | Twilio recording | Self-recorded from Media Streams |
+|---|---|---|
+| Cost | ~$0.0025/min record + ~$0.0025/min storage (≈1–2¢ per 5-min call); transcription $0.05/min (we don't need it — we have STT) | No Twilio fee; our own storage only |
+| Effort | Trivial (a flag + fetch the URL) | Must persist the μ-law/8kHz frames we already receive, encode, and store |
+| Custody | Audio lives at a third party | **Audio stays in our own evidence chain** |
+
+**Preference when we build it: self-recorded.** Twilio's Media Streams already sends us the
+call audio (that's how STT works), so writing it to our own storage costs no per-minute fee
+*and* keeps the evidence in our custody chain rather than a third party's — which matters
+more than the money for a court-bound forensics tool. Twilio recording stays the quick
+fallback if self-recording proves fiddly.
+
+⚠️ **Recording is not merely a technical choice**: lawful recording/interception of a real
+suspect is part of what **Polri authorization** must cover (§0). Self-test calls are
+unaffected.
 
 ### 3.5 Migration
 One new migration: `add honeypot schema (numbers, dial_campaigns, dial_targets) +
@@ -260,7 +310,9 @@ calls attach to one case.
 3. **Numbers + Campaigns CRUD** (backend + `Honeypot Ops` UI, §2/§6/§7) — no dialing yet,
    just the pool + upload + list management. Demoable with fake/simulated data.
 4. **`dial_target` worker actor in POC mode** (§4) — simulated dialing, proves the
-   pacing/retry/status machinery without touching Twilio.
+   pacing/retry/status machinery without touching Twilio. **Also in this phase:** drop the
+   now-ambiguous `dial_targets.session_id` (§3.3), create one `scam_sessions` row per
+   attempt (§3.4), and add **Requeue** (§3.6).
 5. **`PstnChannelAdapter` (Twilio) + media bridge** — this is `Live-Voice-Calls.md`'s
    scope (streaming STT/TTS + WS bridge + TwiML). Once built, `dial_target` in LIVE mode
    calls into it for real. **Test only against self-verified/demo numbers.**
@@ -291,3 +343,12 @@ self-test-only line matters.
   GPU to run) against self-hosted Whisper **on real Indonesian call audio**: Bahasa
   accuracy + latency under live conditions decide it, and neither is predictable from
   docs. Choosing now would be a guess.
+- **Call log → ONE SESSION PER ATTEMPT (one-to-many).** Each dial attempt is its own
+  `scam_sessions` row linked by `dial_target_id`; `dial_targets.session_id` is dropped as
+  ambiguous (§3.3/§3.4). Requeue (§3.6) is how you call a number again — duplicate target
+  rows are never created.
+- **Audio recording → DEFERRED, self-recording preferred when built** (§3.7). The
+  hash-chained transcript already provides the evidence record at zero cost; when audio is
+  added, capturing it from the Media Streams we already consume avoids Twilio's per-minute
+  record+storage fee **and** keeps the audio inside our own custody chain. Costs recorded in
+  §3.7 for when we revisit.
