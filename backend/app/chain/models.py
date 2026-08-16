@@ -116,7 +116,13 @@ class WalletRiskScore(Base):
     __table_args__ = ({"schema": SCHEMA},)
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=_uuid)
-    wallet_id: Mapped[uuid.UUID] = mapped_column(
+    # Nullable because that is what the DB actually enforces: migration
+    # 20260704_01 created this column without `nullable=False`, so NULL is
+    # permitted. The non-Optional annotation this replaced implied NOT NULL and
+    # was simply never true — the model documented a constraint the database has
+    # never had. Tightening it (a `SET NOT NULL` migration) is a deliberate
+    # product decision, not a drift fix: see docs/Backlog.md.
+    wallet_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey(f"{SCHEMA}.wallets.id"), index=True
     )
     iso_forest_score: Mapped[float | None] = mapped_column(Numeric)  # anomaly triage 0..1

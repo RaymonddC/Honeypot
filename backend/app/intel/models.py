@@ -26,7 +26,17 @@ immutable copy of the persona as it was at session time (see migration
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, LargeBinary, Numeric, Text, Uuid
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    LargeBinary,
+    Numeric,
+    Text,
+    UniqueConstraint,
+    Uuid,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -112,7 +122,14 @@ class Message(Base):
     """Hash-chained conversation log (custody). Raw is immutable."""
 
     __tablename__ = "messages"
-    __table_args__ = ({"schema": SCHEMA},)
+    # (session_id, seq) is unique in the DB — it is what makes the custody chain
+    # a chain: one message per position per session, so an appended row can never
+    # silently re-use a sequence number. Declared here with the name migration
+    # 20260707_04 created it with, or `alembic check` reads it as drift.
+    __table_args__ = (
+        UniqueConstraint("session_id", "seq", name="uq_messages_session_seq"),
+        {"schema": SCHEMA},
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=_uuid)
     public_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)  # e.g. "msg_..."

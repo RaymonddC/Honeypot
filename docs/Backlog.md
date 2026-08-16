@@ -46,10 +46,16 @@ on the Response dashboard). **282 backend tests green**, frontend build green.
       admin audit view over the existing custody hash-chain + `core.audit_log` (who did what, when —
       logins, dispatches, entity reviews, config changes). Foundations already exist (message/doc
       SHA-256 chain, `action_bundle.audit`, `core.audit_log`); this is exposing + extending them.
-- [ ] **`alembic check` drift reconciliation** · S–M · *parked 2026-08-15* — enable the model↔migration
-      autogenerate check as a CI guard. Blocked by pre-existing drift it surfaces: casedata index/FK
-      naming, `wallet_risk_scores.wallet_id` nullability, a `messages` unique constraint. Runtime drift
-      guard (fail-loud at boot) + single-head/apply-to-head CI tests already shipped; this is the last leg.
+- [x] **`alembic check` drift reconciliation** · S–M · **DONE (2026-08-16)** — the last leg of the
+      migration guards. All four drift items were the same shape (the DB had the object, the ORM model
+      never declared it), so they were reconciled model-side with **no schema change and no migration**:
+      casedata index/FK declarations, `wallet_risk_scores.wallet_id` nullability, and the `messages`
+      unique constraint. `alembic check` now runs in CI (`test_models_match_migrations`, against the
+      ephemeral pgserver cluster — no external DB), catching the direction the other guards can't: a
+      model edited with no migration written, which is exactly how the `stage` outage was authored.
+      **Verified the guard actually fails** by injecting an undeclared column and watching it go red.
+      Caveat recorded in the test: autogenerate doesn't diff CHECK constraints, RLS policies, or
+      server-side functions, so green means "no detectable table/column/index/constraint drift".
 - [ ] **Qwen TTS provider** · S · *researched & skipped 2026-08-16, optional* — only the **hosted
       Qwen-Audio-3.0-TTS-Flash** (DashScope) has Indonesian; the open-source Qwen3-TTS does not. Cheap
       (~$0.013/1K chars) + expressive/voice-cloning, but "free" is a **90-day trial**, not ongoing (Google
