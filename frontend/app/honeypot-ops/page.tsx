@@ -10,8 +10,13 @@
  *
  * Starting a campaign marks it running and — only when the dialer is enabled
  * server-side (ITTU_DIAL_ENQUEUE_ON_START) — hands its queued targets to the
- * worker, which SIMULATES the call in POC. Real Twilio calls are phase 5.
- * Requeue sends finished targets back to the queue to be dialed again.
+ * worker, which SIMULATES the call in POC. Real telephony is still to come.
+ * "Call again" (requeue) sends finished targets back to the queue.
+ *
+ * NOTE for copy: /api/config does NOT expose whether the dialer is enabled, so
+ * this page cannot truthfully say "dialing is on/off". User-facing text
+ * therefore states what is always true in this build — calls are simulated —
+ * rather than claiming to know the server's flag.
  *
  * Triage is the third tab: connected calls auto-linking couldn't place. Linking
  * is exact-match only by design (§9), so this queue is the normal path rather
@@ -230,7 +235,9 @@ function NumbersTab() {
         <p className="text-[11px] text-muted">Loading…</p>
       ) : rows.length === 0 ? (
         <p className="text-[11px] text-muted">
-          No numbers yet — register the first one above.
+          No numbers yet. These are the caller IDs the honeypot dials{" "}
+          <em>from</em> — buy one in the Twilio console, then register it above.
+          Campaigns can&apos;t place calls until the pool has at least one.
         </p>
       ) : (
         <ul className="space-y-1">
@@ -273,14 +280,14 @@ function NumbersTab() {
 
 /**
  * Why each pasted row was rejected. `already_in_campaign` deliberately points at
- * Requeue: the number IS in the campaign, and calling it again is a requeue, not
- * a second row — two rows for one number would make the per-status counts
- * meaningless.
+ * the "Call again" action: the number IS in the campaign, and re-dialing it is a
+ * state change on that row, not a second row — two rows for one number would
+ * make the per-status counts meaningless.
  */
 const REJECT_COPY: Record<RejectReason, string> = {
-  invalid: "not a valid E.164 number (include the country code, e.g. +62…)",
+  invalid: "not a valid number — include the country code, e.g. +6281234567890",
   duplicate_in_upload: "listed twice in this paste",
-  already_in_campaign: "already a target here — use Requeue to call it again",
+  already_in_campaign: "already in this campaign — use “Call again” to dial it once more",
 };
 
 function CampaignDetail({
@@ -377,7 +384,7 @@ function CampaignDetail({
           type="button"
           onClick={() => void lifecycle("start")}
           disabled={busy || campaign.status === "running" || campaign.status === "completed"}
-          title="Mark the campaign running (does not dial yet — the dialer is phase 4)"
+          title="Start working through this list — queued numbers are handed to the dialer"
           className={BTN_CLS}
         >
           {campaign.status === "paused" ? "Resume" : "Start"}
@@ -386,6 +393,7 @@ function CampaignDetail({
           type="button"
           onClick={() => void lifecycle("pause")}
           disabled={busy || campaign.status !== "running"}
+          title="Stop handing out new numbers; a call already in flight still finishes"
           className={BTN_CLS}
         >
           Pause
@@ -394,25 +402,25 @@ function CampaignDetail({
           type="button"
           onClick={() => void requeue({ statuses: ["no_answer", "failed"] })}
           disabled={busy || finished.length === 0}
-          title="Send every no-answer and failed target back to the queue so they are dialed again"
+          title="Put every no-answer and failed number back in the queue to be dialed again"
           className={BTN_CLS}
         >
-          Requeue {finished.length > 0 ? `(${finished.length})` : ""}
+          Call again {finished.length > 0 ? `(${finished.length})` : ""}
         </button>
         <span className="text-[10px] text-muted">
-          Starting only marks the campaign running unless the dialer is enabled.
+          Calls are simulated in this build — nothing is dialed for real.
         </span>
       </div>
 
       {requeued && (
         <p className="mb-2 text-[10.5px]">
           <span className="text-accent-bright">
-            ↻ {requeued.requeued} requeued
+            ↻ {requeued.requeued} queued to call again
           </span>
           {requeued.skipped > 0 && (
             <span className="text-muted">
               {" "}
-              · {requeued.skipped} skipped (queued or mid-call)
+              · {requeued.skipped} skipped (already waiting, or on a call now)
             </span>
           )}
         </p>
@@ -420,7 +428,7 @@ function CampaignDetail({
 
       <label className="grid gap-1">
         <span className="text-[11px] font-medium text-fg">
-          Add targets — paste one number per line (CSV: number first)
+          Add numbers to call — one per line (or paste CSV: number first)
         </span>
         <textarea
           value={paste}
@@ -465,12 +473,15 @@ function CampaignDetail({
       )}
 
       <div className="mt-3">
-        <div className="eyebrow mb-1">Targets · {targets?.length ?? 0}</div>
+        <div className="eyebrow mb-1">
+          Numbers to call · {targets?.length ?? 0}
+        </div>
         {targets === null ? (
           <p className="text-[11px] text-muted">Loading…</p>
         ) : targets.length === 0 ? (
           <p className="text-[11px] text-muted">
-            None yet — paste a dial list above.
+            Nothing in this campaign yet — paste the numbers you want called into
+            the box above. Each one keeps its own call log once dialing starts.
           </p>
         ) : (
           <ul className="max-h-52 space-y-1 overflow-y-auto">
@@ -584,6 +595,25 @@ function TargetRow({ target }: { target: DialTarget }) {
 
 /* ── Campaigns tab ───────────────────────────────────────────────────────── */
 
+/**
+ * The outcome mix at a glance — "9 of 40 called · 6 engaged · 3 no answer".
+ *
+ * A bare status word ("running") doesn't answer the question an investigator
+ * actually has, which is how far through the list we are and what came of it.
+ * Built from the per-status counts the list endpoint already returns; statuses
+ * with a zero count are omitted rather than padding the line with noise.
+ */
+function progressSummary(c: DialCampaign): string {
+  const n = (k: string) => c.counts[k] ?? 0;
+  const called = n("engaged") + n("no_answer") + n("failed");
+  const parts = [`${called} of ${c.target_count} called`];
+  if (n("dialing")) parts.push(`${n("dialing")} calling now`);
+  if (n("engaged")) parts.push(`${n("engaged")} engaged`);
+  if (n("no_answer")) parts.push(`${n("no_answer")} no answer`);
+  if (n("failed")) parts.push(`${n("failed")} failed`);
+  return parts.join(" · ");
+}
+
 function CampaignsTab() {
   const [rows, setRows] = useState<DialCampaign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -632,9 +662,10 @@ function CampaignsTab() {
   return (
     <Card title="Dial campaigns">
       <p className="mb-3 text-[10.5px] text-muted">
-        A batch of scammer numbers to work through. Upload the list, then start
-        it — dialing itself is not wired yet, and engaging real reported numbers
-        stays gated on law-enforcement authorization.
+        A batch of scammer numbers to work through. Name one, paste the list into
+        it, then start it — the persona calls each number in turn. Calls are
+        simulated in this build, and engaging real reported numbers stays gated
+        on law-enforcement authorization.
       </p>
 
       <div className="mb-3 grid gap-2 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto]">
@@ -645,15 +676,18 @@ function CampaignsTab() {
           onChange={(e) => setName(e.target.value)}
           className={INPUT_CLS}
         />
-        <input
-          type="number"
-          min={1}
-          max={60}
-          value={pacing}
-          onChange={(e) => setPacing(e.target.value)}
-          title="Dial pacing cap (calls per minute)"
-          className={`${INPUT_CLS} tnum`}
-        />
+        <label className="flex min-w-0 items-center gap-1.5">
+          <input
+            type="number"
+            min={1}
+            max={60}
+            value={pacing}
+            onChange={(e) => setPacing(e.target.value)}
+            title="How fast this campaign works through its list"
+            className={`${INPUT_CLS} tnum w-full min-w-0`}
+          />
+          <span className="shrink-0 text-[10px] text-muted">calls/min</span>
+        </label>
         <button
           type="button"
           onClick={() => void create()}
@@ -668,7 +702,8 @@ function CampaignsTab() {
         <p className="text-[11px] text-muted">Loading…</p>
       ) : rows.length === 0 ? (
         <p className="text-[11px] text-muted">
-          No campaigns yet — create one above.
+          No campaigns yet. A campaign is one batch of numbers to work through —
+          name it above, then paste in the numbers you want called.
         </p>
       ) : (
         <ul className="space-y-1">
@@ -685,14 +720,15 @@ function CampaignsTab() {
                   <span className="min-w-0">
                     <span className="text-fg">{c.name}</span>
                     <span className="ml-2 text-muted">
-                      {fmtDate(c.created_at)} · {c.target_count} target
-                      {c.target_count === 1 ? "" : "s"} ·{" "}
+                      {fmtDate(c.created_at)} ·{" "}
                       <span
                         className={CAMPAIGN_STATUS_STYLE[c.status] ?? "text-muted"}
                       >
                         {c.status}
                       </span>
-                      {c.counts.engaged ? ` · ${c.counts.engaged} engaged` : ""}
+                      {c.target_count === 0
+                        ? " · no numbers added yet"
+                        : ` · ${progressSummary(c)}`}
                     </span>
                   </span>
                   <span className="shrink-0 text-[10px] text-muted">
@@ -842,7 +878,8 @@ function TriageTab() {
         <p className="text-[11px] text-muted">Loading…</p>
       ) : rows.length === 0 ? (
         <p className="text-[11px] text-muted">
-          Nothing waiting — every connected call is attached to a case.
+          Nothing waiting. When a call connects and can&apos;t be matched to a
+          case automatically, it appears here so you can file it.
         </p>
       ) : (
         <ul className="space-y-1.5">
@@ -863,7 +900,7 @@ export default function HoneypotOpsPage() {
 
   return (
     <div className="mx-auto max-w-[760px]">
-      <div className="mb-4">
+      <div className="mb-3">
         <h1 className="text-xl font-bold tracking-tight">Honeypot Ops</h1>
         <p className="mt-1 text-xs text-muted">
           Outbound calling operations — the pool of numbers we dial from, the
@@ -872,6 +909,26 @@ export default function HoneypotOpsPage() {
           Panel, which is per-browser).
         </p>
       </div>
+
+      {/* The three tabs are a pipeline, not three unrelated screens — a first-
+          time operator has no way to know the order without being told. */}
+      <ol className="mb-3.5 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-card border border-line bg-card px-3 py-2 text-[10.5px] text-muted">
+        {[
+          "Register the numbers you call from",
+          "Upload a list of numbers to call",
+          "File the resulting calls into cases",
+        ].map((step, i) => (
+          <li key={step} className="flex items-center gap-2">
+            {i > 0 && <span aria-hidden="true">→</span>}
+            <span>
+              <span className="mr-1 font-semibold text-accent-bright">
+                {i + 1}
+              </span>
+              {step}
+            </span>
+          </li>
+        ))}
+      </ol>
 
       <div
         className="mb-3.5 flex gap-0.5 border-b border-line"
