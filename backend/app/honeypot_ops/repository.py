@@ -4,9 +4,11 @@
 where state lives — orthogonal axes, so this does NOT go through the adapter
 registry.
 
-Scope is CRUD only (docs/Voice-Honeypot-Outbound.md phase 3): nothing here
-dials. ``start``/``pause`` move a campaign's status; enqueueing the
-``dial_target`` actor is phase 4.
+Scope is the number pool + campaigns + their dial targets and call log
+(docs/Voice-Honeypot-Outbound.md §3). Nothing here places a call: the
+``dial_target`` actor (``dialer.py``) does that, and the router enqueues it on
+``start``. The triage queue reads ``intel.scam_sessions`` instead, so it has its
+own repository in ``triage.py``.
 """
 
 import uuid

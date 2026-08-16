@@ -27,7 +27,7 @@ from pathlib import Path
 
 import pytest
 import sqlalchemy as sa
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 
@@ -283,3 +283,63 @@ async def test_dial_attempts_fail_closed_on_null_agency(app_role_uri, seeded_att
         await engine.dispose()
 
     assert count == 0
+
+
+# --------------------------------------------------------------------------- #
+# Triage (phase 6) — the queue is a view over intel.scam_sessions
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture(scope="session")
+async def seeded_triage(app_role_uri):
+    """One unassigned VOICE call per agency — what triage lists."""
+    owner_async_uri, _app = app_role_uri
+    engine = create_async_engine(owner_async_uri)
+    try:
+        async with engine.begin() as conn:
+            for agency_id in (AGENCY_A, AGENCY_B):
+                await conn.execute(
+                    sa.text(
+                        "INSERT INTO intel.scam_sessions "
+                        "(id, public_id, agency_id, case_id, channel_type, channel, "
+                        " channel_ref, status, data_mode) "
+                        "VALUES (gen_random_uuid(), :pid, :ag, NULL, 'voice', 'pstn', "
+                        "        :num, 'closed', 'poc')"
+                    ),
+                    {
+                        "pid": f"sess_triage_{agency_id}",
+                        "ag": agency_id,
+                        "num": f"+62811{agency_id[:7].replace('-', '')}",
+                    },
+                )
+    finally:
+        await engine.dispose()
+
+
+async def test_triage_repository_isolates_by_agency(app_role_uri, seeded_triage):
+    """The real ``PostgresTriageRepository``, run under agency A's tenant
+    context, lists only agency A's unplaced calls.
+
+    Asserted through the repository rather than raw SQL because triage is where
+    an investigator *assigns evidence to a case file* — leaking another agency's
+    call here would not just expose data, it would invite filing it into the
+    wrong investigation.
+    """
+    from app.honeypot_ops.triage import PostgresTriageRepository
+
+    _owner, app_async_uri = app_role_uri
+    engine = create_async_engine(app_async_uri)
+    try:
+        sm = async_sessionmaker(engine, expire_on_commit=False)
+        async with sm() as session, session.begin():
+            await session.execute(
+                sa.text("SELECT set_config('app.current_agency', :v, true)"),
+                {"v": AGENCY_A},
+            )
+            rows = await PostgresTriageRepository(
+                session, agency_id=uuid.UUID(AGENCY_A)
+            ).list_triage()
+    finally:
+        await engine.dispose()
+
+    assert [r.id for r in rows] == [f"sess_triage_{AGENCY_A}"]

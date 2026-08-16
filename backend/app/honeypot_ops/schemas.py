@@ -214,3 +214,69 @@ class RequeueResult(BaseModel):
 
 UploadTargetsResult.model_rebuild()
 RequeueResult.model_rebuild()
+
+
+# --------------------------------------------------------------------------- #
+# Triage (calls that landed without a case — §5)
+# --------------------------------------------------------------------------- #
+
+
+class TriageSessionOut(BaseModel):
+    """One connected call waiting for an investigator to place it.
+
+    A call reaches triage only when auto-linking found nothing (§5): the campaign
+    wasn't pinned to a case, the dialed number is new, and nothing it produced
+    matched a case already on file. That is deliberately a *frequent* outcome —
+    linking is exact-match only, because a wrong auto-link silently contaminates
+    a case file that may end up in court, while a wrong triage costs ten seconds.
+    """
+
+    id: str
+    channel: str | None = None
+    # The scammer's number — itself intel, and the thing an investigator
+    # recognizes a call by.
+    channel_ref: str | None = None
+    crime_type: str | None = None
+    status: str = "closed"
+    disposition: str | None = None
+    duration_seconds: int | None = None
+    entity_count: int = 0
+    # First thing the other side said, truncated — enough to tell a real
+    # engagement from a wrong number without opening the transcript.
+    preview: str | None = None
+    data_mode: Mode = "poc"
+    started_at: datetime
+
+
+class AttachSessionRequest(BaseModel):
+    """Attach a triaged call to a case that already exists."""
+
+    case_id: str = Field(min_length=1)
+
+
+class PromoteSessionRequest(BaseModel):
+    """Open a NEW case for a triaged call.
+
+    Every field is optional: omitted ones are prefilled from what the call
+    already produced (crime type from the classifier, a title naming the number
+    and date, a summary of the engagement). The investigator is confirming a
+    judgement, not re-typing data the system already has.
+    """
+
+    title: str | None = Field(default=None, min_length=1, max_length=160)
+    crime_type: str | None = Field(default=None, max_length=64)
+    summary: str | None = Field(default=None, max_length=2000)
+
+
+class PromoteSessionResult(BaseModel):
+    """The case that was opened, plus the call now attached to it."""
+
+    case: "CaseOut"
+    session: TriageSessionOut
+
+
+# Imported at the bottom: app.cases.schemas is a peer module and this is the one
+# place honeypot_ops needs it (promote returns the case it opened).
+from app.cases.schemas import CaseOut  # noqa: E402
+
+PromoteSessionResult.model_rebuild()

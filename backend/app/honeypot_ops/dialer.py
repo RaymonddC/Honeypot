@@ -42,6 +42,7 @@ import uuid
 from datetime import datetime, timezone
 
 import dramatiq
+from sqlalchemy import or_ as sa_or
 from sqlalchemy import select
 
 # Imported for its side effect and BEFORE the @dramatiq.actor below: it sets the
@@ -89,6 +90,88 @@ def simulate_outcome(phone_number: str, attempt: int) -> tuple[str, str | None, 
     if roll < 85:
         return "no_answer", None, 0
     return "failed", "simulated: carrier rejected the call", 0
+
+
+# --------------------------------------------------------------------------- #
+# Case linking (§5)
+# --------------------------------------------------------------------------- #
+
+# Entity types that identify a *party* strongly enough to link two calls into
+# one case. Deliberately excludes `url` — scammers share the same phishing link
+# across unrelated operations, so it identifies a kit, not a syndicate.
+LINKABLE_ENTITY_TYPES: tuple[str, ...] = ("crypto_wallet", "bank_account", "phone")
+
+
+async def resolve_case_id(
+    session,
+    *,
+    campaign_case_id: uuid.UUID | None,
+    phone: str,
+    agency_id: uuid.UUID | None,
+    entity_values: tuple[str, ...] = (),
+) -> uuid.UUID | None:
+    """Decide which case a connected call belongs to — or ``None`` for triage.
+
+    Precedence (§5):
+
+    1. The campaign is pinned to a case → that case, no questions.
+    2. **Exact** match, in this agency only:
+       * the dialed number already engaged on a session attached to a case, or
+       * a wallet/account this call produced already sits on a case.
+    3. Otherwise ``None`` → the call lands in the triage queue.
+
+    Exact-match only is a settled decision (§9), and the asymmetry is the whole
+    point: a wrong auto-link quietly merges two unrelated investigations inside a
+    file that may end up in court, and nobody is prompted to check it. A missed
+    link costs an investigator ten seconds in triage. So the rule only fires on
+    identifiers that cannot coincide by accident, and everything else is handed
+    to a human.
+    """
+    if campaign_case_id is not None:
+        return campaign_case_id
+
+    from app.intel.models import Entity, ScamSession
+
+    # (a) same number, already on a case — the most common real link (a scammer
+    #     called back, or a requeued target engaged a second time).
+    hit = (
+        await session.execute(
+            select(ScamSession.case_id)
+            .where(
+                ScamSession.channel_ref == phone,
+                ScamSession.case_id.isnot(None),
+                ScamSession.agency_id == agency_id,
+            )
+            .order_by(ScamSession.started_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if hit is not None:
+        return hit
+
+    # (b) a wallet/account from this call already sits on a case. Matches on the
+    #     normalized form when there is one (checksummed wallet, E.164 phone) and
+    #     the raw value otherwise, since extraction stores both.
+    values = [v for v in entity_values if v]
+    if not values:
+        return None
+    return (
+        await session.execute(
+            select(ScamSession.case_id)
+            .join(Entity, Entity.session_id == ScamSession.id)
+            .where(
+                ScamSession.case_id.isnot(None),
+                ScamSession.agency_id == agency_id,
+                Entity.type.in_(LINKABLE_ENTITY_TYPES),
+                sa_or(
+                    Entity.normalized_value.in_(values),
+                    Entity.value.in_(values),
+                ),
+            )
+            .order_by(ScamSession.started_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
 
 
 # --------------------------------------------------------------------------- #
@@ -174,12 +257,24 @@ async def _dial_one(dial_target_id: str) -> None:
 
             if outcome == "engaged":
                 row.status = "engaged"
+                # §5: pinned campaign → that case; else an EXACT match on the
+                # number (or, once real calls extract intel, on a wallet/account
+                # already on a case); else NULL → the triage queue.
+                #
+                # No entity_values are passed here: a simulated call produces no
+                # transcript, so there is nothing extracted at this instant. The
+                # resolver takes them because the phase-5 media bridge WILL have
+                # them by the time it closes a real call.
+                resolved_case_id = await resolve_case_id(
+                    session,
+                    campaign_case_id=case_id,
+                    phone=phone,
+                    agency_id=agency_id,
+                )
                 session_row = ScamSession(
                     id=uuid.uuid4(),
                     public_id=f"sess_{uuid.uuid4().hex[:12]}",
-                    # §5 step 1: a campaign pinned to a case attaches directly.
-                    # Otherwise NULL → the triage queue (phase 6 matches/assigns).
-                    case_id=case_id,
+                    case_id=resolved_case_id,
                     agency_id=agency_id,
                     channel_type="voice",
                     channel="pstn",

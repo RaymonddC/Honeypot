@@ -1,10 +1,17 @@
 # ITTU — Voice Honeypot: Outbound Calling (design spec)
 
-**Status:** design only, nothing built yet. This is the **single reference** for building
-the outbound voice-honeypot MVP — every phase below can be handed to a specialist agent
-against this doc with no further context. Extends [`Live-Voice-Calls.md`](Live-Voice-Calls.md)
-(which specs the STT/TTS/media-bridge stubs) with the **operational layer around calling**:
-where numbers come from, how a bulk dial list gets worked, and how a call becomes a case.
+**Status:** phases 1–4 + 6 **shipped** (data model, case "Calls" list, Numbers/Campaigns CRUD
++ Honeypot Ops UI, the POC-simulated dial worker with Requeue and the CDR call log, and the
+triage queue + case linking). **Phase 5 — the real Twilio `PstnChannelAdapter` + WebSocket
+media bridge — is the remaining piece**, and the only one needing a Twilio account; dialing
+*real reported numbers* additionally stays behind the Polri gate (§0). Everything shipped so
+far simulates: nothing has ever placed a call.
+
+This is the **single reference** for the outbound voice-honeypot MVP — every phase below can
+be handed to a specialist agent against this doc with no further context. Extends
+[`Live-Voice-Calls.md`](Live-Voice-Calls.md) (which specs the STT/TTS/media-bridge stubs)
+with the **operational layer around calling**: where numbers come from, how a bulk dial list
+gets worked, and how a call becomes a case.
 
 **One-liner:** an investigator uploads a list of scammer numbers → the system dials them
 from a rotating pool of honeypot numbers → the AI persona engages each call → the
@@ -294,7 +301,31 @@ On every connected call, before creating the `ScamSession`:
 Triage view = `SELECT * FROM intel.scam_sessions WHERE case_id IS NULL AND
 channel_type = 'voice'` (agency-scoped), each row showing transcript preview + duration +
 any extracted entities, with two actions: **attach to existing case** (search/pick) or
-**promote to new case** (calls the existing `POST /cases` you already have, then attaches).
+**promote to new case** (creates through the same `CaseRepository` the Cases API uses, then
+attaches — a promoted case is indistinguishable from a hand-made one).
+
+**As built** (`app/honeypot_ops/triage.py`, `dialer.resolve_case_id`):
+
+* Matching lives in `resolve_case_id`, called when the dialer creates a session. It takes
+  `entity_values` for the wallet/account arm, but the POC dialer passes none — a *simulated*
+  call has no transcript, so there is nothing extracted at that instant. The phase-5 media
+  bridge is what will supply them for a real call; the number arm works today.
+* Entity matching is restricted to `crypto_wallet | bank_account | phone`. `url` is
+  deliberately excluded: scammers reuse the same phishing kit across unrelated operations, so
+  a shared link identifies the kit, not the syndicate.
+* Every match is scoped to the calling agency. The dialer runs as the owning role (a system
+  actor is handed a row id and must read it to learn the owner), so RLS is *not* protecting
+  this query — the explicit `agency_id` filter is the only thing preventing a cross-agency
+  link, and it is asserted directly in `test_honeypot_dialer_pg.py`.
+* Triage owns no storage in either mode: under Postgres it queries `intel.scam_sessions`;
+  in memory it is a view over the INFILTRATE memory store, so a session created by the
+  honeypot console appears in triage with no syncing between two stores.
+* Attaching writes exactly one column on one row rather than going through
+  `InfiltrateRepository.save_session()`, which upserts the whole session *and*
+  unconditionally inserts a `CrimeClassification` — attaching would have silently duplicated
+  the classification every time.
+* Promote prefills title (number + date), crime type (from the classifier) and a summary
+  naming the originating session; any field can be overridden in the request body.
 
 This makes the existing **syndicate clustering** the thing that quietly does most of the
 real linking work over time — once two triaged sessions share a wallet, they cluster,

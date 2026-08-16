@@ -7,9 +7,13 @@
  *   GET/POST   /api/honeypot/campaigns               list / create
  *   GET        /api/honeypot/campaigns/{id}          + per-status target counts
  *   GET/POST   /api/honeypot/campaigns/{id}/targets  list / bulk-upload
- *   POST       /api/honeypot/campaigns/{id}/start|pause
+ *   POST       /api/honeypot/campaigns/{id}/start|pause|requeue
+ *   GET        /api/honeypot/targets/{id}/attempts   the call log (CDR)
+ *   GET        /api/honeypot/triage                  calls with no case yet
+ *   POST       /api/honeypot/triage/{id}/attach|promote
  *
- * Nothing here dials — start/pause are status transitions only (phase 3).
+ * Starting a campaign hands its targets to the dial worker only when the server
+ * opts in; that worker SIMULATES in POC and fails loud in LIVE (phase 5).
  * All calls carry the Bearer token via apiFetch.
  */
 
@@ -251,4 +255,63 @@ export function splitPasted(text: string): string[] {
     .map((l) => l.trim())
     .filter(Boolean)
     .map((l) => l.split(",")[0].trim().replace(/^"|"$/g, ""));
+}
+
+/* ── triage ────────────────────────────────────────────────────────────── */
+
+/**
+ * A connected call with no case yet.
+ *
+ * Reaches triage only when auto-linking found nothing: the campaign wasn't
+ * pinned to a case, the number is new, and nothing it produced matched a case
+ * on file. That's deliberately common — linking is exact-match only, because a
+ * wrong auto-link quietly merges two investigations in a court-bound file.
+ */
+export interface TriageSession {
+  id: string;
+  channel: string | null;
+  /** The scammer's number — how an investigator recognizes the call. */
+  channel_ref: string | null;
+  crime_type: string | null;
+  status: string;
+  disposition: string | null;
+  duration_seconds: number | null;
+  entity_count: number;
+  /** First thing the other side said, truncated. */
+  preview: string | null;
+  data_mode: string;
+  started_at: string;
+}
+
+export interface PromoteResult {
+  case: { id: string; title: string; crime_type: string | null };
+  session: TriageSession;
+}
+
+/** Connected calls waiting to be placed into a case, newest first. */
+export function listTriage() {
+  return json<TriageSession[]>("/honeypot/triage");
+}
+
+/** Attach a triaged call to a case that already exists. */
+export function attachTriageSession(sessionId: string, caseId: string) {
+  return json<TriageSession>(
+    `/honeypot/triage/${encodeURIComponent(sessionId)}/attach`,
+    POST_JSON({ case_id: caseId }),
+  );
+}
+
+/**
+ * Open a NEW case for a triaged call and attach it in one step. Omitted fields
+ * are prefilled server-side from what the call produced (crime type from the
+ * classifier, a title naming the number and date).
+ */
+export function promoteTriageSession(
+  sessionId: string,
+  input: { title?: string; crime_type?: string; summary?: string } = {},
+) {
+  return json<PromoteResult>(
+    `/honeypot/triage/${encodeURIComponent(sessionId)}/promote`,
+    POST_JSON(input),
+  );
 }

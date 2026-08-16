@@ -115,22 +115,31 @@ def run_scenario(coro_fn):
     return asyncio.run(coro_fn())
 
 
-def _find_number(outcomes: list[str]) -> str:
+def _find_number(outcomes: list[str], nth: int = 0) -> str:
     """A phone number whose first N simulated attempts match ``outcomes``.
 
     The simulation is a pure function of (number, attempt), so tests assert exact
     behaviour without mocking randomness — but the mapping is an implementation
     detail. Searching for a number with the shape a test needs keeps these tests
     honest if the distribution is ever retuned.
+
+    ``nth`` skips to a later match. The Postgres fixture is module-scoped, so
+    every test in this file shares one database: two tests asking for "an
+    engaged number" would otherwise get the SAME number, and case-linking (§5)
+    deliberately matches on exactly that — one test's leftover session would
+    silently satisfy the next test's link.
     """
+    found = 0
     for i in range(100_000):
         candidate = f"+628{i:010d}"
         if all(
             simulate_outcome(candidate, n + 1)[0] == want
             for n, want in enumerate(outcomes)
         ):
-            return candidate
-    raise AssertionError(f"no number produces {outcomes}")  # pragma: no cover
+            if found == nth:
+                return candidate
+            found += 1
+    raise AssertionError(f"no number produces {outcomes} (nth={nth})")  # pragma: no cover
 
 
 async def _seed(engine, *, number: str, data_mode: str = "poc",
@@ -538,5 +547,160 @@ def test_attempt_log_carries_the_rows_data_mode(owner_uri):
             await _dial_one(str(target_id))
             (att,) = await _attempts(engine, target_id)
             assert att.data_mode == "poc"
+
+    run_scenario(scenario)
+
+
+# --------------------------------------------------------------------------- #
+# 5. Case linking (§5) — exact match only, everything else to triage
+# --------------------------------------------------------------------------- #
+
+
+async def _seed_case_session(engine, *, number: str, case_id, agency_id=None) -> None:
+    """An earlier call on ``number`` already filed under ``case_id``."""
+    from app.core.auth import find_agency
+
+    if agency_id is None:
+        agency_id = find_agency("bareskrim").id
+    async with engine.begin() as conn:
+        await conn.execute(
+            sa.text(
+                "INSERT INTO intel.scam_sessions "
+                "(id, public_id, agency_id, case_id, channel_type, channel, "
+                " channel_ref, status, data_mode) "
+                "VALUES (gen_random_uuid(), :pid, :ag, :case, 'voice', 'pstn', "
+                "        :num, 'closed', 'poc')"
+            ),
+            {"pid": f"sess_{uuid.uuid4().hex[:12]}", "ag": agency_id,
+             "case": case_id, "num": number},
+        )
+
+
+def test_known_number_links_to_the_case_it_already_belongs_to(owner_uri):
+    """§5 step 2: the same number engaged before on a case → same case again.
+
+    This is the everyday link — a requeued target that engages a second time, or
+    a scammer who calls back — and it is the reason auto-linking exists at all.
+    """
+    async def scenario():
+        async with _worker(owner_uri) as engine:
+            number = _find_number(["engaged"], nth=10)
+            case_id = uuid.uuid4()
+            await _seed_case_session(engine, number=number, case_id=case_id)
+
+            target_id = await _seed(engine, number=number)  # campaign NOT pinned
+            await _dial_one(str(target_id))
+
+            (row,) = await _sessions(engine, target_id)
+            assert row.case_id == case_id
+
+    run_scenario(scenario)
+
+
+def test_unknown_number_goes_to_triage(owner_uri):
+    """No pinned case and nothing exact to match on → NULL, i.e. a human decides.
+
+    The counterpart to the test above: matching must not reach for a link it
+    cannot prove, because a wrong auto-link silently merges two investigations.
+    """
+    async def scenario():
+        async with _worker(owner_uri) as engine:
+            # A case exists, but on a DIFFERENT number.
+            await _seed_case_session(
+                engine, number=_find_number(["no_answer"], nth=11), case_id=uuid.uuid4()
+            )
+            target_id = await _seed(engine, number=_find_number(["engaged"], nth=11))
+            await _dial_one(str(target_id))
+
+            (row,) = await _sessions(engine, target_id)
+            assert row.case_id is None
+
+    run_scenario(scenario)
+
+
+def test_match_never_crosses_agencies(owner_uri):
+    """Another agency's case is not a match, even on an identical number.
+
+    The dialer runs as the owning role (no RLS), so this filter is the only thing
+    standing between two agencies' investigations — worth asserting directly.
+    """
+    async def scenario():
+        async with _worker(owner_uri) as engine:
+            from app.core.auth import find_agency
+
+            number = _find_number(["engaged"], nth=12)
+            await _seed_case_session(
+                engine,
+                number=number,
+                case_id=uuid.uuid4(),
+                agency_id=find_agency("ppatk").id,   # a DIFFERENT agency
+            )
+            target_id = await _seed(engine, number=number)  # campaign is bareskrim
+            await _dial_one(str(target_id))
+
+            (row,) = await _sessions(engine, target_id)
+            assert row.case_id is None, "a foreign agency's case must not be matched"
+
+    run_scenario(scenario)
+
+
+def test_shared_wallet_links_to_the_case(owner_uri):
+    """§5 step 2, the entity arm: a wallet already on a case links a new call.
+
+    Exercised through ``resolve_case_id`` directly because a *simulated* call
+    produces no transcript and therefore no entities — the phase-5 media bridge
+    is what will supply them for a real call.
+    """
+    async def scenario():
+        async with _worker(owner_uri) as engine:
+            from app.core.auth import find_agency
+            from app.honeypot_ops.dialer import resolve_case_id
+
+            agency_id = find_agency("bareskrim").id
+            case_id = uuid.uuid4()
+            wallet = "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6"
+            session_pid = f"sess_{uuid.uuid4().hex[:12]}"
+
+            async with engine.begin() as conn:
+                await conn.execute(
+                    sa.text(
+                        "INSERT INTO intel.scam_sessions "
+                        "(id, public_id, agency_id, case_id, channel_type, status, data_mode) "
+                        "VALUES (gen_random_uuid(), :pid, :ag, :case, 'voice', 'closed', 'poc')"
+                    ),
+                    {"pid": session_pid, "ag": agency_id, "case": case_id},
+                )
+                await conn.execute(
+                    sa.text(
+                        "INSERT INTO intel.entities "
+                        "(id, public_id, session_id, agency_id, type, value, "
+                        " normalized_value, method, data_mode) "
+                        "SELECT gen_random_uuid(), :epid, s.id, :ag, 'crypto_wallet', "
+                        "       :val, :val, 'regex', 'poc' "
+                        "FROM intel.scam_sessions s WHERE s.public_id = :pid"
+                    ),
+                    {"epid": f"ent_{uuid.uuid4().hex[:12]}", "ag": agency_id,
+                     "val": wallet, "pid": session_pid},
+                )
+
+            sm = async_sessionmaker(engine, expire_on_commit=False)
+            async with sm() as session:
+                hit = await resolve_case_id(
+                    session,
+                    campaign_case_id=None,
+                    phone="+628000000000",      # a number nobody has seen
+                    agency_id=agency_id,
+                    entity_values=(wallet,),
+                )
+                miss = await resolve_case_id(
+                    session,
+                    campaign_case_id=None,
+                    phone="+628000000000",
+                    agency_id=agency_id,
+                    entity_values=("TSomeOtherWalletEntirely",),
+                )
+
+            assert hit == case_id
+            assert miss is None
 
     run_scenario(scenario)

@@ -12,17 +12,25 @@
  * server-side (ITTU_DIAL_ENQUEUE_ON_START) — hands its queued targets to the
  * worker, which SIMULATES the call in POC. Real Twilio calls are phase 5.
  * Requeue sends finished targets back to the queue to be dialed again.
+ *
+ * Triage is the third tab: connected calls auto-linking couldn't place. Linking
+ * is exact-match only by design (§9), so this queue is the normal path rather
+ * than an error state.
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { listCases, type Case } from "@/lib/cases/api";
 import {
+  attachTriageSession,
   createCampaign,
   listAttempts,
   listCampaigns,
   listNumbers,
   listTargets,
+  listTriage,
   normalizeE164,
   pauseCampaign,
+  promoteTriageSession,
   registerNumber,
   requeueTargets,
   splitPasted,
@@ -36,10 +44,11 @@ import {
   type RejectReason,
   type RequeueResult,
   type RequeueableStatus,
+  type TriageSession,
   type UploadTargetsResult,
 } from "@/lib/honeypot-ops/api";
 
-type Tab = "numbers" | "campaigns";
+type Tab = "numbers" | "campaigns" | "triage";
 
 const INPUT_CLS =
   "h-8 rounded-lg border border-line bg-elevated px-2.5 text-[11.5px] text-fg outline-none transition-colors placeholder:text-muted focus:border-accent/40";
@@ -701,6 +710,152 @@ function CampaignsTab() {
   );
 }
 
+/* ── Triage tab ──────────────────────────────────────────────────────────── */
+
+/**
+ * One unplaced call. Attach it to an existing case, or open a new one.
+ *
+ * Both actions are one click from the row on purpose: triage is a queue an
+ * investigator works down, and auto-linking is deliberately conservative
+ * (exact-match only), so this queue is the normal path, not an error state.
+ */
+function TriageRow({
+  row,
+  cases,
+  onPlaced,
+}: {
+  row: TriageSession;
+  cases: Case[];
+  onPlaced: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [picked, setPicked] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const place = async (fn: () => Promise<unknown>) => {
+    setBusy(true);
+    try {
+      await fn();
+      setError(null);
+      onPlaced();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "could not place this call");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <li className="rounded-lg bg-elevated px-2.5 py-2">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[11.5px]">
+        <span className="font-mono text-fg">{row.channel_ref ?? "unknown"}</span>
+        <span className="text-muted">
+          {fmtDate(row.started_at)}
+          {row.duration_seconds ? ` · ${row.duration_seconds}s` : ""}
+          {row.crime_type ? ` · ${row.crime_type}` : ""}
+          {" · "}
+          {/* An engaged call with nothing extracted is still evidence the
+              number is live — shown, never hidden, but easy to rank by. */}
+          <span className={row.entity_count > 0 ? "text-accent-bright" : ""}>
+            {row.entity_count} entit{row.entity_count === 1 ? "y" : "ies"}
+          </span>
+        </span>
+      </div>
+
+      {row.preview && (
+        <p className="mt-1 line-clamp-2 text-[10.5px] italic text-muted">
+          “{row.preview}”
+        </p>
+      )}
+
+      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+        <select
+          value={picked}
+          onChange={(e) => setPicked(e.target.value)}
+          aria-label="Attach to an existing case"
+          className={`${INPUT_CLS} min-w-0 flex-1`}
+        >
+          <option value="">Attach to an existing case…</option>
+          {cases.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.title}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          disabled={!picked || busy}
+          onClick={() => void place(() => attachTriageSession(row.id, picked))}
+          className={BTN_CLS}
+        >
+          {busy ? "…" : "Attach"}
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          title="Open a new case prefilled from this call"
+          onClick={() => void place(() => promoteTriageSession(row.id))}
+          className={BTN_CLS}
+        >
+          New case
+        </button>
+      </div>
+      <ErrorLine msg={error} />
+    </li>
+  );
+}
+
+function TriageTab() {
+  const [rows, setRows] = useState<TriageSession[]>([]);
+  const [cases, setCases] = useState<Case[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [triage, caseList] = await Promise.all([listTriage(), listCases()]);
+      setRows(triage);
+      setCases(caseList);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "could not load the triage queue");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return (
+    <Card title={`Triage · ${rows.length}`}>
+      <p className="mb-3 text-[10.5px] text-muted">
+        Connected calls with no case yet. A call is only auto-linked on an exact
+        match — the same number, or a wallet already on a case — because a wrong
+        link quietly merges two investigations in a file that may end up in
+        court. Everything else lands here for you to place.
+      </p>
+
+      {loading ? (
+        <p className="text-[11px] text-muted">Loading…</p>
+      ) : rows.length === 0 ? (
+        <p className="text-[11px] text-muted">
+          Nothing waiting — every connected call is attached to a case.
+        </p>
+      ) : (
+        <ul className="space-y-1.5">
+          {rows.map((r) => (
+            <TriageRow key={r.id} row={r} cases={cases} onPlaced={() => void load()} />
+          ))}
+        </ul>
+      )}
+      <ErrorLine msg={error} />
+    </Card>
+  );
+}
+
 /* ── Page ────────────────────────────────────────────────────────────────── */
 
 export default function HoneypotOpsPage() {
@@ -711,9 +866,10 @@ export default function HoneypotOpsPage() {
       <div className="mb-4">
         <h1 className="text-xl font-bold tracking-tight">Honeypot Ops</h1>
         <p className="mt-1 text-xs text-muted">
-          Outbound calling operations — the pool of numbers we dial from and the
-          campaigns of numbers to work through. Shared across your agency (unlike
-          the Control Panel, which is per-browser).
+          Outbound calling operations — the pool of numbers we dial from, the
+          campaigns of numbers to work through, and the calls waiting to be
+          placed into a case. Shared across your agency (unlike the Control
+          Panel, which is per-browser).
         </p>
       </div>
 
@@ -726,6 +882,7 @@ export default function HoneypotOpsPage() {
           [
             ["numbers", "Numbers"],
             ["campaigns", "Campaigns"],
+            ["triage", "Triage"],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -745,7 +902,13 @@ export default function HoneypotOpsPage() {
         ))}
       </div>
 
-      {tab === "numbers" ? <NumbersTab /> : <CampaignsTab />}
+      {tab === "numbers" ? (
+        <NumbersTab />
+      ) : tab === "campaigns" ? (
+        <CampaignsTab />
+      ) : (
+        <TriageTab />
+      )}
     </div>
   );
 }

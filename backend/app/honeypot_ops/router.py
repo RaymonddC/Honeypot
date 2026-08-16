@@ -10,11 +10,20 @@ POST      /api/honeypot/campaigns/{id}/targets→ bulk-upload numbers (JSON/CSV 
 POST      /api/honeypot/campaigns/{id}/start  → draft|paused → running (+ enqueue)
 POST      /api/honeypot/campaigns/{id}/pause  → running → paused
 POST      /api/honeypot/campaigns/{id}/requeue→ finished targets → queued (§3.6)
+GET       /api/honeypot/targets/{id}/attempts → the call log for one target
+GET       /api/honeypot/triage                → connected calls with no case yet
+POST      /api/honeypot/triage/{id}/attach    → attach to an existing case
+POST      /api/honeypot/triage/{id}/promote   → open a new case + attach (§5)
 
 ``start`` moves the status and, when ``ITTU_DIAL_ENQUEUE_ON_START`` is on under
 Postgres, hands the queued targets to the ``dial_target`` actor. That actor
 **simulates** in POC and fails loud in LIVE: real Twilio calls are phase 5, and
 dialing real reported numbers stays behind the Polri gate (design spec §0).
+
+Triage is where a connected call goes when auto-linking found nothing. Linking
+is exact-match only (§9): a wrong auto-link quietly merges two investigations
+inside a court-bound file, while a wrong triage costs ten seconds — so anything
+short of certainty is handed to a human.
 
 All routes require an authenticated identity: numbers and campaigns are
 agency-owned under Postgres RLS.
@@ -24,6 +33,8 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from app.cases.repository import CaseRepository, get_case_repository
+from app.cases.schemas import CreateCaseRequest
 from app.core.auth import AuthContext, get_current_user
 from app.core.config import get_settings
 from app.honeypot_ops.repository import (
@@ -32,23 +43,30 @@ from app.honeypot_ops.repository import (
 )
 from app.honeypot_ops.schemas import (
     AddNumberRequest,
+    AttachSessionRequest,
     CreateCampaignRequest,
     DialAttemptOut,
     DialCampaignOut,
     DialTargetOut,
     HoneypotNumberOut,
+    PromoteSessionRequest,
+    PromoteSessionResult,
     RequeueRequest,
     RequeueResult,
+    TriageSessionOut,
     UpdateNumberRequest,
     UploadTargetsRequest,
     UploadTargetsResult,
 )
+from app.honeypot_ops.triage import TriageRepository, get_triage_repository
 
 logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter(tags=["honeypot-ops"])
 
 RepoDep = Depends(get_honeypot_ops_repository)
+TriageDep = Depends(get_triage_repository)
+CaseDep = Depends(get_case_repository)
 
 
 def _not_found(kind: str, item_id: str) -> HTTPException:
@@ -333,6 +351,104 @@ async def pause_campaign(
     if updated is None:  # pragma: no cover - existence checked above
         raise _not_found("campaign", campaign_id)
     return updated
+
+
+# ── triage ───────────────────────────────────────────────────────────────── #
+
+
+def _prefill(sess: TriageSessionOut) -> CreateCaseRequest:
+    """Draft a case from what the call already produced (§5).
+
+    The classifier has already decided a crime type and the call knows its own
+    number and date, so an investigator confirming a judgement shouldn't retype
+    any of it. Every field is overridable in the request body.
+    """
+    when = sess.started_at.strftime("%d %b %Y")
+    number = sess.channel_ref or "unknown number"
+    bits = [f"Honeypot voice call with {number} on {when}."]
+    if sess.duration_seconds:
+        bits.append(f"Duration {sess.duration_seconds}s.")
+    if sess.entity_count:
+        bits.append(
+            f"{sess.entity_count} entit{'y' if sess.entity_count == 1 else 'ies'} extracted."
+        )
+    bits.append(f"Promoted from triage (session {sess.id}).")
+    return CreateCaseRequest(
+        title=f"Voice call {number} · {when}"[:160],
+        crime_type=sess.crime_type,
+        summary=" ".join(bits)[:2000],
+    )
+
+
+@router.get("/honeypot/triage", response_model=list[TriageSessionOut])
+async def list_triage(
+    repo: TriageRepository = TriageDep,
+    _auth: AuthContext = Depends(get_current_user),
+) -> list[TriageSessionOut]:
+    """Connected calls with no case yet — newest first.
+
+    Every unmatched call is listed, including ones that extracted nothing: an
+    engaged call with zero entities still proves the number is live and answered,
+    which is itself worth an investigator's judgement. ``entity_count`` is on
+    each row so a busy queue can be worked richest-first.
+    """
+    return await repo.list_triage()
+
+
+@router.post(
+    "/honeypot/triage/{session_id}/attach", response_model=TriageSessionOut
+)
+async def attach_triage_session(
+    session_id: str,
+    body: AttachSessionRequest,
+    repo: TriageRepository = TriageDep,
+    case_repo: CaseRepository = CaseDep,
+    _auth: AuthContext = Depends(get_current_user),
+) -> TriageSessionOut:
+    """Attach a triaged call to an existing case."""
+    if await case_repo.get_case(body.case_id) is None:
+        raise _not_found("case", body.case_id)
+    attached = await repo.attach(session_id, body.case_id)
+    if attached is None:
+        raise _not_found("session", session_id)
+    return attached
+
+
+@router.post(
+    "/honeypot/triage/{session_id}/promote",
+    response_model=PromoteSessionResult,
+    status_code=201,
+)
+async def promote_triage_session(
+    session_id: str,
+    body: PromoteSessionRequest | None = None,
+    repo: TriageRepository = TriageDep,
+    case_repo: CaseRepository = CaseDep,
+    _auth: AuthContext = Depends(get_current_user),
+) -> PromoteSessionResult:
+    """Open a NEW case for a triaged call and attach it, in one step.
+
+    Case creation goes through the same ``CaseRepository`` the Cases API uses,
+    so a promoted case is indistinguishable from a hand-made one.
+    """
+    sess = await repo.get_triage(session_id)
+    if sess is None:
+        raise _not_found("session", session_id)
+    body = body or PromoteSessionRequest()
+
+    draft = _prefill(sess)
+    if body.title is not None:
+        draft.title = body.title
+    if body.crime_type is not None:
+        draft.crime_type = body.crime_type
+    if body.summary is not None:
+        draft.summary = body.summary
+
+    created = await case_repo.create_case(draft)
+    attached = await repo.attach(session_id, created.id)
+    if attached is None:  # pragma: no cover - existence checked above
+        raise _not_found("session", session_id)
+    return PromoteSessionResult(case=created, session=attached)
 
 
 @router.get("/honeypot/ping")
