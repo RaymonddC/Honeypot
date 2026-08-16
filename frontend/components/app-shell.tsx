@@ -20,6 +20,7 @@ const NAV_GROUPS: { label: string; items: { href: string; label: string; glyph: 
     label: "Operations",
     items: [
       { href: "/honeypot", label: "Infiltrate", glyph: "⬡" },
+      { href: "/honeypot-ops", label: "Honeypot Ops", glyph: "☎" },
       { href: "/bridge", label: "Trace", glyph: "⇌" },
       { href: "/investigation", label: "Takedown", glyph: "◉" },
       { href: "/actions", label: "Uncover", glyph: "⚑" },

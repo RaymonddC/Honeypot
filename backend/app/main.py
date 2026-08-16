@@ -14,6 +14,7 @@ from app.cases.router import router as cases_router
 from app.casedata.router import router as casedata_router
 from app.core.config import get_settings
 from app.core.db import engine
+from app.honeypot_ops.router import router as honeypot_ops_router
 from app.infiltrate.router import router as infiltrate_router
 from app.intel.router import router as intel_router
 from app.takedown.router import router as takedown_router
@@ -115,6 +116,7 @@ def create_app() -> FastAPI:
         intel_router,
         casedata_router,
         cases_router,
+        honeypot_ops_router,
     ):
         app.include_router(router, prefix="/api")
 
