@@ -256,3 +256,40 @@ def test_dispatch_is_recorded_with_recipients():
     # The packet itself and any signing secret must never reach the audit row.
     assert "payload" not in sent["detail"] and "secret" not in str(sent["detail"]).lower()
     assert feed["chain_ok"] is True
+
+
+def test_generated_evidence_is_recorded_durably_with_hashes():
+    """Bundle generation lands in the DURABLE trail, with document hashes.
+
+    uncover.custody also records this, but that chain is an in-memory POC
+    accumulator refilled per request — it does not survive a restart. Recording
+    here is what makes "what evidence was produced, by whom, and what did it
+    hash to" answerable later from one place, without having to trust a second
+    table to still agree.
+    """
+    token = _login()
+    bundle = client.post(
+        "/api/actions/generate",
+        json={
+            "case_id": "CASE-AUDIT-2",
+            "crime_type": "investment",
+            "entities": [
+                {
+                    "type": "crypto_wallet",
+                    "value": "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6",
+                    "chain": "tron",
+                }
+            ],
+            "outputs": ["freeze"],
+        },
+        headers=_auth(token),
+    ).json()
+
+    feed = client.get("/api/audit", headers=_auth(token)).json()
+    gen = next(e for e in feed["entries"] if e["action"] == "action.bundle.generated")
+    assert gen["target_id"] == bundle["id"]
+    docs = gen["detail"]["documents"]
+    assert docs, "generated documents must be recorded"
+    # The hash is the evidentiary part — it must match what the API returned.
+    assert {d["sha256"] for d in docs} == {d["sha256"] for d in bundle["documents"]}
+    assert feed["chain_ok"] is True

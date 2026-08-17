@@ -4,7 +4,7 @@
 > This is the short prioritized list; full rationale, effort, and triggers live in
 > [`Production-Roadmap.md`](Production-Roadmap.md). Status legend: S/M/L = small/medium/large effort.
 
-_Last updated: 2026-08-16 · branch `feat/c1-notifications-delivery`._
+_Last updated: 2026-08-18 · branch `feat/c1-notifications-delivery`._
 
 ---
 
@@ -63,12 +63,18 @@ on the Response dashboard). **282 backend tests green**, frontend build green.
       reads it, **verifying the chain on read** and reporting `broken_at_seq`. Tests prove tampering
       and deletion are both *detected*, not just that rows appear.
       - [x] Writer + per-agency chain + read API + verification
-      - [x] Wired: `case.created`, `case.updated` (logs only the changed fields)
-      - [ ] Remaining call sites: `auth.login`, `dispatch.sent`, `entity.reviewed`,
-            `triage.attached` / `triage.promoted` (constants already defined)
-      - [ ] UI: an audit view (the API is ready; nothing renders it yet)
-      - [ ] Consider folding in the separate in-memory `uncover.custody` chain, which predates this
-            and covers document generation only.
+      - [x] Wired (all 7): `auth.login`, `case.created`, `case.updated`, `entity.reviewed`,
+            `dispatch.sent`, `triage.attached`, `triage.promoted`. `case.updated` logs only the
+            changed fields; `dispatch.sent` names recipient agencies but never the payload or secret.
+      - [x] UI: `/audit` (`d1935cf`) — chain verification is the FIRST thing on the page, since a
+            tamper-evident log nobody checks proves nothing.
+      - [x] Durable coverage of evidence generation — `action.bundle.generated` (with document
+            sha256s) and `dispatch.sent` now land in the core trail (2026-08-18).
+      - [ ] **Decide** whether `uncover.custody` should collapse into the core trail. They are NOT
+            duplicates: custody is per-process/in-memory and only fills `ActionBundle.audit` in the
+            API response (never stored — see `uncover/repository.py`), while `core.audit_log` is the
+            durable per-agency trail. Merging changes that API contract, so it is a product decision,
+            not a cleanup. Both docstrings now say so.
 - [x] **`alembic check` drift reconciliation** · S–M · **DONE (2026-08-16)** — the last leg of the
       migration guards. All four drift items were the same shape (the DB had the object, the ORM model
       never declared it), so they were reconciled model-side with **no schema change and no migration**:

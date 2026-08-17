@@ -51,6 +51,12 @@ CASE_CREATED = "case.created"
 CASE_UPDATED = "case.updated"
 ENTITY_REVIEWED = "entity.reviewed"
 DISPATCH_SENT = "dispatch.sent"
+# Evidence generation. The per-bundle chain in ``uncover/custody.py`` also
+# records these, but it is an in-memory POC accumulator refilled per request
+# (see uncover/repository.py) — it does not survive a restart. Recording them
+# here is what makes the evidence trail DURABLE; custody remains the per-bundle
+# presentation of the same events inside ``ActionBundle.audit``.
+BUNDLE_GENERATED = "action.bundle.generated"
 TRIAGE_ATTACHED = "triage.attached"
 TRIAGE_PROMOTED = "triage.promoted"
 
