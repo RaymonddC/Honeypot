@@ -176,3 +176,47 @@ def test_audit_feed_requires_auth_and_is_agency_scoped():
     other = client.get("/api/audit", headers=_auth(ppatk)).json()
     titles = [e.get("detail", {}).get("title") for e in other["entries"]]
     assert "Bareskrim only" not in titles, "one agency must not see another's actions"
+
+
+def test_the_wired_actions_all_record():
+    """Every call site that claims to be audited actually is.
+
+    Wiring an audit trail is the kind of change that rots quietly: a new
+    endpoint ships, nobody adds the record_action call, and the log looks fine
+    because it still has rows. This pins the set.
+    """
+    token = _login()  # auth.login
+    case = client.post("/api/cases", json={"title": "Wired"}, headers=_auth(token)).json()
+    client.patch(f"/api/cases/{case['id']}", json={"stage": "trace"}, headers=_auth(token))
+
+    entities = client.get("/api/entities", headers=_auth(token)).json()
+    if entities:  # the POC replay seeds extracted entities
+        client.post(
+            f"/api/entities/{entities[0]['id']}/review",
+            json={"status": "confirmed"},
+            headers=_auth(token),
+        )
+
+    feed = client.get("/api/audit", headers=_auth(token)).json()
+    actions = {e["action"] for e in feed["entries"]}
+    assert {"auth.login", "case.created", "case.updated"} <= actions
+    if entities:
+        assert "entity.reviewed" in actions
+    assert feed["chain_ok"] is True, "wiring more writers must not break the chain"
+
+
+def test_login_is_recorded_with_method_and_role():
+    """'Who authenticated, how, and as what' is a first-order audit question.
+
+    The recorded role must match the identity actually issued — an audit entry
+    that disagrees with the token is worse than none.
+    """
+    r = client.post(
+        "/api/auth/login",
+        json={"agency_id": "ppatk", "role": "regulator-analyst"},
+    ).json()
+    feed = client.get("/api/audit", headers=_auth(r["token"])).json()
+    login = next(e for e in feed["entries"] if e["action"] == "auth.login")
+    assert login["detail"]["method"] == "demo"
+    assert login["detail"]["role"] == r["role"] == "regulator-analyst"
+    assert login["actor_user_id"] == r["user"]["id"]

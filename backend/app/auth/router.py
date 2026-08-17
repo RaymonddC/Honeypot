@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.core.adapters import BOUNDARY_MODULE, registered
+from app.core.audit import AUTH_LOGIN, record_action
 from app.core.auth import (
     DEFAULT_ROLE_BY_AGENCY_TYPE,
     ROLES,
@@ -31,6 +32,7 @@ from app.core.auth import (
     mint_token,
 )
 from app.core.config import MODULES, get_mode_resolver, get_settings
+from app.core.db import get_optional_session
 from app.core.user_repository import UserRepository, get_user_repository, resolve_demo_user
 
 router = APIRouter(tags=["auth"])
@@ -121,6 +123,29 @@ def _auth_mode() -> str:
     return get_mode_resolver().effective_mode("auth")
 
 
+async def _record_login(session, user: SeedUser, agency: SeedAgency, *, method: str) -> None:
+    """Audit a successful login.
+
+    Uses the UNSCOPED session (the same one the login boundary already uses):
+    authentication by definition happens before a tenant context exists, so the
+    RLS-scoped dependency isn't available yet — the agency is written explicitly
+    from the resolved identity instead.
+
+    Only successes are recorded here. Failed attempts are a different signal
+    (brute-force detection) and belong in security logging, not in an agency's
+    evidentiary chain, where they'd be noise a court has to wade through.
+    """
+    await record_action(
+        session,
+        agency_id=str(agency.id),
+        action=AUTH_LOGIN,
+        actor_user_id=str(user.id),
+        target_type="user",
+        target_id=str(user.id),
+        detail={"method": method, "role": user.role, "email": user.email},
+    )
+
+
 def _token_response(user: SeedUser, agency: SeedAgency) -> TokenResponse:
     token, ttl = mint_token(user)
     return TokenResponse(
@@ -179,6 +204,7 @@ def _provisioned_from_allowlist(email: str, settings) -> SeedUser | None:
 async def post_login(
     body: LoginRequest | None = None,
     repo: UserRepository = Depends(get_user_repository),
+    session=Depends(get_optional_session),
 ) -> TokenResponse:
     """POC demo login: seeded agency (+role) → our JWT. No external dependency.
 
@@ -222,6 +248,7 @@ async def post_login(
 
     role = body.role or DEFAULT_ROLE_BY_AGENCY_TYPE[agency.type]
     user = await resolve_demo_user(repo, agency, role)
+    await _record_login(session, user, agency, method="demo")
     return _token_response(user, agency)
 
 
@@ -229,6 +256,7 @@ async def post_login(
 async def post_google_login(
     body: GoogleLoginRequest,
     repo: UserRepository = Depends(get_user_repository),
+    session=Depends(get_optional_session),
 ) -> TokenResponse:
     """Google login: verify a Google OAuth ``id_token`` → mint our JWT.
 
@@ -318,6 +346,7 @@ async def post_google_login(
         )
     )
     agency = find_agency(str(user.agency_id))
+    await _record_login(session, user, agency, method="google")
     return _token_response(user, agency)
 
 

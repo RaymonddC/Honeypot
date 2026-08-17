@@ -25,7 +25,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from app.core.audit import ENTITY_REVIEWED, record_action
 from app.core.auth import AuthContext, get_current_user
+from app.core.db import get_optional_tenant_session
 from app.core.config import get_settings
 from app.infiltrate import service
 from app.infiltrate.channels import ChannelAdapter
@@ -430,12 +432,25 @@ async def post_entity_review(
     entity_id: str,
     body: ReviewRequest,
     repo: InfiltrateRepository = RepoDep,
-    _auth: AuthContext = Depends(get_current_user),  # human-in-the-loop = named human
+    auth: AuthContext = Depends(get_current_user),  # human-in-the-loop = named human
+    session=Depends(get_optional_tenant_session),
 ) -> EntityOut:
     """Analyst review — confirm/reject/flag-poisoned (human-in-the-loop)."""
     entity = await service.review_entity(entity_id, body.status, repo=repo)
     if entity is None:
         raise _not_found("entity", entity_id)
+    # The most consequential human judgement in the pipeline: a "confirmed"
+    # entity becomes the basis for a freeze request. Who decided, and when, is
+    # exactly what a court asks about.
+    await record_action(
+        session,
+        agency_id=str(auth.agency.id),
+        action=ENTITY_REVIEWED,
+        actor_user_id=str(auth.user.id),
+        target_type="entity",
+        target_id=entity_id,
+        detail={"status": body.status, "value": entity.value, "type": entity.type},
+    )
     return entity
 
 
