@@ -42,11 +42,30 @@ boot** rather than failing later on the first write — that guard exists becaus
 a 3-migration-behind database once broke case creation with nothing pointing at
 the cause.
 
-**Worker** — `dramatiq app.workers` (needs Redis). Off by default, and
-**required** for anything queued: LIVE notification dispatch with
-`ITTU_NOTIFICATION_DELIVERY=worker`, and outbound dialing with
-`ITTU_DIAL_ENQUEUE_ON_START=true`. Without it those jobs queue and are never
-executed. See `docs/Deploy.md` §6.
+**Worker** — off by default, and **required** for anything queued: LIVE
+notification dispatch with `ITTU_NOTIFICATION_DELIVERY=worker`, and outbound
+dialing with `ITTU_DIAL_ENQUEUE_ON_START=true`. Without it those jobs queue and
+are never executed. Deployment: `docs/Deploy.md` §6.
+
+```sh
+cd backend
+.venv/bin/dramatiq app.workers          # add --processes 2 --threads 2 to see concurrency
+```
+
+Three things that must be true or nothing runs, in the order they bite:
+
+1. **Run it from Linux/WSL, not native Windows.** Dramatiq's worker is
+   Unix-oriented (fork/signals). The API is fine on Windows — both reach the
+   same Docker Redis and Postgres over `localhost`.
+2. **`ITTU_PERSISTENCE=postgres`.** The actor runs in a separate process and
+   loads its row by id; the in-memory repositories cannot serve it.
+3. **Restart the API after changing either flag** — settings are read at boot,
+   so an already-running API keeps the old value and silently never enqueues.
+
+Enqueue failures are logged, not raised (a broker hiccup must not 500 a campaign
+start), so when nothing happens check the API log for `dial enqueue failed…`
+before suspecting the worker. A healthy-looking worker on an idle queue usually
+means the API and worker are pointed at different `ITTU_REDIS_URL`s.
 
 ### 3. Frontend
 
