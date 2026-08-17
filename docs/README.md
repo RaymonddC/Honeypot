@@ -36,6 +36,7 @@ screens (`/home`, `/case`, `/guide`) now front the four pillars. Source: `../PID
 | **[Demo-Runbook.md](Demo-Runbook.md)** | Timed run-of-show, golden-thread identity, fallback playbook, judge Q&A. |
 | **[Deploy.md](Deploy.md)** | Vercel (frontend) + Render (backend) Blueprint, env vars, migrations. |
 | **[Live-Voice-Calls.md](Live-Voice-Calls.md)** | Voice call modes (live-mic shipped) + path to real telephony (Twilio/PSTN). |
+| **[Voice-Honeypot-Outbound.md](Voice-Honeypot-Outbound.md)** | Outbound calling: number pool, dial campaigns, the call log, triage → case. Built except real telephony. |
 
 ---
 
