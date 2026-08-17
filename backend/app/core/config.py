@@ -99,6 +99,12 @@ class Settings(BaseSettings):
     # app.workers` + Redis, and in LIVE it would place real calls (Polri-gated,
     # design spec §0). POC enqueue is safe: the actor simulates, never dials.
     dial_enqueue_on_start: bool = False   # ITTU_DIAL_ENQUEUE_ON_START
+    # Twilio (phase 5 groundwork, app/infiltrate/telephony.py). Empty = no real
+    # telephony: the dialer simulates in POC and fails loud in LIVE. The number
+    # dialled FROM is not here — it comes from the honeypot number pool, because
+    # caller-ID rotation is an operational decision, not static config.
+    twilio_account_sid: str = ""          # ITTU_TWILIO_ACCOUNT_SID
+    twilio_auth_token: str = ""           # ITTU_TWILIO_AUTH_TOKEN (also signs webhooks)
 
     # CORS: origins allowed to call the API. Kept as a STRING (not list[str]) so
     # pydantic-settings never tries to JSON-decode the env var and crash on deploy.
