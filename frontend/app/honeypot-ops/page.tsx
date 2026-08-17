@@ -13,10 +13,12 @@
  * worker, which SIMULATES the call in POC. Real telephony is still to come.
  * "Call again" (requeue) sends finished targets back to the queue.
  *
- * NOTE for copy: /api/config does NOT expose whether the dialer is enabled, so
- * this page cannot truthfully say "dialing is on/off". User-facing text
- * therefore states what is always true in this build — calls are simulated —
- * rather than claiming to know the server's flag.
+ * NOTE for copy: GET /api/config now reports `dialing.enabled` (both
+ * ITTU_DIAL_ENQUEUE_ON_START and Postgres persistence), so the page CAN say
+ * when Start won't place calls — see `useDialingEnabled`. It still never
+ * claims dialing is "on": even enabled, this build only simulates. Until the
+ * flag loads (and against an older API) it falls back to the unconditionally
+ * true line rather than guessing.
  *
  * Triage is the third tab: connected calls auto-linking couldn't place. Linking
  * is exact-match only by design (§9), so this queue is the normal path rather
@@ -25,6 +27,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { listCases, type Case } from "@/lib/cases/api";
+import { fetchBackendConfig } from "@/lib/settings";
 import {
   attachTriageSession,
   createCampaign,
@@ -290,6 +293,28 @@ const REJECT_COPY: Record<RejectReason, string> = {
   already_in_campaign: "already in this campaign — use “Call again” to dial it once more",
 };
 
+/**
+ * Whether Start will actually hand numbers to the dialer, per GET /api/config.
+ *
+ * The page cannot infer this: both preconditions (ITTU_DIAL_ENQUEUE_ON_START and
+ * Postgres persistence) live server-side and BOTH fail silently — the flag is
+ * read at boot, and enqueue errors are logged rather than raised so a broker
+ * hiccup can't 500 a campaign start. `null` while loading or if the API is old.
+ */
+function useDialingEnabled(): boolean | null {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void fetchBackendConfig().then((c) => {
+      if (alive) setEnabled(c.dialingEnabled);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return enabled;
+}
+
 function CampaignDetail({
   campaign,
   onChanged,
@@ -376,6 +401,7 @@ function CampaignDetail({
   const finished = (targets ?? []).filter((t) =>
     ["no_answer", "failed"].includes(t.status),
   );
+  const dialingEnabled = useDialingEnabled();
 
   return (
     <div className="mt-2 border-t border-line pt-3">
@@ -408,7 +434,9 @@ function CampaignDetail({
           Call again {finished.length > 0 ? `(${finished.length})` : ""}
         </button>
         <span className="text-[10px] text-muted">
-          Calls are simulated in this build — nothing is dialed for real.
+          {dialingEnabled === false
+            ? "Dialing is off on the server — Start marks the campaign running but places no calls."
+            : "Calls are simulated in this build — nothing is dialed for real."}
         </span>
       </div>
 

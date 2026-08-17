@@ -105,6 +105,13 @@ class ConfigResponse(BaseModel):
     tts_providers: list[str] = []  # known live providers (voice.LIVE_TTS_PROVIDERS)
     live_keys: dict[str, bool] = {}  # provider slug -> is a LIVE key configured
     voice_defaults: dict[str, str] = {}  # caller number / greeting (POC fixture)
+    # --- Outbound dialing — whether starting a campaign actually calls anything.
+    # Both preconditions must hold, and BOTH fail silently otherwise: the flag is
+    # read at boot, and enqueue errors are logged rather than raised so a broker
+    # hiccup can't 500 a campaign start. Without this the Honeypot Ops page could
+    # not tell an operator whether Start would do anything (see
+    # docs/Voice-Honeypot-Outbound.md). Flags only — no URLs, no credentials.
+    dialing: dict[str, bool | str] = {}
 
 
 # --- Helpers ---------------------------------------------------------------------
@@ -377,6 +384,12 @@ async def get_config() -> ConfigResponse:
         tts_providers=sorted(LIVE_TTS_PROVIDERS),
         live_keys=live_keys,
         voice_defaults={"caller_number": VOICE_CALLER_NUMBER, "greeting": VOICE_GREETING},
+        dialing={
+            "enqueue_on_start": settings.dial_enqueue_on_start,
+            "persistence": settings.persistence,
+            # Both must hold or Start is a pure status flip (router._enqueue_campaign).
+            "enabled": settings.dial_enqueue_on_start and settings.persistence == "postgres",
+        },
     )
 
 

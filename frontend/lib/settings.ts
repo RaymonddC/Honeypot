@@ -228,6 +228,14 @@ export interface BackendConfigStatus {
   /** Effective server TTS provider (ITTU_TTS_PROVIDER), null if unknown. */
   ttsProvider: string | null;
   keys: BackendKeyPresence[];
+  /**
+   * Whether starting a campaign actually hands its numbers to the dialer.
+   * Needs BOTH `ITTU_DIAL_ENQUEUE_ON_START` and Postgres persistence; either
+   * missing makes Start a pure status flip. Both fail SILENTLY server-side
+   * (the flag is read at boot; enqueue errors are logged, not raised), so the
+   * UI has to be told rather than infer it. `null` = the API didn't say.
+   */
+  dialingEnabled: boolean | null;
   source: "api" | "env";
 }
 
@@ -298,6 +306,8 @@ export async function fetchBackendConfig(): Promise<BackendConfigStatus> {
           ? String(first(c?.tts_provider, c?.voice?.tts_provider, c?.adapters?.tts))
           : null,
       keys: normalizeKeys(c),
+      dialingEnabled:
+        typeof c?.dialing?.enabled === "boolean" ? c.dialing.enabled : null,
       source: "api",
     };
   } catch {
@@ -306,6 +316,7 @@ export async function fetchBackendConfig(): Promise<BackendConfigStatus> {
       modules: [],
       ttsProvider: null,
       keys: [],
+      dialingEnabled: null,
       source: "env",
     };
   }
