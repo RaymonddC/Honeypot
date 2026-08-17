@@ -220,3 +220,39 @@ def test_login_is_recorded_with_method_and_role():
     assert login["detail"]["method"] == "demo"
     assert login["detail"]["role"] == r["role"] == "regulator-analyst"
     assert login["actor_user_id"] == r["user"]["id"]
+
+
+def test_dispatch_is_recorded_with_recipients():
+    """Dispatch is the product's most consequential action — irreversible and
+    outward. 'Who authorised it, and which agencies were told' is precisely what
+    gets asked afterwards, so recipients are recorded by name."""
+    token = _login()
+    r = client.post(
+        "/api/actions/generate",
+        json={
+            "case_id": "CASE-AUDIT-1",
+            "crime_type": "investment",
+            "entities": [
+                {
+                    "type": "crypto_wallet",
+                    "value": "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6",
+                    "chain": "tron",
+                }
+            ],
+            "outputs": ["freeze"],
+        },
+        headers=_auth(token),
+    )
+    assert r.status_code == 201, r.text
+    bundle = r.json()
+    d = client.post(f"/api/actions/{bundle['id']}/dispatch", headers=_auth(token))
+    assert d.status_code == 200, d.text
+
+    feed = client.get("/api/audit", headers=_auth(token)).json()
+    sent = next((e for e in feed["entries"] if e["action"] == "dispatch.sent"), None)
+    assert sent is not None, "dispatch must be audited"
+    assert sent["target_type"] == "action_bundle"
+    assert sent["detail"]["recipients"], "recipient agencies must be named"
+    # The packet itself and any signing secret must never reach the audit row.
+    assert "payload" not in sent["detail"] and "secret" not in str(sent["detail"]).lower()
+    assert feed["chain_ok"] is True

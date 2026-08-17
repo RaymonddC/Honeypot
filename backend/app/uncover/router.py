@@ -14,7 +14,9 @@ irreversible outward actions are never auto-fired.
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from app.core.adapters import ChainDataAdapter, FiatDataAdapter
+from app.core.audit import DISPATCH_SENT, record_action
 from app.core.auth import DISPATCH_ROLES, AuthContext, get_current_user, require_role
+from app.core.db import get_optional_tenant_session
 from app.uncover import service
 from app.uncover.metrics import RangeKey, ResponseMetrics, compute_metrics
 from app.uncover.notifications import NotificationOut, NotificationSink
@@ -81,7 +83,8 @@ async def post_dispatch(
     action_id: str,
     sink: NotificationSink = SinkDep,
     repo: UncoverRepository = RepoDep,
-    _auth: AuthContext = Depends(require_role(DISPATCH_ROLES)),
+    auth: AuthContext = Depends(require_role(DISPATCH_ROLES)),
+    audit_session=Depends(get_optional_tenant_session),
 ) -> ActionBundle:
     """Human-gated dispatch. POC: mock sink — notifications record
     status='mock' ("would dispatch to …"); nothing leaves the system.
@@ -100,6 +103,24 @@ async def post_dispatch(
         )
     if bundle is None:
         raise _not_found("action", action_id)
+    # The most consequential action in the product: irreversible, outward, and
+    # role-gated for that reason. Records WHO authorised it and WHERE it went —
+    # recipients by name, since "which agencies were told" is the question asked
+    # afterwards. Never the payload or the signing secret.
+    await record_action(
+        audit_session,
+        agency_id=str(auth.agency.id),
+        action=DISPATCH_SENT,
+        actor_user_id=str(auth.user.id),
+        target_type="action_bundle",
+        target_id=action_id,
+        detail={
+            "recipients": [n.target_agency for n in bundle.notifications],
+            "channels": sorted({n.channel for n in bundle.notifications if n.channel}),
+            "crime_type": bundle.crime_type,
+            "documents": len(bundle.documents),
+        },
+    )
     return bundle
 
 
