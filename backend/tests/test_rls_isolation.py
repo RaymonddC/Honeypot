@@ -343,3 +343,154 @@ async def test_triage_repository_isolates_by_agency(app_role_uri, seeded_triage)
         await engine.dispose()
 
     assert [r.id for r in rows] == [f"sess_triage_{AGENCY_A}"]
+
+
+# --------------------------------------------------------------------------- #
+# Join tables: no agency_id of their own, policed through their parent.
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture(scope="session")
+async def seeded_syndicate_members(app_role_uri):
+    """A syndicate + entity + membership row for EACH agency, as the owner."""
+    owner_async_uri, _ = app_role_uri
+    engine = create_async_engine(owner_async_uri)
+    ids = {}
+    try:
+        async with engine.begin() as conn:
+            for tag, agency_id in (("a", AGENCY_A), ("b", AGENCY_B)):
+                syn = await conn.execute(
+                    sa.text(
+                        "INSERT INTO intel.syndicates (id, public_id, agency_id, label, data_mode) "
+                        "VALUES (gen_random_uuid(), :p, :a, 'rls-test', 'poc') RETURNING id"
+                    ),
+                    {"p": f"syn_rls_{tag}", "a": agency_id},
+                )
+                syn_id = syn.scalar_one()
+                ent = await conn.execute(
+                    sa.text(
+                        "INSERT INTO intel.entities "
+                        "(id, public_id, agency_id, type, value, method, data_mode) "
+                        "VALUES (gen_random_uuid(), :p, :a, 'crypto_wallet', :v, 'regex', 'poc') "
+                        "RETURNING id"
+                    ),
+                    {"p": f"ent_rls_{tag}", "a": agency_id, "v": f"WALLET-{tag}"},
+                )
+                await conn.execute(
+                    sa.text(
+                        "INSERT INTO intel.syndicate_members "
+                        "(syndicate_id, entity_id, link_type, confidence) "
+                        "VALUES (:s, :e, 'shared_wallet', 0.9)"
+                    ),
+                    {"s": syn_id, "e": ent.scalar_one()},
+                )
+                ids[tag] = syn_id
+    finally:
+        await engine.dispose()
+    return ids
+
+
+async def test_rls_isolates_syndicate_members_through_their_syndicate(
+    app_role_uri, seeded_syndicate_members
+):
+    """A join table with no agency_id must still be isolated.
+
+    Regression: an RLS review found agency A was correctly blocked from agency
+    B's syndicate AND its entity, yet could read the membership row linking
+    them — leaking the shape of another agency's investigation graph (which
+    opaque ids cluster, the link type, the confidence, how many links exist).
+    The ids are unreadable alone; the structure is still intelligence.
+    """
+    _owner, app_async_uri = app_role_uri
+    engine = create_async_engine(app_async_uri)
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(
+                sa.text("SELECT set_config('app.current_agency', :a, false)"),
+                {"a": AGENCY_A},
+            )
+            own = (
+                await conn.execute(
+                    sa.text(
+                        "SELECT count(*) FROM intel.syndicate_members WHERE syndicate_id = :s"
+                    ),
+                    {"s": seeded_syndicate_members["a"]},
+                )
+            ).scalar_one()
+            other = (
+                await conn.execute(
+                    sa.text(
+                        "SELECT count(*) FROM intel.syndicate_members WHERE syndicate_id = :s"
+                    ),
+                    {"s": seeded_syndicate_members["b"]},
+                )
+            ).scalar_one()
+        assert own == 1, "an agency must still see its OWN membership rows"
+        assert other == 0, "must not see another agency's membership rows"
+    finally:
+        await engine.dispose()
+
+
+async def test_fiat_correlations_are_policed_through_their_case(app_role_uri):
+    """fiat.correlations carries case_id (uuid into agency-scoped core.cases)
+    and had no policy. Empty in practice today — which is exactly why it was
+    worth fixing before it fills with real crypto↔fiat links."""
+    owner_async_uri, app_async_uri = app_role_uri
+    owner = create_async_engine(owner_async_uri)
+    app = create_async_engine(app_async_uri)
+    try:
+        async with owner.begin() as conn:
+            case_b = (
+                await conn.execute(
+                    sa.text(
+                        "INSERT INTO core.cases (id, agency_id, title, status, stage, data_mode) "
+                        "VALUES (gen_random_uuid(), :a, 'B case', 'open', 'intake', 'poc') "
+                        "RETURNING id"
+                    ),
+                    {"a": AGENCY_B},
+                )
+            ).scalar_one()
+            # correlations requires both parents (NOT NULL); those tables hold
+            # public chain/fiat data and are deliberately un-policed.
+            fiat_tx = (
+                await conn.execute(
+                    sa.text(
+                        "INSERT INTO fiat.fiat_transactions (id, amount, ts, channel) "
+                        "VALUES (gen_random_uuid(), 1000, now(), 'transfer') RETURNING id"
+                    )
+                )
+            ).scalar_one()
+            crypto_tx = (
+                await conn.execute(
+                    sa.text(
+                        "INSERT INTO chain.transactions "
+                        "(id, tx_hash, chain, from_addr, to_addr, value, ts) "
+                        "VALUES (gen_random_uuid(), 'rls-test-hash', 'tron', 'A', 'B', 1, now()) "
+                        "RETURNING id"
+                    )
+                )
+            ).scalar_one()
+            await conn.execute(
+                sa.text(
+                    "INSERT INTO fiat.correlations "
+                    "(id, case_id, fiat_tx_id, crypto_tx_id, time_delta_seconds, amount_match, "
+                    "confidence, method, data_mode) "
+                    "VALUES (gen_random_uuid(), :c, :f, :x, 30, 1.0, 0.8, 'amount+time', 'poc')"
+                ),
+                {"c": case_b, "f": fiat_tx, "x": crypto_tx},
+            )
+        async with app.connect() as conn:
+            await conn.execute(
+                sa.text("SELECT set_config('app.current_agency', :a, false)"),
+                {"a": AGENCY_A},
+            )
+            seen = (
+                await conn.execute(
+                    sa.text("SELECT count(*) FROM fiat.correlations WHERE case_id = :c"),
+                    {"c": case_b},
+                )
+            ).scalar_one()
+        assert seen == 0, "must not see correlations behind another agency's case"
+    finally:
+        await owner.dispose()
+        await app.dispose()
