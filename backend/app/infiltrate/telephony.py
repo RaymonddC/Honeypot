@@ -106,6 +106,23 @@ def build_stream_twiml(ws_url: str, *, greeting: str | None = None) -> str:
     )
 
 
+def build_say_and_hangup_twiml(message: str, *, language: str = "id-ID") -> str:
+    """TwiML that speaks one line and hangs up.
+
+    This is what the answer webhook returns UNTIL the media bridge exists.
+    Returning ``<Connect><Stream>`` today would point Twilio at a socket nobody
+    is serving, which connects a real caller to silence — worse than an honest
+    short call. It also makes the whole Twilio→our-server path verifiable end to
+    end (number, webhook, signature, TwiML) without the bridge: ring the number
+    and you hear this line.
+    """
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        f'<Response><Say language="{_escape(language)}">{_escape(message)}</Say>'
+        "<Hangup/></Response>"
+    )
+
+
 def _escape(text: str | None) -> str:
     """XML-escape a value going into TwiML (a raw ``&`` breaks the document)."""
     if not text:

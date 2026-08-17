@@ -102,3 +102,91 @@ def test_client_fails_loud_without_credentials():
     # A half-configured account is still unusable — both halves are required.
     with pytest.raises(NotImplementedError):
         TwilioCallClient(Settings(twilio_account_sid="AC123", twilio_auth_token=""))
+
+
+# --- The answer webhook (POST /api/telephony/voice) ---------------------------
+
+
+def _signed(client, url_base, params, token):
+    """POST the webhook with a correctly-computed signature."""
+    import base64, hashlib, hmac
+
+    payload = url_base + "".join(f"{k}{v}" for k, v in sorted(params.items()))
+    sig = base64.b64encode(
+        hmac.new(token.encode(), payload.encode(), hashlib.sha1).digest()
+    ).decode()
+    return client.post(
+        "/api/telephony/voice", data=params, headers={"X-Twilio-Signature": sig}
+    )
+
+
+@pytest.fixture
+def twilio_client():
+    """TestClient with Twilio configured and a pinned public base URL."""
+    from fastapi.testclient import TestClient
+
+    from app.core.config import get_settings
+    from app.main import app
+
+    s = get_settings()
+    prior = (s.twilio_auth_token, s.public_base_url)
+    s.twilio_auth_token = "test-token"
+    s.public_base_url = "https://ittu.example"
+    try:
+        yield TestClient(app), "https://ittu.example/api/telephony/voice", "test-token"
+    finally:
+        s.twilio_auth_token, s.public_base_url = prior
+
+
+def test_webhook_accepts_a_correctly_signed_call(twilio_client):
+    client, url, token = twilio_client
+    r = _signed(client, url, {"CallSid": "CA1", "From": "+62811", "To": "+62822"}, token)
+    assert r.status_code == 200
+    assert "application/xml" in r.headers["content-type"]
+    # Speaks and hangs up — NOT <Connect><Stream>, which would point Twilio at a
+    # media bridge that doesn't exist and connect a real caller to silence.
+    assert "<Say" in r.text and "<Hangup/>" in r.text
+    assert "<Stream" not in r.text
+
+
+def test_webhook_rejects_forged_and_unsigned_requests(twilio_client):
+    client, url, token = twilio_client
+    params = {"CallSid": "CA1", "From": "+62811"}
+
+    # No signature header at all.
+    assert client.post("/api/telephony/voice", data=params).status_code == 403
+    # Signature for DIFFERENT params (replayed from another request).
+    stolen = _signed(client, url, {"CallSid": "OTHER"}, token).request.headers[
+        "X-Twilio-Signature"
+    ]
+    r = client.post(
+        "/api/telephony/voice", data=params, headers={"X-Twilio-Signature": stolen}
+    )
+    assert r.status_code == 403
+    # Signed with the wrong token (an attacker guessing).
+    assert _signed(client, url, params, "wrong-token").status_code == 403
+
+
+def test_webhook_fails_closed_when_twilio_is_not_configured():
+    """No auth token must mean NOTHING is accepted — the endpoint is otherwise
+    unauthenticated, so an empty token waving requests through would leave it
+    wide open to anyone who learns the URL."""
+    from fastapi.testclient import TestClient
+
+    from app.core.config import get_settings
+    from app.main import app
+
+    s = get_settings()
+    prior = (s.twilio_auth_token, s.public_base_url)
+    s.twilio_auth_token = ""
+    s.public_base_url = "https://ittu.example"
+    try:
+        client = TestClient(app)
+        r = client.post(
+            "/api/telephony/voice",
+            data={"CallSid": "CA1"},
+            headers={"X-Twilio-Signature": "anything"},
+        )
+        assert r.status_code == 403
+    finally:
+        s.twilio_auth_token, s.public_base_url = prior

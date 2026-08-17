@@ -105,6 +105,12 @@ class Settings(BaseSettings):
     # caller-ID rotation is an operational decision, not static config.
     twilio_account_sid: str = ""          # ITTU_TWILIO_ACCOUNT_SID
     twilio_auth_token: str = ""           # ITTU_TWILIO_AUTH_TOKEN (also signs webhooks)
+    # Public origin Twilio reaches us on, e.g. https://ittu-api.onrender.com.
+    # REQUIRED for webhook signature checks behind a proxy: Twilio signs the
+    # exact public URL it called, but Render/Vercel terminate TLS and hand the
+    # app an internal http:// host, so a URL rebuilt from the request would not
+    # match and every genuine webhook would be rejected as forged.
+    public_base_url: str = ""             # ITTU_PUBLIC_BASE_URL
 
     # CORS: origins allowed to call the API. Kept as a STRING (not list[str]) so
     # pydantic-settings never tries to JSON-decode the env var and crash on deploy.
