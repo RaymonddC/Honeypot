@@ -390,6 +390,15 @@ Phases 1–4 and 6 need **no Twilio account and no legal gate** — fully builda
 demoable now. Phase 5 is the one requiring Twilio credentials and is where the
 self-test-only line matters.
 
+**Phase 5 partial (shipped 2026-08-17)** — `app/infiltrate/telephony.py` +
+`POST /api/telephony/voice`: webhook **signature validation** (fails closed; the HMAC is
+the only auth this endpoint has), TwiML builders, and a REST client that fails loud
+without credentials. The answer webhook speaks one line and hangs up rather than opening
+`<Connect><Stream>`, because pointing Twilio at an unbuilt media bridge connects a real
+caller to silence. Setup + how to verify it by ringing the number:
+[`Live-Voice-Calls.md`](Live-Voice-Calls.md) → *Twilio setup*. Still outstanding: the WS
+media bridge, streaming STT, turn-taking/barge-in.
+
 ---
 
 ## 9. Decisions (settled 2026-08-16)
