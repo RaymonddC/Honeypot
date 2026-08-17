@@ -78,3 +78,134 @@ export async function checkElevenLabsVoice(
     return { ok: false, error: "unreachable" };
   }
 }
+
+/**
+ * Gemini prebuilt voices (Google AI Studio TTS) — the ~30 named voices, each
+ * with its documented characteristic. The style directive in the backend
+ * persona adapter does most of the emotional shaping; the voice sets timbre.
+ */
+export const GEMINI_VOICES: { name: string; tone: string }[] = [
+  { name: "Zephyr", tone: "Bright" },
+  { name: "Puck", tone: "Upbeat" },
+  { name: "Charon", tone: "Informative" },
+  { name: "Kore", tone: "Firm" },
+  { name: "Fenrir", tone: "Excitable" },
+  { name: "Leda", tone: "Youthful" },
+  { name: "Orus", tone: "Firm" },
+  { name: "Aoede", tone: "Breezy" },
+  { name: "Callirrhoe", tone: "Easy-going" },
+  { name: "Autonoe", tone: "Bright" },
+  { name: "Enceladus", tone: "Breathy" },
+  { name: "Iapetus", tone: "Clear" },
+  { name: "Umbriel", tone: "Easy-going" },
+  { name: "Algieba", tone: "Smooth" },
+  { name: "Despina", tone: "Smooth" },
+  { name: "Erinome", tone: "Clear" },
+  { name: "Algenib", tone: "Gravelly" },
+  { name: "Rasalgethi", tone: "Informative" },
+  { name: "Laomedeia", tone: "Upbeat" },
+  { name: "Achernar", tone: "Soft" },
+  { name: "Alnilam", tone: "Firm" },
+  { name: "Schedar", tone: "Even" },
+  { name: "Gacrux", tone: "Mature" },
+  { name: "Pulcherrima", tone: "Forward" },
+  { name: "Achird", tone: "Friendly" },
+  { name: "Zubenelgenubi", tone: "Casual" },
+  { name: "Vindemiatrix", tone: "Gentle" },
+  { name: "Sadachbia", tone: "Lively" },
+  { name: "Sadaltager", tone: "Knowledgeable" },
+  { name: "Sulafat", tone: "Warm" },
+];
+
+const GEMINI_VOICE_NAMES = new Set(GEMINI_VOICES.map((v) => v.name));
+
+/** True if `name` is a real Gemini prebuilt voice (empty = "" server default). */
+export function isKnownGeminiVoice(name: string): boolean {
+  return GEMINI_VOICE_NAMES.has(name.trim());
+}
+
+/**
+ * Google Cloud TTS id-ID voices (WaveNet + Standard). A/D are female, B/C male.
+ * Google's voice namespace is larger and evolving (Chirp3-HD, …) — this is the
+ * common, stable set for the Control Panel dropdown; an env var can still set
+ * any valid Google voice server-side.
+ */
+export const GOOGLE_VOICES: { name: string; tone: string }[] = [
+  { name: "id-ID-Wavenet-A", tone: "Female · WaveNet" },
+  { name: "id-ID-Wavenet-B", tone: "Male · WaveNet" },
+  { name: "id-ID-Wavenet-C", tone: "Male · WaveNet" },
+  { name: "id-ID-Wavenet-D", tone: "Female · WaveNet" },
+  { name: "id-ID-Standard-A", tone: "Female · Standard" },
+  { name: "id-ID-Standard-B", tone: "Male · Standard" },
+  { name: "id-ID-Standard-C", tone: "Male · Standard" },
+  { name: "id-ID-Standard-D", tone: "Female · Standard" },
+];
+
+const GOOGLE_VOICE_NAMES = new Set(GOOGLE_VOICES.map((v) => v.name));
+
+/** True if `name` is one of the listed Google id-ID voices. */
+export function isKnownGoogleVoice(name: string): boolean {
+  return GOOGLE_VOICE_NAMES.has(name.trim());
+}
+
+/**
+ * Readiness check for Google Cloud TTS (GET /api/tts/google-check): runs a short
+ * backend test-synth in the given voice and returns the AUDIO sample on success,
+ * else {ok:false, status?, error?} (no_key | http_400 | http_403 | http_429).
+ * `voice` picks the per-role sample line; `voiceName` tests a just-picked voice
+ * (blank = server default). The key stays server-side.
+ */
+export async function checkGoogle(
+  voice: "persona" | "scammer" = "persona",
+  voiceName = "",
+): Promise<VoiceCheckResult> {
+  try {
+    const qs = voiceName.trim()
+      ? `?voice=${voice}&voice_name=${encodeURIComponent(voiceName.trim())}`
+      : `?voice=${voice}`;
+    const res = await apiFetch(`/tts/google-check${qs}`);
+    const type = res.headers.get("content-type") ?? "";
+    if (res.ok && type.startsWith("audio/")) {
+      return { ok: true, audioBlob: await res.blob() };
+    }
+    if (type.includes("json")) {
+      const data = (await res.json()) as { ok?: boolean; status?: number; error?: string };
+      return { ok: Boolean(data.ok), status: data.status, error: data.error };
+    }
+    return { ok: false, status: res.status, error: `http_${res.status}` };
+  } catch {
+    return { ok: false, error: "unreachable" };
+  }
+}
+
+/**
+ * Readiness check for Gemini TTS (GET /api/tts/gemini-check): runs a short
+ * backend test-synth in the given voice and, on success, returns the AUDIO
+ * sample to play; on failure returns {ok:false, status?, error?} so the Control
+ * Panel can show a clear reason (no_key | config:… | http_429 quota | http_400
+ * invalid voice | http_404 | http_403). `voice` picks the per-role sample line;
+ * `voiceName` tests a just-typed prebuilt voice (blank = server default). The
+ * key stays server-side.
+ */
+export async function checkGemini(
+  voice: "persona" | "scammer" = "persona",
+  voiceName = "",
+): Promise<VoiceCheckResult> {
+  try {
+    const qs = voiceName.trim()
+      ? `?voice=${voice}&voice_name=${encodeURIComponent(voiceName.trim())}`
+      : `?voice=${voice}`;
+    const res = await apiFetch(`/tts/gemini-check${qs}`);
+    const type = res.headers.get("content-type") ?? "";
+    if (res.ok && type.startsWith("audio/")) {
+      return { ok: true, audioBlob: await res.blob() };
+    }
+    if (type.includes("json")) {
+      const data = (await res.json()) as { ok?: boolean; status?: number; error?: string };
+      return { ok: Boolean(data.ok), status: data.status, error: data.error };
+    }
+    return { ok: false, status: res.status, error: `http_${res.status}` };
+  } catch {
+    return { ok: false, error: "unreachable" };
+  }
+}

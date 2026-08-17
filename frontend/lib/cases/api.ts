@@ -37,6 +37,8 @@ export interface Case {
 export interface CaseSessionSummary {
   id: string;
   channel: string;
+  /** text | voice — a phone call vs a chat (backend-provided, not guessed). */
+  channel_type?: string;
   channel_ref: string;
   crime_type: string | null;
   status: string;

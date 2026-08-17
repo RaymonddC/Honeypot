@@ -22,8 +22,14 @@ import {
   type VoiceProviderSetting,
 } from "@/lib/settings";
 import {
+  GEMINI_VOICES,
+  GOOGLE_VOICES,
   checkElevenLabsVoice,
+  checkGemini,
+  checkGoogle,
   fetchElevenLabsVoices,
+  isKnownGeminiVoice,
+  isKnownGoogleVoice,
   type VoiceCheckResult,
   type VoicesResult,
 } from "@/lib/honeypot/voices";
@@ -189,6 +195,14 @@ function AdvancedVoice({
     scammer: false,
   });
   const [listResult, setListResult] = useState<VoicesResult | null>(null);
+  // Last voice ID that tested OK per role — what a failed Test reverts to.
+  // ElevenLabs IDs are opaque per-account strings with no client-side list to
+  // validate against, so (unlike Gemini/Google) the revert trigger is a failed
+  // Test, not red-on-type. Seeded with the currently-saved value (assumed good).
+  const lastGood = useRef<Record<Role, string>>({
+    persona: settings.ttsVoicePersona,
+    scammer: settings.ttsVoiceScammer,
+  });
 
   // Best-effort voice list for the autocomplete datalist — harmless if the key
   // lacks the Voices-read scope (the ▶ Test button's real check is a synth).
@@ -203,8 +217,9 @@ function AdvancedVoice({
   }, []);
 
   // Play a short sample in the given voice (button click = the user gesture that
-  // lets Audio.play() run). On failure, show the reason.
-  const testVoice = async (role: Role, rawId: string) => {
+  // lets Audio.play() run). On success, remember it as good; on failure, show
+  // the reason AND revert the field to the last voice that worked.
+  const testVoice = async (role: Role, rawId: string, onChange: (v: string) => void) => {
     const voiceId = rawId.trim();
     if (!voiceId) return;
     setTesting((t) => ({ ...t, [role]: true }));
@@ -217,6 +232,14 @@ function AdvancedVoice({
         void audio.play().catch(() => URL.revokeObjectURL(url));
       }
       setResults((s) => ({ ...s, [role]: r }));
+      if (r.ok) {
+        lastGood.current[role] = voiceId; // this ID works — the new revert target
+      } else {
+        // Any failure reverts to the last working voice; the label (kept below)
+        // says exactly why — out of credits / key rejected / not a usable ID /
+        // unreachable — so the user knows whether it's the voice or the account.
+        onChange(lastGood.current[role] ?? "");
+      }
     } finally {
       setTesting((t) => ({ ...t, [role]: false }));
     }
@@ -234,7 +257,9 @@ function AdvancedVoice({
     onChange: (v: string) => void,
   ) => {
     const res = results[role];
-    const st = value.trim() && res ? describeVoiceCheck(res) : null;
+    // Always show a Test result (even after reverting to the blank default) so
+    // the reason for a failure/revert stays visible until the user edits again.
+    const st = res ? describeVoiceCheck(res) : null;
     const busy = testing[role];
     return (
       <label key={role} className="grid gap-1">
@@ -246,12 +271,15 @@ function AdvancedVoice({
             value={value}
             placeholder="server default"
             spellCheck={false}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={(e) => {
+              onChange(e.target.value);
+              setResults((s) => ({ ...s, [role]: null })); // clear stale Test label
+            }}
             className={`${VOICE_INPUT_CLS} flex-1`}
           />
           <button
             type="button"
-            onClick={() => void testVoice(role, value)}
+            onClick={() => void testVoice(role, value, onChange)}
             disabled={!value.trim() || busy}
             title="Play a short sample in this voice"
             className="h-8 shrink-0 rounded-lg border border-line bg-elevated px-2.5 text-[11px] font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-50"
@@ -293,7 +321,8 @@ function AdvancedVoice({
       </div>
       <p className="mb-2.5 text-[10.5px] text-muted">
         Per-request overrides — no restart. Blank = the server default. ▶ Test plays a
-        short sample in that voice — uses a few ElevenLabs credits.
+        short sample (uses a few credits). Any failed Test reverts to your last working
+        voice and says why — out of credits, key rejected, or a bad voice ID.
       </p>
 
       {voices.length > 0 && (
@@ -330,6 +359,270 @@ function AdvancedVoice({
           settings.ttsVoiceScammer,
           (v) => update({ ttsVoiceScammer: v }),
         )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Shared voice combobox — type OR pick, ▶ Test, revert-on-invalid ──────── */
+
+/**
+ * One field for a per-role voice: a free-text input WITH a datalist of known
+ * voices (so you can type any value or pick a suggestion) + a ▶ Test button.
+ * Safety: a value that isn't a known voice is "red" and, on blur, **reverts** to
+ * the last committed value — so an invalid/unavailable voice can never stick.
+ * Only accepted values (a known voice, or blank = server default) are committed.
+ */
+function VoiceComboField({
+  label,
+  fallback,
+  value,
+  onCommit,
+  voices,
+  isKnown,
+  onTest,
+  describe,
+  datalistId,
+}: {
+  label: string;
+  fallback: string;
+  value: string;
+  onCommit: (v: string) => void;
+  voices: { name: string; tone: string }[];
+  isKnown: (v: string) => boolean;
+  onTest: (voiceName: string) => Promise<VoiceCheckResult>;
+  describe: (r: VoiceCheckResult) => { ok: boolean; label: string };
+  datalistId: string;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [res, setRes] = useState<VoiceCheckResult | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  // Sync when the committed value changes elsewhere (e.g. "Reset to defaults").
+  useEffect(() => setDraft(value), [value]);
+
+  const accepted = draft.trim() === "" || isKnown(draft.trim());
+  const red = draft.trim() !== "" && !accepted;
+
+  const onChange = (v: string) => {
+    setDraft(v);
+    setRes(null);
+    if (v.trim() === "" || isKnown(v.trim())) onCommit(v.trim()); // persist valid only
+  };
+  const onBlur = () => {
+    if (red) {
+      setDraft(value); // revert the unavailable value
+      setRes(null);
+    }
+  };
+  const test = async () => {
+    setBusy(true);
+    try {
+      const r = await onTest(draft.trim());
+      if (r.audioBlob) {
+        const url = URL.createObjectURL(r.audioBlob);
+        const audio = new Audio(url);
+        audio.onended = () => URL.revokeObjectURL(url);
+        void audio.play().catch(() => URL.revokeObjectURL(url));
+      }
+      setRes(r);
+      // Any failed Test reverts to the last committed voice; the reason (kept in
+      // the label below) tells the user why — quota / key / voice not available.
+      if (!r.ok) setDraft(value);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const st = red
+    ? { ok: false, label: "✗ not an available voice — reverts when you click away" }
+    : res
+      ? describe(res)
+      : null;
+
+  return (
+    <label className="grid gap-1">
+      <span className="text-[11px] font-medium text-fg">{label}</span>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          list={datalistId}
+          value={draft}
+          placeholder={`server default (${fallback})`}
+          spellCheck={false}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
+          className={`${VOICE_INPUT_CLS} flex-1 ${red ? "border-risk-high" : ""}`}
+        />
+        <button
+          type="button"
+          onClick={() => void test()}
+          disabled={busy}
+          title="Play a short sample in this voice (checks key + quota)"
+          className="h-8 shrink-0 rounded-lg border border-line bg-elevated px-2.5 text-[11px] font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-50"
+        >
+          {busy ? "…" : "▶ Test"}
+        </button>
+      </div>
+      <datalist id={datalistId}>
+        {voices.map((v) => (
+          <option key={v.name} value={v.name}>
+            {v.tone}
+          </option>
+        ))}
+      </datalist>
+      {st && (
+        <span className={`text-[10px] ${st.ok ? "text-accent-bright" : "text-risk-high"}`}>
+          {st.label}
+        </span>
+      )}
+    </label>
+  );
+}
+
+/* ── Advanced voice (Gemini) — per-role voice picker + "Test Gemini" ──────── */
+
+function describeGeminiCheck(res: VoiceCheckResult): { ok: boolean; label: string } {
+  if (res.ok) return { ok: true, label: "✓ ready — playing sample…" };
+  if (res.error === "no_key")
+    return { ok: false, label: "no Gemini key set on the server" };
+  const s = res.status;
+  if (s === 429 || res.error === "http_429")
+    return { ok: false, label: "✗ quota exceeded — enable billing (free tier = 10/day)" };
+  if (s === 403 || res.error === "http_403")
+    return { ok: false, label: "✗ key rejected — check the AI Studio key" };
+  if (s === 400 || res.error === "http_400")
+    return { ok: false, label: "✗ not a valid voice name (check spelling)" };
+  if (s === 404 || res.error === "http_404")
+    return { ok: false, label: "✗ model not available in your region" };
+  if (res.error?.startsWith("config:"))
+    return { ok: false, label: `✗ ${res.error.slice(7).trim()}` };
+  if (res.error?.startsWith("http_"))
+    return { ok: false, label: `✗ Gemini error (${s ?? res.error})` };
+  return { ok: false, label: "✗ couldn't reach Gemini / backend" };
+}
+
+function AdvancedGemini({
+  settings,
+  update,
+}: {
+  settings: ClientSettings;
+  update: (patch: Partial<ClientSettings>) => void;
+}) {
+  return (
+    <div className="border-t border-line pt-3.5">
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <div className="eyebrow">Advanced voice · Gemini</div>
+        <a
+          href="https://ai.google.dev/gemini-api/docs/speech-generation"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[10px] text-accent-bright hover:underline"
+        >
+          Voice docs ↗
+        </a>
+      </div>
+      <p className="mb-2.5 text-[10.5px] text-muted">
+        Per-request overrides — no restart. Type or pick a prebuilt voice (the tone
+        is its character); the style directive does the emotional shaping. ▶ Test
+        plays a sample and spends one Gemini request (free tier = 10/day).
+      </p>
+
+      <div className="grid gap-2.5">
+        <VoiceComboField
+          label="Persona voice"
+          fallback="Sulafat"
+          value={settings.geminiVoicePersona}
+          onCommit={(v) => update({ geminiVoicePersona: v })}
+          voices={GEMINI_VOICES}
+          isKnown={isKnownGeminiVoice}
+          onTest={(name) => checkGemini("persona", name)}
+          describe={describeGeminiCheck}
+          datalistId="gemini-voices-persona"
+        />
+        <VoiceComboField
+          label="Scammer voice"
+          fallback="Charon"
+          value={settings.geminiVoiceScammer}
+          onCommit={(v) => update({ geminiVoiceScammer: v })}
+          voices={GEMINI_VOICES}
+          isKnown={isKnownGeminiVoice}
+          onTest={(name) => checkGemini("scammer", name)}
+          describe={describeGeminiCheck}
+          datalistId="gemini-voices-scammer"
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ── Advanced voice (Google) — per-role voice picker + "Test" ────────────── */
+
+function describeGoogleCheck(res: VoiceCheckResult): { ok: boolean; label: string } {
+  if (res.ok) return { ok: true, label: "✓ ready — playing sample…" };
+  if (res.error === "no_key")
+    return { ok: false, label: "no Google TTS key set on the server" };
+  const s = res.status;
+  if (s === 403 || res.error === "http_403")
+    return { ok: false, label: "✗ key rejected / Text-to-Speech API not enabled" };
+  if (s === 429 || res.error === "http_429")
+    return { ok: false, label: "✗ quota exceeded" };
+  if (s === 400 || res.error === "http_400")
+    return { ok: false, label: "✗ bad request (voice not available for id-ID)" };
+  if (res.error?.startsWith("http_"))
+    return { ok: false, label: `✗ Google error (${s ?? res.error})` };
+  return { ok: false, label: "✗ couldn't reach Google / backend" };
+}
+
+function AdvancedGoogle({
+  settings,
+  update,
+}: {
+  settings: ClientSettings;
+  update: (patch: Partial<ClientSettings>) => void;
+}) {
+  return (
+    <div className="border-t border-line pt-3.5">
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <div className="eyebrow">Advanced voice · Google</div>
+        <a
+          href="https://cloud.google.com/text-to-speech/docs/voices"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[10px] text-accent-bright hover:underline"
+        >
+          Voice list ↗
+        </a>
+      </div>
+      <p className="mb-2.5 text-[10.5px] text-muted">
+        Per-request overrides — no restart. Type or pick a flat id-ID WaveNet /
+        Standard voice (no style control). ▶ Test plays a sample; ~1M chars/month
+        free.
+      </p>
+
+      <div className="grid gap-2.5">
+        <VoiceComboField
+          label="Persona voice"
+          fallback="id-ID-Wavenet-A"
+          value={settings.googleVoicePersona}
+          onCommit={(v) => update({ googleVoicePersona: v })}
+          voices={GOOGLE_VOICES}
+          isKnown={isKnownGoogleVoice}
+          onTest={(name) => checkGoogle("persona", name)}
+          describe={describeGoogleCheck}
+          datalistId="google-voices-persona"
+        />
+        <VoiceComboField
+          label="Scammer voice"
+          fallback="id-ID-Wavenet-B"
+          value={settings.googleVoiceScammer}
+          onCommit={(v) => update({ googleVoiceScammer: v })}
+          voices={GOOGLE_VOICES}
+          isKnown={isKnownGoogleVoice}
+          onTest={(name) => checkGoogle("scammer", name)}
+          describe={describeGoogleCheck}
+          datalistId="google-voices-scammer"
+        />
       </div>
     </div>
   );
@@ -515,6 +808,12 @@ export default function SettingsPage() {
 
         {settings.voiceProvider === "elevenlabs" && (
           <AdvancedVoice settings={settings} update={update} />
+        )}
+        {settings.voiceProvider === "gemini" && (
+          <AdvancedGemini settings={settings} update={update} />
+        )}
+        {settings.voiceProvider === "google" && (
+          <AdvancedGoogle settings={settings} update={update} />
         )}
 
         <div className="flex items-center justify-between border-t border-line pt-3.5">

@@ -524,6 +524,8 @@ class GoogleTTSAdapter:
 
     data_mode: Mode = "live"
     provider = "google"
+    # Per-role fallbacks; the effective voice is read from settings in __init__
+    # (Control-Panel overridable). id-ID WaveNet: A/D female, B/C male.
     _VOICE_NAMES = {
         "persona": "id-ID-Wavenet-A",   # female
         "scammer": "id-ID-Wavenet-B",   # male
@@ -538,9 +540,17 @@ class GoogleTTSAdapter:
                 "configured. Set ITTU_GOOGLE_TTS_API_KEY, or set "
                 "ITTU_TTS_PROVIDER=browser for the keyless POC voice."
             )
+        # Google's id-ID voice namespace is large and evolving (WaveNet, Standard,
+        # Chirp3-HD, …), so — unlike the closed Gemini set — we don't coerce to a
+        # known list: a blank setting falls back to the default, any other value
+        # is passed through so an env can use any valid Google voice.
+        self._voice_names = {
+            "persona": settings.google_tts_voice_persona or self._VOICE_NAMES["persona"],
+            "scammer": settings.google_tts_voice_scammer or self._VOICE_NAMES["scammer"],
+        }
 
     async def synthesize(self, text: str, voice: str = "persona") -> TTSResult:
-        name = self._VOICE_NAMES.get(voice, self._VOICE_NAMES["persona"])
+        name = self._voice_names.get(voice, self._voice_names["persona"])
         async with httpx.AsyncClient(timeout=_TTS_TIMEOUT_SECONDS) as client:
             resp = await client.post(
                 "https://texttospeech.googleapis.com/v1/text:synthesize",
@@ -602,9 +612,23 @@ class GeminiTTSAdapter:
 
     data_mode: Mode = "live"
     provider = "gemini"
-    # Prebuilt voices (docs list 30) — warm for the persona, firmer for the
-    # scammer. Tunable; the style directive below does most of the emotional work.
+    # Prebuilt-voice fallbacks (docs list 30) — warm for the persona, firmer for
+    # the scammer. The effective per-role voice is read from settings in
+    # __init__ (Control-Panel overridable); the style directive below does most
+    # of the emotional work regardless.
     _VOICE_NAMES = {"persona": "Sulafat", "scammer": "Charon"}
+    # The ~30 documented prebuilt voices. An unknown name (typo / stale config)
+    # 400s at Google, which would drop a live call to browser speech. We coerce
+    # an unrecognized configured voice to the role default so the call stays on
+    # Gemini — defense in depth; the Control Panel also validates client-side.
+    # (A ▶ Test check bypasses this on purpose, to report the real 400.)
+    _KNOWN_VOICES = frozenset({
+        "Zephyr", "Puck", "Charon", "Kore", "Fenrir", "Leda", "Orus", "Aoede",
+        "Callirrhoe", "Autonoe", "Enceladus", "Iapetus", "Umbriel", "Algieba",
+        "Despina", "Erinome", "Algenib", "Rasalgethi", "Laomedeia", "Achernar",
+        "Alnilam", "Schedar", "Gacrux", "Pulcherrima", "Achird", "Zubenelgenubi",
+        "Vindemiatrix", "Sadachbia", "Sadaltager", "Sulafat",
+    })
     # Leading style instruction Gemini follows but does NOT read aloud.
     _STYLE = {
         "persona": "Ucapkan dengan lembut dan pelan, seperti seorang nenek tua "
@@ -623,9 +647,41 @@ class GeminiTTSAdapter:
                 "configured. Set ITTU_GEMINI_API_KEY (a Google AI Studio key), "
                 "or set ITTU_TTS_PROVIDER=browser for the keyless POC voice."
             )
+        # Normalize + validate the model name early so operators get a clear
+        # message rather than the API's "unexpected model name format" 400.
+        # Accept EITHER a bare model id ("gemini-2.5-flash-preview-tts") or a
+        # "models/..."-prefixed resource name; we strip the prefix because the
+        # request URL below already includes "/models/" (keeping it would send
+        # ".../models/models/..." → 404). The only hard error is an empty value
+        # or the human display name (which contains spaces).
+        model = str(self._model or "").strip()
+        if model.startswith("models/"):
+            model = model[len("models/"):]
+        if not model or " " in model:
+            raise NotImplementedError(
+                "LIVE GeminiTTSAdapter requires ITTU_GEMINI_TTS_MODEL to be a\n"
+                "Gemini TTS model id. Only the *-tts preview models return audio:\n"
+                "  ITTU_GEMINI_TTS_MODEL=gemini-2.5-flash-preview-tts   (default)\n"
+                "  ITTU_GEMINI_TTS_MODEL=gemini-2.5-pro-preview-tts\n"
+                "Do NOT use a text model (e.g. 'gemini-2.5-flash') or the display\n"
+                "name 'Gemini 2.5 Flash Native Audio Dialog'.\n"
+                f"Current value: {self._model!r}"
+            )
+        self._model = model
+        # Effective per-role voice: settings (Control-Panel overridable) →
+        # class fallback. A blank OR unrecognized name coerces to the warm/firm
+        # default so a live call never 400s to browser speech on a bad voice.
+        def _known(name: str, default: str) -> str:
+            name = (name or "").strip()
+            return name if name in self._KNOWN_VOICES else default
+
+        self._voice_names = {
+            "persona": _known(settings.gemini_voice_persona, self._VOICE_NAMES["persona"]),
+            "scammer": _known(settings.gemini_voice_scammer, self._VOICE_NAMES["scammer"]),
+        }
 
     async def synthesize(self, text: str, voice: str = "persona") -> TTSResult:
-        voice_name = self._VOICE_NAMES.get(voice, self._VOICE_NAMES["persona"])
+        voice_name = self._voice_names.get(voice, self._voice_names["persona"])
         style = self._STYLE.get(voice, "")
         prompt = f"{style} {text}".strip()
         async with httpx.AsyncClient(timeout=_TTS_TIMEOUT_SECONDS) as client:
@@ -838,5 +894,85 @@ async def check_elevenlabs_voice(
         if resp.is_success:
             return {"ok": True, "audio": resp.content}
         return {"ok": False, "status": resp.status_code, "error": f"http_{resp.status_code}"}
+    except httpx.HTTPError as exc:
+        return {"ok": False, "error": f"transport:{type(exc).__name__}"}
+
+
+async def check_gemini(
+    settings: "Settings | None" = None,
+    voice: str = "persona",
+    text: str = "Halo, selamat siang, apa kabar?",
+    voice_name: str = "",
+) -> dict:
+    """Readiness check for Gemini TTS via a short test synthesis, so the Control
+    Panel can tell whether Gemini is usable BEFORE a call silently degrades.
+
+    Runs the exact ``generateContent`` path a honeypot line uses and maps the
+    outcome to a clear signal: ``{ok:True, audio}`` (ready — the WAV sample can
+    be played), or ``{ok:False, status?, error?}`` where error is
+    ``no_key`` | ``config:<msg>`` (bad model name) | ``http_<code>`` (e.g. 429 =
+    quota, 400 = invalid voice name / bad model, 404 = region, 403 = key
+    rejected) | ``transport:<Type>``. When ``voice_name`` is given, that exact
+    prebuilt voice is tested (so the Control Panel can validate a just-typed
+    voice); blank tests the role's configured default. The key is only ever sent
+    as the ``x-goog-api-key`` header, never returned."""
+    settings = settings or get_settings()
+    if not settings.gemini_api_key:
+        return {"ok": False, "error": "no_key"}
+    try:
+        adapter = GeminiTTSAdapter(settings)
+    except NotImplementedError as exc:
+        # Missing key is handled above; this is a bad model-name config.
+        return {"ok": False, "error": f"config: {str(exc).splitlines()[0][:120]}"}
+    if voice_name.strip():
+        adapter._voice_names[voice] = voice_name.strip()
+    try:
+        result = await adapter.synthesize(text, voice)
+        return {"ok": True, "audio": result.audio_bytes}
+    except RuntimeError as exc:
+        # GeminiTTSAdapter raises "Gemini TTS <status>: <body>" on HTTP errors,
+        # or "Gemini TTS returned no audio: …" on a 200 with no audio part.
+        msg = str(exc)
+        status: int | None = None
+        if msg.startswith("Gemini TTS "):
+            head = msg[len("Gemini TTS ") :].split(":", 1)[0].strip()
+            if head.isdigit():
+                status = int(head)
+        return {
+            "ok": False,
+            "status": status,
+            "error": f"http_{status}" if status else msg[:160],
+        }
+    except httpx.HTTPError as exc:
+        return {"ok": False, "error": f"transport:{type(exc).__name__}"}
+
+
+async def check_google(
+    settings: "Settings | None" = None,
+    voice: str = "persona",
+    text: str = "Halo, selamat siang, apa kabar?",
+    voice_name: str = "",
+) -> dict:
+    """Readiness check for Google Cloud TTS via a short test synthesis — the same
+    ``text:synthesize`` call a honeypot line makes — so the Control Panel can play
+    a sample and confirm the key/quota/voice BEFORE a call silently degrades.
+
+    ``voice_name`` tests a just-picked voice (blank = the role's configured
+    default). Returns ``{ok:True, audio}`` (MP3) or ``{ok:False, status?, error?}``
+    where error is ``no_key`` | ``http_400`` (bad voice/params) | ``http_403``
+    (key rejected / Text-to-Speech API not enabled) | ``http_429`` (quota) |
+    ``transport:<Type>``. The key is only ever sent to Google, never returned."""
+    settings = settings or get_settings()
+    if not settings.google_tts_api_key:
+        return {"ok": False, "error": "no_key"}
+    adapter = GoogleTTSAdapter(settings)
+    if voice_name.strip():
+        adapter._voice_names[voice] = voice_name.strip()
+    try:
+        result = await adapter.synthesize(text, voice)
+        return {"ok": True, "audio": result.audio_bytes}
+    except httpx.HTTPStatusError as exc:
+        code = exc.response.status_code
+        return {"ok": False, "status": code, "error": f"http_{code}"}
     except httpx.HTTPError as exc:
         return {"ok": False, "error": f"transport:{type(exc).__name__}"}

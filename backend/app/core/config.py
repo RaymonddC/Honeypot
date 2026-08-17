@@ -86,6 +86,20 @@ class Settings(BaseSettings):
     # Per-webhook HTTP timeout (seconds).
     notification_webhook_timeout_seconds: float = 15.0
 
+    # --- Outbound dialing (docs/Voice-Honeypot-Outbound.md §4) ----------------
+    # Retry budget + backoff (ms) for the `dial_target` Dramatiq actor, mirroring
+    # the notification worker's shape. A dial that fails to connect (busy /
+    # carrier reject) is retried up to this many times before the target settles
+    # as `failed`; the operator can still Requeue it afterwards.
+    dial_max_retries: int = 3
+    dial_retry_backoff_ms: int = 30_000
+    # Whether starting a campaign actually enqueues the dial actor. Off by
+    # default so `POST /campaigns/{id}/start` stays a pure status transition
+    # unless an operator opts in — enqueueing needs a running `dramatiq
+    # app.workers` + Redis, and in LIVE it would place real calls (Polri-gated,
+    # design spec §0). POC enqueue is safe: the actor simulates, never dials.
+    dial_enqueue_on_start: bool = False   # ITTU_DIAL_ENQUEUE_ON_START
+
     # CORS: origins allowed to call the API. Kept as a STRING (not list[str]) so
     # pydantic-settings never tries to JSON-decode the env var and crash on deploy.
     # ITTU_CORS_ORIGINS accepts any of:
@@ -112,12 +126,21 @@ class Settings(BaseSettings):
     elevenlabs_voice_persona: str = "21m00Tcm4TlvDq8ikWAM"  # ITTU_ELEVENLABS_VOICE_PERSONA (fallback: Rachel)
     elevenlabs_voice_scammer: str = "pNInz6obpgDQGcFmaJgB"  # ITTU_ELEVENLABS_VOICE_SCAMMER (fallback: Adam)
     google_tts_api_key: str = ""          # ITTU_GOOGLE_TTS_API_KEY
+    # Per-role Google Cloud TTS voice (id-ID WaveNet/Standard, e.g.
+    # id-ID-Wavenet-A). Overridable per-request from the Control Panel.
+    google_tts_voice_persona: str = "id-ID-Wavenet-A"  # ITTU_GOOGLE_TTS_VOICE_PERSONA (female)
+    google_tts_voice_scammer: str = "id-ID-Wavenet-B"  # ITTU_GOOGLE_TTS_VOICE_SCAMMER (male)
     # Gemini TTS (Google AI Studio) — generative, natural-language STYLE control
     # (the persona is prompted to sound like a confused, hesitant grandmother,
     # which flat WaveNet voices can't do). Key is an AI Studio key, DISTINCT from
     # the Cloud-TTS key above. Indonesian is auto-detected from the text.
     gemini_api_key: str = ""              # ITTU_GEMINI_API_KEY
     gemini_tts_model: str = "gemini-2.5-flash-preview-tts"  # ITTU_GEMINI_TTS_MODEL
+    # Per-role prebuilt Gemini voice (one of the ~30 named voices, e.g. Sulafat,
+    # Charon, Kore). Overridable per-request from the Control Panel; the style
+    # directive in the adapter does most of the emotional work regardless.
+    gemini_voice_persona: str = "Sulafat"   # ITTU_GEMINI_VOICE_PERSONA (warm)
+    gemini_voice_scammer: str = "Charon"    # ITTU_GEMINI_VOICE_SCAMMER (firmer)
 
     # --- LLM (live brain, paid + opt-in) --------------------------------------
     # Engaged only when INFILTRATE MODE=live or a session is started with

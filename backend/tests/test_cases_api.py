@@ -119,4 +119,6 @@ def test_rollup_includes_honeypot_session_attached_to_case():
     sess = rollup["sessions"][0]
     assert sess["crime_type"] == "investment_scam"
     assert sess["entity_count"] >= 1
+    # the case view distinguishes calls from chats off this, not off `channel`
+    assert sess["channel_type"] == "text"
     infiltrate_service.reset_stores()

@@ -26,10 +26,13 @@ from typing import Literal, Protocol, runtime_checkable
 import httpx
 from pydantic import BaseModel, Field
 
-# Importing app.workers sets the Dramatiq Redis broker before @actor binds.
 import dramatiq
 
-from app import workers  # noqa: F401  (broker side-effect)
+# Sets the Dramatiq Redis broker before the @actor below binds to it. This used
+# to import app.workers for the same side effect, but that package now imports
+# the actor modules (so `dramatiq app.workers` registers them all) — importing
+# it from here would be a cycle. app.core.broker is a leaf with no such risk.
+from app.core import broker as _broker  # noqa: F401
 from app.core.adapters import register
 from app.core.config import Mode, Settings, get_settings
 
@@ -326,26 +329,11 @@ class NotificationDeliveryError(Exception):
     """Raised to hand a failed attempt back to Dramatiq for retry/backoff."""
 
 
-# A dedicated worker-side sessionmaker, built lazily on first delivery. The
-# actor runs OUTSIDE any request/RLS scope, so it connects with the privileged
-# (owning) role via ITTU_MIGRATION_DATABASE_URL when set — a trusted system
-# worker legitimately bypasses the per-agency RLS policy to deliver + update a
-# queued row it was handed by public_id (it can't set app.current_agency until
-# it has read the row's agency, a chicken-and-egg RLS can't resolve). Falls
-# back to ITTU_DATABASE_URL for single-role local setups.
-_worker_sessionmaker = None
-
-
-def _get_worker_sessionmaker():
-    global _worker_sessionmaker
-    if _worker_sessionmaker is None:
-        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
-        s = get_settings()
-        url = s.migration_database_url or s.database_url
-        engine = create_async_engine(url, pool_pre_ping=True)
-        _worker_sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
-    return _worker_sessionmaker
+# The worker-side sessionmaker (privileged/owning role, no RLS scope) lives in
+# app.core.db so the notification dispatcher and the outbound dialer resolve it
+# identically — see worker_session() for why a system actor connects
+# that way.
+from app.core.db import worker_session as _worker_session  # noqa: E402
 
 
 async def _deliver_one(notification_public_id: str) -> None:
@@ -360,9 +348,7 @@ async def _deliver_one(notification_public_id: str) -> None:
     from app.action.models import Notification as NotificationModel
 
     settings = get_settings()
-    sm = _get_worker_sessionmaker()
-
-    async with sm() as session:
+    async with _worker_session() as session:
         # 1) claim: queued → sending, count the attempt
         async with session.begin():
             row = (

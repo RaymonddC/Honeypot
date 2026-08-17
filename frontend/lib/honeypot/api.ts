@@ -242,6 +242,24 @@ const deriveVoice = (session: RawSession): VoiceStatus =>
 /* ── Public surface ───────────────────────────────────────────────────── */
 
 /**
+ * Load ONE specific session's header + transcript (case view: expanding a
+ * session row). Unlike `fetchHoneypotData` this takes an explicit id and does
+ * NOT fall back to the mock — the caller shows a real error instead, since a
+ * mock transcript under a real case would be misleading evidence.
+ */
+export async function fetchSessionTranscript(
+  sessionId: string,
+): Promise<{ session: HpSession; messages: HpMessage[] }> {
+  const id = encodeURIComponent(sessionId);
+  const [sessionRaw, messagesRaw] = await Promise.all([
+    request<RawSession>(`/sessions/${id}`),
+    request<RawMessage[]>(`/sessions/${id}/messages`),
+  ]);
+  const session = normalizeSession(sessionRaw);
+  return { session, messages: normalizeMessages(messagesRaw, session) };
+}
+
+/**
  * Load the full Honeypot console payload for the most relevant session.
  * Falls back to the mock dataset (mockup transcript) when the API is
  * unreachable or returns no sessions.

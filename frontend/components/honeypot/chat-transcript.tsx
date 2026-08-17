@@ -41,13 +41,18 @@ export function ChatTranscript({
   session,
   messages,
   composerNote,
+  heightClass = "h-[452px]",
 }: {
   session: HpSession;
   messages: HpMessage[];
-  composerNote: string;
+  /** Composer status line. Omit for a read-only embed (case view) — the
+   *  footer is then hidden rather than showing a live-console status. */
+  composerNote?: string;
+  /** Height override so the transcript can embed in a tighter panel. */
+  heightClass?: string;
 }) {
   return (
-    <div className="flex h-[452px] flex-col rounded-card border border-line bg-card">
+    <div className={`flex ${heightClass} flex-col rounded-card border border-line bg-card`}>
       {/* header */}
       <div className="flex items-center justify-between border-b border-line px-3.5 py-[11px]">
         <span className="eyebrow">
@@ -69,10 +74,12 @@ export function ChatTranscript({
         ))}
       </div>
 
-      {/* composer status line */}
-      <div className="flex items-center gap-2.5 border-t border-line px-3.5 py-[11px] text-[11px] text-muted">
-        <span className="text-accent-bright">◇</span> {composerNote}
-      </div>
+      {/* composer status line (live console only — omitted on read-only embeds) */}
+      {composerNote && (
+        <div className="flex items-center gap-2.5 border-t border-line px-3.5 py-[11px] text-[11px] text-muted">
+          <span className="text-accent-bright">◇</span> {composerNote}
+        </div>
+      )}
     </div>
   );
 }

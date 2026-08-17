@@ -120,6 +120,42 @@ via the service's **Deploy Hook** instead. One-time setup:
 **Note:** asyncpg speaks `?ssl=require`, not libpq's `?sslmode=require` — a raw Neon URL must be
 converted (scheme → `postgresql+asyncpg://`, `sslmode`→`ssl`).
 
+## 6. Background worker (Dramatiq) — required for queued work
+
+The API only *enqueues*; a separate process executes. **Without the worker service, queued
+jobs are never run** — they accumulate in Redis silently, with no error anywhere:
+
+| Feature | Needs the worker? |
+|---|---|
+| C1 notification dispatch, `ITTU_NOTIFICATION_DELIVERY=sync` (**default**) | ❌ POSTs inline during the request |
+| C1 notification dispatch, `ITTU_NOTIFICATION_DELIVERY=worker` | ✅ **yes** — flipping this on without a worker stops deliveries |
+| Outbound dialing, `ITTU_DIAL_ENQUEUE_ON_START=true` | ✅ **yes** |
+
+`render.yaml` now defines `ittu-worker` alongside `ittu-api`: the **same image**, with the
+command overridden to `dramatiq app.workers` instead of `scripts/start.sh`.
+
+**Three things that must be right:**
+
+1. **Redis** — provision one (Render Key Value, or Upstash) and set `ITTU_REDIS_URL` on
+   **both** the API and the worker to the **same instance**. Different instances = the API
+   enqueues into one queue while the worker watches another, and nothing ever runs. The
+   default `redis://localhost:6379/0` only works locally (docker compose).
+2. **Only the web service migrates.** `scripts/start.sh` runs `alembic upgrade head`; the
+   worker deliberately bypasses it via `dockerCommand`. Two containers migrating on the same
+   deploy can race the schema.
+3. **Paid plan.** Render doesn't offer background workers on free, and a worker that sleeps
+   isn't a worker. The web service should also leave free, or it cold-starts on every hit.
+
+The worker also needs `ITTU_PERSISTENCE=postgres` plus **both** DB URLs. It connects as the
+**owning** role by design — a system actor is handed a row id and must read it to learn which
+agency owns it, which RLS cannot resolve (see `worker_session` in `app/core/db.py`). Because
+RLS is therefore *not* filtering the actor's queries, actor code scopes by `agency_id`
+explicitly.
+
+**Verify it's actually working** (not just running): start a campaign or dispatch, then check
+the worker's Render logs for the job. A silent queue with a healthy-looking worker usually
+means mismatched `ITTU_REDIS_URL`s.
+
 ## Notes
 - **CORS:** the backend now reads allowed origins from `ITTU_CORS_ORIGINS` — set it to the
   Vercel domain or the browser will block API calls.

@@ -20,6 +20,7 @@
  */
 
 import { API_BASE, apiFetch } from "@/lib/http";
+import { isKnownGeminiVoice, isKnownGoogleVoice } from "@/lib/honeypot/voices";
 import { getSettings, type VoiceProviderSetting } from "@/lib/settings";
 
 /* ── Contract ──────────────────────────────────────────────────────────── */
@@ -361,9 +362,42 @@ export function voiceProviderKind(): VoiceProviderKind {
 export function createVoiceProvider(sessionId: string): VoiceProvider {
   if (voiceProviderKind() !== "backend") return new BrowserTTSProvider();
   const s = getSettings();
-  return new BackendAudioProvider(sessionId, voiceProviderSetting(), {
-    model: s.ttsModel,
-    voicePersona: s.ttsVoicePersona,
-    voiceScammer: s.ttsVoiceScammer,
-  });
+  const provider = voiceProviderSetting();
+  // Each provider gets only the overrides that mean something to it, so we
+  // never forward (and the backend never has to ignore) a param from the wrong
+  // provider:
+  //   • ElevenLabs → model + voice IDs from the ElevenLabs fields.
+  //   • Gemini     → per-role prebuilt voice names (model comes from
+  //                  ITTU_GEMINI_TTS_MODEL; Gemini has no per-call model here).
+  //   • Google     → nothing (fixed WaveNet id-ID voices, no model param).
+  let overrides: VoiceOverrides = {};
+  if (provider === "elevenlabs") {
+    overrides = {
+      model: s.ttsModel,
+      voicePersona: s.ttsVoicePersona,
+      voiceScammer: s.ttsVoiceScammer,
+    };
+  } else if (provider === "gemini") {
+    // Only forward a recognized voice — a stale/invalid value (e.g. left over in
+    // localStorage) is dropped so the backend uses its default instead of 400ing
+    // the call to browser speech.
+    overrides = {
+      voicePersona: isKnownGeminiVoice(s.geminiVoicePersona)
+        ? s.geminiVoicePersona
+        : undefined,
+      voiceScammer: isKnownGeminiVoice(s.geminiVoiceScammer)
+        ? s.geminiVoiceScammer
+        : undefined,
+    };
+  } else if (provider === "google") {
+    overrides = {
+      voicePersona: isKnownGoogleVoice(s.googleVoicePersona)
+        ? s.googleVoicePersona
+        : undefined,
+      voiceScammer: isKnownGoogleVoice(s.googleVoiceScammer)
+        ? s.googleVoiceScammer
+        : undefined,
+    };
+  }
+  return new BackendAudioProvider(sessionId, provider, overrides);
 }

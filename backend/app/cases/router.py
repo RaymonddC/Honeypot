@@ -117,7 +117,8 @@ async def get_case_rollup(
 
     sessions = [
         CaseSessionSummary(
-            id=s.id, channel=s.channel, channel_ref=s.channel_ref,
+            id=s.id, channel=s.channel, channel_type=s.channel_type,
+            channel_ref=s.channel_ref,
             crime_type=s.crime_type, status=s.status,
             entity_count=s.entity_count, started_at=s.started_at,
         )

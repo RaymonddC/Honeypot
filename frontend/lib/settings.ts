@@ -53,6 +53,14 @@ export interface ClientSettings {
   ttsModel: string;
   ttsVoicePersona: string;
   ttsVoiceScammer: string;
+  // Advanced voice (Gemini) — per-role prebuilt voice name (e.g. Sulafat,
+  // Charon). "" = use the server default. Sent only when provider is gemini.
+  geminiVoicePersona: string;
+  geminiVoiceScammer: string;
+  // Advanced voice (Google) — per-role id-ID voice (e.g. id-ID-Wavenet-A).
+  // "" = use the server default. Sent only when provider is google.
+  googleVoicePersona: string;
+  googleVoiceScammer: string;
 }
 
 const STORAGE_KEY = "ittu.settings";
@@ -82,6 +90,10 @@ export function envDefaults(): ClientSettings {
     ttsModel: "",
     ttsVoicePersona: "",
     ttsVoiceScammer: "",
+    geminiVoicePersona: "",
+    geminiVoiceScammer: "",
+    googleVoicePersona: "",
+    googleVoiceScammer: "",
   };
 }
 
@@ -122,6 +134,22 @@ export function getSettings(): ClientSettings {
         typeof s.ttsVoicePersona === "string" ? s.ttsVoicePersona : d.ttsVoicePersona,
       ttsVoiceScammer:
         typeof s.ttsVoiceScammer === "string" ? s.ttsVoiceScammer : d.ttsVoiceScammer,
+      geminiVoicePersona:
+        typeof s.geminiVoicePersona === "string"
+          ? s.geminiVoicePersona
+          : d.geminiVoicePersona,
+      geminiVoiceScammer:
+        typeof s.geminiVoiceScammer === "string"
+          ? s.geminiVoiceScammer
+          : d.geminiVoiceScammer,
+      googleVoicePersona:
+        typeof s.googleVoicePersona === "string"
+          ? s.googleVoicePersona
+          : d.googleVoicePersona,
+      googleVoiceScammer:
+        typeof s.googleVoiceScammer === "string"
+          ? s.googleVoiceScammer
+          : d.googleVoiceScammer,
     };
   }
   return cache;

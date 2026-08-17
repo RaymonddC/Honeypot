@@ -13,9 +13,11 @@ from app.core.db import Base
 
 # Import model modules here as they land so autogenerate sees them.
 from app.action import models as action_models  # noqa: F401
+from app.casedata import models as casedata_models  # noqa: F401
 from app.core import models as core_models  # noqa: F401
 from app.chain import models  # noqa: F401
 from app.fiat import models as fiat_models  # noqa: F401
+from app.honeypot_ops import models as honeypot_models  # noqa: F401
 from app.intel import models as intel_models  # noqa: F401
 
 config = context.config
@@ -46,8 +48,40 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+def include_object(object_, name, type_, reflected, compare_to) -> bool:
+    """Exclude CHECK constraints from autogenerate comparison.
+
+    This project authors CHECK constraints in raw SQL inside the migrations
+    (~48 of them: every ``ck_*_data_mode``, ``ck_*_status``, enum-ish value
+    guards) and deliberately does NOT restate them on the ORM models — the
+    models describe shape, the migrations own the invariants.
+
+    Newer Alembic added a check-constraint autogenerate plugin, so it started
+    reporting all of them as "removed" (model side has none) and `alembic check`
+    failed with ~48 phantom diffs — while an older Alembic on the same code
+    reported clean. Since ``alembic>=1.13`` is unpinned, that made the CI guard
+    depend on whichever version the runner resolved.
+
+    Excluding them here makes the guard deterministic across versions and honest
+    about its scope: it compares tables/columns/indexes/FK/unique constraints.
+    CHECK constraints, RLS policies and server-side functions remain outside
+    autogenerate's reach and are reviewed by reading the migration.
+    """
+    if type_ == "check_constraint":
+        return False
+    return True
+
+
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    # include_schemas=True so autogenerate / `alembic check` inspect the named
+    # schemas (core, fiat, intel, action, …), not just the default — otherwise
+    # every core.*/fiat.* table looks "missing" and check is all false positives.
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        include_schemas=True,
+        include_object=include_object,
+    )
     with context.begin_transaction():
         context.run_migrations()
 

@@ -5,6 +5,7 @@ and serve /health without Postgres running.
 """
 
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 from fastapi import Depends
 from sqlalchemy import text
@@ -124,3 +125,57 @@ async def get_optional_tenant_session(
         return  # pragma: no cover - unreachable, _get_current_user always raises
     async for session in _tenant_scoped_session(auth):
         yield session
+
+
+# --------------------------------------------------------------------------- #
+# Worker-side sessions (Dramatiq actors — OUTSIDE any request/RLS scope)
+# --------------------------------------------------------------------------- #
+
+# Test seam: when set to a sessionmaker, ``worker_session`` yields from it
+# instead of building its own engine. Consulted at CALL time on purpose —
+# actor modules do ``from app.core.db import worker_session``, so patching that
+# name in this module would not reach the reference they already bound.
+# Production leaves this None. See tests/test_honeypot_dialer_pg.py.
+_worker_sessionmaker_override = None
+
+
+@asynccontextmanager
+async def worker_session() -> AsyncGenerator[AsyncSession, None]:
+    """One DB session for a single background-actor invocation.
+
+    Role: a Dramatiq actor runs with no request and no tenant context, so it
+    connects with the privileged (owning) role via ``ITTU_MIGRATION_DATABASE_URL``
+    when set. That is deliberate: a trusted system worker is handed a row id and
+    must read that row to learn which agency owns it — a chicken-and-egg RLS
+    cannot resolve. Falls back to ``ITTU_DATABASE_URL`` for single-role setups.
+    Because RLS is NOT filtering these queries, actor code must scope by
+    ``agency_id`` explicitly (see ``honeypot_ops.dialer.resolve_case_id``).
+
+    **Why a fresh NullPool engine per invocation, not a cached pooled one:** each
+    actor message runs under its own ``asyncio.run(...)`` — a brand-new event
+    loop — and Dramatiq runs messages across several threads/processes. An
+    asyncpg connection is bound to the loop that created it, so a pooled
+    connection handed to a later message on a different loop fails with
+    ``got Future ... attached to a different loop`` and the message retries
+    forever (the row is left mid-flight, e.g. a dial target stuck in
+    ``dialing``). NullPool + dispose guarantees no connection outlives its loop.
+    The cost is one connect per message, which is noise next to a webhook POST
+    or a phone call.
+
+    Shared by the C1 notification dispatcher and the outbound dialer.
+    """
+    from sqlalchemy.pool import NullPool
+
+    if _worker_sessionmaker_override is not None:  # tests only
+        async with _worker_sessionmaker_override() as session:
+            yield session
+        return
+
+    s = get_settings()
+    url = s.migration_database_url or s.database_url
+    engine = create_async_engine(url, poolclass=NullPool)
+    try:
+        async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+            yield session
+    finally:
+        await engine.dispose()

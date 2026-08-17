@@ -6,14 +6,23 @@ import pytest
 
 from app.chain.adapters import _load_fixture_transfers
 from app.chain.schemas import Transfer
-from app.core.config import get_settings as _get_settings
+from app.core.config import Settings, get_settings as _get_settings
 
-# Tests are hermetic + POC: force memory persistence at import — BEFORE any
-# module-scoped TestClient builds its lifespan (e.g. test_api.py) — so a
-# developer .env with ITTU_PERSISTENCE=postgres never makes the suite reach for
-# a (possibly-down) Postgres. The autouse _hermetic_provider_keys fixture below
-# re-asserts this per test; the pgserver/auth-live tests opt back into postgres
-# themselves.
+# Tests are hermetic: NEVER read the developer's backend/.env. Every Settings()
+# construction — including fresh instances built inside individual tests (e.g.
+# `Settings(tts_provider="elevenlabs")`) — must rely only on explicit init
+# kwargs + os.environ, so real credentials, custom voice IDs, or a LIVE mode in
+# a dev .env can't break the keyless / fail-loud / default-voice assertions.
+# Disabling the env_file source is broader (and more robust) than the per-test
+# key-clearing fixture below, which only sanitizes the cached singleton.
+Settings.model_config["env_file"] = None
+
+# Force memory persistence at import — BEFORE any module-scoped TestClient
+# builds its lifespan (e.g. test_api.py) — so a developer .env with
+# ITTU_PERSISTENCE=postgres never makes the suite reach for a (possibly-down)
+# Postgres. The autouse _hermetic_provider_keys fixture below re-asserts this
+# per test; the pgserver/auth-live tests opt back into postgres themselves.
+_get_settings.cache_clear()  # rebuild the singleton now that .env is disabled
 _get_settings().persistence = "memory"
 
 SOURCE = "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6"

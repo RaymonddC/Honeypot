@@ -26,7 +26,17 @@ immutable copy of the persona as it was at session time (see migration
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, LargeBinary, Numeric, Text, Uuid
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    LargeBinary,
+    Numeric,
+    Text,
+    UniqueConstraint,
+    Uuid,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -86,13 +96,40 @@ class ScamSession(Base):
         DateTime(timezone=True), default=datetime.utcnow, nullable=False
     )
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # --- Voice-call specifics (migration 20260816_13, docs/Voice-Honeypot-Outbound.md)
+    # All nullable: a text session simply leaves them unset.
+    duration_seconds: Mapped[int | None] = mapped_column(Integer)
+    # Twilio recording of the call — evidence, same custody principle as
+    # core.evidence_manifest (stored/referenced, never re-derived).
+    recording_url: Mapped[str | None] = mapped_column(Text)
+    # How the call ended: engaged|no_answer|hung_up|voicemail.
+    disposition: Mapped[str | None] = mapped_column(Text)
+    # The campaign target that produced this call. Nullable — an inbound/manual
+    # session has no dial target. This is the ONE-TO-MANY call log: a requeued
+    # target is dialed repeatedly and each attempt gets its own session row
+    # pointing back here (docs/Voice-Honeypot-Outbound.md §3.4).
+    # ``use_alter`` is no longer needed: honeypot.dial_targets.session_id was
+    # dropped in migration 20260816_14, so the reference is one-directional
+    # (sessions → targets) and SQLAlchemy can order the tables on its own.
+    dial_target_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("honeypot.dial_targets.id", name="fk_scam_sessions_dial_target_id"),
+        index=True,
+    )
 
 
 class Message(Base):
     """Hash-chained conversation log (custody). Raw is immutable."""
 
     __tablename__ = "messages"
-    __table_args__ = ({"schema": SCHEMA},)
+    # (session_id, seq) is unique in the DB — it is what makes the custody chain
+    # a chain: one message per position per session, so an appended row can never
+    # silently re-use a sequence number. Declared here with the name migration
+    # 20260707_04 created it with, or `alembic check` reads it as drift.
+    __table_args__ = (
+        UniqueConstraint("session_id", "seq", name="uq_messages_session_seq"),
+        {"schema": SCHEMA},
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=_uuid)
     public_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)  # e.g. "msg_..."

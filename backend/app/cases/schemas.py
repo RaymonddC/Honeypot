@@ -61,6 +61,9 @@ class CaseSessionSummary(BaseModel):
 
     id: str
     channel: str
+    # text|voice — lets the case view tell a phone call apart from a chat
+    # without guessing from `channel` (pstn/wa_call vs telegram/whatsapp).
+    channel_type: str = "text"
     channel_ref: str
     crime_type: str | None = None
     status: str
