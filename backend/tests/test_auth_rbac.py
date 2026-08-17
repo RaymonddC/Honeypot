@@ -192,6 +192,36 @@ def test_config_shape_all_modules_poc_by_default():
     assert set(blockchain) == {"poc", "live"}
 
 
+def test_config_reports_whether_dialing_actually_enqueues():
+    """`dialing.enabled` is a CONTRACT the Honeypot Ops page relies on.
+
+    Starting a campaign only calls anything when BOTH
+    ``ITTU_DIAL_ENQUEUE_ON_START`` and Postgres persistence hold, and both fail
+    silently (the flag is read at boot; enqueue errors are logged, not raised,
+    so a broker hiccup can't 500 a campaign start). The UI cannot infer either,
+    so if this field lies the page tells an operator that Start will place calls
+    when it won't. The memory-persistence case is the easy one to get wrong: the
+    flag is on, yet the actor can't load its row cross-process.
+    """
+    settings = get_settings()
+    prior = (settings.dial_enqueue_on_start, settings.persistence)
+    try:
+        for enqueue, persistence, expected in (
+            (True, "postgres", True),
+            (False, "postgres", False),
+            (True, "memory", False),   # flag on, but the actor can't load rows
+            (False, "memory", False),
+        ):
+            settings.dial_enqueue_on_start = enqueue
+            settings.persistence = persistence
+            dialing = client.get("/api/config").json()["dialing"]
+            assert dialing["enabled"] is expected, (enqueue, persistence, dialing)
+            assert dialing["enqueue_on_start"] is enqueue
+            assert dialing["persistence"] == persistence
+    finally:
+        settings.dial_enqueue_on_start, settings.persistence = prior
+
+
 def test_config_reflects_module_mode_override():
     settings = get_settings()
     settings.module_modes["takedown"] = "live"

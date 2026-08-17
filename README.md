@@ -27,14 +27,62 @@ docker compose up -d
 cd backend
 cp .env.example .env
 python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -r requirements-dev.txt && pip install -e . --no-deps
 uvicorn app.main:app --reload
 ```
 
+`requirements-dev.txt` is a **lock** — pinned transitive versions, and what CI
+installs, so your machine and CI resolve identically. (They didn't once:
+`alembic>=1.13` gave local 1.18.5 and CI 1.19.1, and a migration guard passed
+locally while failing CI on version alone.) `pyproject.toml` remains the source
+of truth for direct dependencies; after changing one, regenerate:
+
+```sh
+cd backend && uv pip compile pyproject.toml --extra dev --universal -o requirements-dev.txt
+```
+
+**`--universal` is not optional.** Without it the lock is resolved for whatever
+machine ran the command, and environment markers are dropped — a Linux-compiled
+lock then pins `pgserver` unconditionally, and installing on Windows dies with
+*"No matching distribution found for pgserver"* (it is declared
+`platform_system != 'Windows'`, and the worker is Linux/WSL-only anyway).
+Universal resolution keeps the markers so one lock serves Windows, Linux and CI.
+
 Verify: `curl http://localhost:8000/health` → `{"status":"ok","mode":"poc"}`.
-Module stubs: `GET /api/{infiltrate|trace|takedown|uncover|intel}/ping`.
-Migrations: `alembic upgrade head` (no revisions yet in P0).
-Worker (optional): `dramatiq app.workers`.
+
+**Migrations** — `alembic upgrade head`, run as the OWNING role
+(`ITTU_MIGRATION_DATABASE_URL`); the app connects as the non-owning `ittu_app`
+role so RLS actually applies (`backend/scripts/create_app_role.sql`, once per
+database). Only needed under `ITTU_PERSISTENCE=postgres`; the default `memory`
+runs the POC with no database at all. **A schema behind the code is refused at
+boot** rather than failing later on the first write — that guard exists because
+a 3-migration-behind database once broke case creation with nothing pointing at
+the cause.
+
+**Worker** — off by default, and **required** for anything queued: LIVE
+notification dispatch with `ITTU_NOTIFICATION_DELIVERY=worker`, and outbound
+dialing with `ITTU_DIAL_ENQUEUE_ON_START=true`. Without it those jobs queue and
+are never executed. Deployment: `docs/Deploy.md` §6.
+
+```sh
+cd backend
+.venv/bin/dramatiq app.workers          # add --processes 2 --threads 2 to see concurrency
+```
+
+Three things that must be true or nothing runs, in the order they bite:
+
+1. **Run it from Linux/WSL, not native Windows.** Dramatiq's worker is
+   Unix-oriented (fork/signals). The API is fine on Windows — both reach the
+   same Docker Redis and Postgres over `localhost`.
+2. **`ITTU_PERSISTENCE=postgres`.** The actor runs in a separate process and
+   loads its row by id; the in-memory repositories cannot serve it.
+3. **Restart the API after changing either flag** — settings are read at boot,
+   so an already-running API keeps the old value and silently never enqueues.
+
+Enqueue failures are logged, not raised (a broker hiccup must not 500 a campaign
+start), so when nothing happens check the API log for `dial enqueue failed…`
+before suspecting the worker. A healthy-looking worker on an idle queue usually
+means the API and worker are pointed at different `ITTU_REDIS_URL`s.
 
 ### 3. Frontend
 
@@ -44,8 +92,11 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000 → redirects to `/investigation`; the app shell
-(sidebar + topbar + mode badge) renders with placeholder screens.
+Open http://localhost:3000 → redirects to `/home`. Screens: the case hub
+(`/case`), the four pillars (`/honeypot`, `/bridge`, `/investigation`,
+`/actions`), the Response dashboard (`/response`), **Honeypot Ops**
+(`/honeypot-ops` — outbound number pool, dial campaigns, call triage), and the
+Control Panel (`/settings`).
 
 ## MODE toggle (POC ↔ LIVE)
 
@@ -57,5 +108,16 @@ Frontend badge: `NEXT_PUBLIC_ITTU_MODE` (defaults to `poc`).
 
 ## Status
 
-P0 ✅ scaffold. Next: **P1 — TAKEDOWN + Investigation screen**
-(see `docs/Build-Phases.md`).
+**P0–P5 shipped**, 374 backend tests green. Beyond the four pillars: persistence
+(Postgres/Neon + RLS), production-ready notification dispatch (signed,
+idempotent, retried), real TTS voices (ElevenLabs / Gemini / Google, switchable
+per call from the Control Panel), and the **outbound voice honeypot** — number
+pool, bulk dial campaigns, a paced/retried dial worker, a per-attempt call log,
+and triage that files each call into a case
+([`docs/Voice-Honeypot-Outbound.md`](docs/Voice-Honeypot-Outbound.md)).
+
+Dialing is **simulated**: real telephony (Twilio + streaming STT + the media
+bridge) is the remaining build, and engaging real reported numbers is gated on
+**Polri authorization** — see `docs/Live-Voice-Calls.md` and the Backlog.
+
+Current priorities: [`docs/Backlog.md`](docs/Backlog.md).

@@ -35,7 +35,9 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.cases.repository import CaseRepository, get_case_repository
 from app.cases.schemas import CreateCaseRequest
+from app.core.audit import TRIAGE_ATTACHED, TRIAGE_PROMOTED, record_action
 from app.core.auth import AuthContext, get_current_user
+from app.core.db import get_optional_tenant_session
 from app.core.config import get_settings
 from app.honeypot_ops.repository import (
     HoneypotOpsRepository,
@@ -403,7 +405,8 @@ async def attach_triage_session(
     body: AttachSessionRequest,
     repo: TriageRepository = TriageDep,
     case_repo: CaseRepository = CaseDep,
-    _auth: AuthContext = Depends(get_current_user),
+    auth: AuthContext = Depends(get_current_user),
+    audit_session=Depends(get_optional_tenant_session),
 ) -> TriageSessionOut:
     """Attach a triaged call to an existing case."""
     if await case_repo.get_case(body.case_id) is None:
@@ -411,6 +414,17 @@ async def attach_triage_session(
     attached = await repo.attach(session_id, body.case_id)
     if attached is None:
         raise _not_found("session", session_id)
+    # Filing a call into a case is an evidentiary decision — auto-linking is
+    # exact-match only precisely so a human owns the ambiguous ones (§5/§9).
+    await record_action(
+        audit_session,
+        agency_id=str(auth.agency.id),
+        action=TRIAGE_ATTACHED,
+        actor_user_id=str(auth.user.id),
+        target_type="session",
+        target_id=session_id,
+        detail={"case_id": body.case_id, "session_id": session_id},
+    )
     return attached
 
 
@@ -424,7 +438,8 @@ async def promote_triage_session(
     body: PromoteSessionRequest | None = None,
     repo: TriageRepository = TriageDep,
     case_repo: CaseRepository = CaseDep,
-    _auth: AuthContext = Depends(get_current_user),
+    auth: AuthContext = Depends(get_current_user),
+    audit_session=Depends(get_optional_tenant_session),
 ) -> PromoteSessionResult:
     """Open a NEW case for a triaged call and attach it, in one step.
 
@@ -448,6 +463,26 @@ async def promote_triage_session(
     attached = await repo.attach(session_id, created.id)
     if attached is None:  # pragma: no cover - existence checked above
         raise _not_found("session", session_id)
+    # One entry, not two: this opened a case AND filed a call into it as a
+    # single operator decision, and `overrides` records where the human
+    # disagreed with the prefill — which is the interesting part on review.
+    await record_action(
+        audit_session,
+        agency_id=str(auth.agency.id),
+        action=TRIAGE_PROMOTED,
+        actor_user_id=str(auth.user.id),
+        target_type="case",
+        target_id=created.id,
+        detail={
+            "session_id": session_id,
+            "title": created.title,
+            "crime_type": created.crime_type,
+            "overrides": sorted(
+                k for k in ("title", "crime_type", "summary")
+                if getattr(body, k, None) is not None
+            ),
+        },
+    )
     return PromoteSessionResult(case=created, session=attached)
 
 

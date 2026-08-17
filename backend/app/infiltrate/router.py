@@ -18,13 +18,16 @@ mirrors P1–P3). LIVE channel/LLM adapters fail loudly — never silent network
 
 import logging
 from typing import Literal
+from urllib.parse import parse_qsl
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from app.core.audit import ENTITY_REVIEWED, record_action
 from app.core.auth import AuthContext, get_current_user
+from app.core.db import get_optional_tenant_session
 from app.core.config import get_settings
 from app.infiltrate import service
 from app.infiltrate.channels import ChannelAdapter
@@ -44,6 +47,10 @@ from app.infiltrate.service import (
     TTSDep,
     TurnOut,
     TurnRequest,
+)
+from app.infiltrate.telephony import (
+    build_say_and_hangup_twiml,
+    verify_twilio_signature,
 )
 from app.infiltrate.voice import (
     TTSAdapter,
@@ -425,12 +432,25 @@ async def post_entity_review(
     entity_id: str,
     body: ReviewRequest,
     repo: InfiltrateRepository = RepoDep,
-    _auth: AuthContext = Depends(get_current_user),  # human-in-the-loop = named human
+    auth: AuthContext = Depends(get_current_user),  # human-in-the-loop = named human
+    session=Depends(get_optional_tenant_session),
 ) -> EntityOut:
     """Analyst review — confirm/reject/flag-poisoned (human-in-the-loop)."""
     entity = await service.review_entity(entity_id, body.status, repo=repo)
     if entity is None:
         raise _not_found("entity", entity_id)
+    # The most consequential human judgement in the pipeline: a "confirmed"
+    # entity becomes the basis for a freeze request. Who decided, and when, is
+    # exactly what a court asks about.
+    await record_action(
+        session,
+        agency_id=str(auth.agency.id),
+        action=ENTITY_REVIEWED,
+        actor_user_id=str(auth.user.id),
+        target_type="entity",
+        target_id=entity_id,
+        detail={"status": body.status, "value": entity.value, "type": entity.type},
+    )
     return entity
 
 
@@ -441,6 +461,66 @@ async def get_syndicates(
 ) -> list[SyndicateOut]:
     """Syndicate profiles clustered from extracted entities."""
     return await service.list_syndicates(repo=repo)
+
+
+@router.post("/telephony/voice")
+async def post_telephony_voice(request: Request) -> Response:
+    """Twilio's answer webhook — the URL a honeypot number points at.
+
+    **Deliberately unauthenticated**: Twilio cannot present our JWT. The
+    ``X-Twilio-Signature`` HMAC *is* the authentication, so the check below is
+    the only thing standing between this endpoint and anyone who learns the URL
+    posting fake call events. It is therefore mandatory, not best-effort: an
+    unconfigured auth token fails CLOSED (`verify_twilio_signature` returns
+    False on an empty token) rather than waving requests through.
+
+    Returns a short spoken line and hangs up. The eventual
+    ``<Connect><Stream>`` needs the phase-5 media bridge, and pointing Twilio at
+    a socket nobody serves would connect a real caller to silence — so this
+    stays honest until the bridge exists. Everything up to that point (number →
+    webhook → signature → TwiML) is exercised for real by ringing the number.
+    """
+    settings = get_settings()
+    # Parse the urlencoded body directly rather than via request.form(), which
+    # drags in python-multipart for a shape Twilio never sends: voice webhooks
+    # are application/x-www-form-urlencoded (or JSON, which carries no signed
+    # body params at all — its digest rides in the URL as bodySHA256).
+    body = (await request.body()).decode("utf-8", errors="replace")
+    params = dict(parse_qsl(body, keep_blank_values=True))
+
+    # Twilio signs the exact PUBLIC url it called. Behind Render/Vercel, TLS is
+    # terminated upstream and request.url is an internal http:// host, so a URL
+    # rebuilt from the request would never match — hence ITTU_PUBLIC_BASE_URL.
+    base = settings.public_base_url.rstrip("/")
+    url = f"{base}{request.url.path}" if base else str(request.url)
+
+    if not verify_twilio_signature(
+        settings.twilio_auth_token,
+        url,
+        params,
+        request.headers.get("X-Twilio-Signature", ""),
+    ):
+        logger.warning(
+            "telephony: rejected an unsigned/invalid Twilio webhook for %s "
+            "(token configured: %s)",
+            url,
+            bool(settings.twilio_auth_token),
+        )
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "invalid_twilio_signature",
+                "message": "Request is not a validly signed Twilio webhook.",
+            },
+        )
+
+    logger.info("telephony: answered call %s", params.get("CallSid", "<no sid>"))
+    return Response(
+        content=build_say_and_hangup_twiml(
+            "Halo, terima kasih sudah menghubungi. Sampai jumpa."
+        ),
+        media_type="application/xml",
+    )
 
 
 @router.get("/infiltrate/ping")

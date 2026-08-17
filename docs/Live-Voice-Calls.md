@@ -103,11 +103,47 @@ commercial). **Keys** — two different Google products, two different keys: Goo
 `console.cloud.google.com` (enable *Cloud Text-to-Speech API* → Credentials → API key); Gemini →
 `aistudio.google.com/apikey`.
 
+## Twilio setup (what's built, and how to verify it today)
+
+**Shipped** (`app/infiltrate/telephony.py`, `POST /api/telephony/voice`) — the parts
+provable without an account: webhook **signature validation**, **TwiML** builders, and a
+REST client that fails loud without credentials.
+**Not built** — the WebSocket media bridge, streaming STT, turn-taking/barge-in. So the
+answer webhook currently speaks one line and hangs up: returning `<Connect><Stream>` would
+point Twilio at a socket nobody serves and connect a caller to **silence**.
+
+That is still worth wiring up, because it proves the whole path end to end —
+number → webhook → signature → TwiML — leaving only the bridge to swap in.
+
+1. **Account + number** — [console.twilio.com](https://console.twilio.com). Trial gives
+   ~$15 credit and a number, and only dials numbers **you have verified** — exactly the
+   right constraint for self-testing (§0 of `Voice-Honeypot-Outbound.md`: calling yourself
+   needs no authorization; calling a real reported number needs Polri's).
+2. **Credentials** — `ITTU_TWILIO_ACCOUNT_SID`, `ITTU_TWILIO_AUTH_TOKEN`.
+3. **Public URL** — `ITTU_PUBLIC_BASE_URL` (e.g. `https://ittu-api.onrender.com`).
+   **Required.** Twilio signs the exact public URL it called; Render terminates TLS
+   upstream and hands the app an internal `http://` host, so a URL rebuilt from the
+   request never matches and **every genuine webhook is rejected as forged (403)**.
+   Locally use a tunnel (ngrok/cloudflared) — Twilio must be able to reach it.
+4. **Point the number at us** — Voice → *A CALL COMES IN* →
+   `POST https://<base>/api/telephony/voice`.
+5. **Ring it.** You should hear the greeting and the call should end. A 403 in the logs
+   means the signed URL didn't match — check `ITTU_PUBLIC_BASE_URL` first.
+
+⚠️ The webhook is **intentionally unauthenticated**: Twilio cannot present our JWT, so the
+`X-Twilio-Signature` HMAC *is* the authentication. It fails **closed** — with
+`ITTU_TWILIO_AUTH_TOKEN` unset, nothing is accepted. Never "temporarily" bypass that check
+to debug; anyone who learns the URL could then drive the honeypot with fake call events.
+
 ## Recommended sequence
 1. **Voice-quality upgrade** (ElevenLabs/Google TTS) — small, big wow, no telephony.
-2. **Tier-A Twilio demo** — real phone rings, AI converses (needs your Twilio account +
-   number + credentials; then implement `PstnChannelAdapter` + streaming STT/TTS + the WS
-   media bridge).
+2. **Tier-A Twilio demo** — real phone rings, AI converses. Split in two, because the
+   first half is already done and independently verifiable:
+   a. *Path check* (**shipped**) — account + number + the three env vars above, ring the
+      number, hear the greeting. Proves webhook, signature and TwiML without any audio work.
+   b. *Conversation* — `PstnChannelAdapter` + streaming STT + the WS media bridge, then
+      swap the `<Say>` for `<Connect><Stream>`. This is the real engineering: sub-~1s
+      round trip with barge-in, or the persona talks over people.
 3. **Production live** — streaming/barge-in hardening + **Polri authorization** (gated).
 
 ## Cost/effort at a glance

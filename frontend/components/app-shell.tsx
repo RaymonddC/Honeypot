@@ -14,6 +14,7 @@ const NAV_GROUPS: { label: string; items: { href: string; label: string; glyph: 
     label: "Case workflow",
     items: [
       { href: "/case", label: "Case File", glyph: "▤" },
+      { href: "/audit", label: "Audit Trail", glyph: "⛓" },
     ],
   },
   {

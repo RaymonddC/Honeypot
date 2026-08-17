@@ -113,3 +113,30 @@ export function updateCase(
 export function fetchRollup(id: string) {
   return json<CaseRollup>(`/cases/${id}/rollup`);
 }
+
+/* ── Audit trail (GET /api/audit) ────────────────────────────────────────── */
+
+export interface AuditEntry {
+  seq: number;
+  action: string;
+  actor_user_id: string | null;
+  target_type: string | null;
+  target_id: string | null;
+  detail: Record<string, unknown>;
+  ts: string;
+  sha256: string;
+  prev_sha256: string;
+}
+
+export interface AuditFeed {
+  entries: AuditEntry[];
+  /** Every hash links to its predecessor — recomputed server-side on each read. */
+  chain_ok: boolean;
+  /** First entry that fails verification, if any. */
+  broken_at_seq: number | null;
+}
+
+/** This agency's audit trail, newest first, with the chain verified on read. */
+export function fetchAuditFeed(limit = 100) {
+  return json<AuditFeed>(`/audit?limit=${limit}`);
+}

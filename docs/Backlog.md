@@ -40,12 +40,35 @@ on the Response dashboard). **282 backend tests green**, frontend build green.
 - [ ] **A1-prod — Dramatiq executor swap** (investigation jobs) · S–M · *deferred by choice* — async
       already works in-process; build only when there's real concurrency (submit→poll contract is a
       drop-in). *(Note: C1 already stood up the Dramatiq delivery actor + broker for notifications.)*
+- [ ] **Wallet risk scoring — specify and justify the rules** · M · *raised 2026-08-17* — the pipeline
+      exists and is deterministic (`app/takedown/scoring.py`: 5 typology detectors + an Isolation
+      Forest, combined in `composite_risk`, stamped with `MODEL_VERSION`), but **the rules are
+      undocumented magic numbers**: `0.25·IF + 0.75·min(fired/2, 1)`, `+0.25` for scam/sanctioned
+      tags, `+0.15` for mixer, and detector thresholds like `PEEL_FORWARD_SHARE=0.7`,
+      `RAPID_INOUT_MIN=0.95`, `STRUCTURING_TOLERANCE=0.05`. Nothing records **where those numbers came
+      from, what low/medium/high mean operationally, or what evidence supports them.**
+      Why it matters: this drives who gets frozen. "Why was this wallet scored high?" is the first
+      question defence counsel asks, and `reasoning[]` currently explains *which* rules fired, not
+      *why those are the rules*. Needs: a written spec (thresholds + rationale + who owns changes),
+      a defined mapping from score → band → recommended action, and validation against labelled
+      cases — plus a decision on whether the weights are tunable config rather than constants.
+      Related: `wallet_risk_scores.wallet_id` is nullable in the DB, which is a product decision to
+      settle at the same time.
 - [ ] **Go-live hardening** · M · contract tests per LIVE adapter, observability/uptime, a security +
       RLS-isolation review, separate DB per mode. Only when heading to real production.
-- [ ] **Audit trail — broaden & surface** · M · *later (parked 2026-08-14, not urgent)* — a user-facing /
-      admin audit view over the existing custody hash-chain + `core.audit_log` (who did what, when —
-      logins, dispatches, entity reviews, config changes). Foundations already exist (message/doc
-      SHA-256 chain, `action_bundle.audit`, `core.audit_log`); this is exposing + extending them.
+- [ ] **Audit trail — broaden & surface** · M · **backend slice DONE (2026-08-17, `7507034`)** —
+      roadmap step 2's "chain-of-custody end-to-end". `core.audit_log` was migrated and documented as
+      hash-chained but **nothing ever wrote to it**; `app/core/audit.py` is now the writer (per-agency
+      SHA-256 chain, never raises — audit must not break the action it records) and `GET /api/audit`
+      reads it, **verifying the chain on read** and reporting `broken_at_seq`. Tests prove tampering
+      and deletion are both *detected*, not just that rows appear.
+      - [x] Writer + per-agency chain + read API + verification
+      - [x] Wired: `case.created`, `case.updated` (logs only the changed fields)
+      - [ ] Remaining call sites: `auth.login`, `dispatch.sent`, `entity.reviewed`,
+            `triage.attached` / `triage.promoted` (constants already defined)
+      - [ ] UI: an audit view (the API is ready; nothing renders it yet)
+      - [ ] Consider folding in the separate in-memory `uncover.custody` chain, which predates this
+            and covers document generation only.
 - [x] **`alembic check` drift reconciliation** · S–M · **DONE (2026-08-16)** — the last leg of the
       migration guards. All four drift items were the same shape (the DB had the object, the ORM model
       never declared it), so they were reconciled model-side with **no schema change and no migration**:
