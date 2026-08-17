@@ -23,7 +23,7 @@ jobs:
       # 1.19.1, and the newer autogenerate reported ~48 phantom check-constraint
       # diffs — a migration guard that passed locally and failed here on version
       # alone. Regenerate with:
-      #   cd backend && uv pip compile pyproject.toml --extra dev -o requirements-dev.txt
+      #   cd backend && uv pip compile pyproject.toml --extra dev --universal -o requirements-dev.txt
       - name: Install deps (locked)
         run: |
           pip install -r requirements-dev.txt

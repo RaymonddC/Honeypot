@@ -38,8 +38,15 @@ locally while failing CI on version alone.) `pyproject.toml` remains the source
 of truth for direct dependencies; after changing one, regenerate:
 
 ```sh
-cd backend && uv pip compile pyproject.toml --extra dev -o requirements-dev.txt
+cd backend && uv pip compile pyproject.toml --extra dev --universal -o requirements-dev.txt
 ```
+
+**`--universal` is not optional.** Without it the lock is resolved for whatever
+machine ran the command, and environment markers are dropped — a Linux-compiled
+lock then pins `pgserver` unconditionally, and installing on Windows dies with
+*"No matching distribution found for pgserver"* (it is declared
+`platform_system != 'Windows'`, and the worker is Linux/WSL-only anyway).
+Universal resolution keeps the markers so one lock serves Windows, Linux and CI.
 
 Verify: `curl http://localhost:8000/health` → `{"status":"ok","mode":"poc"}`.
 
