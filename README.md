@@ -27,8 +27,18 @@ docker compose up -d
 cd backend
 cp .env.example .env
 python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -r requirements-dev.txt && pip install -e . --no-deps
 uvicorn app.main:app --reload
+```
+
+`requirements-dev.txt` is a **lock** — pinned transitive versions, and what CI
+installs, so your machine and CI resolve identically. (They didn't once:
+`alembic>=1.13` gave local 1.18.5 and CI 1.19.1, and a migration guard passed
+locally while failing CI on version alone.) `pyproject.toml` remains the source
+of truth for direct dependencies; after changing one, regenerate:
+
+```sh
+cd backend && uv pip compile pyproject.toml --extra dev -o requirements-dev.txt
 ```
 
 Verify: `curl http://localhost:8000/health` → `{"status":"ok","mode":"poc"}`.

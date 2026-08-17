@@ -17,9 +17,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install deps
-        run: pip install -e ".[dev]"
-      - name: Test (145 tests, offline POC — no DB/network)
+      # Install from the LOCK, not the ranges in pyproject. Resolving here
+      # independently is what let CI and a developer machine run different
+      # versions: pyproject allows `alembic>=1.13`, local had 1.18.5, CI picked
+      # 1.19.1, and the newer autogenerate reported ~48 phantom check-constraint
+      # diffs — a migration guard that passed locally and failed here on version
+      # alone. Regenerate with:
+      #   cd backend && uv pip compile pyproject.toml --extra dev -o requirements-dev.txt
+      - name: Install deps (locked)
+        run: |
+          pip install -r requirements-dev.txt
+          pip install -e . --no-deps
+      - name: Test (offline POC — no DB/network; pgserver spins up its own Postgres)
         run: pytest -q
 
   frontend:
