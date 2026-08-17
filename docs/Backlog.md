@@ -42,10 +42,19 @@ on the Response dashboard). **282 backend tests green**, frontend build green.
       drop-in). *(Note: C1 already stood up the Dramatiq delivery actor + broker for notifications.)*
 - [ ] **Go-live hardening** · M · contract tests per LIVE adapter, observability/uptime, a security +
       RLS-isolation review, separate DB per mode. Only when heading to real production.
-- [ ] **Audit trail — broaden & surface** · M · *later (parked 2026-08-14, not urgent)* — a user-facing /
-      admin audit view over the existing custody hash-chain + `core.audit_log` (who did what, when —
-      logins, dispatches, entity reviews, config changes). Foundations already exist (message/doc
-      SHA-256 chain, `action_bundle.audit`, `core.audit_log`); this is exposing + extending them.
+- [ ] **Audit trail — broaden & surface** · M · **backend slice DONE (2026-08-17, `7507034`)** —
+      roadmap step 2's "chain-of-custody end-to-end". `core.audit_log` was migrated and documented as
+      hash-chained but **nothing ever wrote to it**; `app/core/audit.py` is now the writer (per-agency
+      SHA-256 chain, never raises — audit must not break the action it records) and `GET /api/audit`
+      reads it, **verifying the chain on read** and reporting `broken_at_seq`. Tests prove tampering
+      and deletion are both *detected*, not just that rows appear.
+      - [x] Writer + per-agency chain + read API + verification
+      - [x] Wired: `case.created`, `case.updated` (logs only the changed fields)
+      - [ ] Remaining call sites: `auth.login`, `dispatch.sent`, `entity.reviewed`,
+            `triage.attached` / `triage.promoted` (constants already defined)
+      - [ ] UI: an audit view (the API is ready; nothing renders it yet)
+      - [ ] Consider folding in the separate in-memory `uncover.custody` chain, which predates this
+            and covers document generation only.
 - [x] **`alembic check` drift reconciliation** · S–M · **DONE (2026-08-16)** — the last leg of the
       migration guards. All four drift items were the same shape (the DB had the object, the ORM model
       never declared it), so they were reconciled model-side with **no schema change and no migration**:
