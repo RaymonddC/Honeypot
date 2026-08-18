@@ -434,6 +434,7 @@ async def post_entity_review(
     repo: InfiltrateRepository = RepoDep,
     auth: AuthContext = Depends(get_current_user),  # human-in-the-loop = named human
     session=Depends(get_optional_tenant_session),
+    request: Request = None,  # audit origin (ip/user-agent)
 ) -> EntityOut:
     """Analyst review — confirm/reject/flag-poisoned (human-in-the-loop)."""
     entity = await service.review_entity(entity_id, body.status, repo=repo)
@@ -447,8 +448,11 @@ async def post_entity_review(
         agency_id=str(auth.agency.id),
         action=ENTITY_REVIEWED,
         actor_user_id=str(auth.user.id),
+        actor_name=auth.user.name,
+        request=request,
         target_type="entity",
         target_id=entity_id,
+        target_label=f"{entity.type} {entity.value}",
         detail={"status": body.status, "value": entity.value, "type": entity.type},
     )
     return entity

@@ -259,6 +259,16 @@ function reasoningSteps(
       detail = pat[2] || text;
     } else if (/isolation forest/i.test(text)) {
       tool = "isolation_forest()";
+    } else if (/^SANCTIONED/i.test(text)) {
+      // A band FLOOR, not a scored contribution — the Glass Box should name it
+      // as its own check so a reader sees the verdict came from a sanctions
+      // listing, not from behaviour that happened to add up.
+      tool = "sanctions_check()";
+    } else if (/exposure/i.test(text)) {
+      // Counterparty exposure (scoring v0.2.0): who the wallet dealt with, hop-
+      // and value-weighted. Distinct from address_tags(), which is about the
+      // wallet itself — the difference matters when explaining a mule.
+      tool = "counterparty_exposure()";
     } else if (/tag|exchange|attribut/i.test(text)) {
       tool = "address_tags()";
     }

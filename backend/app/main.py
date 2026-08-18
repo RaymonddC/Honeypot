@@ -14,6 +14,11 @@ from app.cases.router import router as cases_router
 from app.casedata.router import router as casedata_router
 from app.core.config import get_settings
 from app.core.db import engine
+from app.core.requests import (
+    REQUEST_ID_HEADER,
+    RequestContextMiddleware,
+    current_request_id,
+)
 from app.honeypot_ops.router import router as honeypot_ops_router
 from app.infiltrate.router import router as infiltrate_router
 from app.intel.router import router as intel_router
@@ -62,6 +67,11 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    # Added AFTER CORS so it wraps it: a request rejected by CORS should still
+    # get an id and a log line, otherwise the one failure users report most
+    # ("it just doesn't work from the browser") is the one with no trace.
+    app.add_middleware(RequestContextMiddleware)
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
@@ -76,10 +86,19 @@ def create_app() -> FastAPI:
         detail = exc.detail if isinstance(exc.detail, dict) else {
             "code": "http_error", "message": str(exc.detail),
         }
+        # Echo the request id INTO the body, not just the header: a user
+        # reporting a failure copies what they can see, and "it failed" plus an
+        # id is the difference between reproducing and guessing.
+        request_id = current_request_id()
+        if request_id:
+            detail = {**detail, "request_id": request_id}
+        headers = dict(exc.headers or {})
+        if request_id:
+            headers[REQUEST_ID_HEADER] = request_id
         return JSONResponse(
             status_code=exc.status_code,
             content={"error": detail},
-            headers=exc.headers,  # e.g. WWW-Authenticate: Bearer on 401s
+            headers=headers or None,  # e.g. WWW-Authenticate: Bearer on 401s
         )
 
     @app.exception_handler(httpx.HTTPError)
@@ -101,11 +120,43 @@ def create_app() -> FastAPI:
                 "The upstream blockchain data provider is currently unavailable.",
                 502,
             )
-        return JSONResponse(status_code=http_status, content={"error": {"code": code, "message": message}})
+        body = {"code": code, "message": message}
+        if current_request_id():
+            body["request_id"] = current_request_id()
+        return JSONResponse(status_code=http_status, content={"error": body})
 
     @app.get("/health")
     async def health() -> dict[str, str]:
+        """Liveness. Deliberately SHALLOW — this is the platform health check, and
+        a transient database blip must not take the service down. Use /ready to
+        find out whether dependencies are actually working."""
         return {"status": "ok", "mode": settings.mode}
+
+    @app.get("/ready")
+    async def ready() -> JSONResponse:
+        """Readiness + diagnostics: database reachable, schema at migration head,
+        schema grants present, RLS actually enforcing, Redis reachable.
+
+        Each check is here because that failure cost real debugging time and its
+        symptom pointed somewhere unhelpful (see app/core/health.py). Returns 503
+        when a critical check fails so it can back a readiness probe; the body is
+        the same either way so a human can read WHY. Contains no secrets and no
+        connection strings — it is unauthenticated by design, like /health."""
+        from app.core.health import readiness
+
+        result = await readiness()
+        return JSONResponse(
+            status_code=200 if result.ready else 503,
+            content={
+                "ready": result.ready,
+                "mode": result.mode,
+                "persistence": result.persistence,
+                "checks": [
+                    {"name": c.name, "ok": c.ok, "detail": c.detail, "critical": c.critical}
+                    for c in result.checks
+                ],
+            },
+        )
 
     for router in (
         auth_router,

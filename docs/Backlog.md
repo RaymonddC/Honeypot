@@ -4,7 +4,7 @@
 > This is the short prioritized list; full rationale, effort, and triggers live in
 > [`Production-Roadmap.md`](Production-Roadmap.md). Status legend: S/M/L = small/medium/large effort.
 
-_Last updated: 2026-08-16 · branch `feat/c1-notifications-delivery`._
+_Last updated: 2026-08-18 · branch `feat/c1-notifications-delivery`._
 
 ---
 
@@ -40,7 +40,15 @@ on the Response dashboard). **282 backend tests green**, frontend build green.
 - [ ] **A1-prod — Dramatiq executor swap** (investigation jobs) · S–M · *deferred by choice* — async
       already works in-process; build only when there's real concurrency (submit→poll contract is a
       drop-in). *(Note: C1 already stood up the Dramatiq delivery actor + broker for notifications.)*
-- [ ] **Wallet risk scoring — specify and justify the rules** · M · *raised 2026-08-17* — the pipeline
+- [ ] **Wallet risk scoring — specify and justify the rules** · M · **spec WRITTEN 2026-08-18**
+      ([`Wallet-Risk-Scoring-Rules.md`](Wallet-Risk-Scoring-Rules.md)) — every constant documented and
+      honestly marked *unvalidated default*; band→action mapping proposed; validation plan defined.
+      **It surfaced a probable defect, verified against the real code: an OFAC-sanctioned wallet with
+      no detected pattern scores LOW**, and the output contradicts itself (reasoning names the SDN
+      listing, band says low). Sanctions are a legal fact, not a signal to average — recommendation is
+      a band FLOOR, left as a decision because changing what the system flags is a product call.
+      Still open: fix that, confirm bands with investigator practice, assign an owner for the numbers,
+      and run the validation in §5. *Original framing 2026-08-17* — the pipeline
       exists and is deterministic (`app/takedown/scoring.py`: 5 typology detectors + an Isolation
       Forest, combined in `composite_risk`, stamped with `MODEL_VERSION`), but **the rules are
       undocumented magic numbers**: `0.25·IF + 0.75·min(fired/2, 1)`, `+0.25` for scam/sanctioned
@@ -54,8 +62,29 @@ on the Response dashboard). **282 backend tests green**, frontend build green.
       cases — plus a decision on whether the weights are tunable config rather than constants.
       Related: `wallet_risk_scores.wallet_id` is nullable in the DB, which is a product decision to
       settle at the same time.
-- [ ] **Go-live hardening** · M · contract tests per LIVE adapter, observability/uptime, a security +
-      RLS-isolation review, separate DB per mode. Only when heading to real production.
+- [ ] **`GET /wallets/{address}/risk` 404s for leaf addresses** · S · *found 2026-08-18* — the
+      endpoint re-investigates FROM the requested address, so a wallet that only ever received
+      funds (a first-hop mule) has nothing to trace and returns `wallet_not_found`. Its score is
+      computed correctly inside an investigation rooted at the funding source — you just cannot
+      query that wallet directly. Pre-existing, but it matters more now: scoring v0.2.0 surfaces
+      exactly those mules, so they are the wallets an investigator will click on. Fix is probably
+      to serve the score from the cached investigation the address appears in, rather than
+      starting a new trace from it.
+- [ ] **Go-live hardening** · M · *partly done* — only fully needed when heading to real production.
+      - [x] **Contract tests per LIVE adapter** — `tests/test_live_adapter_contract.py` asserts the
+            "fail loud, never silently degrade" invariant over the registry, so a new adapter cannot
+            silently no-op.
+      - [x] **Security + RLS-isolation review** (2026-08-18) — found and closed a real cross-tenant
+            leak in two join tables; method and findings in `Security-Evidence.md` §9.
+      - [x] **Observability: readiness diagnostics** — `GET /ready` (`app/core/health.py`) probes the
+            database, migration head, schema grants, whether RLS is genuinely enforcing, and Redis;
+            503 when a critical check fails so it can back a probe. `/health` stays shallow on
+            purpose. Each check exists because that failure previously cost real debugging time.
+            See `Deploy.md` §7.
+      - [ ] **Observability: the rest** — metrics (request rate/latency/error counters), uptime
+            monitoring + alerting on `/ready`, and log correlation ids. `/ready` answers "why is it
+            broken *right now*"; none of this yet answers "was it broken at 3am" or "is it degrading".
+      - [ ] Separate DB per mode (POC vs LIVE evidentiary isolation).
 - [ ] **Audit trail — broaden & surface** · M · **backend slice DONE (2026-08-17, `7507034`)** —
       roadmap step 2's "chain-of-custody end-to-end". `core.audit_log` was migrated and documented as
       hash-chained but **nothing ever wrote to it**; `app/core/audit.py` is now the writer (per-agency
@@ -63,12 +92,36 @@ on the Response dashboard). **282 backend tests green**, frontend build green.
       reads it, **verifying the chain on read** and reporting `broken_at_seq`. Tests prove tampering
       and deletion are both *detected*, not just that rows appear.
       - [x] Writer + per-agency chain + read API + verification
-      - [x] Wired: `case.created`, `case.updated` (logs only the changed fields)
-      - [ ] Remaining call sites: `auth.login`, `dispatch.sent`, `entity.reviewed`,
-            `triage.attached` / `triage.promoted` (constants already defined)
-      - [ ] UI: an audit view (the API is ready; nothing renders it yet)
-      - [ ] Consider folding in the separate in-memory `uncover.custody` chain, which predates this
-            and covers document generation only.
+      - [x] Wired (all 7): `auth.login`, `case.created`, `case.updated`, `entity.reviewed`,
+            `dispatch.sent`, `triage.attached`, `triage.promoted`. `case.updated` logs only the
+            changed fields; `dispatch.sent` names recipient agencies but never the payload or secret.
+      - [x] UI: `/audit` (`d1935cf`) — chain verification is the FIRST thing on the page, since a
+            tamper-evident log nobody checks proves nothing.
+      - [x] Durable coverage of evidence generation — `action.bundle.generated` (with document
+            sha256s) and `dispatch.sent` now land in the core trail (2026-08-18).
+      - [x] Origin + export auditing (2026-08-18) — after checking practice against CloudTrail /
+            SOC 2 guidance: entries now record `_ip`, `_user_agent` and `_request_id` (who acted
+            **and from where**, and which log line it belongs to), and `evidence.exported` audits
+            document downloads with the custody hash. Evidence could previously leave the system
+            with no trace at all — the top insider-risk question in forensics.
+      - [ ] **Decide: audit DENIED actions too** · S · *raised 2026-08-18, needs a product call* —
+            CloudTrail records denied API calls, and they are often the most security-relevant
+            signal: an authenticated user repeatedly attempting actions their role forbids is
+            exactly what an audit trail should surface. We currently record only successes, so
+            every 403 vanishes.
+            **The tradeoff is noise vs signal, which is why it is a decision and not just work.**
+            Failed *logins* should stay OUT (brute-force noise belongs in security logging, not an
+            agency's evidentiary chain a court has to read). Denied *actions by an authenticated
+            user* are different — the actor is known and the attempt is meaningful. A misconfigured
+            client could still spam them, so consider recording the first N per actor/action/window
+            rather than every one.
+            If adopted, add an `outcome` field (success|denied) rather than a separate action name,
+            so "everything Budi did" stays one query.
+      - [ ] **Decide** whether `uncover.custody` should collapse into the core trail. They are NOT
+            duplicates: custody is per-process/in-memory and only fills `ActionBundle.audit` in the
+            API response (never stored — see `uncover/repository.py`), while `core.audit_log` is the
+            durable per-agency trail. Merging changes that API contract, so it is a product decision,
+            not a cleanup. Both docstrings now say so.
 - [x] **`alembic check` drift reconciliation** · S–M · **DONE (2026-08-16)** — the last leg of the
       migration guards. All four drift items were the same shape (the DB had the object, the ORM model
       never declared it), so they were reconciled model-side with **no schema change and no migration**:
@@ -98,7 +151,7 @@ on the Response dashboard). **282 backend tests green**, frontend build green.
       content is a data-governance flag for law-enforcement evidence. **Keep as market context only**
       (proof Indonesian voice AI works commercially — worth a capstone mention). Stay with Twilio as
       dumb transport + our own STT/TTS/agent loop: the custody chain IS the product.
-- [ ] **Voice honeypot — outbound calling MVP** · L · *in progress 2026-08-16* — full architecture in
+- [ ] **Voice honeypot — outbound calling MVP** · L · *phases 1-4+6 SHIPPED; only phase 5 (Twilio) left* — full architecture in
       [`Voice-Honeypot-Outbound.md`](Voice-Honeypot-Outbound.md): a number pool, a bulk-upload dial
       campaign (Dramatiq-paced, mirrors the C1 notification worker), and a triage queue that attaches
       each connected call's session to a matched case or leaves it for an investigator to assign.
@@ -110,10 +163,14 @@ on the Response dashboard). **282 backend tests green**, frontend build green.
             new `/honeypot-ops` page. Bulk upload reports per-row rejects instead of failing the batch;
             a bare local number (`08…`) is REJECTED, never auto-prefixed to `+62` — guessing a country
             code in a police dialer could call an unrelated real person.
-      - [ ] **Phase 4 — POC dial worker + Requeue + one-session-per-attempt call log** — in progress.
+      - [x] **Phase 4 — POC dial worker + Requeue + call log** (`fad427a`, `f27b903`) — paced/retried
+            Dramatiq actor, Requeue, and `honeypot.dial_attempts`: EVERY attempt logged, not just
+            connected calls, so "tried 3 times, never answered" survives.
       - [ ] **Phase 5 — real Twilio `PstnChannelAdapter` + media bridge** — `Live-Voice-Calls.md`'s
             scope; needs a Twilio account. Self-test/demo numbers only (see Gated below for real targets).
-      - [ ] **Phase 6 — triage queue + case-linking** — can follow phase 4.
+      - [x] **Phase 6 — triage queue + case-linking** (`fdb3b3f`) — exact-match linking only; the
+            dialer runs as the owning role so RLS does NOT filter it, and the agency check there is
+            load-bearing (asserted by test).
 - [x] **Case detail: "Calls / Conversations" list** · S · **DONE (2026-08-16, `b82726f`)** — session rows
       on the case are now expandable into the existing transcript view, with `started_at` shown and voice
       calls badged. Deliberately no mock fallback on that fetch: a mock transcript rendered under a real

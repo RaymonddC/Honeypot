@@ -220,3 +220,167 @@ def test_login_is_recorded_with_method_and_role():
     assert login["detail"]["method"] == "demo"
     assert login["detail"]["role"] == r["role"] == "regulator-analyst"
     assert login["actor_user_id"] == r["user"]["id"]
+
+
+def test_dispatch_is_recorded_with_recipients():
+    """Dispatch is the product's most consequential action — irreversible and
+    outward. 'Who authorised it, and which agencies were told' is precisely what
+    gets asked afterwards, so recipients are recorded by name."""
+    token = _login()
+    r = client.post(
+        "/api/actions/generate",
+        json={
+            "case_id": "CASE-AUDIT-1",
+            "crime_type": "investment",
+            "entities": [
+                {
+                    "type": "crypto_wallet",
+                    "value": "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6",
+                    "chain": "tron",
+                }
+            ],
+            "outputs": ["freeze"],
+        },
+        headers=_auth(token),
+    )
+    assert r.status_code == 201, r.text
+    bundle = r.json()
+    d = client.post(f"/api/actions/{bundle['id']}/dispatch", headers=_auth(token))
+    assert d.status_code == 200, d.text
+
+    feed = client.get("/api/audit", headers=_auth(token)).json()
+    sent = next((e for e in feed["entries"] if e["action"] == "dispatch.sent"), None)
+    assert sent is not None, "dispatch must be audited"
+    assert sent["target_type"] == "action_bundle"
+    assert sent["detail"]["recipients"], "recipient agencies must be named"
+    # The packet itself and any signing secret must never reach the audit row.
+    assert "payload" not in sent["detail"] and "secret" not in str(sent["detail"]).lower()
+    assert feed["chain_ok"] is True
+
+
+def test_generated_evidence_is_recorded_durably_with_hashes():
+    """Bundle generation lands in the DURABLE trail, with document hashes.
+
+    uncover.custody also records this, but that chain is an in-memory POC
+    accumulator refilled per request — it does not survive a restart. Recording
+    here is what makes "what evidence was produced, by whom, and what did it
+    hash to" answerable later from one place, without having to trust a second
+    table to still agree.
+    """
+    token = _login()
+    bundle = client.post(
+        "/api/actions/generate",
+        json={
+            "case_id": "CASE-AUDIT-2",
+            "crime_type": "investment",
+            "entities": [
+                {
+                    "type": "crypto_wallet",
+                    "value": "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6",
+                    "chain": "tron",
+                }
+            ],
+            "outputs": ["freeze"],
+        },
+        headers=_auth(token),
+    ).json()
+
+    feed = client.get("/api/audit", headers=_auth(token)).json()
+    gen = next(e for e in feed["entries"] if e["action"] == "action.bundle.generated")
+    assert gen["target_id"] == bundle["id"]
+    docs = gen["detail"]["documents"]
+    assert docs, "generated documents must be recorded"
+    # The hash is the evidentiary part — it must match what the API returned.
+    assert {d["sha256"] for d in docs} == {d["sha256"] for d in bundle["documents"]}
+    assert feed["chain_ok"] is True
+
+
+def test_entries_name_the_person_and_the_thing_not_uuids():
+    """An audit row must be readable by the people it exists for.
+
+    Before this, "who did what" answered with actor=9f79eb96-3e3a-57b1-… and
+    target=case/43b65ec1 — unusable to an investigator, let alone a court. Name
+    and label are SNAPSHOTTED at write time, not joined on read: if a user is
+    later renamed or a case retitled, the entry must still say who acted on what
+    AT THE TIME (same reasoning as intel.scam_sessions.persona_snapshot).
+    """
+    token = _login()
+    case = client.post(
+        "/api/cases", json={"title": "Judol sweep Aug"}, headers=_auth(token)
+    ).json()
+    client.patch(
+        f"/api/cases/{case['id']}", json={"stage": "trace"}, headers=_auth(token)
+    )
+    feed = client.get("/api/audit", headers=_auth(token)).json()
+    by_action = {e["action"]: e for e in feed["entries"]}
+
+    for action in ("auth.login", "case.created", "case.updated"):
+        assert by_action[action]["detail"]["_actor"] == "Budi Santoso", action
+
+    # The thing acted on is named, so "changed a case" says WHICH case.
+    assert by_action["case.created"]["detail"]["_target"] == "Judol sweep Aug"
+    assert by_action["case.updated"]["detail"]["_target"] == "Judol sweep Aug"
+    # For a login the target IS the actor; repeating it reads as
+    # "Budi Santoso signed in Budi Santoso".
+    assert "_target" not in by_action["auth.login"]["detail"]
+
+
+def test_entries_record_where_the_action_came_from():
+    """Audit practice (CloudTrail/SOC 2) records who acted AND from what device
+    and location. We recorded only who and when — material for a
+    law-enforcement tool, where "Budi confirmed this wallet" reads very
+    differently from an unrecognised address at 03:00.
+
+    The first X-Forwarded-For entry is the real client: Render terminates TLS
+    upstream, so request.client is the proxy. Later hops are appended by
+    intermediaries, so only the first is taken.
+    """
+    token = _login()
+    headers = {
+        **_auth(token),
+        "X-Forwarded-For": "203.0.113.9, 10.0.0.1",
+        "User-Agent": "Mozilla/5.0 ITTU-Console",
+    }
+    client.post("/api/cases", json={"title": "Origin test"}, headers=headers)
+
+    feed = client.get("/api/audit", headers=_auth(token)).json()
+    created = next(e for e in feed["entries"] if e["action"] == "case.created")
+    assert created["detail"]["_ip"] == "203.0.113.9", "must be the client, not the proxy"
+    assert created["detail"]["_user_agent"] == "Mozilla/5.0 ITTU-Console"
+    # Ties the audit row to its request log line.
+    assert created["detail"]["_request_id"]
+
+
+def test_downloading_evidence_is_audited_with_its_hash():
+    """Evidence LEAVING the system — the only read we audit, deliberately.
+
+    "Who downloaded the evidence pack" is a top insider-risk question in
+    forensics (arguably more than who edited a case title), and it was
+    previously possible with no trace at all. The document's custody hash is
+    recorded so the trail says exactly WHICH bytes were taken, making an
+    exported copy comparable later.
+    """
+    token = _login()
+    bundle = client.post(
+        "/api/actions/generate",
+        json={
+            "case_id": "CASE-EXPORT-1",
+            "crime_type": "investment",
+            "entities": [
+                {"type": "crypto_wallet", "value": "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6", "chain": "tron"}
+            ],
+            "outputs": ["freeze"],
+        },
+        headers=_auth(token),
+    ).json()
+    doc = bundle["documents"][0]
+
+    r = client.get(f"/api/documents/{doc['id']}", headers=_auth(token))
+    assert r.status_code == 200
+
+    feed = client.get("/api/audit", headers=_auth(token)).json()
+    export = next(e for e in feed["entries"] if e["action"] == "evidence.exported")
+    assert export["target_id"] == doc["id"]
+    assert export["detail"]["sha256"] == doc["sha256"], "must record WHICH bytes left"
+    assert export["detail"]["_actor"] == "Budi Santoso"
+    assert feed["chain_ok"] is True

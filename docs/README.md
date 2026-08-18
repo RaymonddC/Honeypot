@@ -35,6 +35,7 @@ screens (`/home`, `/case`, `/guide`) now front the four pillars. Source: `../PID
 | **[OAuth-Live-Validation.md](OAuth-Live-Validation.md)** | Google OAuth → JWT: audience check, provisioning allowlist, fail-loud codes. |
 | **[Demo-Runbook.md](Demo-Runbook.md)** | Timed run-of-show, golden-thread identity, fallback playbook, judge Q&A. |
 | **[Deploy.md](Deploy.md)** | Vercel (frontend) + Render (backend) Blueprint, env vars, migrations. |
+| **[Wallet-Risk-Scoring-Rules.md](Wallet-Risk-Scoring-Rules.md)** | What the risk score actually computes, which constants are unvalidated, and what the bands should mean. Read §4. |
 | **[Live-Voice-Calls.md](Live-Voice-Calls.md)** | Voice call modes (live-mic shipped) + path to real telephony (Twilio/PSTN). |
 | **[Voice-Honeypot-Outbound.md](Voice-Honeypot-Outbound.md)** | Outbound calling: number pool, dial campaigns, the call log, triage → case. Built except real telephony. |
 

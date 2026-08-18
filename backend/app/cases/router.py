@@ -11,7 +11,7 @@ All routes require an authenticated identity (cases are agency-owned).
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app.cases.repository import CaseRepository, get_case_repository
@@ -99,6 +99,7 @@ async def get_audit_feed(
     limit: int = 100,
     auth: AuthContext = Depends(get_current_user),
     session=Depends(get_optional_tenant_session),
+    request: Request = None,  # audit origin (ip/user-agent)
 ) -> AuditFeedOut:
     """This agency's audit trail, newest first, with the chain verified.
 
@@ -133,6 +134,7 @@ async def create_case(
     repo: CaseRepository = RepoDep,
     auth: AuthContext = Depends(get_current_user),
     session=Depends(get_optional_tenant_session),
+    request: Request = None,  # audit origin (ip/user-agent)
 ) -> CaseOut:
     """Open a new investigation case."""
     case = await repo.create_case(body)
@@ -143,8 +145,11 @@ async def create_case(
         agency_id=str(auth.agency.id),
         action=CASE_CREATED,
         actor_user_id=str(auth.user.id),
+        actor_name=auth.user.name,
+        request=request,
         target_type="case",
         target_id=case.id,
+        target_label=case.title,
         detail={"title": case.title, "stage": case.stage, "crime_type": case.crime_type},
     )
     return case
@@ -177,6 +182,7 @@ async def update_case(
     repo: CaseRepository = RepoDep,
     auth: AuthContext = Depends(get_current_user),
     session=Depends(get_optional_tenant_session),
+    request: Request = None,  # audit origin (ip/user-agent)
 ) -> CaseOut:
     """Advance the stage, change status, or edit case fields."""
     case = await repo.update_case(case_id, body)
@@ -191,8 +197,11 @@ async def update_case(
         agency_id=str(auth.agency.id),
         action=CASE_UPDATED,
         actor_user_id=str(auth.user.id),
+        actor_name=auth.user.name,
+        request=request,
         target_type="case",
         target_id=case.id,
+        target_label=case.title,
         detail={"changed": changed},
     )
     return case

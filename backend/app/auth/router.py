@@ -140,7 +140,10 @@ async def _record_login(session, user: SeedUser, agency: SeedAgency, *, method: 
         agency_id=str(agency.id),
         action=AUTH_LOGIN,
         actor_user_id=str(user.id),
+        actor_name=user.name,
         target_type="user",
+        # No target_label: for a login the target IS the actor, and repeating it
+        # renders as "Budi Santoso signed in Budi Santoso".
         target_id=str(user.id),
         detail={"method": method, "role": user.role, "email": user.email},
     )

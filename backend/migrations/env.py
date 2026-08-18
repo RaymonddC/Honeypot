@@ -23,7 +23,15 @@ from app.intel import models as intel_models  # noqa: F401
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # disable_existing_loggers=False is LOAD-BEARING. fileConfig defaults to
+    # True, which disables every logger not named in alembic.ini — including
+    # `ittu.request` and `uvicorn.error`, the ones the request log, the audit
+    # writer and the migration guard use. Any in-process alembic call (a
+    # management command, a test, a future migrate-on-boot) would therefore
+    # silently switch application logging off, and the symptom — "the logs just
+    # stopped" — points nowhere near migrations. Caught by a request-logging
+    # test that failed only when a migration test ran first.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # Migrations run as the OWNING role (ITTU_MIGRATION_DATABASE_URL) when set — the
 # app's ITTU_DATABASE_URL is the non-owning ittu_app role that can't run DDL.

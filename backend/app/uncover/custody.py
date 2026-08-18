@@ -1,5 +1,21 @@
 """Evidence & custody — SHA-256 hashing + hash-chained audit log (UNCOVER).
 
+**Relationship to ``app/core/audit.py`` (read before "unifying" these).** They
+look alike and are not the same thing:
+
+* THIS chain is per-PROCESS and in-memory, scoped to a bundle. It exists to fill
+  ``ActionBundle.audit`` in the API response (``uncover/repository.py`` is
+  explicit that the column is never stored). It is lost on restart.
+* ``core.audit_log`` is the durable, per-AGENCY action trail: who did what, when,
+  surviving restarts and verified on read at ``GET /api/audit``.
+
+The durable record of bundle generation and dispatch now lives in the core trail
+(``action.bundle.generated`` / ``dispatch.sent``), including document sha256s.
+This module stays as the per-bundle presentation of the same events. Collapsing
+it into the core trail would change the API contract for ``ActionBundle.audit``
+and is a product decision, not a cleanup — see docs/Backlog.md.
+
+
 Every generated document is evidence: hashed, timestamped, and recorded in an
 append-only, tamper-evident audit chain (``sha256`` + ``prev_sha256``),
 mirroring ``core.audit_log`` in docs/Data-Model.md. POC keeps the chain

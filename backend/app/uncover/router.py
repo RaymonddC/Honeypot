@@ -11,10 +11,17 @@ P1/P2). Generation is automatic; **dispatch requires an explicit call** —
 irreversible outward actions are never auto-fired.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, Request
 
 from app.core.adapters import ChainDataAdapter, FiatDataAdapter
+from app.core.audit import (
+    BUNDLE_GENERATED,
+    DISPATCH_SENT,
+    EVIDENCE_EXPORTED,
+    record_action,
+)
 from app.core.auth import DISPATCH_ROLES, AuthContext, get_current_user, require_role
+from app.core.db import get_optional_tenant_session
 from app.uncover import service
 from app.uncover.metrics import RangeKey, ResponseMetrics, compute_metrics
 from app.uncover.notifications import NotificationOut, NotificationSink
@@ -47,6 +54,8 @@ async def post_generate(
     fiat: FiatDataAdapter = FiatAdapterDep,
     repo: UncoverRepository = RepoDep,
     auth: AuthContext = Depends(get_current_user),  # any authenticated role
+    audit_session=Depends(get_optional_tenant_session),
+    request: Request = None,  # audit origin (ip/user-agent)
 ) -> ActionBundle:
     """One click → many artifacts: freeze PDF + LTKM/STR draft + evidence pack.
 
@@ -54,13 +63,37 @@ async def post_generate(
     **draft** bundle with the routing plan. Nothing is dispatched. The signing
     agency/officer on the letters is the authenticated identity.
     """
-    return await service.generate_bundle(
+    bundle = await service.generate_bundle(
         body, chain, fiat, repo=repo,
         agency=auth.agency.name,
         agency_type=auth.agency.type,
         officer_name=auth.user.name,
         officer_role=auth.role,  # slug → title mapped in the document generator
     )
+    # Records the produced evidence and its hashes durably. Document sha256s are
+    # already stored on action_documents; keeping them here too means the audit
+    # trail alone answers "what was produced, by whom, and what did it hash to"
+    # without having to trust a second table to still agree.
+    await record_action(
+        audit_session,
+        agency_id=str(auth.agency.id),
+        action=BUNDLE_GENERATED,
+        actor_user_id=str(auth.user.id),
+        actor_name=auth.user.name,
+        request=request,
+        target_type="action_bundle",
+        target_id=bundle.id,
+        target_label=f"{bundle.crime_type} bundle for case {bundle.case_id}",
+        detail={
+            "case_id": bundle.case_id,
+            "crime_type": bundle.crime_type,
+            "outputs": list(bundle.outputs),
+            "documents": [
+                {"id": d.id, "type": d.type, "sha256": d.sha256} for d in bundle.documents
+            ],
+        },
+    )
+    return bundle
 
 
 @router.get("/actions/{action_id}", response_model=ActionBundle)
@@ -81,7 +114,9 @@ async def post_dispatch(
     action_id: str,
     sink: NotificationSink = SinkDep,
     repo: UncoverRepository = RepoDep,
-    _auth: AuthContext = Depends(require_role(DISPATCH_ROLES)),
+    auth: AuthContext = Depends(require_role(DISPATCH_ROLES)),
+    audit_session=Depends(get_optional_tenant_session),
+    request: Request = None,  # audit origin (ip/user-agent)
 ) -> ActionBundle:
     """Human-gated dispatch. POC: mock sink — notifications record
     status='mock' ("would dispatch to …"); nothing leaves the system.
@@ -100,6 +135,27 @@ async def post_dispatch(
         )
     if bundle is None:
         raise _not_found("action", action_id)
+    # The most consequential action in the product: irreversible, outward, and
+    # role-gated for that reason. Records WHO authorised it and WHERE it went —
+    # recipients by name, since "which agencies were told" is the question asked
+    # afterwards. Never the payload or the signing secret.
+    await record_action(
+        audit_session,
+        agency_id=str(auth.agency.id),
+        action=DISPATCH_SENT,
+        actor_user_id=str(auth.user.id),
+        actor_name=auth.user.name,
+        request=request,
+        target_type="action_bundle",
+        target_id=action_id,
+        target_label=f"{bundle.crime_type} bundle for case {bundle.case_id}",
+        detail={
+            "recipients": [n.target_agency for n in bundle.notifications],
+            "channels": sorted({n.channel for n in bundle.notifications if n.channel}),
+            "crime_type": bundle.crime_type,
+            "documents": len(bundle.documents),
+        },
+    )
     return bundle
 
 
@@ -139,7 +195,9 @@ async def post_notification_retry(
 async def get_document(
     document_id: str,
     repo: UncoverRepository = RepoDep,
-    _auth: AuthContext = Depends(get_current_user),  # P-5: read route needs identity
+    auth: AuthContext = Depends(get_current_user),  # P-5: read route needs identity
+    audit_session=Depends(get_optional_tenant_session),
+    request: Request = None,
 ) -> Response:
     """Download the generated PDF (bytes verified against its custody hash).
 
@@ -153,6 +211,21 @@ async def get_document(
     doc = await service.get_document(document_id, repo=repo)
     if doc is None:
         raise _not_found("document", document_id)
+    # Evidence leaving the system. Records the document's custody hash so the
+    # trail says exactly WHICH bytes were taken, not merely that a download
+    # happened — the hash is what makes the exported copy comparable later.
+    await record_action(
+        audit_session,
+        agency_id=str(auth.agency.id),
+        action=EVIDENCE_EXPORTED,
+        actor_user_id=str(auth.user.id),
+        actor_name=auth.user.name,
+        target_type="action_document",
+        target_id=document_id,
+        target_label=doc.filename,
+        request=request,
+        detail={"sha256": doc.sha256, "type": doc.type, "status": doc.status},
+    )
     return Response(
         content=doc.pdf,
         media_type="application/pdf",

@@ -50,6 +50,12 @@ Universal resolution keeps the markers so one lock serves Windows, Linux and CI.
 
 Verify: `curl http://localhost:8000/health` → `{"status":"ok","mode":"poc"}`.
 
+**When something isn't working, curl `/ready` first** — it probes the actual
+dependencies (database reachable, schema at migration head, schema grants
+present, RLS genuinely enforcing, Redis reachable) and each check says what to
+do about it. `/health` deliberately stays shallow because it is the platform
+health check; see `docs/Deploy.md` §7.
+
 **Migrations** — `alembic upgrade head`, run as the OWNING role
 (`ITTU_MIGRATION_DATABASE_URL`); the app connects as the non-owning `ittu_app`
 role so RLS actually applies (`backend/scripts/create_app_role.sql`, once per

@@ -69,3 +69,67 @@
 - **PP 43/2015 (amended PP 61/2021)** — STR reporting-party format to PPATK.
 - **POJK 27/2024 / 23/2025** — AML/CFT/CPF alignment.
 - Honeypot call-recording defensible under Polri supervision (reactive/victim-framed).
+
+---
+
+## 9. RLS isolation review (2026-08-18)
+
+Run against the **live schema**, not by reading code — which is what found the leak.
+Method and result recorded here because "we reviewed it" is worth nothing without saying
+what was checked and what it missed.
+
+### What was checked
+
+| Check | Result |
+|---|---|
+| Every table with `agency_id` has RLS **and** a policy | ✅ clean (32 tables) |
+| Tables with RLS **disabled** that still carry a tenant-linking column | ⚠️ **2 found** |
+| Cross-tenant read test (seed as agency B, read as agency A) | ⚠️ **1 leak confirmed** |
+| Endpoint auth coverage (behavioural: call without a token) | ✅ all sensitive routes 401/403 |
+| Queries run as the **owning** role, where RLS does not filter | ✅ by-id only; the one search filters explicitly |
+
+### The leak (fixed, migration `20260818_16`)
+
+Table-level coverage looked clean — and that is exactly why the gap survived. **Join tables
+have no `agency_id` of their own**, so they pass a "does every agency table have a policy"
+check while being unprotected. Confirmed empirically:
+
+```
+agency A reading agency B's data:
+  intel.syndicates        : 0  blocked
+  intel.entities          : 0  blocked
+  intel.syndicate_members : 1  LEAK
+```
+
+An agency was denied another's syndicate **and** its entity, yet could read the row *linking
+them* — leaking the shape of another agency's investigation graph (which opaque ids cluster,
+link type, confidence, how many links exist). The ids are unreadable alone; the structure is
+still intelligence. A structural scan found a second table of the same shape:
+`fiat.correlations` (`case_id` → agency-scoped `core.cases`), empty today — fixed before it
+fills.
+
+Both now use the join-through-parent policy the codebase **already** used for
+`honeypot.dial_targets` / `dial_attempts`, so this was an inconsistency, not a missing
+concept. Verified in both directions, because an over-broad RLS policy fails silently as
+"no data": other agencies blocked, own rows still visible, migration round-trips.
+Regression tests in `tests/test_rls_isolation.py`.
+
+### Deliberate exceptions (not findings)
+
+- **`GET /api/config`, `GET /api/bridge/sankey`** are intentionally unauthenticated — the
+  first exposes only mode flags and presence booleans (never key values), the second is
+  demo data. Recorded so a future reviewer doesn't "fix" them by accident.
+- **`chain.*` / `fiat.fiat_*` have no RLS**: public blockchain/fiat reference data, not
+  tenant data. `fiat.correlations` was the exception because it is *derived per case*.
+- **Background workers connect as the owning role**, so RLS does **not** filter their
+  queries — a system actor is handed a row id and must read it to learn the owner, which
+  RLS cannot resolve. Actor code therefore scopes by `agency_id` explicitly; see
+  `honeypot_ops.dialer.resolve_case_id`, which has a test asserting it never crosses
+  agencies.
+
+### Related fixes earlier in the same cycle
+
+- `casedata` was missing from `scripts/create_app_role.sql`, so under Postgres persistence
+  the app hit `InsufficientPrivilege` on analyst-entered data with no hint (`6d93896`).
+- `core.audit_log` is append-only at the DB level: separate INSERT and SELECT policies, no
+  UPDATE or DELETE policy at all.

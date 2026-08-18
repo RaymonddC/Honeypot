@@ -31,7 +31,7 @@ agency-owned under Postgres RLS.
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.cases.repository import CaseRepository, get_case_repository
 from app.cases.schemas import CreateCaseRequest
@@ -407,6 +407,7 @@ async def attach_triage_session(
     case_repo: CaseRepository = CaseDep,
     auth: AuthContext = Depends(get_current_user),
     audit_session=Depends(get_optional_tenant_session),
+    request: Request = None,  # audit origin (ip/user-agent)
 ) -> TriageSessionOut:
     """Attach a triaged call to an existing case."""
     if await case_repo.get_case(body.case_id) is None:
@@ -421,8 +422,11 @@ async def attach_triage_session(
         agency_id=str(auth.agency.id),
         action=TRIAGE_ATTACHED,
         actor_user_id=str(auth.user.id),
+        actor_name=auth.user.name,
+        request=request,
         target_type="session",
         target_id=session_id,
+        target_label=f"call {attached.channel_ref or session_id}",
         detail={"case_id": body.case_id, "session_id": session_id},
     )
     return attached
@@ -440,6 +444,7 @@ async def promote_triage_session(
     case_repo: CaseRepository = CaseDep,
     auth: AuthContext = Depends(get_current_user),
     audit_session=Depends(get_optional_tenant_session),
+    request: Request = None,  # audit origin (ip/user-agent)
 ) -> PromoteSessionResult:
     """Open a NEW case for a triaged call and attach it, in one step.
 
@@ -471,8 +476,11 @@ async def promote_triage_session(
         agency_id=str(auth.agency.id),
         action=TRIAGE_PROMOTED,
         actor_user_id=str(auth.user.id),
+        actor_name=auth.user.name,
+        request=request,
         target_type="case",
         target_id=created.id,
+        target_label=created.title,
         detail={
             "session_id": session_id,
             "title": created.title,

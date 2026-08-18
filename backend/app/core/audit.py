@@ -51,6 +51,17 @@ CASE_CREATED = "case.created"
 CASE_UPDATED = "case.updated"
 ENTITY_REVIEWED = "entity.reviewed"
 DISPATCH_SENT = "dispatch.sent"
+# Evidence generation. The per-bundle chain in ``uncover/custody.py`` also
+# records these, but it is an in-memory POC accumulator refilled per request
+# (see uncover/repository.py) — it does not survive a restart. Recording them
+# here is what makes the evidence trail DURABLE; custody remains the per-bundle
+# presentation of the same events inside ``ActionBundle.audit``.
+BUNDLE_GENERATED = "action.bundle.generated"
+# Evidence LEAVING the system. The only READ we audit, deliberately: everything
+# else here is a mutation, but "who downloaded the evidence pack" is a top
+# insider-risk question in forensics — arguably more important than who edited a
+# case title — and it was previously possible with no trace at all.
+EVIDENCE_EXPORTED = "evidence.exported"
 TRIAGE_ATTACHED = "triage.attached"
 TRIAGE_PROMOTED = "triage.promoted"
 
@@ -302,14 +313,27 @@ async def record_action(
     agency_id: str | None,
     action: str,
     actor_user_id: str | None = None,
+    actor_name: str | None = None,
     target_type: str | None = None,
     target_id: str | None = None,
+    target_label: str | None = None,
+    request=None,
     detail: dict | None = None,
 ) -> AuditEntry | None:
     """Record one action. NEVER raises — see the module docstring.
 
     Pass the request's session in Postgres mode so the entry commits atomically
     with the change it describes; pass ``None`` to use the in-memory chain.
+
+    ``request`` (when passed) adds ``_ip``/``_user_agent``/``_request_id`` —
+    origin is corroboration, not proof: anything before our edge is outside our
+    trust boundary. ``actor_name`` and ``target_label`` are SNAPSHOTS, stored in ``detail``
+    under reserved keys. An audit row identified only by uuids answers "who did
+    what" with ``9f79eb96-…`` — unreadable to the investigator or court the trail
+    exists for. They are captured at write time rather than joined at read time
+    on purpose: if a user is later renamed or removed, or a case retitled, the
+    entry must still say who acted and on what **at the time**. Same reasoning as
+    ``intel.scam_sessions.persona_snapshot`` elsewhere in this codebase.
     """
     try:
         repo: AuditRepository = (
@@ -322,6 +346,24 @@ async def record_action(
             # action is exactly what an audit trail exists to prevent.
             _log.warning("audit: dropping %s — no agency_id on the request", action)
             return None
+        detail = dict(detail or {})
+        if actor_name:
+            detail["_actor"] = actor_name
+        if target_label:
+            detail["_target"] = target_label
+        # Where it came from, and the id tying this row to its request log line.
+        # Standard audit practice records who acted AND from what device and
+        # location (CloudTrail/SOC 2); we recorded only who and when.
+        if request is not None:
+            from app.core.requests import client_origin, current_request_id
+
+            origin = client_origin(request)
+            if origin.get("ip"):
+                detail["_ip"] = origin["ip"]
+            if origin.get("user_agent"):
+                detail["_user_agent"] = origin["user_agent"]
+            if current_request_id():
+                detail["_request_id"] = current_request_id()
         return await repo.record(
             agency_id=agency_id, action=action, actor_user_id=actor_user_id,
             target_type=target_type, target_id=target_id, detail=detail,
