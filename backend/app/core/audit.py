@@ -308,14 +308,24 @@ async def record_action(
     agency_id: str | None,
     action: str,
     actor_user_id: str | None = None,
+    actor_name: str | None = None,
     target_type: str | None = None,
     target_id: str | None = None,
+    target_label: str | None = None,
     detail: dict | None = None,
 ) -> AuditEntry | None:
     """Record one action. NEVER raises — see the module docstring.
 
     Pass the request's session in Postgres mode so the entry commits atomically
     with the change it describes; pass ``None`` to use the in-memory chain.
+
+    ``actor_name`` and ``target_label`` are SNAPSHOTS, stored in ``detail``
+    under reserved keys. An audit row identified only by uuids answers "who did
+    what" with ``9f79eb96-…`` — unreadable to the investigator or court the trail
+    exists for. They are captured at write time rather than joined at read time
+    on purpose: if a user is later renamed or removed, or a case retitled, the
+    entry must still say who acted and on what **at the time**. Same reasoning as
+    ``intel.scam_sessions.persona_snapshot`` elsewhere in this codebase.
     """
     try:
         repo: AuditRepository = (
@@ -328,6 +338,11 @@ async def record_action(
             # action is exactly what an audit trail exists to prevent.
             _log.warning("audit: dropping %s — no agency_id on the request", action)
             return None
+        detail = dict(detail or {})
+        if actor_name:
+            detail["_actor"] = actor_name
+        if target_label:
+            detail["_target"] = target_label
         return await repo.record(
             agency_id=agency_id, action=action, actor_user_id=actor_user_id,
             target_type=target_type, target_id=target_id, detail=detail,

@@ -447,8 +447,10 @@ async def post_entity_review(
         agency_id=str(auth.agency.id),
         action=ENTITY_REVIEWED,
         actor_user_id=str(auth.user.id),
+        actor_name=auth.user.name,
         target_type="entity",
         target_id=entity_id,
+        target_label=f"{entity.type} {entity.value}",
         detail={"status": body.status, "value": entity.value, "type": entity.type},
     )
     return entity

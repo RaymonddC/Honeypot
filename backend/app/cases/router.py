@@ -143,8 +143,10 @@ async def create_case(
         agency_id=str(auth.agency.id),
         action=CASE_CREATED,
         actor_user_id=str(auth.user.id),
+        actor_name=auth.user.name,
         target_type="case",
         target_id=case.id,
+        target_label=case.title,
         detail={"title": case.title, "stage": case.stage, "crime_type": case.crime_type},
     )
     return case
@@ -191,8 +193,10 @@ async def update_case(
         agency_id=str(auth.agency.id),
         action=CASE_UPDATED,
         actor_user_id=str(auth.user.id),
+        actor_name=auth.user.name,
         target_type="case",
         target_id=case.id,
+        target_label=case.title,
         detail={"changed": changed},
     )
     return case

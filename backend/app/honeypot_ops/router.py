@@ -421,8 +421,10 @@ async def attach_triage_session(
         agency_id=str(auth.agency.id),
         action=TRIAGE_ATTACHED,
         actor_user_id=str(auth.user.id),
+        actor_name=auth.user.name,
         target_type="session",
         target_id=session_id,
+        target_label=f"call {attached.channel_ref or session_id}",
         detail={"case_id": body.case_id, "session_id": session_id},
     )
     return attached
@@ -471,8 +473,10 @@ async def promote_triage_session(
         agency_id=str(auth.agency.id),
         action=TRIAGE_PROMOTED,
         actor_user_id=str(auth.user.id),
+        actor_name=auth.user.name,
         target_type="case",
         target_id=created.id,
+        target_label=created.title,
         detail={
             "session_id": session_id,
             "title": created.title,

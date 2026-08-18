@@ -73,8 +73,10 @@ async def post_generate(
         agency_id=str(auth.agency.id),
         action=BUNDLE_GENERATED,
         actor_user_id=str(auth.user.id),
+        actor_name=auth.user.name,
         target_type="action_bundle",
         target_id=bundle.id,
+        target_label=f"{bundle.crime_type} bundle for case {bundle.case_id}",
         detail={
             "case_id": bundle.case_id,
             "crime_type": bundle.crime_type,
@@ -134,8 +136,10 @@ async def post_dispatch(
         agency_id=str(auth.agency.id),
         action=DISPATCH_SENT,
         actor_user_id=str(auth.user.id),
+        actor_name=auth.user.name,
         target_type="action_bundle",
         target_id=action_id,
+        target_label=f"{bundle.crime_type} bundle for case {bundle.case_id}",
         detail={
             "recipients": [n.target_agency for n in bundle.notifications],
             "channels": sorted({n.channel for n in bundle.notifications if n.channel}),

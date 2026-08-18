@@ -293,3 +293,33 @@ def test_generated_evidence_is_recorded_durably_with_hashes():
     # The hash is the evidentiary part — it must match what the API returned.
     assert {d["sha256"] for d in docs} == {d["sha256"] for d in bundle["documents"]}
     assert feed["chain_ok"] is True
+
+
+def test_entries_name_the_person_and_the_thing_not_uuids():
+    """An audit row must be readable by the people it exists for.
+
+    Before this, "who did what" answered with actor=9f79eb96-3e3a-57b1-… and
+    target=case/43b65ec1 — unusable to an investigator, let alone a court. Name
+    and label are SNAPSHOTTED at write time, not joined on read: if a user is
+    later renamed or a case retitled, the entry must still say who acted on what
+    AT THE TIME (same reasoning as intel.scam_sessions.persona_snapshot).
+    """
+    token = _login()
+    case = client.post(
+        "/api/cases", json={"title": "Judol sweep Aug"}, headers=_auth(token)
+    ).json()
+    client.patch(
+        f"/api/cases/{case['id']}", json={"stage": "trace"}, headers=_auth(token)
+    )
+    feed = client.get("/api/audit", headers=_auth(token)).json()
+    by_action = {e["action"]: e for e in feed["entries"]}
+
+    for action in ("auth.login", "case.created", "case.updated"):
+        assert by_action[action]["detail"]["_actor"] == "Budi Santoso", action
+
+    # The thing acted on is named, so "changed a case" says WHICH case.
+    assert by_action["case.created"]["detail"]["_target"] == "Judol sweep Aug"
+    assert by_action["case.updated"]["detail"]["_target"] == "Judol sweep Aug"
+    # For a login the target IS the actor; repeating it reads as
+    # "Budi Santoso signed in Budi Santoso".
+    assert "_target" not in by_action["auth.login"]["detail"]

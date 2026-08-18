@@ -38,6 +38,20 @@ function fmtTs(iso: string): string {
   return `${day} ${month}, ${hh}:${mm}:${ss}`;
 }
 
+/** Who acted, by name. Snapshotted at write time (see app/core/audit.py) — a
+ *  uuid answers "who did what" with `9f79eb96-…`, which is unreadable to the
+ *  investigator or court the trail exists for. */
+function actorName(e: AuditEntry): string {
+  const d = (e.detail ?? {}) as Record<string, unknown>;
+  return (d._actor as string) || "Unknown user";
+}
+
+/** What was acted on, by label (case title, wallet, call number) — not a uuid. */
+function targetLabel(e: AuditEntry): string {
+  const d = (e.detail ?? {}) as Record<string, unknown>;
+  return (d._target as string) || "";
+}
+
 /** Human summary of an entry's detail — the "what changed", not a JSON dump. */
 function summarize(e: AuditEntry): string {
   const d = e.detail ?? {};
@@ -60,8 +74,12 @@ function summarize(e: AuditEntry): string {
       const edited = ov.length ? ` · operator edited ${ov.join(", ")}` : "";
       return `${d.title ?? ""}${edited}`;
     }
-    default:
-      return Object.keys(d).length ? JSON.stringify(d) : "";
+    default: {
+      const rest = Object.fromEntries(
+        Object.entries(d).filter(([k]) => !k.startsWith("_")),
+      );
+      return Object.keys(rest).length ? JSON.stringify(rest) : "";
+    }
   }
 }
 
@@ -172,7 +190,16 @@ export default function AuditPage() {
                         #{e.seq}
                       </span>
                       <span className="shrink-0 text-muted">{copy.glyph}</span>
-                      <span className="font-medium text-fg">{copy.label}</span>
+                      {/* WHO first — that is the question an audit trail exists
+                          to answer, and it was a uuid until we snapshotted the
+                          name at write time. */}
+                      <span className="font-semibold text-fg">{actorName(e)}</span>
+                      <span className="text-fg">{copy.label.toLowerCase()}</span>
+                      {targetLabel(e) && (
+                        <span className="font-medium text-accent-bright">
+                          {targetLabel(e)}
+                        </span>
+                      )}
                       {detail && (
                         <span className="text-muted">— {detail}</span>
                       )}
