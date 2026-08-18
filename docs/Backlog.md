@@ -40,7 +40,15 @@ on the Response dashboard). **282 backend tests green**, frontend build green.
 - [ ] **A1-prod — Dramatiq executor swap** (investigation jobs) · S–M · *deferred by choice* — async
       already works in-process; build only when there's real concurrency (submit→poll contract is a
       drop-in). *(Note: C1 already stood up the Dramatiq delivery actor + broker for notifications.)*
-- [ ] **Wallet risk scoring — specify and justify the rules** · M · *raised 2026-08-17* — the pipeline
+- [ ] **Wallet risk scoring — specify and justify the rules** · M · **spec WRITTEN 2026-08-18**
+      ([`Wallet-Risk-Scoring-Rules.md`](Wallet-Risk-Scoring-Rules.md)) — every constant documented and
+      honestly marked *unvalidated default*; band→action mapping proposed; validation plan defined.
+      **It surfaced a probable defect, verified against the real code: an OFAC-sanctioned wallet with
+      no detected pattern scores LOW**, and the output contradicts itself (reasoning names the SDN
+      listing, band says low). Sanctions are a legal fact, not a signal to average — recommendation is
+      a band FLOOR, left as a decision because changing what the system flags is a product call.
+      Still open: fix that, confirm bands with investigator practice, assign an owner for the numbers,
+      and run the validation in §5. *Original framing 2026-08-17* — the pipeline
       exists and is deterministic (`app/takedown/scoring.py`: 5 typology detectors + an Isolation
       Forest, combined in `composite_risk`, stamped with `MODEL_VERSION`), but **the rules are
       undocumented magic numbers**: `0.25·IF + 0.75·min(fired/2, 1)`, `+0.25` for scam/sanctioned
