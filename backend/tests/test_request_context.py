@@ -42,19 +42,52 @@ def test_an_absurdly_long_inbound_id_is_truncated():
     assert len(r.headers[REQUEST_ID_HEADER]) <= 64
 
 
-def test_requests_are_logged_without_query_strings(caplog):
+class _Capture(logging.Handler):
+    """Capture records straight off the `ittu.request` logger.
+
+    Not caplog: TestClient runs the app in a separate thread, and caplog's
+    root-handler capture races with that — the test passed alone and flaked in
+    the full suite. Attaching to the logger itself is deterministic regardless
+    of which thread emits.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.messages: list[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.messages.append(record.getMessage())
+
+
+def _capture_request_logs() -> _Capture:
+    handler = _Capture()
+    logger = logging.getLogger("ittu.request")
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+    return handler
+
+
+def test_requests_are_logged_without_query_strings():
     """Query strings are fine today and are exactly where a token or phone
     number lands tomorrow — and log lines outlive the reasoning that made them
     safe. Method, path, status and duration answer the operational question."""
-    with caplog.at_level(logging.INFO, logger="ittu.request"):
+    handler = _capture_request_logs()
+    try:
         client.get("/api/entities?session=sess_secret_value")
-    line = next(r.getMessage() for r in caplog.records if "/api/entities" in r.getMessage())
+    finally:
+        logging.getLogger("ittu.request").removeHandler(handler)
+    matching = [m for m in handler.messages if "/api/entities" in m]
+    assert matching, f"the request was not logged at all; saw {handler.messages}"
+    line = matching[0]
     assert "GET /api/entities" in line
     assert "sess_secret_value" not in line, "query string must not reach the log"
 
 
-def test_health_probes_do_not_flood_the_log(caplog):
+def test_health_probes_do_not_flood_the_log():
     """/health is polled constantly; logging each poll buries the real lines."""
-    with caplog.at_level(logging.INFO, logger="ittu.request"):
+    handler = _capture_request_logs()
+    try:
         client.get("/health")
-    assert not [r for r in caplog.records if "/health" in r.getMessage()]
+    finally:
+        logging.getLogger("ittu.request").removeHandler(handler)
+    assert not [m for m in handler.messages if "/health" in m]

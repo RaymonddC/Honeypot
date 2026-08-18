@@ -45,6 +45,28 @@ def current_request_id() -> str:
     return _request_id.get()
 
 
+def client_origin(request) -> dict[str, str]:
+    """Where a request came from, for the audit trail: ``{ip, user_agent}``.
+
+    Audit-log practice (CloudTrail, SOC 2) records who acted **and from what
+    device and location** — we recorded only who and when. For a law-enforcement
+    tool that difference is material: "Budi confirmed this wallet" reads very
+    differently if it came from an unrecognised address at 03:00.
+
+    Honours ``X-Forwarded-For`` because Render terminates TLS upstream, so
+    ``request.client`` is the proxy, not the operator. Takes the FIRST entry —
+    the original client — and only the first, since later hops are appended by
+    intermediaries and a client can spoof the header's tail. Treat it as
+    corroboration, not proof: anything before our edge is outside our trust.
+    """
+    forwarded = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+    ip = forwarded or (getattr(request.client, "host", "") or "")
+    return {
+        "ip": ip[:45],  # an IPv6 literal is at most 45 chars
+        "user_agent": (request.headers.get("user-agent") or "")[:200],
+    }
+
+
 class RequestContextMiddleware(BaseHTTPMiddleware):
     """Assign/propagate a request id, then log the request's outcome."""
 

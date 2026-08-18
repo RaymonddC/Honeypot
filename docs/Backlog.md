@@ -83,6 +83,24 @@ on the Response dashboard). **282 backend tests green**, frontend build green.
             tamper-evident log nobody checks proves nothing.
       - [x] Durable coverage of evidence generation — `action.bundle.generated` (with document
             sha256s) and `dispatch.sent` now land in the core trail (2026-08-18).
+      - [x] Origin + export auditing (2026-08-18) — after checking practice against CloudTrail /
+            SOC 2 guidance: entries now record `_ip`, `_user_agent` and `_request_id` (who acted
+            **and from where**, and which log line it belongs to), and `evidence.exported` audits
+            document downloads with the custody hash. Evidence could previously leave the system
+            with no trace at all — the top insider-risk question in forensics.
+      - [ ] **Decide: audit DENIED actions too** · S · *raised 2026-08-18, needs a product call* —
+            CloudTrail records denied API calls, and they are often the most security-relevant
+            signal: an authenticated user repeatedly attempting actions their role forbids is
+            exactly what an audit trail should surface. We currently record only successes, so
+            every 403 vanishes.
+            **The tradeoff is noise vs signal, which is why it is a decision and not just work.**
+            Failed *logins* should stay OUT (brute-force noise belongs in security logging, not an
+            agency's evidentiary chain a court has to read). Denied *actions by an authenticated
+            user* are different — the actor is known and the attempt is meaningful. A misconfigured
+            client could still spam them, so consider recording the first N per actor/action/window
+            rather than every one.
+            If adopted, add an `outcome` field (success|denied) rather than a separate action name,
+            so "everything Budi did" stays one query.
       - [ ] **Decide** whether `uncover.custody` should collapse into the core trail. They are NOT
             duplicates: custody is per-process/in-memory and only fills `ActionBundle.audit` in the
             API response (never stored — see `uncover/repository.py`), while `core.audit_log` is the

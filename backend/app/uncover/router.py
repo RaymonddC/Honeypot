@@ -11,10 +11,15 @@ P1/P2). Generation is automatic; **dispatch requires an explicit call** —
 irreversible outward actions are never auto-fired.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, Request
 
 from app.core.adapters import ChainDataAdapter, FiatDataAdapter
-from app.core.audit import BUNDLE_GENERATED, DISPATCH_SENT, record_action
+from app.core.audit import (
+    BUNDLE_GENERATED,
+    DISPATCH_SENT,
+    EVIDENCE_EXPORTED,
+    record_action,
+)
 from app.core.auth import DISPATCH_ROLES, AuthContext, get_current_user, require_role
 from app.core.db import get_optional_tenant_session
 from app.uncover import service
@@ -50,6 +55,7 @@ async def post_generate(
     repo: UncoverRepository = RepoDep,
     auth: AuthContext = Depends(get_current_user),  # any authenticated role
     audit_session=Depends(get_optional_tenant_session),
+    request: Request = None,  # audit origin (ip/user-agent)
 ) -> ActionBundle:
     """One click → many artifacts: freeze PDF + LTKM/STR draft + evidence pack.
 
@@ -74,6 +80,7 @@ async def post_generate(
         action=BUNDLE_GENERATED,
         actor_user_id=str(auth.user.id),
         actor_name=auth.user.name,
+        request=request,
         target_type="action_bundle",
         target_id=bundle.id,
         target_label=f"{bundle.crime_type} bundle for case {bundle.case_id}",
@@ -109,6 +116,7 @@ async def post_dispatch(
     repo: UncoverRepository = RepoDep,
     auth: AuthContext = Depends(require_role(DISPATCH_ROLES)),
     audit_session=Depends(get_optional_tenant_session),
+    request: Request = None,  # audit origin (ip/user-agent)
 ) -> ActionBundle:
     """Human-gated dispatch. POC: mock sink — notifications record
     status='mock' ("would dispatch to …"); nothing leaves the system.
@@ -137,6 +145,7 @@ async def post_dispatch(
         action=DISPATCH_SENT,
         actor_user_id=str(auth.user.id),
         actor_name=auth.user.name,
+        request=request,
         target_type="action_bundle",
         target_id=action_id,
         target_label=f"{bundle.crime_type} bundle for case {bundle.case_id}",
@@ -186,7 +195,9 @@ async def post_notification_retry(
 async def get_document(
     document_id: str,
     repo: UncoverRepository = RepoDep,
-    _auth: AuthContext = Depends(get_current_user),  # P-5: read route needs identity
+    auth: AuthContext = Depends(get_current_user),  # P-5: read route needs identity
+    audit_session=Depends(get_optional_tenant_session),
+    request: Request = None,
 ) -> Response:
     """Download the generated PDF (bytes verified against its custody hash).
 
@@ -200,6 +211,21 @@ async def get_document(
     doc = await service.get_document(document_id, repo=repo)
     if doc is None:
         raise _not_found("document", document_id)
+    # Evidence leaving the system. Records the document's custody hash so the
+    # trail says exactly WHICH bytes were taken, not merely that a download
+    # happened — the hash is what makes the exported copy comparable later.
+    await record_action(
+        audit_session,
+        agency_id=str(auth.agency.id),
+        action=EVIDENCE_EXPORTED,
+        actor_user_id=str(auth.user.id),
+        actor_name=auth.user.name,
+        target_type="action_document",
+        target_id=document_id,
+        target_label=doc.filename,
+        request=request,
+        detail={"sha256": doc.sha256, "type": doc.type, "status": doc.status},
+    )
     return Response(
         content=doc.pdf,
         media_type="application/pdf",

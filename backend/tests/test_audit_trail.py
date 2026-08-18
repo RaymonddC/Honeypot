@@ -323,3 +323,64 @@ def test_entries_name_the_person_and_the_thing_not_uuids():
     # For a login the target IS the actor; repeating it reads as
     # "Budi Santoso signed in Budi Santoso".
     assert "_target" not in by_action["auth.login"]["detail"]
+
+
+def test_entries_record_where_the_action_came_from():
+    """Audit practice (CloudTrail/SOC 2) records who acted AND from what device
+    and location. We recorded only who and when — material for a
+    law-enforcement tool, where "Budi confirmed this wallet" reads very
+    differently from an unrecognised address at 03:00.
+
+    The first X-Forwarded-For entry is the real client: Render terminates TLS
+    upstream, so request.client is the proxy. Later hops are appended by
+    intermediaries, so only the first is taken.
+    """
+    token = _login()
+    headers = {
+        **_auth(token),
+        "X-Forwarded-For": "203.0.113.9, 10.0.0.1",
+        "User-Agent": "Mozilla/5.0 ITTU-Console",
+    }
+    client.post("/api/cases", json={"title": "Origin test"}, headers=headers)
+
+    feed = client.get("/api/audit", headers=_auth(token)).json()
+    created = next(e for e in feed["entries"] if e["action"] == "case.created")
+    assert created["detail"]["_ip"] == "203.0.113.9", "must be the client, not the proxy"
+    assert created["detail"]["_user_agent"] == "Mozilla/5.0 ITTU-Console"
+    # Ties the audit row to its request log line.
+    assert created["detail"]["_request_id"]
+
+
+def test_downloading_evidence_is_audited_with_its_hash():
+    """Evidence LEAVING the system — the only read we audit, deliberately.
+
+    "Who downloaded the evidence pack" is a top insider-risk question in
+    forensics (arguably more than who edited a case title), and it was
+    previously possible with no trace at all. The document's custody hash is
+    recorded so the trail says exactly WHICH bytes were taken, making an
+    exported copy comparable later.
+    """
+    token = _login()
+    bundle = client.post(
+        "/api/actions/generate",
+        json={
+            "case_id": "CASE-EXPORT-1",
+            "crime_type": "investment",
+            "entities": [
+                {"type": "crypto_wallet", "value": "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6", "chain": "tron"}
+            ],
+            "outputs": ["freeze"],
+        },
+        headers=_auth(token),
+    ).json()
+    doc = bundle["documents"][0]
+
+    r = client.get(f"/api/documents/{doc['id']}", headers=_auth(token))
+    assert r.status_code == 200
+
+    feed = client.get("/api/audit", headers=_auth(token)).json()
+    export = next(e for e in feed["entries"] if e["action"] == "evidence.exported")
+    assert export["target_id"] == doc["id"]
+    assert export["detail"]["sha256"] == doc["sha256"], "must record WHICH bytes left"
+    assert export["detail"]["_actor"] == "Budi Santoso"
+    assert feed["chain_ok"] is True
