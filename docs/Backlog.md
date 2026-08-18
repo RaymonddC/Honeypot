@@ -135,7 +135,7 @@ on the Response dashboard). **282 backend tests green**, frontend build green.
       content is a data-governance flag for law-enforcement evidence. **Keep as market context only**
       (proof Indonesian voice AI works commercially — worth a capstone mention). Stay with Twilio as
       dumb transport + our own STT/TTS/agent loop: the custody chain IS the product.
-- [ ] **Voice honeypot — outbound calling MVP** · L · *in progress 2026-08-16* — full architecture in
+- [ ] **Voice honeypot — outbound calling MVP** · L · *phases 1-4+6 SHIPPED; only phase 5 (Twilio) left* — full architecture in
       [`Voice-Honeypot-Outbound.md`](Voice-Honeypot-Outbound.md): a number pool, a bulk-upload dial
       campaign (Dramatiq-paced, mirrors the C1 notification worker), and a triage queue that attaches
       each connected call's session to a matched case or leaves it for an investigator to assign.
@@ -147,10 +147,14 @@ on the Response dashboard). **282 backend tests green**, frontend build green.
             new `/honeypot-ops` page. Bulk upload reports per-row rejects instead of failing the batch;
             a bare local number (`08…`) is REJECTED, never auto-prefixed to `+62` — guessing a country
             code in a police dialer could call an unrelated real person.
-      - [ ] **Phase 4 — POC dial worker + Requeue + one-session-per-attempt call log** — in progress.
+      - [x] **Phase 4 — POC dial worker + Requeue + call log** (`fad427a`, `f27b903`) — paced/retried
+            Dramatiq actor, Requeue, and `honeypot.dial_attempts`: EVERY attempt logged, not just
+            connected calls, so "tried 3 times, never answered" survives.
       - [ ] **Phase 5 — real Twilio `PstnChannelAdapter` + media bridge** — `Live-Voice-Calls.md`'s
             scope; needs a Twilio account. Self-test/demo numbers only (see Gated below for real targets).
-      - [ ] **Phase 6 — triage queue + case-linking** — can follow phase 4.
+      - [x] **Phase 6 — triage queue + case-linking** (`fdb3b3f`) — exact-match linking only; the
+            dialer runs as the owning role so RLS does NOT filter it, and the agency check there is
+            load-bearing (asserted by test).
 - [x] **Case detail: "Calls / Conversations" list** · S · **DONE (2026-08-16, `b82726f`)** — session rows
       on the case are now expandable into the existing transcript view, with `started_at` shown and voice
       calls badged. Deliberately no mock fallback on that fetch: a mock transcript rendered under a real
