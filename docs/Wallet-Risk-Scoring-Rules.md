@@ -7,33 +7,65 @@ what is and isn't justified. Written because the scoring decides *who gets froze
 The existing `reasoning[]` output explains **which rules fired**. It does not explain
 **why those are the rules** — that is what this document is for.
 
-> **Read §4 first if you read nothing else.** Working through the formula's implications
-> surfaced a probable defect: a sanctioned wallet with no detected patterns currently
-> scores **LOW**.
+> **v0.2.0 (2026-08-18) — both §4 findings acted on.** Sanctions are now a band FLOOR, and
+> **counterparty exposure** was added: the signal the model was missing entirely. §4 is kept
+> as the record of what was wrong and why. Version string:
+> `takedown-0.2.0/iforest-c0.05+5typologies+exposure`.
 
-Implementation: `backend/app/takedown/scoring.py`. Version string on every score:
-`takedown-0.1.0/iforest-c0.05+5typologies`.
+Implementation: `backend/app/takedown/scoring.py`, `backend/app/takedown/exposure.py`.
 
 ---
 
-## 1. How a score is produced
+## 1. How a score is produced (v0.2.0)
 
-Three independent signals combine into one band:
+**Sanctions short-circuit everything.** If the address is on a sanctions list the band is
+`high` with confidence 0.95, full stop — see §4, Finding 1.
+
+Otherwise four signals combine:
 
 ```
   Isolation Forest (anomaly triage, 0..1)          ─┐
-  5 deterministic typology detectors (0..5 fired)  ─┼─► composite score ─► low | medium | high
-  Attribution tags (scam / sanctioned / mixer)     ─┘
+  5 deterministic typology detectors (0..5 fired)  ─┤
+  Counterparty EXPOSURE (hop- + value-weighted)    ─┼─► score ─► low | medium | high
+  Attribution tags on the wallet itself            ─┘
 ```
 
 ```python
+if "sanctioned" in tags:            return "high", 0.95      # legal fact, not a score
+
 score = 0.25 * iso_score + 0.75 * min(fired / 2, 1.0)
-if "scam" or "sanctioned" in tags:  score = min(score + 0.25, 1.0)
+score = min(score + 0.5 * exposure.severity, 1.0)            # NEW in 0.2.0
+if "scam" in tags:                  score = min(score + 0.25, 1.0)
 if "mixer" in tags:                 score = min(score + 0.15, 1.0)
 
 band = "high" if score >= 0.6 else "medium" if score >= 0.3 else "low"
-confidence = min(0.5 + 0.15 * fired + 0.1 * (has_tags), 0.95)
+confidence = min(0.5 + 0.15*fired + 0.1*has_tags + 0.1*has_exposure, 0.95)
 ```
+
+### Counterparty exposure — what was missing
+
+The model asked "how does this wallet *behave*?" and "is it *itself* tagged?" but never
+**"who did it transact with, and how closely?"** — which is the backbone of how commercial
+blockchain-analytics tools score an address: direct exposure weighted heavily, indirect
+decaying by hop, scaled by value share, with category severity.
+
+The concrete cost: **a fresh mule one hop from a known scam address, holding nothing but
+its money, scored LOW** — no laundering pattern *of its own yet*. That is the normal shape
+of a first-hop mule and exactly the wallet an investigator wants surfaced. On our own
+demo fixtures the fan-out mules (`TMu04`…`TMu10`) moved LOW → **medium** on this signal
+alone.
+
+| Setting | Value | Rationale |
+|---|---|---|
+| severity: sanctioned / scam / mixer / gambling | 1.0 / 0.8 / 0.6 / 0.3 | standard AML ordering; sanctions top |
+| severity: exchange / service / unknown | 0.0 | **not illicit** — sending to an exchange is cashing out, where investigations *lead* |
+| hop weight (1 / 2 / 3) | 1.0 / 0.4 / 0.15 | by 3 hops funds have plausibly passed through unwitting parties |
+| value-share floor | 0.25 | dust from a sanctioned address still matters |
+| exposure weight in score | 0.5 | capped: association is weaker evidence than observed behaviour |
+| aggregation | **max, not sum** | summing lets scattered weak links imitate one damning direct link, and makes the score depend on how much unrelated history a wallet has |
+
+Deliberately lands a clean first-hop mule at **medium**, not high: an innocent recipient of
+scam funds exists, and "investigate" is the correct disposition for association alone.
 
 **One override:** a known exchange address with **no** patterns fired returns `low` with
 confidence `0.9`, reasoned as "cash-out destination (subpoena target), not a suspect
@@ -61,7 +93,9 @@ justification would be worse than admitting the gap.
 | `CYCLE_LENGTH_BOUND` | 6 | max cycle length searched | **performance bound**, not a risk judgement |
 | IF `contamination` | 0.05 | assumes ~5% of wallets are anomalous | unvalidated default |
 | IF weight / pattern weight | 0.25 / 0.75 | deterministic signal dominates | **defensible** — see §3 |
-| scam/sanctioned uplift | +0.25 | attribution bump | unvalidated |
+| scam uplift | +0.25 | attribution bump | unvalidated |
+| sanctioned | **band floor** | high, as a matter of law | **defensible** — §4 Finding 1 |
+| exposure weight | 0.5 | counterparty association | derived from practice; split unvalidated |
 | mixer uplift | +0.15 | attribution bump | unvalidated |
 | band cut-offs | 0.6 / 0.3 | high / medium | unvalidated |
 
@@ -92,6 +126,10 @@ That is what makes the score an input to a case rather than a verdict.
 ---
 
 ## 4. Implications nobody checked — including a probable defect
+
+> **Findings 1 and 3 were fixed in v0.2.0** (sanctions floor + exposure scoring). This
+> section is kept as the record: the reasoning is why the fix took the shape it did, and
+> re-deriving it later would be harder than reading it.
 
 Working the formula through by hand:
 

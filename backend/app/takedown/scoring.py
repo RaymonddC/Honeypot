@@ -13,10 +13,11 @@ from pydantic import BaseModel
 from sklearn.ensemble import IsolationForest
 
 from app.chain.schemas import AddressTagOut, Transfer
+from app.takedown.exposure import ExposureResult, compute_exposure
 from app.takedown.features import FEATURE_ORDER, FeatureVector, compute_features
 from app.takedown.graph import build_digraph, hop_depths
 
-MODEL_VERSION = "takedown-0.1.0/iforest-c0.05+5typologies"
+MODEL_VERSION = "takedown-0.2.0/iforest-c0.05+5typologies+exposure"
 
 # Detector thresholds (deterministic, explainable)
 PEEL_FORWARD_SHARE = 0.7  # dominant hop forwards ≥70% of inflow
@@ -51,6 +52,12 @@ class WalletScore(BaseModel):
     reasoning: list[str]  # Glass Box — explicit, human-readable
     features: FeatureVector
     tags: list[AddressTagOut] = []
+    # Counterparty exposure (0.2.0): who this wallet dealt with, hop- and
+    # value-weighted. Reported separately from `patterns` so a reader can see
+    # whether behaviour or association drove the score.
+    exposure_severity: float = 0.0
+    exposure_category: str = ""
+    exposure_hops: int = 0
     model_version: str = MODEL_VERSION
 
 
@@ -265,15 +272,50 @@ def iso_forest_scores(features: dict[str, FeatureVector]) -> dict[str, float]:
 
 
 def composite_risk(
-    iso_score: float, patterns: list[PatternResult], tags: list[AddressTagOut]
+    iso_score: float,
+    patterns: list[PatternResult],
+    tags: list[AddressTagOut],
+    exposure: ExposureResult | None = None,
 ) -> tuple[Literal["low", "medium", "high"], float, list[str]]:
-    """Combine IF triage + fired typologies + attribution → risk/confidence/reasoning."""
+    """Combine IF triage + typologies + counterparty exposure → risk/confidence/reasoning.
+
+    Three signals, deliberately kept distinct in the reasoning so a reader can
+    see which one did the work:
+
+    * **typologies** — how the wallet behaves (court-explainable, carries most weight)
+    * **exposure**   — who it dealt with, hop- and value-weighted (see exposure.py)
+    * **anomaly**    — statistical triage only; a minority input because an
+      Isolation Forest cannot explain itself and its score depends on the
+      population of the specific investigation.
+    """
     fired = [p for p in patterns if p.fired]
     categories = {t.category for t in tags}
     reasoning: list[str] = []
+    exposure = exposure or ExposureResult()
+
+    # --- FLOOR, not a score: being the listed party is a legal fact ----------
+    # Previously `sanctioned` merely added +0.25, so an OFAC-listed wallet with
+    # no detected pattern came out LOW while its own reasoning named the SDN
+    # listing (docs/Wallet-Risk-Scoring-Rules.md §4). Transacting with a listed
+    # party is an offence regardless of typology, so it cannot be averaged away.
+    if "sanctioned" in categories:
+        reasoning.append(
+            "SANCTIONED: this address is on a sanctions list. Risk is set to high "
+            "as a matter of law, independently of behavioural patterns."
+        )
+        reasoning.extend(_pattern_reasoning(fired))
+        reasoning.extend(_tag_reasoning(tags))
+        return "high", 0.95, reasoning
 
     score = 0.25 * iso_score + 0.75 * min(len(fired) / 2, 1.0)
-    if "scam" in categories or "sanctioned" in categories:
+
+    # Counterparty exposure — capped so association alone cannot exceed what
+    # two observed typologies achieve; behaviour stays the dominant signal.
+    if exposure.severity > 0:
+        score = min(score + 0.5 * exposure.severity, 1.0)
+        reasoning.extend(exposure.reasoning)
+
+    if "scam" in categories:
         score = min(score + 0.25, 1.0)
     if "mixer" in categories:
         score = min(score + 0.15, 1.0)
@@ -283,13 +325,8 @@ def composite_risk(
             f"Isolation Forest flags this wallet as a statistical outlier "
             f"(anomaly score {iso_score:.2f}) within the investigation population."
         )
-    for p in fired:
-        reasoning.append(f"Pattern [{p.name}] fired: {p.description}.")
-    for t in tags:
-        reasoning.append(
-            f"Attribution: tagged '{t.tag}' ({t.category}, source={t.source}, "
-            f"confidence={t.confidence})."
-        )
+    reasoning.extend(_pattern_reasoning(fired))
+    reasoning.extend(_tag_reasoning(tags))
 
     # A known exchange with no criminal patterns is a destination, not a suspect.
     if "exchange" in categories and not fired:
@@ -303,8 +340,25 @@ def composite_risk(
     level = "high" if score >= 0.6 else "medium" if score >= 0.3 else "low"
     if not fired and not reasoning:
         reasoning.append("No typology patterns fired and anomaly score is unremarkable.")
-    confidence = round(min(0.5 + 0.15 * len(fired) + 0.1 * (len(tags) > 0), 0.95), 2)
+    # Exposure raises confidence like a fired pattern does: an observed
+    # counterparty link is evidence, not a guess.
+    confidence = round(
+        min(0.5 + 0.15 * len(fired) + 0.1 * (len(tags) > 0) + 0.1 * (exposure.severity > 0), 0.95),
+        2,
+    )
     return level, confidence, reasoning
+
+
+def _pattern_reasoning(fired: list[PatternResult]) -> list[str]:
+    return [f"Pattern [{p.name}] fired: {p.description}." for p in fired]
+
+
+def _tag_reasoning(tags: list[AddressTagOut]) -> list[str]:
+    return [
+        f"Attribution: tagged '{t.tag}' ({t.category}, source={t.source}, "
+        f"confidence={t.confidence})."
+        for t in tags
+    ]
 
 
 def score_investigation(
@@ -336,8 +390,12 @@ def score_investigation(
             detect_fan_out(a, transfers),
         ]
         tags = list(tags_lookup(a))
-        level, confidence, reasoning = composite_risk(iso[a], patterns, tags)
+        exposure = compute_exposure(a, transfers, tags_lookup)
+        level, confidence, reasoning = composite_risk(iso[a], patterns, tags, exposure)
         scores[a] = WalletScore(
+            exposure_severity=exposure.severity,
+            exposure_category=exposure.category,
+            exposure_hops=exposure.hops,
             address=a,
             iso_forest_score=round(iso[a], 4),
             patterns=patterns,
