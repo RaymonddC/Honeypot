@@ -62,6 +62,14 @@ on the Response dashboard). **282 backend tests green**, frontend build green.
       cases — plus a decision on whether the weights are tunable config rather than constants.
       Related: `wallet_risk_scores.wallet_id` is nullable in the DB, which is a product decision to
       settle at the same time.
+- [ ] **`GET /wallets/{address}/risk` 404s for leaf addresses** · S · *found 2026-08-18* — the
+      endpoint re-investigates FROM the requested address, so a wallet that only ever received
+      funds (a first-hop mule) has nothing to trace and returns `wallet_not_found`. Its score is
+      computed correctly inside an investigation rooted at the funding source — you just cannot
+      query that wallet directly. Pre-existing, but it matters more now: scoring v0.2.0 surfaces
+      exactly those mules, so they are the wallets an investigator will click on. Fix is probably
+      to serve the score from the cached investigation the address appears in, rather than
+      starting a new trace from it.
 - [ ] **Go-live hardening** · M · *partly done* — only fully needed when heading to real production.
       - [x] **Contract tests per LIVE adapter** — `tests/test_live_adapter_contract.py` asserts the
             "fail loud, never silently degrade" invariant over the registry, so a new adapter cannot
