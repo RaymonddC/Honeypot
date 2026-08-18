@@ -54,8 +54,21 @@ on the Response dashboard). **282 backend tests green**, frontend build green.
       cases — plus a decision on whether the weights are tunable config rather than constants.
       Related: `wallet_risk_scores.wallet_id` is nullable in the DB, which is a product decision to
       settle at the same time.
-- [ ] **Go-live hardening** · M · contract tests per LIVE adapter, observability/uptime, a security +
-      RLS-isolation review, separate DB per mode. Only when heading to real production.
+- [ ] **Go-live hardening** · M · *partly done* — only fully needed when heading to real production.
+      - [x] **Contract tests per LIVE adapter** — `tests/test_live_adapter_contract.py` asserts the
+            "fail loud, never silently degrade" invariant over the registry, so a new adapter cannot
+            silently no-op.
+      - [x] **Security + RLS-isolation review** (2026-08-18) — found and closed a real cross-tenant
+            leak in two join tables; method and findings in `Security-Evidence.md` §9.
+      - [x] **Observability: readiness diagnostics** — `GET /ready` (`app/core/health.py`) probes the
+            database, migration head, schema grants, whether RLS is genuinely enforcing, and Redis;
+            503 when a critical check fails so it can back a probe. `/health` stays shallow on
+            purpose. Each check exists because that failure previously cost real debugging time.
+            See `Deploy.md` §7.
+      - [ ] **Observability: the rest** — metrics (request rate/latency/error counters), uptime
+            monitoring + alerting on `/ready`, and log correlation ids. `/ready` answers "why is it
+            broken *right now*"; none of this yet answers "was it broken at 3am" or "is it degrading".
+      - [ ] Separate DB per mode (POC vs LIVE evidentiary isolation).
 - [ ] **Audit trail — broaden & surface** · M · **backend slice DONE (2026-08-17, `7507034`)** —
       roadmap step 2's "chain-of-custody end-to-end". `core.audit_log` was migrated and documented as
       hash-chained but **nothing ever wrote to it**; `app/core/audit.py` is now the writer (per-agency

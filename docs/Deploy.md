@@ -156,6 +156,45 @@ explicitly.
 the worker's Render logs for the job. A silent queue with a healthy-looking worker usually
 means mismatched `ITTU_REDIS_URL`s.
 
+## 7. Health vs readiness — where to look when something is wrong
+
+Two endpoints, deliberately different, both unauthenticated (a probe cannot present a token)
+and neither containing secrets or connection strings:
+
+| Endpoint | Purpose | Depth |
+|---|---|---|
+| `GET /health` | **Liveness** — the platform health check (`healthCheckPath` in `render.yaml`) | Shallow on purpose |
+| `GET /ready` | **Readiness + diagnostics** — actually probes dependencies | Deep |
+
+`/health` must stay shallow. If it consulted Postgres, a transient database blip would fail
+the health check and Render would take the whole service down — turning a degraded page into
+an outage. It answers "is the process alive", nothing more.
+
+`/ready` is the one to curl when something isn't working:
+
+```sh
+curl -s https://<your-render-url>/ready | jq
+```
+
+It returns **503** when a critical check fails (so it can back a readiness probe) and **200**
+otherwise — with the **same body either way**, so a human reads *why* rather than guessing
+from a status code. Each check exists because that exact failure cost real debugging time and
+its symptom pointed somewhere unhelpful:
+
+- **`database`** — reachable, and which role is connected.
+- **`rls_enforcing`** — *non-critical warning*: connecting as the **owning** role silently
+  bypasses every RLS policy, so agency isolation looks fine in testing and leaks in
+  production. Single-role local setups are legitimate; production is not.
+- **`schema_at_head`** — the migration drift that once broke case creation with nothing
+  naming the cause. The detail tells you to run `alembic upgrade head`.
+- **`schema_grants`** — the app connects as non-owning `ittu_app`; a schema missing from
+  `scripts/create_app_role.sql` (as `casedata` was) fails with `InsufficientPrivilege` and no
+  hint about grants. Names the schema and points at the script.
+- **`redis`** — **critical only when something actually queues**
+  (`ITTU_NOTIFICATION_DELIVERY=worker` or `ITTU_DIAL_ENQUEUE_ON_START=true`). Marking it
+  always-critical would leave every POC deployment permanently "not ready", which trains
+  people to ignore the endpoint.
+
 ## Notes
 - **CORS:** the backend now reads allowed origins from `ITTU_CORS_ORIGINS` — set it to the
   Vercel domain or the browser will block API calls.

@@ -105,7 +105,36 @@ def create_app() -> FastAPI:
 
     @app.get("/health")
     async def health() -> dict[str, str]:
+        """Liveness. Deliberately SHALLOW — this is the platform health check, and
+        a transient database blip must not take the service down. Use /ready to
+        find out whether dependencies are actually working."""
         return {"status": "ok", "mode": settings.mode}
+
+    @app.get("/ready")
+    async def ready() -> JSONResponse:
+        """Readiness + diagnostics: database reachable, schema at migration head,
+        schema grants present, RLS actually enforcing, Redis reachable.
+
+        Each check is here because that failure cost real debugging time and its
+        symptom pointed somewhere unhelpful (see app/core/health.py). Returns 503
+        when a critical check fails so it can back a readiness probe; the body is
+        the same either way so a human can read WHY. Contains no secrets and no
+        connection strings — it is unauthenticated by design, like /health."""
+        from app.core.health import readiness
+
+        result = await readiness()
+        return JSONResponse(
+            status_code=200 if result.ready else 503,
+            content={
+                "ready": result.ready,
+                "mode": result.mode,
+                "persistence": result.persistence,
+                "checks": [
+                    {"name": c.name, "ok": c.ok, "detail": c.detail, "critical": c.critical}
+                    for c in result.checks
+                ],
+            },
+        )
 
     for router in (
         auth_router,
