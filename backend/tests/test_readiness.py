@@ -22,7 +22,7 @@ from fastapi.testclient import TestClient
 
 from app.core import health
 from app.core.config import get_settings
-from app.core.health import Check, Readiness, readiness
+from app.core.health import Check, readiness
 from app.main import app
 
 client = TestClient(app)

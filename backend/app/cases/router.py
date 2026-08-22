@@ -28,7 +28,6 @@ from app.core.audit import (
     CASE_CREATED,
     CASE_UPDATED,
     AuditRepository,
-    InMemoryAuditRepository,
     PostgresAuditRepository,
     _memory_repository,
     record_action,

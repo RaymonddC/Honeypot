@@ -109,7 +109,9 @@ def test_client_fails_loud_without_credentials():
 
 def _signed(client, url_base, params, token):
     """POST the webhook with a correctly-computed signature."""
-    import base64, hashlib, hmac
+    import base64
+    import hashlib
+    import hmac
 
     payload = url_base + "".join(f"{k}{v}" for k, v in sorted(params.items()))
     sig = base64.b64encode(
