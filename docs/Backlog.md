@@ -24,7 +24,7 @@ hub. Live blockchain tracing (async jobs, hardened, cycle-fix). Auth/RLS + Googl
 live in prod. Persistence (Postgres/Neon, dual in-memory/Postgres repositories). **C1 dispatch
 delivery** — production-ready notification layer (HMAC-signed webhooks, idempotency keys, durable
 retried delivery via the Dramatiq actor, `GET /api/notifications` outbox feed + retry, Dispatch Log
-on the Response dashboard). **508 backend tests green**, frontend build green.
+on the Response dashboard). **513 backend tests green**, frontend build green.
 
 ## 🟢 Actionable now — buildable today (no external gate)
 - [x] **B1 — TTS (ElevenLabs)** · S · **DONE (2026-08-08)** — code path complete end-to-end: the
@@ -171,11 +171,51 @@ on the Response dashboard). **508 backend tests green**, frontend build green.
             - UI: `/audit` renders a denial with a DENIED chip, red treatment and *tried to*
               phrasing plus the reason. A refused platform-admin grant that rendered like a
               successful one would be worse than not recording it.
-      - [ ] **Decide** whether `uncover.custody` should collapse into the core trail. They are NOT
-            duplicates: custody is per-process/in-memory and only fills `ActionBundle.audit` in the
-            API response (never stored — see `uncover/repository.py`), while `core.audit_log` is the
-            durable per-agency trail. Merging changes that API contract, so it is a product decision,
-            not a cleanup. Both docstrings now say so.
+      - [x] **`uncover.custody` collapsed into the core trail** · **DECIDED + DONE (2026-08-23)** —
+            it was framed as a product decision about an API contract. It turned out to be a
+            **defect**: the custody chain was per-process and in-memory, so it was empty after every
+            restart (and Render restarts) — while the Action Panel derived the displayed **evidence
+            hash** from that chain's head, falling back to `documents[0].sha256` when empty. The
+            same bundle therefore showed one evidence hash before a restart and a different one
+            after. For a product whose pitch is chain of custody, a hash that silently changes is
+            worse than none. That, not tidiness, is why it was collapsed.
+            - `ActionBundle.audit` is now a filtered, agency-scoped view of `core.audit_log`
+              (`app/uncover/router.py::_attach_audit`). Filled in the ROUTER, not the service:
+              reading the trail needs an agency-scoped session, and threading one through the
+              service layer would put tenancy into functions that know nothing about it.
+            - **Evidence hash is now derived from the evidence** — a digest of the bundle's document
+              sha256s, order-independent. It moves if and only if the documents move. The chain-head
+              derivation was NOT restored: the core trail's list still grows on dispatch, so its head
+              would change while the evidence had not.
+            - **Nothing was dropped.** Custody's two unique details were carried into the core
+              entries: per-notification `{id, agency, status}` onto `dispatch.sent`, and
+              `format` + `template_version` onto each document in `action.bundle.generated`. The
+              per-document *entries* are gone (one bundle entry now carries all of them); the
+              per-document *hashes* are untouched — they were always a separate concern.
+            - `custody.py` keeps `sha256_hex` and `GENESIS` (the latter is used by
+              `app/infiltrate/custody.py`) and nothing else; its docstring argued for the split and
+              now records why the argument was wrong.
+            - **Visible contract change:** a bundle's `seq` is its position in the AGENCY chain, so
+              the numbers are non-contiguous (47, 103, …). Nothing in the UI renders `seq` today, so
+              nothing was mis-presented; the schema field carries a warning not to render it as a
+              per-bundle gapless chain, which would be the same over-claim the `/audit` banner was
+              corrected for.
+            - **Blocker found and fixed on the way:** `core.audit_log.target_id` is a uuid COLUMN,
+              and `PostgresAuditRepository.record` silently dropped anything that was not a uuid.
+              Five wired actions identify their target with a business key (`act_…`, `doc_…`,
+              `ent_…`, `sess_…`), so under Postgres those entries stored **no reference to what they
+              were about at all** — verified against a real Postgres before fixing. `_is_uuid`'s
+              docstring claimed the key was "kept in `detail` rather than dropped"; that was the
+              intent and never the implementation. Now genuinely kept, as `detail["_target_id"]`,
+              which is inside `entry_hash` and so tamper-evident for free. Entries written before
+              this stay valid but cannot be filtered by target; deliberately not backfilled.
+            - **The hoped-for bonus does NOT work, and is left alone:** a refused dispatch does not
+              appear in the bundle's custody view. `require_role` rejects during dependency
+              resolution, before the handler, so it records `access.forbidden` against
+              `target_type="endpoint"` with no `_target_id` — visible in the agency feed at `/audit`,
+              not in the bundle view. Making it work means giving the guard the route's path params
+              (they are in `request.path_params`) so the denial can name the bundle. Small, but it
+              was not asked for and touches every `require_role` site.
 - [x] **Defects found while auditing denials** · **ALL THREE CLOSED (2026-08-22)** · *surfaced by
       that work, not caused by it* — recorded because each is the quiet kind that surfaces as
       something else: a chain fork that reads as tampering, a MODE that ignores config, and a lost
