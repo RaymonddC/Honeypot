@@ -121,7 +121,7 @@ Frontend badge: `NEXT_PUBLIC_ITTU_MODE` (defaults to `poc`).
 
 ## Status
 
-**P0–P5 shipped**, 493 backend tests green. Beyond the four pillars: persistence
+**P0–P5 shipped**, 508 backend tests green. Beyond the four pillars: persistence
 (Postgres/Neon + RLS), production-ready notification dispatch (signed,
 idempotent, retried), real TTS voices (ElevenLabs / Gemini / Google, switchable
 per call from the Control Panel), and the **outbound voice honeypot** — number

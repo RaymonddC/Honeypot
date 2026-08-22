@@ -120,6 +120,16 @@ class Settings(BaseSettings):
     #   '["https://a.vercel.app"]'              (JSON list)
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
+    # --- Metrics (GET /metrics, Prometheus text) -----------------------------
+    # Bearer token a scraper must present. EMPTY (the default) DISABLES the
+    # endpoint entirely — it 404s, so an unconfigured deployment does not
+    # advertise that it has metrics at all. Unlike /health and /ready, this one
+    # is not safe to leave open: it enumerates every route template and the
+    # request volume against each, which is reconnaissance for a
+    # law-enforcement tool even though no ids are ever labelled. Prometheus,
+    # Grafana Agent and Better Stack all support bearer tokens in scrape config.
+    # See docs/Deploy.md §8.
+    metrics_token: str = ""
 
     # --- Voice (P4b/#15) — TTS provider behind the TTSAdapter Protocol --------
     # "browser" (default) = POC voice marks: no server audio, the browser's

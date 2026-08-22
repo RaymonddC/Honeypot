@@ -57,7 +57,8 @@ back to 8000 locally.
 **Frontend:** `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_ITTU_MODE`.
 **Backend (`ITTU_` prefix):** `ITTU_CORS_ORIGINS` (JSON list — add the Vercel domain),
 `ITTU_JWT_SECRET` (change from the dev default), `ITTU_MODE` (`poc`/`live`),
-`ITTU_MODULE_MODES` (e.g. `{"takedown":"live"}`). Postgres/Redis URLs only matter once
+`ITTU_MODULE_MODES` (e.g. `{"takedown":"live"}`).
+`ITTU_METRICS_TOKEN` (enables `GET /metrics`; unset = 404, see §8). Postgres/Redis URLs only matter once
 RLS/persistence goes LIVE (add `ITTU_DATABASE_URL` = a Neon connection string then).
 
 ## 4. Postgres + RLS: the non-superuser app role (required once persistence goes LIVE)
@@ -194,6 +195,123 @@ its symptom pointed somewhere unhelpful:
   (`ITTU_NOTIFICATION_DELIVERY=worker` or `ITTU_DIAL_ENQUEUE_ON_START=true`). Marking it
   always-critical would leave every POC deployment permanently "not ready", which trains
   people to ignore the endpoint.
+
+## 8. Metrics and alerting — "was it broken at 3am", and "did we lose a record"
+
+`/ready` answers *is it broken right now*. It cannot answer *was it broken overnight* or *is
+latency creeping*, and it cannot tell you that an audit entry was silently lost. That needs a
+time series, which needs something to scrape.
+
+### `GET /metrics`
+
+Prometheus text exposition (`text/plain; version=0.0.4`), vendor-neutral — Grafana Cloud,
+Grafana Alloy/Agent, Better Stack and Render-side scrapers all read it unchanged.
+
+**It is authenticated, unlike `/health` and `/ready`.** Those carry booleans a platform probe
+needs and cannot present a token for. `/metrics` lists every route template and how often each
+was called: an API map plus operational tempo. No agency, user or case is ever labelled, so it
+cannot answer "what did agency X do" — but "what does this system expose, and when is it busy"
+is still reconnaissance worth withholding from anonymous callers on a law-enforcement tool.
+Scrapers support bearer tokens; probes do not, and that is exactly where the line is drawn.
+
+```sh
+ITTU_METRICS_TOKEN=<a long random string>   # generate with: openssl rand -hex 32
+```
+
+**With no token set the endpoint returns 404, not 403** — an unconfigured deployment should be
+indistinguishable from one that has no metrics at all. The startup log says
+`ITTU metrics: /metrics DISABLED (no ITTU_METRICS_TOKEN set)`, so a failing scrape is
+diagnosable from the logs without anything being revealed to an anonymous caller.
+
+Prometheus scrape config:
+
+```yaml
+scrape_configs:
+  - job_name: ittu-api
+    scheme: https
+    metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/ittu-metrics-token   # never inline the token
+    static_configs:
+      - targets: ["<your-render-host>"]
+```
+
+### What is exposed
+
+| Metric | Type | Labels | What it answers |
+|---|---|---|---|
+| `ittu_http_requests_total` | counter | `method`, `route`, `status` | Request rate, and error rate via `status` |
+| `ittu_http_request_duration_seconds` | histogram | `method`, `route` | Latency distribution / quantiles |
+| `ittu_audit_entries_dropped_total` | counter | `reason` | **An audit entry was permanently lost** |
+| `ittu_audit_entries_written_total` | counter | `outcome` | The denominator for the above |
+| `ittu_audit_denials_suppressed_total` | counter | — | Denials not recorded because the per-actor rate cap was hit |
+
+### ⚠ No identifiers are ever labelled, and this is deliberate
+
+`route` is always the **route template** (`/api/cases/{case_id}`), never the requested URL.
+This app's URLs carry case ids, wallet addresses and user ids. Labelling by raw path would copy
+tenant identifiers and blockchain addresses into a metrics store that is typically third-party,
+less protected than the database, and entirely **outside the RLS boundary** the rest of this
+system is careful about — and it would blow up cardinality until the store fell over. Requests
+that match no route collapse to a single `<unmatched>` series rather than minting one series per
+junk URL.
+
+There are **no `agency_id`, `user_id` or `case_id` labels anywhere**. Per-tenant metrics ("which
+agency is busiest") would be genuinely useful and are a **product decision, not a config change**
+— it means exporting the tenant dimension into a system with a different protection model, and
+it should be decided explicitly rather than added because a dashboard looked sparse.
+
+### ⚠ Counters are per process
+
+They live in memory, so they describe the worker that answered the scrape. The API runs a
+**single** uvicorn worker today (`backend/scripts/start.sh` passes no `--workers`), which makes
+them complete and correct. If workers are ever added, a scrape lands on whichever one answers
+and the numbers become per-worker and jumpy — at that point you need per-worker scrape targets
+or a multiprocess collector. Restarts reset the counters, which is normal: `rate()` and
+`increase()` handle counter resets.
+
+### Alerting
+
+Alerting is configured in your monitoring vendor, not in this repo — no SDK is embedded here on
+purpose.
+
+**Page a human** (something is broken and will not fix itself):
+
+- **`/ready` returns 503 for more than ~2 consecutive checks.** One 503 during a deploy is
+  normal. Sustained means a *critical* check is failing — read the body, it names which:
+  - **`database`** — Postgres unreachable. Nothing works. Page.
+  - **`schema_at_head`** — the schema is behind the code. Writes will 500 with nothing naming
+    the cause (this exact failure once broke case creation). Page; fix with `alembic upgrade head`.
+  - **`schema_grants`** — the `ittu_app` role is missing a schema grant; whole features fail with
+    `InsufficientPrivilege`. Page; fix with `scripts/create_app_role.sql`.
+  - **`redis`** — critical *only* when something actually queues
+    (`ITTU_NOTIFICATION_DELIVERY=worker` or `ITTU_DIAL_ENQUEUE_ON_START=true`). Dispatch silently
+    stops. Page in those configurations.
+- **`increase(ittu_audit_entries_dropped_total[1h]) > 0`.** An evidentiary record was lost.
+  This is the alert the whole audit investment exists to justify: `verify_chain` detects a
+  *forked* or *edited* chain but **cannot** detect an entry that was never written — no gap
+  appears in the hash links, so the trail verifies clean while a record is missing. This counter
+  is the only signal that it happened. Treat any non-zero value as an incident, and read `reason`:
+  - `seq_contention` — sustained concurrent writes to one agency's chain exhausted the retry
+    budget (see `app/core/audit.py`).
+  - `chain_head_uncommitted` — a denial could not be appended because the enclosing transaction
+    held the chain position. Expected to be zero; a non-zero value means a code path is writing a
+    success entry and then a denial in one transaction.
+  - `error` / `no_agency` — an unexpected failure, or an action with no tenant to attribute it to.
+
+**Warn only** (worth looking at, not worth waking anyone):
+
+- **`rls_enforcing` false** — the app is connected as an owning role, so RLS is silently bypassed
+  and agency isolation is not actually enforced. Legitimate in a single-role local setup, **never**
+  in production. Non-critical in `/ready` (it would otherwise mark every POC deployment permanently
+  unready, which trains people to ignore the endpoint) — so it needs its own alert to be seen at all.
+- **5xx rate**: `sum(rate(ittu_http_requests_total{status=~"5.."}[5m]))` above your baseline.
+- **Latency**: `histogram_quantile(0.95, sum by (le, route) (rate(ittu_http_request_duration_seconds_bucket[5m])))`
+  creeping on a route that used to be fast.
+- **`ittu_audit_denials_suppressed_total` rising** — someone is generating refusals fast enough to
+  hit the rate cap. Expected under abuse and *not* a failure (the cap is deliberate), but a sustained
+  climb is worth a look at who.
 
 ## Notes
 - **CORS:** the backend now reads allowed origins from `ITTU_CORS_ORIGINS` — set it to the

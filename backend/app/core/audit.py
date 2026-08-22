@@ -44,7 +44,9 @@ from functools import lru_cache
 from typing import Protocol, runtime_checkable
 
 from sqlalchemy import select, text
+from sqlalchemy.exc import IntegrityError
 
+from app.core import metrics
 from app.core.config import get_settings
 
 _log = logging.getLogger("uvicorn.error")
@@ -301,8 +303,6 @@ class PostgresAuditRepository:
         surrounding transaction in Postgres — without one, the caller's whole
         request would be poisoned by a conflict we intend to recover from.
         """
-        from sqlalchemy.exc import IntegrityError
-
         from app.core.models import AuditLog
 
         last_error: Exception | None = None
@@ -363,6 +363,7 @@ class PostgresAuditRepository:
             "entry is LOST. Sustained contention on this agency's chain.",
             action, agency_id, SEQ_RETRY_ATTEMPTS,
         )
+        metrics.audit_dropped.inc(metrics.DROP_SEQ_CONTENTION)
         raise last_error  # type: ignore[misc]  # unreachable with attempts >= 1
 
     async def list_entries(self, *, agency_id: str, limit: int = 100) -> list[AuditEntry]:
@@ -446,6 +447,7 @@ async def record_action(
             # No tenant → nothing to chain onto. Worth a warning: an unattributed
             # action is exactly what an audit trail exists to prevent.
             _log.warning("audit: dropping %s — no agency_id on the request", action)
+            metrics.audit_dropped.inc(metrics.DROP_NO_AGENCY)
             return None
         detail = dict(detail or {})
         if actor_name:
@@ -465,12 +467,23 @@ async def record_action(
                 detail["_user_agent"] = origin["user_agent"]
             if current_request_id():
                 detail["_request_id"] = current_request_id()
-        return await repo.record(
+        entry = await repo.record(
             agency_id=agency_id, action=action, actor_user_id=actor_user_id,
             target_type=target_type, target_id=target_id, detail=detail,
         )
+        metrics.audit_written.inc("success")
+        return entry
     except Exception as exc:  # noqa: BLE001 - bookkeeping must not break the action
         _log.warning("audit: failed to record %s: %s: %s", action, type(exc).__name__, exc)
+        # The action still stands (that is the contract), but an evidentiary
+        # entry is now permanently missing and verify_chain CANNOT see that —
+        # no gap appears in the prev-links for an entry that never existed. This
+        # counter is the only thing that makes the loss detectable.
+        metrics.audit_dropped.inc(
+            metrics.DROP_SEQ_CONTENTION
+            if isinstance(exc, IntegrityError)
+            else metrics.DROP_ERROR
+        )
         return None
 
 
@@ -611,6 +624,7 @@ async def record_denial(
     try:
         if not agency_id:
             _log.warning("audit: dropping denied %s — no agency_id on the request", action)
+            metrics.audit_dropped.inc(metrics.DROP_NO_AGENCY)
             return None
 
         signature = (action, denial_code, str(target_id or ""))
@@ -625,6 +639,9 @@ async def record_denial(
                 "audit: suppressing denied %s (%s) by %s — over %d per %ds",
                 action, denial_code, actor_user_id, DENIAL_CAP, DENIAL_WINDOW_SECONDS,
             )
+            # Suppressed, not lost: a deliberate policy decision, counted
+            # separately so it can never be mistaken for a failure to write.
+            metrics.audit_denials_suppressed.inc()
             return None
 
         detail = dict(detail or {})
@@ -655,15 +672,18 @@ async def record_denial(
                 detail["_request_id"] = current_request_id()
 
         if get_settings().persistence != "postgres":
-            return await _memory_repository().record(
+            entry = await _memory_repository().record(
                 agency_id=str(agency_id), action=action, actor_user_id=actor_user_id,
                 target_type=target_type, target_id=target_id, detail=detail,
             )
-        return await _record_denial_postgres(
-            agency_id=str(agency_id), action=action, actor_user_id=actor_user_id,
-            actor_role=actor_role, target_type=target_type, target_id=target_id,
-            detail=detail,
-        )
+        else:
+            entry = await _record_denial_postgres(
+                agency_id=str(agency_id), action=action, actor_user_id=actor_user_id,
+                actor_role=actor_role, target_type=target_type, target_id=target_id,
+                detail=detail,
+            )
+        metrics.audit_written.inc("denied")
+        return entry
     except Exception as exc:  # noqa: BLE001 - must never turn a 403 into a 500
         if _is_lock_timeout(exc):
             # Not a generic failure — a specific, diagnosable one worth naming,
@@ -675,11 +695,13 @@ async def record_denial(
                 "still stands; the attempt is NOT in the trail.",
                 action, denial_code, actor_user_id,
             )
+            metrics.audit_dropped.inc(metrics.DROP_CHAIN_HEAD_UNCOMMITTED)
         else:
             _log.warning(
                 "audit: failed to record denied %s (%s): %s: %s",
                 action, denial_code, type(exc).__name__, exc,
             )
+            metrics.audit_dropped.inc(metrics.DROP_ERROR)
         return None
 
 

@@ -24,7 +24,7 @@ hub. Live blockchain tracing (async jobs, hardened, cycle-fix). Auth/RLS + Googl
 live in prod. Persistence (Postgres/Neon, dual in-memory/Postgres repositories). **C1 dispatch
 delivery** — production-ready notification layer (HMAC-signed webhooks, idempotency keys, durable
 retried delivery via the Dramatiq actor, `GET /api/notifications` outbox feed + retry, Dispatch Log
-on the Response dashboard). **493 backend tests green**, frontend build green.
+on the Response dashboard). **508 backend tests green**, frontend build green.
 
 ## 🟢 Actionable now — buildable today (no external gate)
 - [x] **B1 — TTS (ElevenLabs)** · S · **DONE (2026-08-08)** — code path complete end-to-end: the
@@ -89,9 +89,35 @@ on the Response dashboard). **493 backend tests green**, frontend build green.
             503 when a critical check fails so it can back a probe. `/health` stays shallow on
             purpose. Each check exists because that failure previously cost real debugging time.
             See `Deploy.md` §7.
-      - [ ] **Observability: the rest** — metrics (request rate/latency/error counters), uptime
-            monitoring + alerting on `/ready`, and log correlation ids. `/ready` answers "why is it
-            broken *right now*"; none of this yet answers "was it broken at 3am" or "is it degrading".
+      - [x] **Observability: the rest** · **DONE (2026-08-22)** — `/ready` answers "why is it broken
+            *right now*"; this answers "was it broken at 3am" and "did we lose a record".
+            (*Log correlation ids were already shipped* — `RequestContextMiddleware` +
+            `X-Request-ID`, echoed into every error envelope. The board text listing them as
+            outstanding was stale and is corrected here.)
+            - **`GET /metrics`**, Prometheus text format (vendor-neutral: Grafana Cloud, Alloy,
+              Better Stack, Render-side scrapers). Hand-rolled ~200 lines, no new dependency —
+              three counters and one histogram did not justify `prometheus_client` and its
+              multiprocess machinery.
+            - **The valuable half: `ittu_audit_entries_dropped_total`.** `verify_chain` detects a
+              forked or edited chain but **cannot** detect an entry that was never written — no gap
+              appears in the hash links, so the trail verifies clean while a record is missing.
+              Every path that loses an entry now increments this, with
+              `ittu_audit_entries_written_total` as the denominator. Rate-cap suppression is counted
+              separately: a policy decision must never be conflated with a failure to write.
+            - **No identifiers are ever labelled.** `route` is always the route TEMPLATE
+              (`/api/cases/{case_id}`), never the requested URL — this app's paths carry case ids
+              and wallet addresses, and a metrics store is typically third-party and outside the RLS
+              boundary. Unmatched requests fold into one `<unmatched>` series so junk URLs cannot
+              mint series. Per-tenant metrics deliberately NOT added: that is a product decision
+              about exporting the tenant dimension, not a config change.
+            - **Authenticated** (`ITTU_METRICS_TOKEN`), unlike `/health` and `/ready` — it is an API
+              map plus operational tempo. 404s when unconfigured, so a deployment without metrics
+              looks like one that has none.
+            - Alerting documented in `Deploy.md` §8 (what to page on vs warn on, and what each
+              `/ready` check failing actually means) — configuration in the vendor, no SDK embedded.
+            - **Known limit:** counters are per process. One uvicorn worker today, so they are
+              complete; adding `--workers` would need per-worker scrape targets or a multiprocess
+              collector. Called out in `Deploy.md` §8.
       - [ ] Separate DB per mode (POC vs LIVE evidentiary isolation).
 - [ ] **Audit trail — broaden & surface** · M · **backend slice DONE (2026-08-17, `7507034`)** —
       roadmap step 2's "chain-of-custody end-to-end". `core.audit_log` was migrated and documented as
@@ -182,13 +208,23 @@ on the Response dashboard). **493 backend tests green**, frontend build green.
             per-agency write-attempt counter reconciled against `max(seq)`, or alerting on that
             ERROR. Exhaustion now requires sustained contention rather than a transient blip, so
             this is a real but narrow hole; it belongs with metrics/alerting work.
-      - [ ] **`get_mode_resolver()` caches the `Settings` INSTANCE.** It is `@lru_cache`d, so
-            `get_settings.cache_clear()` does not reach it and the resolver keeps pointing at an
-            orphaned `Settings` while tests mutate the new singleton. Today the pgserver tests pass
-            only because they sort alphabetically AFTER the auth tests; a new test file that sorts
-            earlier breaks three auth tests, which is exactly what happened here (worked around
-            locally in that file's fixture). **The trap stays armed for the next early-sorting
-            file.** Real fix: `ModeResolver` should read settings at use, not capture them.
+            **HALF DONE (2026-08-22, with the metrics work):** every losing path now increments
+            `ittu_audit_entries_dropped_total{reason}`, and `Deploy.md` §8 makes any non-zero value
+            a page. So the loss is *detectable externally*. The other half of the original ask is
+            NOT done and should not be ticked: the evidentiary record still cannot say "something
+            is missing" **on its own** — that needs the per-agency write-attempt counter reconciled
+            against `max(seq)`, persisted alongside the chain, so an auditor reading only the
+            database (no access to our monitoring) can tell. Left open deliberately.
+      - [x] **`get_mode_resolver()` caches the `Settings` INSTANCE** · **DONE (2026-08-22)** — it
+            was `@lru_cache`d and captured the instance, so `get_settings.cache_clear()` left it
+            pointing at an orphaned `Settings` while everything else read the new one. CI stayed
+            green only by alphabetical luck (the files that clear the cache sorted after the files
+            that check MODE); one early-sorting test file broke three auth tests, which is how it
+            was found. `ModeResolver` is now stateless and reads the singleton at use, so the cache
+            on the factory is harmless. The local workaround in `test_audit_denials_pg.py` was
+            REMOVED rather than left in — the suite passing without it in full-run order is the
+            proof the real fix works. Pinned by `test_config.py::test_mode_resolver_follows_the_
+            current_settings_not_a_captured_one`, verified to fail against the old behaviour.
 - [x] **`alembic check` drift reconciliation** · S–M · **DONE (2026-08-16)** — the last leg of the
       migration guards. All four drift items were the same shape (the DB had the object, the ORM model
       never declared it), so they were reconciled model-side with **no schema change and no migration**:

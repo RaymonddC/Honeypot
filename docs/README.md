@@ -6,7 +6,7 @@ shipped — Investigation, Bridge, Action Panel, Response Dashboard, the **P4/P4
 live-mic voice), and **P5 auth/RLS** (JWT + RBAC + row-level isolation, `test_rls_isolation.py`).
 Investigation runs as an **async job** (202 + poll). Dispatch delivery is production-ready (signed +
 idempotent + retried webhooks, outbox feed). Real-voice TTS serves audio end-to-end (cached,
-degrades gracefully). **493 backend tests green.** Case-centric hub
+degrades gracefully). **508 backend tests green.** Case-centric hub
 screens (`/home`, `/case`, `/guide`) now front the four pillars. Source: `../PIDI Subs 2.pdf`.
 
 ---
