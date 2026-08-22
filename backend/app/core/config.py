@@ -120,6 +120,7 @@ class Settings(BaseSettings):
     #   '["https://a.vercel.app"]'              (JSON list)
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
+
     # --- Voice (P4b/#15) — TTS provider behind the TTSAdapter Protocol --------
     # "browser" (default) = POC voice marks: no server audio, the browser's
     # SpeechSynthesis speaks the line. A real provider name (elevenlabs |
@@ -235,13 +236,22 @@ class Settings(BaseSettings):
 
 
 class ModeResolver:
-    """Resolve the effective MODE for a module: override or global default."""
+    """Resolve the effective MODE for a module: override or global default.
 
-    def __init__(self, settings: "Settings") -> None:
-        self._settings = settings
+    **Reads the settings singleton at USE, never captures it.** It used to take
+    a ``Settings`` in ``__init__`` and hold it, which was a quiet defect: this
+    class is handed out by an ``@lru_cache``d factory, so ``get_settings.
+    cache_clear()`` — done by the pgserver tests to point alembic at an
+    ephemeral cluster — rebuilt the singleton while this resolver kept the
+    orphaned one. ``/api/config`` and ``_auth_mode()`` then reported a MODE
+    nobody could change, and the only reason CI stayed green was that the test
+    files doing the clearing happened to sort alphabetically after the ones
+    checking MODE. Stateless now, so the cache on the factory is harmless.
+    """
 
     def effective_mode(self, module: str) -> Mode:
-        return self._settings.module_modes.get(module, self._settings.mode)
+        settings = get_settings()
+        return settings.module_modes.get(module, settings.mode)
 
 
 @lru_cache
@@ -251,4 +261,4 @@ def get_settings() -> Settings:
 
 @lru_cache
 def get_mode_resolver() -> ModeResolver:
-    return ModeResolver(get_settings())
+    return ModeResolver()

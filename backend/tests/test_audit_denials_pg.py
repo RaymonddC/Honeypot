@@ -44,7 +44,7 @@ from app.core.audit import (
     reset_audit_store,
 )
 from app.core.auth import SEED_USERS
-from app.core.config import get_mode_resolver, get_settings
+from app.core.config import get_settings
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 APP_ROLE_PASSWORD = "ittu-test-role-pw-4"  # noqa: S105 - ephemeral, throwaway DB only
@@ -73,22 +73,6 @@ _DUPLICATES = _MIGRATION_17._DUPLICATES
 _BUDI = next(u for u in SEED_USERS if u.email == "budi@bareskrim.polri.go.id")
 AGENCY_A = str(_BUDI.agency_id)
 BUDI_ID = str(_BUDI.id)
-
-
-def _reset_settings_caches() -> None:
-    """Rebuild the settings singleton — AND everything holding a reference to it.
-
-    ``get_mode_resolver`` is separately ``@lru_cache``d and captures the Settings
-    instance it was built with, so clearing only ``get_settings`` leaves the
-    resolver pointing at an orphaned object: later tests then mutate the new
-    singleton while ``/api/config`` and ``_auth_mode()`` keep reading the old
-    one. The other pgserver files clear only ``get_settings`` and get away with
-    it purely because they sort AFTER the auth tests alphabetically — this file
-    does not, which is how the trap surfaced. Flagged for a proper fix (the
-    resolver should not cache the instance); clearing both is the local one.
-    """
-    get_settings.cache_clear()
-    get_mode_resolver.cache_clear()
 
 
 @pytest.fixture(scope="session")
@@ -122,7 +106,7 @@ def app_role_uri(pg_cluster):
     # env.py prefers ITTU_MIGRATION_DATABASE_URL — a developer .env may point it
     # at a real owner URL, which would send alembic THERE. Pin it here.
     os.environ["ITTU_MIGRATION_DATABASE_URL"] = owner_async_uri
-    _reset_settings_caches()
+    get_settings.cache_clear()
     try:
         cfg = Config(str(BACKEND_DIR / "alembic.ini"))
         cfg.set_main_option("script_location", str(BACKEND_DIR / "migrations"))
@@ -136,7 +120,7 @@ def app_role_uri(pg_cluster):
                 os.environ.pop(key, None)
             else:
                 os.environ[key] = value
-        _reset_settings_caches()
+        get_settings.cache_clear()
 
     host_part = owner_uri.split("@", 1)[1]  # "postgres?host=<socket_dir>"
     return f"postgresql+asyncpg://ittu_app:{APP_ROLE_PASSWORD}@{host_part}"
