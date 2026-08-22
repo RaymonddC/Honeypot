@@ -24,7 +24,7 @@ hub. Live blockchain tracing (async jobs, hardened, cycle-fix). Auth/RLS + Googl
 live in prod. Persistence (Postgres/Neon, dual in-memory/Postgres repositories). **C1 dispatch
 delivery** — production-ready notification layer (HMAC-signed webhooks, idempotency keys, durable
 retried delivery via the Dramatiq actor, `GET /api/notifications` outbox feed + retry, Dispatch Log
-on the Response dashboard). **476 backend tests green**, frontend build green.
+on the Response dashboard). **488 backend tests green**, frontend build green.
 
 ## 🟢 Actionable now — buildable today (no external gate)
 - [x] **B1 — TTS (ElevenLabs)** · S · **DONE (2026-08-08)** — code path complete end-to-end: the
@@ -112,24 +112,60 @@ on the Response dashboard). **476 backend tests green**, frontend build green.
             **and from where**, and which log line it belongs to), and `evidence.exported` audits
             document downloads with the custody hash. Evidence could previously leave the system
             with no trace at all — the top insider-risk question in forensics.
-      - [ ] **Decide: audit DENIED actions too** · S · *raised 2026-08-18, needs a product call* —
-            CloudTrail records denied API calls, and they are often the most security-relevant
-            signal: an authenticated user repeatedly attempting actions their role forbids is
-            exactly what an audit trail should surface. We currently record only successes, so
-            every 403 vanishes.
-            **The tradeoff is noise vs signal, which is why it is a decision and not just work.**
-            Failed *logins* should stay OUT (brute-force noise belongs in security logging, not an
-            agency's evidentiary chain a court has to read). Denied *actions by an authenticated
-            user* are different — the actor is known and the attempt is meaningful. A misconfigured
-            client could still spam them, so consider recording the first N per actor/action/window
-            rather than every one.
-            If adopted, add an `outcome` field (success|denied) rather than a separate action name,
-            so "everything Budi did" stays one query.
+      - [x] **Audit DENIED actions too** · S · **DECIDED + DONE (2026-08-22)** — *raised
+            2026-08-18.* Adopted: denials by an **authenticated** actor are recorded.
+            `record_denial()` in `app/core/audit.py`. Failed logins and 401s stay OUT (brute-force
+            noise belongs in security logging, not an agency's evidentiary chain a court has to
+            read); so does the Twilio webhook 403 — no known actor to attribute it to.
+            - **Outcome lives in `detail`, not a new column.** `entry_hash()` hashes `detail`, so
+              the outcome is tamper-evident for free; a column would sit outside the hash unless
+              `entry_hash` changed, and changing it would invalidate verification of every entry
+              already written. No migration, and an absent `_outcome` reads as success, so nothing
+              needed backfilling.
+            - **The domain action name is kept.** A denied role change is `user.role_changed` with
+              `detail._outcome="denied"` + `_denial_code`, never `user.role_changed.denied` — so
+              "everything Budi did" stays one query. The one exception is `access.forbidden`
+              (`require_role`), where the handler never runs so there is no domain action to name.
+            - **Denials commit in their OWN transaction.** A request runs in one transaction
+              (`_tenant_scoped_session`); the guard's `HTTPException` rolls it back, taking any
+              audit row on that session with it. `record_denial` therefore takes no session at all.
+              `tests/test_audit_denials_pg.py` proves it against real Postgres with a control row
+              that must vanish while the denial survives.
+            - **Chained under the ACTOR's agency**, the reverse of the success path: nothing
+              happened to the target, and an outsider's rejected attempt must not be appendable to
+              another tenant's chain.
+            - **Capped** at 5 per (agency, actor, action) per 5 min, in-process — so the effective
+              cap is 5 × workers. The last recorded entry carries `_denial_cap_reached` and the
+              `/audit` UI surfaces it, so a capped chain can't be mistaken for a quiet one.
+            - Wired: the five UAM guards (`privilege_escalation`, `self_lockout`, `last_admin`,
+              `cross_agency_forbidden`, `user_not_found`) and `require_role` — which covers the
+              admin API and dispatch in one place. `user_not_found` IS recorded: under RLS a
+              cross-agency target surfaces as 404, so a run of them is id enumeration; the entry
+              names only the id the caller supplied and is never enriched, so it leaks nothing.
+            - UI: `/audit` renders a denial with a DENIED chip, red treatment and *tried to*
+              phrasing plus the reason. A refused platform-admin grant that rendered like a
+              successful one would be worse than not recording it.
       - [ ] **Decide** whether `uncover.custody` should collapse into the core trail. They are NOT
             duplicates: custody is per-process/in-memory and only fills `ActionBundle.audit` in the
             API response (never stored — see `uncover/repository.py`), while `core.audit_log` is the
             durable per-agency trail. Merging changes that API contract, so it is a product decision,
             not a cleanup. Both docstrings now say so.
+- [ ] **Two latent defects found while auditing denials** · S each · *surfaced 2026-08-22, neither
+      caused by that work* — recorded because both are the quiet kind that surface as something else.
+      - [ ] **`core.audit_log.seq` allocation race.** `seq` is `max(seq) + 1` read inside the writing
+            transaction, with no unique index on `(agency_id, seq)`. Two transactions committing
+            concurrently for one agency can claim the same number, and the chain then fails
+            verification — which reads as *tampering*, the one conclusion the trail exists to support.
+            Pre-existing between any two concurrent requests; denials add another path to it, not a
+            new class. Fix is a per-agency `pg_advisory_xact_lock` and/or a unique index — both touch
+            the success path and want a migration, so it was left alone deliberately.
+      - [ ] **`get_mode_resolver()` caches the `Settings` INSTANCE.** It is `@lru_cache`d, so
+            `get_settings.cache_clear()` does not reach it and the resolver keeps pointing at an
+            orphaned `Settings` while tests mutate the new singleton. Today the pgserver tests pass
+            only because they sort alphabetically AFTER the auth tests; a new test file that sorts
+            earlier breaks three auth tests, which is exactly what happened here (worked around
+            locally in that file's fixture). **The trap stays armed for the next early-sorting
+            file.** Real fix: `ModeResolver` should read settings at use, not capture them.
 - [x] **`alembic check` drift reconciliation** · S–M · **DONE (2026-08-16)** — the last leg of the
       migration guards. All four drift items were the same shape (the DB had the object, the ORM model
       never declared it), so they were reconciled model-side with **no schema change and no migration**:

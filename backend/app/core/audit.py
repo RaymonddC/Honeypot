@@ -22,6 +22,11 @@ rolling back a completed case update — trades a missing log line for corrupted
 state, which is the worse outcome. ``verify_chain`` exists so a gap is
 detectable rather than silent.
 
+**Denied actions are recorded too** — see ``record_denial`` at the bottom of
+this module. A 403 an authenticated user collects while reaching for something
+their role forbids is often the most security-relevant line in the whole trail,
+and it used to vanish without trace.
+
 Memory mode keeps an in-process chain so POC demos and tests exercise the same
 code path; only Postgres persists.
 """
@@ -29,13 +34,14 @@ code path; only Postgres persists.
 import hashlib
 import json
 import logging
+import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Protocol, runtime_checkable
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.core.config import get_settings
 
@@ -71,6 +77,13 @@ USER_DEACTIVATED = "user.deactivated"
 USER_REACTIVATED = "user.reactivated"
 TRIAGE_ATTACHED = "triage.attached"
 TRIAGE_PROMOTED = "triage.promoted"
+# Route-level RBAC refusal. Every other constant here names a domain action, and
+# a DENIED one keeps that name (``user.role_changed`` denied is still
+# ``user.role_changed`` — see ``record_denial``). This one is the exception
+# because there is no domain action to name: ``require_role`` rejects the caller
+# during dependency resolution, so the handler — and with it any notion of what
+# was being attempted beyond "this endpoint" — never runs.
+ACCESS_FORBIDDEN = "access.forbidden"
 
 
 def _now() -> datetime:
@@ -380,6 +393,242 @@ async def record_action(
         return None
 
 
+# --------------------------------------------------------------------------- #
+# Denied actions
+# --------------------------------------------------------------------------- #
+
+# ``detail["_outcome"]``. Absent means SUCCESS: every entry written before this
+# existed is a success, and nothing had to be backfilled to say so. Recording
+# the outcome in ``detail`` rather than in a new column is deliberate —
+# ``entry_hash`` hashes ``detail``, so an outcome put there is tamper-evident
+# for free, whereas a new column would be outside the hash unless ``entry_hash``
+# changed, and changing ``entry_hash`` would break verification of every entry
+# already written.
+OUTCOME_DENIED = "denied"
+
+# Volume cap: at most this many denials per (agency, actor, action) per window.
+# A misconfigured client retrying a forbidden call in a loop must not be able to
+# bury a year of real activity under its own 403s — the chain is evidence a
+# human has to read. Five is enough to establish a pattern ("this is not a
+# one-off fat-finger"); the sixth adds nothing the fifth didn't.
+DENIAL_CAP = 5
+DENIAL_WINDOW_SECONDS = 300
+
+# (agency, actor, action) -> (window start on the monotonic clock, count).
+#
+# In-process, and therefore PER WORKER: with N uvicorn workers the effective cap
+# is DENIAL_CAP × N, because each worker keeps its own counter and a load
+# balancer will spread one client's retries across them. That is accepted — the
+# cap exists to bound volume, not to be exact, and the alternative (a shared
+# counter in Postgres or Redis) buys precision we do not need at the price of a
+# round trip on every 403. Monotonic clock so a system clock adjustment cannot
+# freeze or reset the window.
+_denial_counts: dict[tuple[str, str, str], tuple[float, int]] = {}
+
+
+def _claim_denial_slot(agency_id: str, actor_user_id: str, action: str) -> int | None:
+    """Take a slot in the current window. Returns the 1-based count, or ``None``
+    when this denial is over the cap and must not be recorded."""
+    key = (str(agency_id), str(actor_user_id or ""), action)
+    now = time.monotonic()
+    start, count = _denial_counts.get(key, (now, 0))
+    if now - start >= DENIAL_WINDOW_SECONDS:
+        start, count = now, 0  # window rolled over
+    count += 1
+    _denial_counts[key] = (start, count)
+    return count if count <= DENIAL_CAP else None
+
+
+def _already_recorded_this_request(request, signature: tuple) -> bool:
+    """One request must not produce the same denial entry twice.
+
+    It can otherwise: ``require_role(ADMIN_ROLES)`` is instantiated twice for the
+    admin API (once on the router, once inside ``get_user_admin_repository``),
+    and FastAPI's dependency cache does not dedupe two *distinct* closures, so
+    both fire on the same rejected request.
+
+    Keyed on ``request.state`` — server-side state belonging to this one
+    request — and NOT on the request id, which is honoured from an inbound
+    ``X-Request-ID`` header (see ``core/requests.py``) and would therefore let a
+    client suppress its own denials by sending a constant one.
+    """
+    if request is None:
+        return False
+    seen = getattr(request.state, "audit_denials", None)
+    if seen is None:
+        seen = set()
+        request.state.audit_denials = seen
+    if signature in seen:
+        return True
+    seen.add(signature)
+    return False
+
+
+async def record_denial(
+    *,
+    agency_id: str | None,
+    action: str,
+    denial_code: str,
+    actor_user_id: str | None = None,
+    actor_name: str | None = None,
+    actor_role: str | None = None,
+    target_type: str | None = None,
+    target_id: str | None = None,
+    target_label: str | None = None,
+    request=None,
+    detail: dict | None = None,
+) -> AuditEntry | None:
+    """Record an action an authenticated actor was REFUSED. NEVER raises.
+
+    Same never-raises guarantee as ``record_action``, and one more besides: this
+    is called on a path that is already returning a clean 4xx, so a failure here
+    must never turn that into a 500.
+
+    **The action keeps its domain name.** A denied role change is
+    ``user.role_changed`` with ``detail["_outcome"] = "denied"`` and
+    ``detail["_denial_code"]``, not ``user.role_changed.denied`` — "everything
+    Budi did" has to stay one query, which a parallel vocabulary of
+    ``.denied`` action names would quietly break.
+
+    **Takes no session, on purpose.** A request runs inside ONE transaction
+    (``app/core/db.py``'s ``_tenant_scoped_session`` — ``async with
+    SessionLocal() as session, session.begin():``). A guard raising
+    ``HTTPException`` leaves that context with an exception, so the transaction
+    ROLLS BACK — and a denial written on the request's session rolls back with
+    it, leaving nothing. It would still pass in memory mode, where there is no
+    transaction to lose, which is exactly how that bug reaches production. So
+    this opens its own short-lived session and commits it independently, and
+    refuses to accept a session argument at all rather than trust every call
+    site to pass the right one.
+
+    That is the opposite of the success path, deliberately: a success commits
+    atomically WITH the change it describes (an entry for work that was then
+    rolled back would be a lie). A denial describes something that did NOT
+    happen, so it has nothing to be atomic with.
+
+    **Which agency's chain.** The ACTOR's, even when they were reaching at
+    another agency's resource — the reverse of the success path, which chains
+    under the target. Nothing happened to the target, and writing into another
+    tenant's evidentiary chain on the strength of an outsider's rejected attempt
+    would let anyone with a login append rows to a chain a court reads. The
+    target agency is named in ``detail`` when it is known and different.
+    """
+    try:
+        if not agency_id:
+            _log.warning("audit: dropping denied %s — no agency_id on the request", action)
+            return None
+
+        signature = (action, denial_code, str(target_id or ""))
+        if _already_recorded_this_request(request, signature):
+            return None
+
+        slot = _claim_denial_slot(str(agency_id), str(actor_user_id or ""), action)
+        if slot is None:
+            # Over the cap. Logged (not silent) so the volume is still visible
+            # to operations even though it stays out of the evidentiary chain.
+            _log.warning(
+                "audit: suppressing denied %s (%s) by %s — over %d per %ds",
+                action, denial_code, actor_user_id, DENIAL_CAP, DENIAL_WINDOW_SECONDS,
+            )
+            return None
+
+        detail = dict(detail or {})
+        detail["_outcome"] = OUTCOME_DENIED
+        detail["_denial_code"] = denial_code
+        if slot == DENIAL_CAP:
+            # Make suppression visible IN the chain. Without this marker a
+            # capped chain and a quiet one look identical, and a reader would
+            # conclude the attempts stopped when they were merely no longer
+            # being written down.
+            detail["_denial_cap_reached"] = True
+            detail["_denial_cap"] = f"{DENIAL_CAP} per {DENIAL_WINDOW_SECONDS}s per worker"
+        if actor_name:
+            detail["_actor"] = actor_name
+        if actor_role:
+            detail["_actor_role"] = actor_role
+        if target_label:
+            detail["_target"] = target_label
+        if request is not None:
+            from app.core.requests import client_origin, current_request_id
+
+            origin = client_origin(request)
+            if origin.get("ip"):
+                detail["_ip"] = origin["ip"]
+            if origin.get("user_agent"):
+                detail["_user_agent"] = origin["user_agent"]
+            if current_request_id():
+                detail["_request_id"] = current_request_id()
+
+        if get_settings().persistence != "postgres":
+            return await _memory_repository().record(
+                agency_id=str(agency_id), action=action, actor_user_id=actor_user_id,
+                target_type=target_type, target_id=target_id, detail=detail,
+            )
+        return await _record_denial_postgres(
+            agency_id=str(agency_id), action=action, actor_user_id=actor_user_id,
+            actor_role=actor_role, target_type=target_type, target_id=target_id,
+            detail=detail,
+        )
+    except Exception as exc:  # noqa: BLE001 - must never turn a 403 into a 500
+        _log.warning(
+            "audit: failed to record denied %s (%s): %s: %s",
+            action, denial_code, type(exc).__name__, exc,
+        )
+        return None
+
+
+async def _record_denial_postgres(
+    *, agency_id: str, action: str, actor_user_id: str | None, actor_role: str | None,
+    target_type: str | None, target_id: str | None, detail: dict,
+) -> AuditEntry:
+    """The separate, self-committing transaction — see ``record_denial``.
+
+    ``app.core.db`` is imported as a MODULE and ``SessionLocal`` read off it at
+    call time, so a test can point it at another engine; binding the name at
+    import time would freeze whichever sessionmaker existed then (the same
+    reason ``worker_session`` consults its override at call time).
+
+    The new session carries no request context, so it must set the RLS vars
+    itself — ``core.audit_log``'s insert policy is ``agency_id =
+    core.current_agency()``, which fails closed against an unset one.
+
+    KNOWN, PRE-EXISTING: ``seq`` is allocated as ``max(seq) + 1`` read inside the
+    writing transaction, so two transactions committing concurrently for the same
+    agency can both claim the same number and leave a chain that no longer
+    verifies. That race already existed between two concurrent requests; a
+    denial committing mid-request is one more way to reach it, not a new one.
+    Fixing it properly means serialising allocation (a per-agency
+    ``pg_advisory_xact_lock``) and/or a unique index on ``(agency_id, seq)`` —
+    both touch the success path and want a migration, so neither belongs here.
+    """
+    from app.core import db as db_module
+
+    async with db_module.SessionLocal() as session, session.begin():
+        for var, value in (
+            ("app.current_agency", str(agency_id)),
+            ("app.current_user", str(actor_user_id or "")),
+            ("app.current_role", actor_role or ""),
+        ):
+            await session.execute(
+                text("SELECT set_config(:var, :value, true)"),
+                {"var": var, "value": value},
+            )
+        return await PostgresAuditRepository(session).record(
+            agency_id=agency_id, action=action, actor_user_id=actor_user_id,
+            target_type=target_type, target_id=target_id, detail=detail,
+        )
+
+
+def is_denied(entry_detail: dict | None) -> bool:
+    """Whether a stored entry records a REFUSED action.
+
+    Absence of ``_outcome`` reads as success — that is what makes every entry
+    written before denials existed correct without a backfill.
+    """
+    return (entry_detail or {}).get("_outcome") == OUTCOME_DENIED
+
+
 def reset_audit_store() -> None:
-    """Sync test hook — clears the in-memory chain."""
+    """Sync test hook — clears the in-memory chain and the denial rate counters."""
     _memory_repository().reset()
+    _denial_counts.clear()

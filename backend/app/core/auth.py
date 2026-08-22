@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from typing import Annotated, Sequence
 
 import jwt
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import get_settings
@@ -283,11 +283,45 @@ async def get_optional_current_user(
 
 
 def require_role(roles: Sequence[str]):
-    """Dependency factory: 403 unless the JWT role is in the allow-list."""
+    """Dependency factory: 403 unless the JWT role is in the allow-list.
+
+    A refusal is AUDITED (``access.forbidden``, outcome ``denied``). The actor
+    is authenticated and known, and "an authenticated user repeatedly reaching
+    for something their role forbids" is the single most security-relevant thing
+    an audit trail can surface — it used to leave no trace whatsoever. Recording
+    happens here rather than at each call site because this is the one place
+    that knows the refusal happened at all: the handler never runs.
+
+    The audit write must not change the outcome — ``record_denial`` never
+    raises, so the caller still gets a clean 403 even if the log is down.
+    """
     allowed = frozenset(roles)
 
-    async def dependency(auth: CurrentUser) -> AuthContext:
+    async def dependency(auth: CurrentUser, request: Request) -> AuthContext:
         if auth.role not in allowed:
+            # Imported here, not at module scope: app.core.audit reaches
+            # app.core.db, which imports this module.
+            from app.core.audit import ACCESS_FORBIDDEN, record_denial
+
+            await record_denial(
+                agency_id=str(auth.agency.id),
+                action=ACCESS_FORBIDDEN,
+                denial_code="forbidden",
+                actor_user_id=str(auth.user.id),
+                actor_name=auth.user.name,
+                actor_role=auth.role,
+                target_type="endpoint",
+                target_label=f"{request.method} {request.url.path}",
+                request=request,
+                # Path only, never the query string — same rule as the request
+                # log (app/core/requests.py): that is where a token or a phone
+                # number ends up tomorrow.
+                detail={
+                    "method": request.method,
+                    "path": request.url.path,
+                    "requires": sorted(allowed),
+                },
+            )
             raise HTTPException(
                 status_code=403,
                 detail={

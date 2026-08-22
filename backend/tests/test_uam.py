@@ -299,8 +299,164 @@ def test_a_cross_agency_change_is_chained_under_the_target_agency():
     assert entry["detail"]["acting_agency_id"] == str(PPATK.id)
 
 
-def test_a_refused_change_leaves_no_audit_entry():
-    """Nothing happened, so nothing may be logged as having happened."""
+def _entries(headers) -> list[dict]:
+    return client.get("/api/audit", headers=headers).json()["entries"]
+
+
+def test_a_refused_change_is_recorded_as_denied_never_as_done():
+    """Nothing happened, so nothing may be logged as HAVING happened.
+
+    This used to assert the refusal left no entry at all. It now leaves one —
+    the whole point of auditing denials — so the invariant is the stronger one:
+    the attempt is on the record, and it is unmistakably marked as refused. An
+    entry that reads like a successful platform-admin grant would be far worse
+    than no entry, which is why this asserts on the outcome, not just presence.
+    """
     admin = _auth()
-    _create(admin, email="escalate@bareskrim.polri.go.id", role="platform-admin")
-    assert "user.created" not in _audit_actions(admin)
+    r = _create(admin, email="escalate@bareskrim.polri.go.id", role="platform-admin")
+    assert r.status_code == 403, r.text
+
+    created = [e for e in _entries(admin) if e["action"] == "user.created"]
+    assert len(created) == 1, f"expected exactly one entry, got {created}"
+    entry = created[0]
+    assert entry["detail"]["_outcome"] == "denied", (
+        f"a refused grant must not read as done — detail was {entry['detail']}"
+    )
+    assert entry["detail"]["_denial_code"] == "privilege_escalation"
+    assert entry["detail"]["attempted_role"] == "platform-admin"
+    assert entry["detail"]["_actor_role"] == "agency-admin"
+    # And the user really was not created.
+    assert "escalate@bareskrim.polri.go.id" not in [
+        u["email"] for u in client.get("/api/users", headers=admin).json()
+    ]
+
+
+def test_each_uam_guard_records_its_denial_under_the_domain_action():
+    """All five guards, each keeping the action name of what was attempted.
+
+    A parallel vocabulary (`user.role_changed.denied`) would split "everything
+    this admin did" across two queries — see app/core/audit.py's record_denial.
+    """
+    admin = _auth()
+    me = upsert_demo_user(BARESKRIM, "agency-admin")
+    victim = _create(admin).json()
+
+    # 1. privilege_escalation, on a PATCH this time (the POST is covered above)
+    client.patch(
+        f"/api/users/{victim['id']}", json={"role": "platform-admin"}, headers=admin
+    )
+    # 2. self_lockout
+    client.patch(f"/api/users/{me.id}", json={"is_active": False}, headers=admin)
+    # 3. last_admin — a second agency-admin, then remove the original
+    other_admin = _create(
+        admin, email="admin2@bareskrim.polri.go.id", role="agency-admin"
+    ).json()
+    client.patch(f"/api/users/{other_admin['id']}", json={"is_active": False}, headers=admin)
+    # (that one succeeds — two admins exist; now the survivor is the last)
+    client.patch(f"/api/users/{other_admin['id']}", json={"is_active": True}, headers=admin)
+    # 4. cross_agency_forbidden
+    client.get(f"/api/users?agency_id={PPATK.id}", headers=admin)
+    # 5. user_not_found
+    client.patch(
+        f"/api/users/{uuid.uuid4()}", json={"role": "bank-compliance"}, headers=admin
+    )
+
+    denied = {
+        (e["action"], e["detail"]["_denial_code"])
+        for e in _entries(admin)
+        if e["detail"].get("_outcome") == "denied"
+    }
+    for expected in (
+        ("user.role_changed", "privilege_escalation"),
+        ("user.deactivated", "self_lockout"),
+        ("access.forbidden", "cross_agency_forbidden"),
+        ("user.role_changed", "user_not_found"),
+    ):
+        assert expected in denied, f"{expected} not recorded — got {sorted(denied)}"
+    assert client.get("/api/audit", headers=admin).json()["chain_ok"] is True
+
+
+def test_the_last_admin_refusal_is_recorded_as_denied():
+    """Split out from the guard sweep because reaching `last_admin` at all takes
+    care: for a SELF-edit `self_lockout` fires first and masks it, so the only
+    way in is an outsider — a platform-admin — removing another agency's final
+    admin. A test that quietly hit self_lockout instead would still be green
+    while proving nothing, which is why the code is asserted explicitly.
+    """
+    platform = _auth("platform-admin", "ppatk")
+    last = upsert_demo_user(BARESKRIM, "agency-admin")
+
+    # Leave Bareskrim with exactly one active admin, or the guard never fires.
+    listing = client.get(f"/api/users?agency_id={BARESKRIM.id}", headers=platform).json()
+    for u in listing:
+        if u["role"] in ("agency-admin", "platform-admin") and u["id"] != str(last.id):
+            client.patch(
+                f"/api/users/{u['id']}",
+                json={"role": "police-investigator"},
+                headers=platform,
+            )
+    remaining = [
+        u for u in client.get(f"/api/users?agency_id={BARESKRIM.id}", headers=platform).json()
+        if u["role"] in ("agency-admin", "platform-admin") and u["is_active"]
+    ]
+    assert len(remaining) == 1, f"setup failed — {len(remaining)} active admins: {remaining}"
+
+    r = client.patch(f"/api/users/{last.id}", json={"is_active": False}, headers=platform)
+    assert r.status_code == 409, r.text
+    assert r.json()["error"]["code"] == "last_admin", r.text
+
+    # Chained under the ACTOR's agency (PPATK), not the target's.
+    denied = [
+        e for e in _entries(platform)
+        if e["detail"].get("_denial_code") == "last_admin"
+    ]
+    assert len(denied) == 1, f"expected one last_admin entry, got {denied}"
+    assert denied[0]["action"] == "user.deactivated"
+    assert denied[0]["detail"]["_outcome"] == "denied"
+    assert denied[0]["target_id"] == str(last.id)
+
+
+def test_a_non_admin_probing_the_admin_api_leaves_a_trace():
+    """The signal the whole item exists for: an authenticated user reaching for
+    a door their role does not open. It used to vanish entirely."""
+    investigator = _auth("police-investigator")
+    assert client.get("/api/users", headers=investigator).status_code == 403
+
+    entries = _entries(investigator)
+    forbidden = [e for e in entries if e["action"] == "access.forbidden"]
+    assert len(forbidden) == 1, (
+        f"expected exactly one entry for one refused request, got {len(forbidden)}: "
+        f"{[e['detail'] for e in forbidden]}"
+    )
+    d = forbidden[0]["detail"]
+    assert d["_outcome"] == "denied" and d["_denial_code"] == "forbidden"
+    assert d["path"] == "/api/users" and d["method"] == "GET"
+    assert d["_actor_role"] == "police-investigator"
+    assert "agency-admin" in d["requires"]
+
+
+def test_denials_do_not_leak_across_agencies():
+    """A refusal is chained under the ACTOR's agency, not the target's — an
+    outsider's rejected attempt must not be appendable to another tenant's
+    evidentiary chain."""
+    platform = _auth("platform-admin", "ppatk")
+    # A platform-admin CAN cross agencies, so use a plain agency-admin instead.
+    agency_admin = _auth("agency-admin", "ppatk")
+    assert client.get(
+        f"/api/users?agency_id={BARESKRIM.id}", headers=agency_admin
+    ).status_code == 403
+
+    target_side = [
+        e for e in _entries(_auth("agency-admin", "bareskrim"))
+        if e["detail"].get("_outcome") == "denied"
+    ]
+    assert target_side == [], (
+        "the refused agency's chain must not carry an outsider's attempt — "
+        f"found {target_side}"
+    )
+    actor_side = [
+        e for e in _entries(platform) if e["detail"].get("_outcome") == "denied"
+    ]
+    assert any(
+        e["detail"]["_denial_code"] == "cross_agency_forbidden" for e in actor_side
+    ), f"the actor's own agency must carry it — got {actor_side}"

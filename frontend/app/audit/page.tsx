@@ -11,13 +11,26 @@
  *
  * Entries are immutable by construction (append-only, hash-chained), so this
  * screen is deliberately read-only — there is no edit affordance to build.
+ *
+ * **Refused actions appear here too**, and the single most important thing this
+ * screen does with them is make them impossible to mistake for things that
+ * happened. A denied platform-admin grant rendered like a successful one would
+ * be worse than not recording it at all: the reader would draw a false
+ * conclusion from evidence, rather than simply lacking it. So a denial gets its
+ * own colour, a DENIED chip, past-tense phrasing that says *tried to*, and the
+ * reason it was refused.
  */
 
 import { useCallback, useEffect, useState } from "react";
 import { fetchAuditFeed, type AuditEntry, type AuditFeed } from "@/lib/cases/api";
 
-/** Plain-language labels — `case.updated` is a key, not something to show a user. */
-const ACTION_COPY: Record<string, { label: string; glyph: string }> = {
+/** Plain-language labels — `case.updated` is a key, not something to show a user.
+ *  `attempt` is the phrasing used when the action was REFUSED; entries without
+ *  one fall back to "attempted <label>", which reads acceptably for all of them. */
+const ACTION_COPY: Record<
+  string,
+  { label: string; glyph: string; attempt?: string }
+> = {
   "auth.login": { label: "Signed in", glyph: "→" },
   "case.created": { label: "Opened a case", glyph: "▤" },
   "case.updated": { label: "Changed a case", glyph: "✎" },
@@ -25,7 +38,52 @@ const ACTION_COPY: Record<string, { label: string; glyph: string }> = {
   "dispatch.sent": { label: "Dispatched to an agency", glyph: "⚑" },
   "triage.attached": { label: "Filed a call into a case", glyph: "☎" },
   "triage.promoted": { label: "Opened a case from a call", glyph: "☎" },
+  "action.bundle.generated": { label: "Generated an evidence bundle", glyph: "▦" },
+  "evidence.exported": { label: "Downloaded evidence", glyph: "↧" },
+  "user.created": {
+    label: "Provisioned a user",
+    glyph: "＋",
+    attempt: "tried to provision a user",
+  },
+  "user.role_changed": {
+    label: "Changed a user's role",
+    glyph: "◎",
+    attempt: "tried to change a user's role",
+  },
+  "user.deactivated": {
+    label: "Deactivated a user",
+    glyph: "⊘",
+    attempt: "tried to deactivate a user",
+  },
+  "user.reactivated": {
+    label: "Reactivated a user",
+    glyph: "⊙",
+    attempt: "tried to reactivate a user",
+  },
+  "access.forbidden": {
+    label: "Was refused access",
+    glyph: "⊗",
+    attempt: "tried to reach something their role forbids",
+  },
 };
+
+/** Why a refusal happened, in the words an investigator would use. Keys are the
+ *  guard codes from the backend (`detail._denial_code`). */
+const DENIAL_COPY: Record<string, string> = {
+  privilege_escalation: "only a platform-admin may grant that role",
+  self_lockout: "would have locked themselves out of their own account",
+  last_admin: "would have left the agency with no active admin",
+  cross_agency_forbidden: "that user belongs to another agency",
+  user_not_found: "no such user is visible to them",
+  forbidden: "their role does not allow it",
+};
+
+/** An entry records something that was REFUSED, not something that happened.
+ *  Absence of `_outcome` means success — every entry written before denials
+ *  were recorded is a success, and none of them was backfilled. */
+function isDenied(e: AuditEntry): boolean {
+  return (e.detail as Record<string, unknown>)?._outcome === "denied";
+}
 
 function fmtTs(iso: string): string {
   const d = new Date(iso);
@@ -55,6 +113,16 @@ function targetLabel(e: AuditEntry): string {
 /** Human summary of an entry's detail — the "what changed", not a JSON dump. */
 function summarize(e: AuditEntry): string {
   const d = e.detail ?? {};
+  if (isDenied(e)) {
+    // NEVER fall through to the success summaries: `from → to` on a refused
+    // role change describes a change that did not occur. Say why it was
+    // refused instead — that is the whole content of the entry.
+    const code = String(d._denial_code ?? "");
+    const why = DENIAL_COPY[code] ?? code.replace(/_/g, " ");
+    const attempted = d.attempted_role ? ` (${String(d.attempted_role)})` : "";
+    const where = d.path ? ` · ${String(d.method ?? "")} ${String(d.path)}` : "";
+    return `${why}${attempted}${where}`;
+  }
   switch (e.action) {
     case "auth.login":
       return `${d.role ?? "—"} · ${d.method === "google" ? "Google" : "demo login"}`;
@@ -143,8 +211,11 @@ export default function AuditPage() {
           <h1 className="text-xl font-bold tracking-tight">Audit trail</h1>
           <p className="mt-1 text-xs text-muted">
             Every recorded action by your agency, newest first — who did it, when,
-            and what changed. Append-only and hash-chained, so alteration is
-            detectable. Other agencies&apos; actions are never shown.
+            and what changed. Actions that were <span className="text-risk-high">refused</span>{" "}
+            are recorded too, and marked as such: an attempt someone&apos;s role
+            did not allow is often the line that matters most. Append-only and
+            hash-chained, so alteration is detectable. Other agencies&apos;
+            actions are never shown.
           </p>
         </div>
         <button
@@ -180,23 +251,45 @@ export default function AuditPage() {
               {entries.map((e) => {
                 const copy = ACTION_COPY[e.action] ?? { label: e.action, glyph: "·" };
                 const detail = summarize(e);
+                const denied = isDenied(e);
+                const verb = denied
+                  ? copy.attempt ?? `attempted ${copy.label.toLowerCase()}`
+                  : copy.label.toLowerCase();
                 return (
                   <li
                     key={`${e.seq}-${e.sha256}`}
-                    className="rounded-lg bg-elevated px-2.5 py-2 text-[11.5px]"
+                    className={`rounded-lg px-2.5 py-2 text-[11.5px] ${
+                      denied
+                        ? "border border-risk-high/30 bg-risk-high/[.07]"
+                        : "bg-elevated"
+                    }`}
                   >
                     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                       <span className="w-8 shrink-0 font-mono text-[10px] text-muted">
                         #{e.seq}
                       </span>
-                      <span className="shrink-0 text-muted">{copy.glyph}</span>
+                      <span className="shrink-0 text-muted">
+                        {denied ? "⊘" : copy.glyph}
+                      </span>
+                      {/* The chip comes before the sentence on purpose: a reader
+                          skimming the column must not read half a row and
+                          conclude the thing happened. */}
+                      {denied && (
+                        <span className="shrink-0 rounded bg-risk-high/20 px-1.5 py-[1px] text-[9.5px] font-bold uppercase tracking-wide text-risk-high">
+                          Denied
+                        </span>
+                      )}
                       {/* WHO first — that is the question an audit trail exists
                           to answer, and it was a uuid until we snapshotted the
                           name at write time. */}
                       <span className="font-semibold text-fg">{actorName(e)}</span>
-                      <span className="text-fg">{copy.label.toLowerCase()}</span>
+                      <span className={denied ? "text-risk-high" : "text-fg"}>{verb}</span>
                       {targetLabel(e) && (
-                        <span className="font-medium text-accent-bright">
+                        <span
+                          className={`font-medium ${
+                            denied ? "text-risk-high/80" : "text-accent-bright"
+                          }`}
+                        >
                           {targetLabel(e)}
                         </span>
                       )}
@@ -207,6 +300,16 @@ export default function AuditPage() {
                         {fmtTs(e.ts)}
                       </span>
                     </div>
+                    {/* The volume cap is bounded per actor/action/window, so a
+                        run of refusals stops being written down. Saying so is
+                        the difference between a capped chain and a quiet one. */}
+                    {Boolean((e.detail as Record<string, unknown>)?._denial_cap_reached) && (
+                      <p className="mt-1 text-[10px] text-risk-high/80">
+                        ⚠ Rate cap reached (
+                        {String((e.detail as Record<string, unknown>)._denial_cap)}) —
+                        further refusals of this kind by this user were NOT recorded.
+                      </p>
+                    )}
                     {/* The hash is what makes the entry verifiable; showing a
                         prefix lets a reviewer eyeball the chain without
                         drowning the row in 64 hex characters. */}
