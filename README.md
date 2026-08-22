@@ -56,6 +56,13 @@ present, RLS genuinely enforcing, Redis reachable) and each check says what to
 do about it. `/health` deliberately stays shallow because it is the platform
 health check; see `docs/Deploy.md` §7.
 
+**Wallet lookups 404 in local dev?** Check `ITTU_MODULE_MODES`. With
+`{"takedown":"live"}` the TAKEDOWN module queries the **real TRONSCAN API**, and
+the POC demo addresses (`TXtR9dQ…`, the mule fan-out) are fictional — so every
+lookup correctly returns *"No transfers found"*. Nothing is broken; the module is
+simply pointed at the real chain. `GET /api/config` reports the effective mode per
+module. Set `takedown` back to `poc` to use the offline fixtures.
+
 **Migrations** — `alembic upgrade head`, run as the OWNING role
 (`ITTU_MIGRATION_DATABASE_URL`); the app connects as the non-owning `ittu_app`
 role so RLS actually applies (`backend/scripts/create_app_role.sql`, once per
