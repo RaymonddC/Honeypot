@@ -109,6 +109,17 @@ async def get_audit_feed(
     ``chain_ok`` is computed on read rather than trusted: an audit log that is
     never verified proves nothing — the point of chaining is that tampering
     becomes *detectable*, which requires someone to actually check.
+
+    **What ``chain_ok: true`` does and does not mean.** It means no entry here
+    was **altered or removed** — every hash still links to the one before it. It
+    does NOT mean every action reached this log. An entry that failed to be
+    written leaves nothing behind: the entries around it link normally, so there
+    is no gap for verification to find. That is a property of any append-only
+    log, not a defect in this one, and it is why write failures are counted and
+    alerted on separately (``ittu_audit_entries_dropped_total``, docs/Deploy.md
+    §8) rather than being inferred from the chain. Stated here because "verified"
+    invites the stronger reading, and an auditor is entitled to know which claim
+    they are being handed.
     """
     repo = _audit_repo(session)
     agency = str(auth.agency.id)

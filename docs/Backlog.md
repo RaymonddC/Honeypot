@@ -199,22 +199,69 @@ on the Response dashboard). **508 backend tests green**, frontend build green.
             uncommitted in the enclosing transaction, so the denial path — the only writer that
             opens a connection inside another open transaction — now sets a short `LOCAL
             lock_timeout`, turning that hang into a fast, loud, logged drop. Pinned by a test.
-      - [ ] **A DROPPED audit entry is invisible to `verify_chain`** · S · *surfaced by the fix
-            above, not caused by it* — the chain detects a FORK, but an entry that was never
-            written leaves no gap in the prev-links, so the log verifies clean and the loss shows
-            up only as an ERROR line in the application log. That is the wrong place for it: the
-            evidentiary record should be able to say "something is missing" on its own, without
-            depending on whether anyone was tailing logs that day. Needs a separate mechanism — a
-            per-agency write-attempt counter reconciled against `max(seq)`, or alerting on that
-            ERROR. Exhaustion now requires sustained contention rather than a transient blip, so
-            this is a real but narrow hole; it belongs with metrics/alerting work.
-            **HALF DONE (2026-08-22, with the metrics work):** every losing path now increments
-            `ittu_audit_entries_dropped_total{reason}`, and `Deploy.md` §8 makes any non-zero value
-            a page. So the loss is *detectable externally*. The other half of the original ask is
-            NOT done and should not be ticked: the evidentiary record still cannot say "something
-            is missing" **on its own** — that needs the per-agency write-attempt counter reconciled
-            against `max(seq)`, persisted alongside the chain, so an auditor reading only the
-            database (no access to our monitoring) can tell. Left open deliberately.
+      - [x] **A DROPPED audit entry is invisible to `verify_chain`** · **RESOLVED (2026-08-22) —
+            counter shipped; in-database detection deliberately NOT built.** The chain detects a
+            FORK, but an entry never written leaves no gap in the prev-links, so the log verifies
+            clean while a record is missing.
+            **Shipped:** every losing path increments `ittu_audit_entries_dropped_total{reason}`,
+            with entries written as the denominator, and `Deploy.md` §8 pages on any non-zero value.
+            **Deliberately not built — in-database detection.** Three approaches were designed and
+            probed against real Postgres; each makes something else worse:
+            - *Allocate `seq` from a Postgres sequence* so a loss leaves a numeric gap — **silently
+              reinstates the fork bug**. Racing writers get DIFFERENT numbers, the insert succeeds,
+              and `UNIQUE(agency_id, seq)` never fires while both entries chain onto the same
+              predecessor (probed: fork undetected). Restoring the guard via `UNIQUE(agency_id,
+              prev_sha256)` brings back retries, and every retry burns a sequence value — measured
+              at **28 numeric gaps for 0 actual losses** with 8 writers. The noise peaks under
+              contention, the exact regime the signal exists for.
+            - *Persisted write-attempt counter* reconciled against `max(seq)` — adds a **forgeable**
+              artifact to a tamper-evident record (delete an entry, decrement the counter, no trace),
+              and a second artifact that can contradict the chain. "Our two records disagree about
+              whether a document exists" is a bad sentence to explain in court.
+            - *Write an `audit.entry_lost` marker into the chain* — best of the three, but appending
+              it needs the same allocation that just failed, so it is absent precisely when it
+              matters. The most misleading failure shape available.
+            **The general point:** no in-database mechanism can record a failure whose cause is the
+            database being unavailable — the largest loss class. Only an external observer can, so
+            monitoring is not the fallback there, it is the only possible answer.
+            **How little would actually have been covered** — every way we drop an entry today,
+            against what an in-database mechanism could ever see:
+
+            | `reason` | DB up? | detectable in-DB? |
+            |---|---|---|
+            | `error` (DB down/unreachable) | no | **impossible by construction** |
+            | `no_agency` | yes | **impossible** — no agency chain to attribute it to |
+            | `chain_head_uncommitted` | yes | yes, but needs a path writing a success entry *then* a denial in one transaction — does not exist, and a test pins it |
+            | `seq_contention` | yes | yes — **the only live candidate** |
+
+            So the whole apparatus would have bought detection for one class, the one that already
+            needs sustained contention beyond ~10 concurrent writers on a single agency's chain.
+            *(Also measured while probing option (2): rolled-back transactions do burn sequence
+            values, but that is the weaker objection to it — an AST walk of all 11 handlers holding
+            an audit write found every one followed by a single `return`, so nothing raises after an
+            audit write and handler-driven rollback essentially never happens. Recorded so anyone
+            re-litigating (2) starts from the measurement rather than the intuition.)*
+            **⚠ Do NOT "fix" this with a per-agency lock around allocation.** That is the same
+            deadlock this codebase has now hit twice (`pg_advisory_xact_lock`, and the unique
+            index's wait on an uncommitted row): `record_denial` writes on a second connection while
+            the enclosing request holds the lock, and the request cannot release it because it is
+            awaiting the denial. As an `asyncio.Lock` not even Postgres could diagnose it.
+            **What was built instead:** the `/audit` banner, `GET /api/audit` and
+            `Security-Evidence.md` §3 now state plainly that a verified chain proves no entry was
+            *altered or removed*, and does NOT prove every action was recorded. The real risk was an
+            auditor reading "✓ Chain verified" as "nothing is missing" — a stronger claim than the
+            chain can support.
+            **⏰ REVISIT TRIGGER — this decision has an expiry date.** It rests on per-agency
+            concurrency staying under ~10 simultaneous chain writers, which is a judgement about
+            usage, not a measurement. `triage.attached`/`triage.promoted` are audited
+            (`honeypot_ops/router.py`) and dial campaigns already exist — they simply cannot dial
+            until Twilio phase 5 ships. A live campaign means many calls landing as concurrent
+            webhooks, all on ONE agency's chain, which is exactly the assumed-away regime.
+            **When outbound calling goes live: re-measure per-agency concurrent audit writes, and
+            treat any non-zero `dropped_total{reason="seq_contention"}` as the signal to reopen
+            this.** Do not pre-emptively raise the retry budget — the counter will tell us, and
+            guessing a constant for a workload that does not exist yet is how unvalidated numbers
+            get into a codebase.
       - [x] **`get_mode_resolver()` caches the `Settings` INSTANCE** · **DONE (2026-08-22)** — it
             was `@lru_cache`d and captured the instance, so `get_settings.cache_clear()` left it
             pointing at an orphaned `Settings` while everything else read the new one. CI stayed
@@ -258,6 +305,14 @@ on the Response dashboard). **508 backend tests green**, frontend build green.
       [`Voice-Honeypot-Outbound.md`](Voice-Honeypot-Outbound.md): a number pool, a bulk-upload dial
       campaign (Dramatiq-paced, mirrors the C1 notification worker), and a triage queue that attaches
       each connected call's session to a matched case or leaves it for an investigator to assign.
+      **⏰ WHEN PHASE 5 SHIPS, re-open a closed audit decision.** We decided not to build
+      in-database detection of dropped audit entries, and that decision rests on per-agency
+      concurrency staying under ~10 simultaneous chain writers. A live campaign breaks that
+      assumption: many calls land as concurrent webhooks, `triage.attached`/`triage.promoted` are
+      audited, and they all write to ONE agency's chain. Re-measure concurrent audit writes once
+      campaigns actually dial, and treat any non-zero
+      `ittu_audit_entries_dropped_total{reason="seq_contention"}` as the signal to revisit the
+      "A DROPPED audit entry is invisible" item above. The counter is already in place and alerted.
       - [x] **Phase 1 — data model** (`e69f938`) — `honeypot` schema (numbers, dial_campaigns,
             dial_targets) + call columns on `intel.scam_sessions`, RLS on all three (dial_targets policed
             via a join through its campaign).

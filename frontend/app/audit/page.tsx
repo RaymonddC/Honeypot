@@ -162,6 +162,21 @@ function ChainBanner({ feed }: { feed: AuditFeed }) {
           Each record is hashed together with its predecessor, so editing or
           removing any entry breaks every hash after it. Re-checked just now.
         </p>
+        {/* Says what the green tick does NOT cover. "Verified" invites the
+            reading "nothing is missing", which is a stronger claim than a hash
+            chain can support: an entry that was never written leaves no gap,
+            because the entries around it still link to each other. Better an
+            investigator meets that here than in front of a court. The last
+            sentence matters as much as the caveat — without it this reads as a
+            shrug, when write failures are in fact counted and alerted on. */}
+        <p className="mt-1 text-[10.5px] text-muted">
+          What this does <span className="text-fg">not</span> prove: that every
+          action was recorded in the first place. The chain shows nothing here
+          was altered or removed — an entry that was never written leaves no
+          trace to break. Those write failures are counted and alerted on
+          separately, so a missing record is caught by monitoring rather than
+          by this check.
+        </p>
       </div>
     );
   }
