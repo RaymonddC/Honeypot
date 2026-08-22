@@ -22,21 +22,31 @@ rolling back a completed case update — trades a missing log line for corrupted
 state, which is the worse outcome. ``verify_chain`` exists so a gap is
 detectable rather than silent.
 
+**Denied actions are recorded too** — see ``record_denial`` at the bottom of
+this module. A 403 an authenticated user collects while reaching for something
+their role forbids is often the most security-relevant line in the whole trail,
+and it used to vanish without trace.
+
 Memory mode keeps an in-process chain so POC demos and tests exercise the same
 code path; only Postgres persists.
 """
 
+import asyncio
 import hashlib
 import json
 import logging
+import random
+import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Protocol, runtime_checkable
 
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.exc import IntegrityError
 
+from app.core import metrics
 from app.core.config import get_settings
 
 _log = logging.getLogger("uvicorn.error")
@@ -62,8 +72,22 @@ BUNDLE_GENERATED = "action.bundle.generated"
 # insider-risk question in forensics — arguably more important than who edited a
 # case title — and it was previously possible with no trace at all.
 EVIDENCE_EXPORTED = "evidence.exported"
+# User access management. Role grants and deactivations are the textbook reason
+# an audit trail exists: they change who can do what, and the person best placed
+# to hide such a change is the admin making it.
+USER_CREATED = "user.created"
+USER_ROLE_CHANGED = "user.role_changed"
+USER_DEACTIVATED = "user.deactivated"
+USER_REACTIVATED = "user.reactivated"
 TRIAGE_ATTACHED = "triage.attached"
 TRIAGE_PROMOTED = "triage.promoted"
+# Route-level RBAC refusal. Every other constant here names a domain action, and
+# a DENIED one keeps that name (``user.role_changed`` denied is still
+# ``user.role_changed`` — see ``record_denial``). This one is the exception
+# because there is no domain action to name: ``require_role`` rejects the caller
+# during dependency resolution, so the handler — and with it any notion of what
+# was being attempted beyond "this endpoint" — never runs.
+ACCESS_FORBIDDEN = "access.forbidden"
 
 
 def _now() -> datetime:
@@ -221,6 +245,35 @@ def _row_to_entry(row) -> AuditEntry:
     )
 
 
+# How many times to re-read the chain head and try again when another writer
+# beat us to a sequence number.
+#
+# A linear hash chain cannot be appended to in parallel — writers to one agency
+# MUST serialise — so the worst case is inherently "roughly one attempt per
+# contending writer", and this budget is what actually decides whether an entry
+# survives contention.
+#
+# Measured against pgserver with 8 simultaneous writers on one agency
+# (tests/test_audit_denials_pg.py), 3 runs each:
+#     5 attempts, no backoff  -> 0/3 runs kept all 8 entries
+#     5 attempts, backoff     -> 1/3
+#    10 attempts, no backoff  -> 3/3
+#    10 attempts, backoff     -> 3/3
+# So the budget dominates and the backoff is a secondary help, not the fix.
+# Beyond ~10 concurrent writers on a SINGLE agency's chain an entry can still be
+# dropped (loudly — see the ERROR at the bottom of record()). That is far past
+# anything one agency's audit trail should be generating; if it is ever reached,
+# the answer is to look at why, not to keep raising this number.
+SEQ_RETRY_ATTEMPTS = 10
+
+# Jittered backoff between attempts. Contending writers otherwise re-read the
+# head in lockstep, pick the same next number, and collide again. Randomised
+# rather than fixed, because a fixed delay just relocates the lockstep. Kept
+# despite being secondary to the budget: it costs nothing and removes wasted
+# round trips under contention.
+SEQ_RETRY_BACKOFF_MAX_S = 0.02
+
+
 class PostgresAuditRepository:
     """Writes ``core.audit_log``. The session is the caller's, so an audit entry
     commits with the action it describes — a separate transaction could leave a
@@ -234,35 +287,84 @@ class PostgresAuditRepository:
         target_type: str | None = None, target_id: str | None = None,
         detail: dict | None = None,
     ) -> AuditEntry:
+        """Append one entry, re-trying if another writer took our slot.
+
+        ``seq`` and ``prev_sha256`` are both derived from the chain head read at
+        the top of this method, so two transactions that read the same head
+        don't merely collide on a number — they produce two entries claiming the
+        same position AND the same predecessor, which is a FORK. ``verify_chain``
+        then reports the log as broken, and a reader has no way to tell a
+        routine concurrent write from someone tampering with the record. That
+        is the failure this loop and the ``uq_audit_log_agency_seq`` index
+        (migration 20260822_17) exist to prevent.
+
+        The index makes the collision loud; this loop makes it survivable. Each
+        attempt runs inside a SAVEPOINT because a unique violation aborts the
+        surrounding transaction in Postgres — without one, the caller's whole
+        request would be poisoned by a conflict we intend to recover from.
+        """
         from app.core.models import AuditLog
 
-        last = (
-            await self._session.execute(
-                select(AuditLog)
-                .where(AuditLog.agency_id == uuid.UUID(str(agency_id)))
-                .order_by(AuditLog.seq.desc())
-                .limit(1)
+        last_error: Exception | None = None
+        for attempt in range(1, SEQ_RETRY_ATTEMPTS + 1):
+            last = (
+                await self._session.execute(
+                    select(AuditLog)
+                    .where(AuditLog.agency_id == uuid.UUID(str(agency_id)))
+                    .order_by(AuditLog.seq.desc())
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            seq = (last.seq or 0) + 1 if last else 1
+            prev = (last.sha256 or b"").hex() if last else GENESIS
+            ts, entry_detail = _now(), detail or {}
+            digest = entry_hash(
+                seq=seq, action=action, actor_user_id=actor_user_id,
+                target_type=target_type, target_id=target_id, detail=entry_detail,
+                ts=ts, prev_sha256=prev,
             )
-        ).scalar_one_or_none()
-        seq = (last.seq or 0) + 1 if last else 1
-        prev = (last.sha256 or b"").hex() if last else GENESIS
-        ts, detail = _now(), detail or {}
-        digest = entry_hash(
-            seq=seq, action=action, actor_user_id=actor_user_id,
-            target_type=target_type, target_id=target_id, detail=detail,
-            ts=ts, prev_sha256=prev,
+            # Built fresh per attempt: rolling back to the savepoint expunges the
+            # pending object, and re-adding a stale one would re-insert the seq
+            # we just lost.
+            row = AuditLog(
+                id=uuid.uuid4(), agency_id=uuid.UUID(str(agency_id)),
+                actor_user_id=uuid.UUID(str(actor_user_id)) if actor_user_id else None,
+                action=action, target_type=target_type,
+                target_id=uuid.UUID(str(target_id)) if _is_uuid(target_id) else None,
+                detail=entry_detail, ts=ts, seq=seq,
+                sha256=bytes.fromhex(digest), prev_sha256=bytes.fromhex(prev),
+            )
+            try:
+                async with self._session.begin_nested():
+                    self._session.add(row)
+                    await self._session.flush()
+                return _row_to_entry(row)
+            except IntegrityError as exc:
+                # Someone committed this seq while we were building ours.
+                last_error = exc
+                _log.info(
+                    "audit: seq %s for agency %s was taken, re-reading the chain "
+                    "head (attempt %d/%d)", seq, agency_id, attempt, SEQ_RETRY_ATTEMPTS,
+                )
+                await asyncio.sleep(random.uniform(0, SEQ_RETRY_BACKOFF_MAX_S))
+            # Anything else propagates untouched — in particular a lock_timeout
+            # (a plain DBAPIError, not an IntegrityError), which means the
+            # conflicting row is UNCOMMITTED and held by a transaction we cannot
+            # outwait. Re-reading cannot help there: the blocker is invisible to
+            # us by definition, so every retry would pick the same seq and time
+            # out again. See _record_denial_postgres for when that arises.
+
+        # Budget exhausted. The caller (record_action / record_denial) will
+        # swallow this and let the action stand — but an evidentiary entry has
+        # just been lost, which is an ERROR, not a routine warning: this log line
+        # is the only remaining trace that the action happened at all.
+        _log.error(
+            "audit: GAVE UP recording %s for agency %s after %d attempts — the "
+            "entry is LOST. Sustained contention on this agency's chain.",
+            action, agency_id, SEQ_RETRY_ATTEMPTS,
         )
-        row = AuditLog(
-            id=uuid.uuid4(), agency_id=uuid.UUID(str(agency_id)),
-            actor_user_id=uuid.UUID(str(actor_user_id)) if actor_user_id else None,
-            action=action, target_type=target_type,
-            target_id=uuid.UUID(str(target_id)) if _is_uuid(target_id) else None,
-            detail=detail, ts=ts, seq=seq,
-            sha256=bytes.fromhex(digest), prev_sha256=bytes.fromhex(prev),
-        )
-        self._session.add(row)
-        await self._session.flush()
-        return _row_to_entry(row)
+        metrics.audit_dropped.inc(metrics.DROP_SEQ_CONTENTION)
+        raise last_error  # type: ignore[misc]  # unreachable with attempts >= 1
 
     async def list_entries(self, *, agency_id: str, limit: int = 100) -> list[AuditEntry]:
         from app.core.models import AuditLog
@@ -345,6 +447,7 @@ async def record_action(
             # No tenant → nothing to chain onto. Worth a warning: an unattributed
             # action is exactly what an audit trail exists to prevent.
             _log.warning("audit: dropping %s — no agency_id on the request", action)
+            metrics.audit_dropped.inc(metrics.DROP_NO_AGENCY)
             return None
         detail = dict(detail or {})
         if actor_name:
@@ -364,15 +467,306 @@ async def record_action(
                 detail["_user_agent"] = origin["user_agent"]
             if current_request_id():
                 detail["_request_id"] = current_request_id()
-        return await repo.record(
+        entry = await repo.record(
             agency_id=agency_id, action=action, actor_user_id=actor_user_id,
             target_type=target_type, target_id=target_id, detail=detail,
         )
+        metrics.audit_written.inc("success")
+        return entry
     except Exception as exc:  # noqa: BLE001 - bookkeeping must not break the action
         _log.warning("audit: failed to record %s: %s: %s", action, type(exc).__name__, exc)
+        # The action still stands (that is the contract), but an evidentiary
+        # entry is now permanently missing and verify_chain CANNOT see that —
+        # no gap appears in the prev-links for an entry that never existed. This
+        # counter is the only thing that makes the loss detectable.
+        metrics.audit_dropped.inc(
+            metrics.DROP_SEQ_CONTENTION
+            if isinstance(exc, IntegrityError)
+            else metrics.DROP_ERROR
+        )
         return None
 
 
+# --------------------------------------------------------------------------- #
+# Denied actions
+# --------------------------------------------------------------------------- #
+
+# ``detail["_outcome"]``. Absent means SUCCESS: every entry written before this
+# existed is a success, and nothing had to be backfilled to say so. Recording
+# the outcome in ``detail`` rather than in a new column is deliberate —
+# ``entry_hash`` hashes ``detail``, so an outcome put there is tamper-evident
+# for free, whereas a new column would be outside the hash unless ``entry_hash``
+# changed, and changing ``entry_hash`` would break verification of every entry
+# already written.
+OUTCOME_DENIED = "denied"
+
+# Volume cap: at most this many denials per (agency, actor, action) per window.
+# A misconfigured client retrying a forbidden call in a loop must not be able to
+# bury a year of real activity under its own 403s — the chain is evidence a
+# human has to read. Five is enough to establish a pattern ("this is not a
+# one-off fat-finger"); the sixth adds nothing the fifth didn't.
+DENIAL_CAP = 5
+DENIAL_WINDOW_SECONDS = 300
+
+# How long the denial's own transaction will wait for a lock before giving up.
+# Short on purpose: the only wait it can encounter that matters is one it can
+# never win (see ``_record_denial_postgres``), so waiting longer buys nothing
+# and stalls the 403 the caller is owed. Long enough to absorb an ordinary
+# concurrent commit, short enough that a human never notices.
+DENIAL_LOCK_TIMEOUT_MS = 750
+
+# (agency, actor, action) -> (window start on the monotonic clock, count).
+#
+# In-process, and therefore PER WORKER: with N uvicorn workers the effective cap
+# is DENIAL_CAP × N, because each worker keeps its own counter and a load
+# balancer will spread one client's retries across them. That is accepted — the
+# cap exists to bound volume, not to be exact, and the alternative (a shared
+# counter in Postgres or Redis) buys precision we do not need at the price of a
+# round trip on every 403. Monotonic clock so a system clock adjustment cannot
+# freeze or reset the window.
+_denial_counts: dict[tuple[str, str, str], tuple[float, int]] = {}
+
+
+def _claim_denial_slot(agency_id: str, actor_user_id: str, action: str) -> int | None:
+    """Take a slot in the current window. Returns the 1-based count, or ``None``
+    when this denial is over the cap and must not be recorded."""
+    key = (str(agency_id), str(actor_user_id or ""), action)
+    now = time.monotonic()
+    start, count = _denial_counts.get(key, (now, 0))
+    if now - start >= DENIAL_WINDOW_SECONDS:
+        start, count = now, 0  # window rolled over
+    count += 1
+    _denial_counts[key] = (start, count)
+    return count if count <= DENIAL_CAP else None
+
+
+def _is_lock_timeout(exc: BaseException) -> bool:
+    """SQLSTATE 55P03 (``lock_not_available``) — matched on the code, not the
+    message, so a driver upgrade or a non-English server locale can't silently
+    turn this into an unrecognised generic failure."""
+    return getattr(getattr(exc, "orig", None), "sqlstate", None) == "55P03"
+
+
+def _already_recorded_this_request(request, signature: tuple) -> bool:
+    """One request must not produce the same denial entry twice.
+
+    It can otherwise: ``require_role(ADMIN_ROLES)`` is instantiated twice for the
+    admin API (once on the router, once inside ``get_user_admin_repository``),
+    and FastAPI's dependency cache does not dedupe two *distinct* closures, so
+    both fire on the same rejected request.
+
+    Keyed on ``request.state`` — server-side state belonging to this one
+    request — and NOT on the request id, which is honoured from an inbound
+    ``X-Request-ID`` header (see ``core/requests.py``) and would therefore let a
+    client suppress its own denials by sending a constant one.
+    """
+    if request is None:
+        return False
+    seen = getattr(request.state, "audit_denials", None)
+    if seen is None:
+        seen = set()
+        request.state.audit_denials = seen
+    if signature in seen:
+        return True
+    seen.add(signature)
+    return False
+
+
+async def record_denial(
+    *,
+    agency_id: str | None,
+    action: str,
+    denial_code: str,
+    actor_user_id: str | None = None,
+    actor_name: str | None = None,
+    actor_role: str | None = None,
+    target_type: str | None = None,
+    target_id: str | None = None,
+    target_label: str | None = None,
+    request=None,
+    detail: dict | None = None,
+) -> AuditEntry | None:
+    """Record an action an authenticated actor was REFUSED. NEVER raises.
+
+    Same never-raises guarantee as ``record_action``, and one more besides: this
+    is called on a path that is already returning a clean 4xx, so a failure here
+    must never turn that into a 500.
+
+    **The action keeps its domain name.** A denied role change is
+    ``user.role_changed`` with ``detail["_outcome"] = "denied"`` and
+    ``detail["_denial_code"]``, not ``user.role_changed.denied`` — "everything
+    Budi did" has to stay one query, which a parallel vocabulary of
+    ``.denied`` action names would quietly break.
+
+    **Takes no session, on purpose.** A request runs inside ONE transaction
+    (``app/core/db.py``'s ``_tenant_scoped_session`` — ``async with
+    SessionLocal() as session, session.begin():``). A guard raising
+    ``HTTPException`` leaves that context with an exception, so the transaction
+    ROLLS BACK — and a denial written on the request's session rolls back with
+    it, leaving nothing. It would still pass in memory mode, where there is no
+    transaction to lose, which is exactly how that bug reaches production. So
+    this opens its own short-lived session and commits it independently, and
+    refuses to accept a session argument at all rather than trust every call
+    site to pass the right one.
+
+    That is the opposite of the success path, deliberately: a success commits
+    atomically WITH the change it describes (an entry for work that was then
+    rolled back would be a lie). A denial describes something that did NOT
+    happen, so it has nothing to be atomic with.
+
+    **Which agency's chain.** The ACTOR's, even when they were reaching at
+    another agency's resource — the reverse of the success path, which chains
+    under the target. Nothing happened to the target, and writing into another
+    tenant's evidentiary chain on the strength of an outsider's rejected attempt
+    would let anyone with a login append rows to a chain a court reads. The
+    target agency is named in ``detail`` when it is known and different.
+    """
+    try:
+        if not agency_id:
+            _log.warning("audit: dropping denied %s — no agency_id on the request", action)
+            metrics.audit_dropped.inc(metrics.DROP_NO_AGENCY)
+            return None
+
+        signature = (action, denial_code, str(target_id or ""))
+        if _already_recorded_this_request(request, signature):
+            return None
+
+        slot = _claim_denial_slot(str(agency_id), str(actor_user_id or ""), action)
+        if slot is None:
+            # Over the cap. Logged (not silent) so the volume is still visible
+            # to operations even though it stays out of the evidentiary chain.
+            _log.warning(
+                "audit: suppressing denied %s (%s) by %s — over %d per %ds",
+                action, denial_code, actor_user_id, DENIAL_CAP, DENIAL_WINDOW_SECONDS,
+            )
+            # Suppressed, not lost: a deliberate policy decision, counted
+            # separately so it can never be mistaken for a failure to write.
+            metrics.audit_denials_suppressed.inc()
+            return None
+
+        detail = dict(detail or {})
+        detail["_outcome"] = OUTCOME_DENIED
+        detail["_denial_code"] = denial_code
+        if slot == DENIAL_CAP:
+            # Make suppression visible IN the chain. Without this marker a
+            # capped chain and a quiet one look identical, and a reader would
+            # conclude the attempts stopped when they were merely no longer
+            # being written down.
+            detail["_denial_cap_reached"] = True
+            detail["_denial_cap"] = f"{DENIAL_CAP} per {DENIAL_WINDOW_SECONDS}s per worker"
+        if actor_name:
+            detail["_actor"] = actor_name
+        if actor_role:
+            detail["_actor_role"] = actor_role
+        if target_label:
+            detail["_target"] = target_label
+        if request is not None:
+            from app.core.requests import client_origin, current_request_id
+
+            origin = client_origin(request)
+            if origin.get("ip"):
+                detail["_ip"] = origin["ip"]
+            if origin.get("user_agent"):
+                detail["_user_agent"] = origin["user_agent"]
+            if current_request_id():
+                detail["_request_id"] = current_request_id()
+
+        if get_settings().persistence != "postgres":
+            entry = await _memory_repository().record(
+                agency_id=str(agency_id), action=action, actor_user_id=actor_user_id,
+                target_type=target_type, target_id=target_id, detail=detail,
+            )
+        else:
+            entry = await _record_denial_postgres(
+                agency_id=str(agency_id), action=action, actor_user_id=actor_user_id,
+                actor_role=actor_role, target_type=target_type, target_id=target_id,
+                detail=detail,
+            )
+        metrics.audit_written.inc("denied")
+        return entry
+    except Exception as exc:  # noqa: BLE001 - must never turn a 403 into a 500
+        if _is_lock_timeout(exc):
+            # Not a generic failure — a specific, diagnosable one worth naming,
+            # because the log line is the ONLY record that the attempt happened.
+            _log.error(
+                "audit: DROPPED denied %s (%s) by %s — this agency's next chain "
+                "position is held by an uncommitted row in the enclosing "
+                "transaction, which cannot be waited out from here. The refusal "
+                "still stands; the attempt is NOT in the trail.",
+                action, denial_code, actor_user_id,
+            )
+            metrics.audit_dropped.inc(metrics.DROP_CHAIN_HEAD_UNCOMMITTED)
+        else:
+            _log.warning(
+                "audit: failed to record denied %s (%s): %s: %s",
+                action, denial_code, type(exc).__name__, exc,
+            )
+            metrics.audit_dropped.inc(metrics.DROP_ERROR)
+        return None
+
+
+async def _record_denial_postgres(
+    *, agency_id: str, action: str, actor_user_id: str | None, actor_role: str | None,
+    target_type: str | None, target_id: str | None, detail: dict,
+) -> AuditEntry:
+    """The separate, self-committing transaction — see ``record_denial``.
+
+    ``app.core.db`` is imported as a MODULE and ``SessionLocal`` read off it at
+    call time, so a test can point it at another engine; binding the name at
+    import time would freeze whichever sessionmaker existed then (the same
+    reason ``worker_session`` consults its override at call time).
+
+    The new session carries no request context, so it must set the RLS vars
+    itself — ``core.audit_log``'s insert policy is ``agency_id =
+    core.current_agency()``, which fails closed against an unset one.
+
+    **``lock_timeout`` is set here and nowhere else, and it is load-bearing.**
+    This is the only writer that opens a second connection from *inside* another
+    open transaction, which creates a wait no database can resolve: if the
+    enclosing request transaction has already written an uncommitted row at the
+    chain position we want, our INSERT waits on that transaction's id — while
+    that transaction waits on this ``await``. Postgres reports no deadlock,
+    because the enclosing side is not blocked on a database resource at all; it
+    is blocked in Python. Verified empirically: it hangs indefinitely rather
+    than failing. (An advisory lock has exactly the same shape, which is why
+    serialising allocation that way was rejected.)
+
+    A short ``lock_timeout`` turns that hang into a fast, loud
+    ``LockNotAvailableError``, which ``record_denial`` reports and drops. The
+    denial is genuinely unserviceable in that state — the correct chain position
+    is occupied by a row that has neither committed nor rolled back — so failing
+    in under a second beats stalling a request forever. It is scoped ``LOCAL``
+    to this throwaway transaction, so no business query ever inherits it.
+    """
+    from app.core import db as db_module
+
+    async with db_module.SessionLocal() as session, session.begin():
+        await session.execute(text(f"SET LOCAL lock_timeout = '{DENIAL_LOCK_TIMEOUT_MS}ms'"))
+        for var, value in (
+            ("app.current_agency", str(agency_id)),
+            ("app.current_user", str(actor_user_id or "")),
+            ("app.current_role", actor_role or ""),
+        ):
+            await session.execute(
+                text("SELECT set_config(:var, :value, true)"),
+                {"var": var, "value": value},
+            )
+        return await PostgresAuditRepository(session).record(
+            agency_id=agency_id, action=action, actor_user_id=actor_user_id,
+            target_type=target_type, target_id=target_id, detail=detail,
+        )
+
+
+def is_denied(entry_detail: dict | None) -> bool:
+    """Whether a stored entry records a REFUSED action.
+
+    Absence of ``_outcome`` reads as success — that is what makes every entry
+    written before denials existed correct without a backfill.
+    """
+    return (entry_detail or {}).get("_outcome") == OUTCOME_DENIED
+
+
 def reset_audit_store() -> None:
-    """Sync test hook — clears the in-memory chain."""
+    """Sync test hook — clears the in-memory chain and the denial rate counters."""
     _memory_repository().reset()
+    _denial_counts.clear()

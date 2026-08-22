@@ -25,6 +25,7 @@ import {
   UNAUTHORIZED_EVENT,
   clearToken,
   getToken,
+  setLogoutReason,
   setToken,
   tokenLooksValid,
   tokenPayload,
@@ -120,7 +121,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const jwt = getToken();
     if (!tokenLooksValid(jwt)) {
-      if (jwt) clearToken(); // expired remnant
+      // Expired remnant — the common case at a 1h TTL is returning to an open
+      // tab after a break, so say so rather than just showing the login screen.
+      if (jwt) {
+        setLogoutReason("expired");
+        clearToken();
+      }
       setStatus("anon");
       return;
     }
@@ -129,9 +135,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void hydrateMe(jwt!);
   }, [hydrateMe]);
 
-  /* Global 401 → session is dead, force re-login. */
+  /* Global 401 → session is dead, force re-login. Flag it as involuntary so
+     /login can say what happened; a user-initiated logout sets no reason and
+     the login screen stays clean. */
   useEffect(() => {
-    const onUnauthorized = () => logout();
+    const onUnauthorized = () => {
+      setLogoutReason("expired");
+      logout();
+    };
     window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
   }, [logout]);

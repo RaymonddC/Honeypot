@@ -14,9 +14,15 @@ from fastapi.testclient import TestClient
 
 from app.core.audit import (
     CASE_CREATED,
+    DENIAL_CAP,
     GENESIS,
+    USER_DEACTIVATED,
+    USER_ROLE_CHANGED,
     InMemoryAuditRepository,
+    _memory_repository,
+    is_denied,
     record_action,
+    record_denial,
     reset_audit_store,
 )
 from app.main import app
@@ -384,3 +390,133 @@ def test_downloading_evidence_is_audited_with_its_hash():
     assert export["detail"]["sha256"] == doc["sha256"], "must record WHICH bytes left"
     assert export["detail"]["_actor"] == "Budi Santoso"
     assert feed["chain_ok"] is True
+
+
+# --- denied actions -----------------------------------------------------------
+
+
+def test_recording_a_denial_never_raises():
+    """Same guarantee as record_action, plus one that matters more: this runs on
+    a path already returning a clean 4xx, so a failure here must never turn a
+    403 into a 500 — the caller would learn something about our infrastructure
+    instead of being told no."""
+    from app.core import db as db_module
+    from app.core.config import get_settings
+
+    def exploding_sessionmaker():
+        raise RuntimeError("db is down")
+
+    settings = get_settings()
+    prior_persistence, prior_maker = settings.persistence, db_module.SessionLocal
+    settings.persistence = "postgres"  # or the memory repo answers, proving nothing
+    db_module.SessionLocal = exploding_sessionmaker
+    try:
+        # Never raises, and says so by returning None.
+        assert asyncio.run(
+            record_denial(
+                agency_id="ag-1", action=USER_ROLE_CHANGED,
+                denial_code="privilege_escalation", actor_user_id="u-1",
+            )
+        ) is None
+    finally:
+        settings.persistence = prior_persistence
+        db_module.SessionLocal = prior_maker
+
+    # A missing tenant is survivable too (and logged, not silently accepted).
+    assert asyncio.run(
+        record_denial(agency_id=None, action=USER_ROLE_CHANGED, denial_code="forbidden")
+    ) is None
+
+
+def test_a_denial_is_marked_as_denied_and_keeps_the_domain_action():
+    async def run():
+        entry = await record_denial(
+            agency_id="ag-1",
+            action=USER_ROLE_CHANGED,
+            denial_code="privilege_escalation",
+            actor_user_id="u-1",
+            actor_role="agency-admin",
+        )
+        return entry
+
+    entry = asyncio.run(run())
+    assert entry.action == USER_ROLE_CHANGED, (
+        "a `.denied` action name would split 'everything this actor did' across "
+        f"two queries — got {entry.action!r}"
+    )
+    assert entry.detail["_outcome"] == "denied"
+    assert entry.detail["_denial_code"] == "privilege_escalation"
+    assert entry.detail["_actor_role"] == "agency-admin"
+
+
+def test_a_success_has_no_outcome_key_so_old_entries_read_as_success():
+    """Why `_outcome` lives in `detail` and absent means success: not one row
+    written before denials existed had to be backfilled to stay correct."""
+
+    async def run():
+        return await record_action(
+            None, agency_id="ag-1", action=CASE_CREATED, detail={"title": "x"}
+        )
+
+    entry = asyncio.run(run())
+    assert "_outcome" not in entry.detail
+    assert is_denied(entry.detail) is False
+
+
+def test_denials_are_capped_per_actor_action_and_window():
+    """A misconfigured client must not be able to bury a year of real activity
+    under its own 403s — the chain is evidence a human has to read."""
+
+    async def run():
+        recorded = []
+        for _ in range(DENIAL_CAP + 4):
+            entry = await record_denial(
+                agency_id="ag-cap",
+                action=USER_ROLE_CHANGED,
+                denial_code="privilege_escalation",
+                actor_user_id="noisy-client",
+            )
+            recorded.append(entry)
+        # A DIFFERENT action by the same actor has its own budget — one runaway
+        # loop must not blind the trail to everything else that actor does.
+        other = await record_denial(
+            agency_id="ag-cap",
+            action=USER_DEACTIVATED,
+            denial_code="last_admin",
+            actor_user_id="noisy-client",
+        )
+        return recorded, other
+
+    recorded, other = asyncio.run(run())
+    kept = [e for e in recorded if e is not None]
+    assert len(kept) == DENIAL_CAP, (
+        f"expected {DENIAL_CAP} recorded then silence, got {len(kept)} of "
+        f"{len(recorded)} attempts"
+    )
+    assert all(e is None for e in recorded[DENIAL_CAP:]), "the cap must stop writing"
+    assert other is not None, "a different action must not inherit the exhausted budget"
+
+    # Suppression has to be VISIBLE, or a capped chain reads like a quiet one.
+    assert kept[-1].detail["_denial_cap_reached"] is True
+    assert "_denial_cap_reached" not in kept[0].detail
+    assert "per worker" in kept[-1].detail["_denial_cap"], (
+        "the marker must say the cap is per worker — with N workers the "
+        "effective cap is DENIAL_CAP × N"
+    )
+
+
+def test_capped_denials_do_not_break_the_chain():
+    """Suppression skips WRITES, not sequence numbers — nothing is left with a
+    hole in it."""
+
+    async def run():
+        for _ in range(DENIAL_CAP + 3):
+            await record_denial(
+                agency_id="ag-cap2", action=USER_ROLE_CHANGED,
+                denial_code="privilege_escalation", actor_user_id="noisy",
+            )
+        await record_action(None, agency_id="ag-cap2", action=CASE_CREATED)
+        return await _memory_repository().verify_chain(agency_id="ag-cap2")
+
+    ok, broken_at = asyncio.run(run())
+    assert ok is True, f"chain broke at {broken_at} after capped denials"

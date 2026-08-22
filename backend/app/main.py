@@ -1,10 +1,11 @@
 """ITTU API — app factory + lifespan (P0 scaffold)."""
 
 import logging
+import secrets
 from contextlib import asynccontextmanager
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -25,6 +26,7 @@ from app.intel.router import router as intel_router
 from app.takedown.router import router as takedown_router
 from app.trace.router import router as trace_router
 from app.uncover.router import router as uncover_router
+from app.users.router import router as users_router
 
 
 @asynccontextmanager
@@ -51,6 +53,13 @@ async def lifespan(app: FastAPI):
         s.llm_model,
         s.llm_api_base or "(provider default)",
     )
+    if not s.metrics_token:
+        # /metrics 404s without a token, which is indistinguishable from "this
+        # build has no metrics". Say so once at boot so a failing scrape is
+        # diagnosable without exposing anything to an anonymous caller.
+        logging.getLogger("uvicorn.error").warning(
+            "ITTU metrics: /metrics DISABLED (no ITTU_METRICS_TOKEN set) — it will 404"
+        )
     await seed_demo_session()
     yield
     # Shutdown
@@ -158,6 +167,43 @@ def create_app() -> FastAPI:
             },
         )
 
+    @app.get("/metrics", include_in_schema=False)
+    async def metrics_endpoint(request: Request) -> Response:
+        """Prometheus text exposition: request rate/latency/errors, and — the
+        reason this exists — the count of audit entries that could NOT be written.
+
+        ``verify_chain`` detects a forked or edited chain but CANNOT detect an
+        entry that was never written: no gap appears in the prev-links, so the
+        log verifies clean while a record is missing. ``ittu_audit_entries_
+        dropped_total`` is the only thing that makes that visible to alerting.
+
+        **Authenticated, unlike /health and /ready.** Those carry booleans a
+        probe needs and cannot supply a token for. This one lists every route
+        template and how often each was called — an API map plus operational
+        tempo. No agency, user or case is ever labelled (see app/core/metrics.py),
+        so it cannot answer "what did agency X do", but "when is this system
+        busy, and what does it expose" is still reconnaissance worth withholding
+        from anonymous callers. Scrapers support bearer tokens; probes do not,
+        which is exactly the line drawn here.
+
+        With no ``ITTU_METRICS_TOKEN`` set the endpoint 404s rather than 403s:
+        an unconfigured deployment should look like one that has no metrics at
+        all. The startup log says so, so an operator debugging a failing scrape
+        is not left guessing.
+        """
+        from app.core import metrics as metrics_module
+
+        expected = get_settings().metrics_token
+        presented = (request.headers.get("authorization") or "").removeprefix("Bearer ").strip()
+        # compare_digest, not ==, so response timing does not leak the prefix.
+        if not expected or not secrets.compare_digest(presented, expected):
+            raise HTTPException(status_code=404, detail={"code": "not_found"})
+        return Response(
+            content=metrics_module.render(),
+            # The version parameter is part of the contract: scrapers content-negotiate on it.
+            media_type="text/plain; version=0.0.4; charset=utf-8",
+        )
+
     for router in (
         auth_router,
         infiltrate_router,
@@ -168,6 +214,7 @@ def create_app() -> FastAPI:
         casedata_router,
         cases_router,
         honeypot_ops_router,
+        users_router,
     ):
         app.include_router(router, prefix="/api")
 

@@ -123,6 +123,24 @@ def _auth_mode() -> str:
     return get_mode_resolver().effective_mode("auth")
 
 
+def _reject_if_deactivated(user: SeedUser) -> None:
+    """A deactivated account must not be able to obtain a NEW token.
+
+    This is the mandatory half of revocation: request auth is pure JWT and does
+    not read the database, so blocking issuance here is what actually bounds a
+    deactivated user's access (to the remaining TTL of any token they already
+    hold). See ``get_current_user``'s docstring for that residual window.
+    """
+    if not user.is_active:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "account_deactivated",
+                "message": "This account has been deactivated. Contact your agency admin.",
+            },
+        )
+
+
 async def _record_login(session, user: SeedUser, agency: SeedAgency, *, method: str) -> None:
     """Audit a successful login.
 
@@ -251,6 +269,7 @@ async def post_login(
 
     role = body.role or DEFAULT_ROLE_BY_AGENCY_TYPE[agency.type]
     user = await resolve_demo_user(repo, agency, role)
+    _reject_if_deactivated(user)
     await _record_login(session, user, agency, method="demo")
     return _token_response(user, agency)
 
@@ -348,6 +367,7 @@ async def post_google_login(
             role=user.role,
         )
     )
+    _reject_if_deactivated(user)
     agency = find_agency(str(user.agency_id))
     await _record_login(session, user, agency, method="google")
     return _token_response(user, agency)

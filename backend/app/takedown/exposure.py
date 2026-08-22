@@ -30,7 +30,7 @@ reported separately in the reasoning so a reader can see which did the work.
 
 from dataclasses import dataclass, field
 
-from app.chain.schemas import AddressTagOut, Transfer
+from app.chain.schemas import Transfer
 
 # How dangerous is an association with each tagged category?
 #

@@ -4,7 +4,7 @@
 > This is the short prioritized list; full rationale, effort, and triggers live in
 > [`Production-Roadmap.md`](Production-Roadmap.md). Status legend: S/M/L = small/medium/large effort.
 
-_Last updated: 2026-08-18 · branch `feat/c1-notifications-delivery`._
+_Last updated: 2026-08-22 · branch `feat/c1-notifications-delivery`._
 
 ---
 
@@ -24,7 +24,7 @@ hub. Live blockchain tracing (async jobs, hardened, cycle-fix). Auth/RLS + Googl
 live in prod. Persistence (Postgres/Neon, dual in-memory/Postgres repositories). **C1 dispatch
 delivery** — production-ready notification layer (HMAC-signed webhooks, idempotency keys, durable
 retried delivery via the Dramatiq actor, `GET /api/notifications` outbox feed + retry, Dispatch Log
-on the Response dashboard). **282 backend tests green**, frontend build green.
+on the Response dashboard). **508 backend tests green**, frontend build green.
 
 ## 🟢 Actionable now — buildable today (no external gate)
 - [x] **B1 — TTS (ElevenLabs)** · S · **DONE (2026-08-08)** — code path complete end-to-end: the
@@ -37,39 +37,47 @@ on the Response dashboard). **282 backend tests green**, frontend build green.
       shim: signed + idempotent + retried LIVE delivery (`ITTU_NOTIFICATION_DELIVERY=worker`),
       agency outbox feed, POC mock path unchanged. Flip `ITTU_MODE=live` + set the webhook URL/secret
       to dispatch for real.
+- [x] **UAM — user access management** · M · **DONE (2026-08-22)** — `GET/POST /api/users`,
+      `PATCH /api/users/{id}`, plus a `/users` screen. Provisioning people no longer means editing
+      the `ITTU_OAUTH_PROVISION` allowlist and redeploying.
+      The gap it closed was worse than "no admin UI": `core.users.is_active` had existed since
+      migration 09 and **nothing read it** — there was no way to revoke anyone's access at all.
+      Guards, each because the failure is unrecoverable from inside the product: an agency-admin
+      cannot create or grant `platform-admin` (privilege escalation), cannot touch another agency,
+      cannot deactivate or demote themselves, and the last active admin of an agency cannot be
+      removed. Every mutation is audited under the **target** agency's chain, noting the acting
+      agency when a platform-admin reached in.
+      **Known limit, stated in the API and the UI:** request auth is pure JWT and never reads the
+      database, so under Postgres a deactivated user's existing token keeps working until it expires.
+      Login is blocked immediately; the TTL is the mitigation — so the TTL was cut **8h → 1h**
+      (`ITTU_JWT_TTL_SECONDS`, default 3600), bounding the revocation window at one hour.
+      That is a deliberate trade, not a fix: with no refresh flow, every expiry is a real re-login,
+      so `/login` now explains an involuntary bounce ("Your session expired") instead of silently
+      swapping the screen. Sub-hour revocation would need a per-request `is_active` lookup
+      (~1 query/request) or short TTL + refresh — **not built**, and worth revisiting if a
+      compromised-account drill ever needs to be measured in seconds.
+
 - [ ] **A1-prod — Dramatiq executor swap** (investigation jobs) · S–M · *deferred by choice* — async
       already works in-process; build only when there's real concurrency (submit→poll contract is a
       drop-in). *(Note: C1 already stood up the Dramatiq delivery actor + broker for notifications.)*
-- [ ] **Wallet risk scoring — specify and justify the rules** · M · **spec WRITTEN 2026-08-18**
-      ([`Wallet-Risk-Scoring-Rules.md`](Wallet-Risk-Scoring-Rules.md)) — every constant documented and
-      honestly marked *unvalidated default*; band→action mapping proposed; validation plan defined.
-      **It surfaced a probable defect, verified against the real code: an OFAC-sanctioned wallet with
-      no detected pattern scores LOW**, and the output contradicts itself (reasoning names the SDN
-      listing, band says low). Sanctions are a legal fact, not a signal to average — recommendation is
-      a band FLOOR, left as a decision because changing what the system flags is a product call.
-      Still open: fix that, confirm bands with investigator practice, assign an owner for the numbers,
-      and run the validation in §5. *Original framing 2026-08-17* — the pipeline
-      exists and is deterministic (`app/takedown/scoring.py`: 5 typology detectors + an Isolation
-      Forest, combined in `composite_risk`, stamped with `MODEL_VERSION`), but **the rules are
-      undocumented magic numbers**: `0.25·IF + 0.75·min(fired/2, 1)`, `+0.25` for scam/sanctioned
-      tags, `+0.15` for mixer, and detector thresholds like `PEEL_FORWARD_SHARE=0.7`,
-      `RAPID_INOUT_MIN=0.95`, `STRUCTURING_TOLERANCE=0.05`. Nothing records **where those numbers came
-      from, what low/medium/high mean operationally, or what evidence supports them.**
-      Why it matters: this drives who gets frozen. "Why was this wallet scored high?" is the first
-      question defence counsel asks, and `reasoning[]` currently explains *which* rules fired, not
-      *why those are the rules*. Needs: a written spec (thresholds + rationale + who owns changes),
-      a defined mapping from score → band → recommended action, and validation against labelled
-      cases — plus a decision on whether the weights are tunable config rather than constants.
-      Related: `wallet_risk_scores.wallet_id` is nullable in the DB, which is a product decision to
-      settle at the same time.
-- [ ] **`GET /wallets/{address}/risk` 404s for leaf addresses** · S · *found 2026-08-18* — the
-      endpoint re-investigates FROM the requested address, so a wallet that only ever received
-      funds (a first-hop mule) has nothing to trace and returns `wallet_not_found`. Its score is
-      computed correctly inside an investigation rooted at the funding source — you just cannot
-      query that wallet directly. Pre-existing, but it matters more now: scoring v0.2.0 surfaces
-      exactly those mules, so they are the wallets an investigator will click on. Fix is probably
-      to serve the score from the cached investigation the address appears in, rather than
-      starting a new trace from it.
+- [x] **Wallet risk scoring — rules specified, and the model improved** · M · **DONE (2026-08-18)**
+      — spec: [`Wallet-Risk-Scoring-Rules.md`](Wallet-Risk-Scoring-Rules.md). Every constant is
+      documented and honestly marked *unvalidated default*; band→action mapping proposed; validation
+      plan in §5.
+      Writing the spec forced working out what the rules *implied*, which surfaced a real defect:
+      **an OFAC-sanctioned wallet with no detected pattern scored LOW**, with the output
+      contradicting itself (reasoning named the SDN listing, band said low). Then researching how
+      established tools score wallets showed a **structural** gap — they score *counterparty
+      exposure* (who you transacted with, hop-decayed, value-weighted, category-severity) and we had
+      none of it, so a first-hop mule with no laundering pattern of its own also scored LOW.
+      Both fixed in **v0.2.0** (`911ee9a`): sanctions are a band FLOOR, and `app/takedown/exposure.py`
+      adds counterparty exposure. On our own fixtures the fan-out mules moved LOW → medium/high.
+      `MODEL_VERSION` bumped so older scores stay attributable; Glass Box names the new signals
+      (`sanctions_check()`, `counterparty_exposure()`).
+      **Still open** (needs data or a human, not code): validate the constants against labelled cases
+      (§5 — precision/recall *per band*, ±20% sensitivity), confirm the band→action mapping with
+      investigator practice, and assign an owner for the numbers. Related: `wallet_risk_scores.wallet_id`
+      nullability is a product decision to settle at the same time.
 - [ ] **Go-live hardening** · M · *partly done* — only fully needed when heading to real production.
       - [x] **Contract tests per LIVE adapter** — `tests/test_live_adapter_contract.py` asserts the
             "fail loud, never silently degrade" invariant over the registry, so a new adapter cannot
@@ -81,9 +89,35 @@ on the Response dashboard). **282 backend tests green**, frontend build green.
             503 when a critical check fails so it can back a probe. `/health` stays shallow on
             purpose. Each check exists because that failure previously cost real debugging time.
             See `Deploy.md` §7.
-      - [ ] **Observability: the rest** — metrics (request rate/latency/error counters), uptime
-            monitoring + alerting on `/ready`, and log correlation ids. `/ready` answers "why is it
-            broken *right now*"; none of this yet answers "was it broken at 3am" or "is it degrading".
+      - [x] **Observability: the rest** · **DONE (2026-08-22)** — `/ready` answers "why is it broken
+            *right now*"; this answers "was it broken at 3am" and "did we lose a record".
+            (*Log correlation ids were already shipped* — `RequestContextMiddleware` +
+            `X-Request-ID`, echoed into every error envelope. The board text listing them as
+            outstanding was stale and is corrected here.)
+            - **`GET /metrics`**, Prometheus text format (vendor-neutral: Grafana Cloud, Alloy,
+              Better Stack, Render-side scrapers). Hand-rolled ~200 lines, no new dependency —
+              three counters and one histogram did not justify `prometheus_client` and its
+              multiprocess machinery.
+            - **The valuable half: `ittu_audit_entries_dropped_total`.** `verify_chain` detects a
+              forked or edited chain but **cannot** detect an entry that was never written — no gap
+              appears in the hash links, so the trail verifies clean while a record is missing.
+              Every path that loses an entry now increments this, with
+              `ittu_audit_entries_written_total` as the denominator. Rate-cap suppression is counted
+              separately: a policy decision must never be conflated with a failure to write.
+            - **No identifiers are ever labelled.** `route` is always the route TEMPLATE
+              (`/api/cases/{case_id}`), never the requested URL — this app's paths carry case ids
+              and wallet addresses, and a metrics store is typically third-party and outside the RLS
+              boundary. Unmatched requests fold into one `<unmatched>` series so junk URLs cannot
+              mint series. Per-tenant metrics deliberately NOT added: that is a product decision
+              about exporting the tenant dimension, not a config change.
+            - **Authenticated** (`ITTU_METRICS_TOKEN`), unlike `/health` and `/ready` — it is an API
+              map plus operational tempo. 404s when unconfigured, so a deployment without metrics
+              looks like one that has none.
+            - Alerting documented in `Deploy.md` §8 (what to page on vs warn on, and what each
+              `/ready` check failing actually means) — configuration in the vendor, no SDK embedded.
+            - **Known limit:** counters are per process. One uvicorn worker today, so they are
+              complete; adding `--workers` would need per-worker scrape targets or a multiprocess
+              collector. Called out in `Deploy.md` §8.
       - [ ] Separate DB per mode (POC vs LIVE evidentiary isolation).
 - [ ] **Audit trail — broaden & surface** · M · **backend slice DONE (2026-08-17, `7507034`)** —
       roadmap step 2's "chain-of-custody end-to-end". `core.audit_log` was migrated and documented as
@@ -104,24 +138,140 @@ on the Response dashboard). **282 backend tests green**, frontend build green.
             **and from where**, and which log line it belongs to), and `evidence.exported` audits
             document downloads with the custody hash. Evidence could previously leave the system
             with no trace at all — the top insider-risk question in forensics.
-      - [ ] **Decide: audit DENIED actions too** · S · *raised 2026-08-18, needs a product call* —
-            CloudTrail records denied API calls, and they are often the most security-relevant
-            signal: an authenticated user repeatedly attempting actions their role forbids is
-            exactly what an audit trail should surface. We currently record only successes, so
-            every 403 vanishes.
-            **The tradeoff is noise vs signal, which is why it is a decision and not just work.**
-            Failed *logins* should stay OUT (brute-force noise belongs in security logging, not an
-            agency's evidentiary chain a court has to read). Denied *actions by an authenticated
-            user* are different — the actor is known and the attempt is meaningful. A misconfigured
-            client could still spam them, so consider recording the first N per actor/action/window
-            rather than every one.
-            If adopted, add an `outcome` field (success|denied) rather than a separate action name,
-            so "everything Budi did" stays one query.
+      - [x] **Audit DENIED actions too** · S · **DECIDED + DONE (2026-08-22)** — *raised
+            2026-08-18.* Adopted: denials by an **authenticated** actor are recorded.
+            `record_denial()` in `app/core/audit.py`. Failed logins and 401s stay OUT (brute-force
+            noise belongs in security logging, not an agency's evidentiary chain a court has to
+            read); so does the Twilio webhook 403 — no known actor to attribute it to.
+            - **Outcome lives in `detail`, not a new column.** `entry_hash()` hashes `detail`, so
+              the outcome is tamper-evident for free; a column would sit outside the hash unless
+              `entry_hash` changed, and changing it would invalidate verification of every entry
+              already written. No migration, and an absent `_outcome` reads as success, so nothing
+              needed backfilling.
+            - **The domain action name is kept.** A denied role change is `user.role_changed` with
+              `detail._outcome="denied"` + `_denial_code`, never `user.role_changed.denied` — so
+              "everything Budi did" stays one query. The one exception is `access.forbidden`
+              (`require_role`), where the handler never runs so there is no domain action to name.
+            - **Denials commit in their OWN transaction.** A request runs in one transaction
+              (`_tenant_scoped_session`); the guard's `HTTPException` rolls it back, taking any
+              audit row on that session with it. `record_denial` therefore takes no session at all.
+              `tests/test_audit_denials_pg.py` proves it against real Postgres with a control row
+              that must vanish while the denial survives.
+            - **Chained under the ACTOR's agency**, the reverse of the success path: nothing
+              happened to the target, and an outsider's rejected attempt must not be appendable to
+              another tenant's chain.
+            - **Capped** at 5 per (agency, actor, action) per 5 min, in-process — so the effective
+              cap is 5 × workers. The last recorded entry carries `_denial_cap_reached` and the
+              `/audit` UI surfaces it, so a capped chain can't be mistaken for a quiet one.
+            - Wired: the five UAM guards (`privilege_escalation`, `self_lockout`, `last_admin`,
+              `cross_agency_forbidden`, `user_not_found`) and `require_role` — which covers the
+              admin API and dispatch in one place. `user_not_found` IS recorded: under RLS a
+              cross-agency target surfaces as 404, so a run of them is id enumeration; the entry
+              names only the id the caller supplied and is never enriched, so it leaks nothing.
+            - UI: `/audit` renders a denial with a DENIED chip, red treatment and *tried to*
+              phrasing plus the reason. A refused platform-admin grant that rendered like a
+              successful one would be worse than not recording it.
       - [ ] **Decide** whether `uncover.custody` should collapse into the core trail. They are NOT
             duplicates: custody is per-process/in-memory and only fills `ActionBundle.audit` in the
             API response (never stored — see `uncover/repository.py`), while `core.audit_log` is the
             durable per-agency trail. Merging changes that API contract, so it is a product decision,
             not a cleanup. Both docstrings now say so.
+- [ ] **Two latent defects found while auditing denials** · S each · *surfaced 2026-08-22, neither
+      caused by that work* — recorded because both are the quiet kind that surface as something else.
+      - [x] **`core.audit_log.seq` allocation race** · **DONE (2026-08-22)** — it was worse than
+            duplicate numbering: `seq` AND `prev_sha256` both come from the same chain-head read, so
+            concurrent writers produced entries claiming the same position *and* the same
+            predecessor. Measured with 8 simultaneous writers on one agency: **all 8 wrote `seq=1`
+            with `prev=GENESIS`** — an 8-way fork, reported by `verify_chain` as a broken chain,
+            i.e. as *tampering*.
+            **`pg_advisory_xact_lock` was tried and rejected — it deadlocks.** The request
+            transaction would hold the lock while `record_denial`'s separate transaction waits for
+            it on another connection, and the request cannot release it because it is `await`ing
+            that very call. Postgres reports **no** deadlock, because the holder is blocked in
+            Python, not on a database resource — verified empirically: it hangs indefinitely.
+            Shipped instead: **UNIQUE `(agency_id, seq)`** (migration `20260822_17`, NULL `seq`
+            still permitted) as the correctness guarantee, plus a **bounded retry** in
+            `PostgresAuditRepository.record` that re-reads the head — under a SAVEPOINT, because a
+            unique violation aborts the surrounding transaction. Retry budget is what decides
+            survival under contention (10 attempts; 5 was measurably too few for 8 writers);
+            jittered backoff helps secondarily. Exhaustion drops the entry and logs **ERROR**.
+            A unique index has the *same* un-outwaitable wait when the conflicting row is
+            uncommitted in the enclosing transaction, so the denial path — the only writer that
+            opens a connection inside another open transaction — now sets a short `LOCAL
+            lock_timeout`, turning that hang into a fast, loud, logged drop. Pinned by a test.
+      - [x] **A DROPPED audit entry is invisible to `verify_chain`** · **RESOLVED (2026-08-22) —
+            counter shipped; in-database detection deliberately NOT built.** The chain detects a
+            FORK, but an entry never written leaves no gap in the prev-links, so the log verifies
+            clean while a record is missing.
+            **Shipped:** every losing path increments `ittu_audit_entries_dropped_total{reason}`,
+            with entries written as the denominator, and `Deploy.md` §8 pages on any non-zero value.
+            **Deliberately not built — in-database detection.** Three approaches were designed and
+            probed against real Postgres; each makes something else worse:
+            - *Allocate `seq` from a Postgres sequence* so a loss leaves a numeric gap — **silently
+              reinstates the fork bug**. Racing writers get DIFFERENT numbers, the insert succeeds,
+              and `UNIQUE(agency_id, seq)` never fires while both entries chain onto the same
+              predecessor (probed: fork undetected). Restoring the guard via `UNIQUE(agency_id,
+              prev_sha256)` brings back retries, and every retry burns a sequence value — measured
+              at **28 numeric gaps for 0 actual losses** with 8 writers. The noise peaks under
+              contention, the exact regime the signal exists for.
+            - *Persisted write-attempt counter* reconciled against `max(seq)` — adds a **forgeable**
+              artifact to a tamper-evident record (delete an entry, decrement the counter, no trace),
+              and a second artifact that can contradict the chain. "Our two records disagree about
+              whether a document exists" is a bad sentence to explain in court.
+            - *Write an `audit.entry_lost` marker into the chain* — best of the three, but appending
+              it needs the same allocation that just failed, so it is absent precisely when it
+              matters. The most misleading failure shape available.
+            **The general point:** no in-database mechanism can record a failure whose cause is the
+            database being unavailable — the largest loss class. Only an external observer can, so
+            monitoring is not the fallback there, it is the only possible answer.
+            **How little would actually have been covered** — every way we drop an entry today,
+            against what an in-database mechanism could ever see:
+
+            | `reason` | DB up? | detectable in-DB? |
+            |---|---|---|
+            | `error` (DB down/unreachable) | no | **impossible by construction** |
+            | `no_agency` | yes | **impossible** — no agency chain to attribute it to |
+            | `chain_head_uncommitted` | yes | yes, but needs a path writing a success entry *then* a denial in one transaction — does not exist, and a test pins it |
+            | `seq_contention` | yes | yes — **the only live candidate** |
+
+            So the whole apparatus would have bought detection for one class, the one that already
+            needs sustained contention beyond ~10 concurrent writers on a single agency's chain.
+            *(Also measured while probing option (2): rolled-back transactions do burn sequence
+            values, but that is the weaker objection to it — an AST walk of all 11 handlers holding
+            an audit write found every one followed by a single `return`, so nothing raises after an
+            audit write and handler-driven rollback essentially never happens. Recorded so anyone
+            re-litigating (2) starts from the measurement rather than the intuition.)*
+            **⚠ Do NOT "fix" this with a per-agency lock around allocation.** That is the same
+            deadlock this codebase has now hit twice (`pg_advisory_xact_lock`, and the unique
+            index's wait on an uncommitted row): `record_denial` writes on a second connection while
+            the enclosing request holds the lock, and the request cannot release it because it is
+            awaiting the denial. As an `asyncio.Lock` not even Postgres could diagnose it.
+            **What was built instead:** the `/audit` banner, `GET /api/audit` and
+            `Security-Evidence.md` §3 now state plainly that a verified chain proves no entry was
+            *altered or removed*, and does NOT prove every action was recorded. The real risk was an
+            auditor reading "✓ Chain verified" as "nothing is missing" — a stronger claim than the
+            chain can support.
+            **⏰ REVISIT TRIGGER — this decision has an expiry date.** It rests on per-agency
+            concurrency staying under ~10 simultaneous chain writers, which is a judgement about
+            usage, not a measurement. `triage.attached`/`triage.promoted` are audited
+            (`honeypot_ops/router.py`) and dial campaigns already exist — they simply cannot dial
+            until Twilio phase 5 ships. A live campaign means many calls landing as concurrent
+            webhooks, all on ONE agency's chain, which is exactly the assumed-away regime.
+            **When outbound calling goes live: re-measure per-agency concurrent audit writes, and
+            treat any non-zero `dropped_total{reason="seq_contention"}` as the signal to reopen
+            this.** Do not pre-emptively raise the retry budget — the counter will tell us, and
+            guessing a constant for a workload that does not exist yet is how unvalidated numbers
+            get into a codebase.
+      - [x] **`get_mode_resolver()` caches the `Settings` INSTANCE** · **DONE (2026-08-22)** — it
+            was `@lru_cache`d and captured the instance, so `get_settings.cache_clear()` left it
+            pointing at an orphaned `Settings` while everything else read the new one. CI stayed
+            green only by alphabetical luck (the files that clear the cache sorted after the files
+            that check MODE); one early-sorting test file broke three auth tests, which is how it
+            was found. `ModeResolver` is now stateless and reads the singleton at use, so the cache
+            on the factory is harmless. The local workaround in `test_audit_denials_pg.py` was
+            REMOVED rather than left in — the suite passing without it in full-run order is the
+            proof the real fix works. Pinned by `test_config.py::test_mode_resolver_follows_the_
+            current_settings_not_a_captured_one`, verified to fail against the old behaviour.
 - [x] **`alembic check` drift reconciliation** · S–M · **DONE (2026-08-16)** — the last leg of the
       migration guards. All four drift items were the same shape (the DB had the object, the ORM model
       never declared it), so they were reconciled model-side with **no schema change and no migration**:
@@ -155,6 +305,14 @@ on the Response dashboard). **282 backend tests green**, frontend build green.
       [`Voice-Honeypot-Outbound.md`](Voice-Honeypot-Outbound.md): a number pool, a bulk-upload dial
       campaign (Dramatiq-paced, mirrors the C1 notification worker), and a triage queue that attaches
       each connected call's session to a matched case or leaves it for an investigator to assign.
+      **⏰ WHEN PHASE 5 SHIPS, re-open a closed audit decision.** We decided not to build
+      in-database detection of dropped audit entries, and that decision rests on per-agency
+      concurrency staying under ~10 simultaneous chain writers. A live campaign breaks that
+      assumption: many calls land as concurrent webhooks, `triage.attached`/`triage.promoted` are
+      audited, and they all write to ONE agency's chain. Re-measure concurrent audit writes once
+      campaigns actually dial, and treat any non-zero
+      `ittu_audit_entries_dropped_total{reason="seq_contention"}` as the signal to revisit the
+      "A DROPPED audit entry is invisible" item above. The counter is already in place and alerted.
       - [x] **Phase 1 — data model** (`e69f938`) — `honeypot` schema (numbers, dial_campaigns,
             dial_targets) + call columns on `intel.scam_sessions`, RLS on all three (dial_targets policed
             via a join through its campaign).

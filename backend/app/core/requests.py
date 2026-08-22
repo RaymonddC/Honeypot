@@ -26,6 +26,8 @@ import uuid
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
+from app.core import metrics
+
 _log = logging.getLogger("ittu.request")
 
 # Readable by anything that wants to tag its own output with the current request
@@ -89,7 +91,19 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
             response.headers[REQUEST_ID_HEADER] = request_id
             return response
         finally:
-            elapsed_ms = (time.perf_counter() - started) * 1000
+            elapsed = time.perf_counter() - started
+            elapsed_ms = elapsed * 1000
+            # Recorded here rather than in a middleware of its own: this one
+            # already has the status and the elapsed time, and every extra
+            # BaseHTTPMiddleware layer costs a wrapper per request. Note it uses
+            # the matched ROUTE TEMPLATE, never request.url.path — the paths in
+            # this app carry case ids and wallet addresses (see metrics.py).
+            metrics.observe_request(
+                method=request.method,
+                scope=request.scope,
+                status=status,
+                seconds=elapsed,
+            )
             if request.url.path not in QUIET_PATHS:
                 # Deliberately no query string and no body — see the module docstring.
                 _log.info(

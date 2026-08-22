@@ -46,6 +46,40 @@ export function clearToken(): void {
   }
 }
 
+/* ── Why the session ended ─────────────────────────────────────────────────
+ * An involuntary logout (a 401, or an already-expired token found at boot)
+ * and a deliberate "sign out" both land on /login, and from the operator's
+ * side they look identical: the screen just changed. With a 1h TTL and no
+ * refresh flow that bounce is routine, so the reason is handed to /login
+ * rather than left as a mystery. sessionStorage, not the URL: it survives the
+ * redirect, is read exactly once, and doesn't leave a stale "?expired" behind
+ * on a bookmarked login. */
+
+const LOGOUT_REASON_KEY = "ittu.logout-reason";
+
+export type LogoutReason = "expired";
+
+export function setLogoutReason(reason: LogoutReason): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(LOGOUT_REASON_KEY, reason);
+  } catch {
+    /* storage unavailable — the notice is a courtesy, never a blocker */
+  }
+}
+
+/** Read the pending reason and clear it, so it shows once and not again. */
+export function takeLogoutReason(): LogoutReason | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const v = window.sessionStorage.getItem(LOGOUT_REASON_KEY);
+    if (v) window.sessionStorage.removeItem(LOGOUT_REASON_KEY);
+    return v === "expired" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Decode a JWT payload without verifying (client-side convenience only). */
 export function tokenPayload(jwt: string): {
   sub?: string;

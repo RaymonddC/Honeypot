@@ -120,6 +120,17 @@ class Settings(BaseSettings):
     #   '["https://a.vercel.app"]'              (JSON list)
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
+    # --- Metrics (GET /metrics, Prometheus text) -----------------------------
+    # Bearer token a scraper must present. EMPTY (the default) DISABLES the
+    # endpoint entirely — it 404s, so an unconfigured deployment does not
+    # advertise that it has metrics at all. Unlike /health and /ready, this one
+    # is not safe to leave open: it enumerates every route template and the
+    # request volume against each, which is reconnaissance for a
+    # law-enforcement tool even though no ids are ever labelled. Prometheus,
+    # Grafana Agent and Better Stack all support bearer tokens in scrape config.
+    # See docs/Deploy.md §8.
+    metrics_token: str = ""
+
     # --- Voice (P4b/#15) — TTS provider behind the TTSAdapter Protocol --------
     # "browser" (default) = POC voice marks: no server audio, the browser's
     # SpeechSynthesis speaks the line. A real provider name (elevenlabs |
@@ -168,7 +179,12 @@ class Settings(BaseSettings):
     # Dev-only default (≥32 bytes for HS256); override via ITTU_JWT_SECRET in prod.
     jwt_secret: str = "ittu-dev-only-secret-change-me-in-prod-0123"
     jwt_algorithm: str = "HS256"
-    jwt_ttl_seconds: int = 8 * 3600
+    # 1h, not a working day. Request auth never reads the database, so an
+    # already-issued token is the ONLY thing between "deactivated" and
+    # "actually cut off" — this TTL *is* that revocation window. Shortening
+    # it further costs real re-logins: there is no refresh flow, so every
+    # expiry bounces the operator to /login (which tells them why).
+    jwt_ttl_seconds: int = 3600
     # LIVE Google OAuth: expected `aud` of the verified id_token.
     google_client_id: str = ""
     # LIVE Google OAuth operator provisioning (no self-service signup): a JSON
@@ -230,13 +246,22 @@ class Settings(BaseSettings):
 
 
 class ModeResolver:
-    """Resolve the effective MODE for a module: override or global default."""
+    """Resolve the effective MODE for a module: override or global default.
 
-    def __init__(self, settings: "Settings") -> None:
-        self._settings = settings
+    **Reads the settings singleton at USE, never captures it.** It used to take
+    a ``Settings`` in ``__init__`` and hold it, which was a quiet defect: this
+    class is handed out by an ``@lru_cache``d factory, so ``get_settings.
+    cache_clear()`` — done by the pgserver tests to point alembic at an
+    ephemeral cluster — rebuilt the singleton while this resolver kept the
+    orphaned one. ``/api/config`` and ``_auth_mode()`` then reported a MODE
+    nobody could change, and the only reason CI stayed green was that the test
+    files doing the clearing happened to sort alphabetically after the ones
+    checking MODE. Stateless now, so the cache on the factory is harmless.
+    """
 
     def effective_mode(self, module: str) -> Mode:
-        return self._settings.module_modes.get(module, self._settings.mode)
+        settings = get_settings()
+        return settings.module_modes.get(module, settings.mode)
 
 
 @lru_cache
@@ -246,4 +271,4 @@ def get_settings() -> Settings:
 
 @lru_cache
 def get_mode_resolver() -> ModeResolver:
-    return ModeResolver(get_settings())
+    return ModeResolver()

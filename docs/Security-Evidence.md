@@ -24,6 +24,26 @@
 - **Hash chain:** `intel.messages` and `core.audit_log` carry `sha256` + `prev_sha256` → a tamper of any
   link breaks the chain. `action.action_documents` carries `sha256` only — each generated document is
   **independently** hashed as evidence (not chained doc-to-doc). Append-only; edits create new versions.
+- **What chain verification proves, and what it does not.** A passing verification proves no entry was
+  **altered or removed**: every hash still links to its predecessor, so any edit or deletion breaks
+  every hash after it. It does **not** prove that every action was recorded in the first place. An
+  entry that failed to be written leaves nothing behind — the entries either side of it link to each
+  other normally, so there is no gap for verification to find. That is a property of every append-only
+  hash chain, not a weakness specific to this one, and no in-database mechanism can close it: the
+  largest cause of a failed write is the database being unavailable, which is precisely when a
+  database-side marker cannot be written either. Write failures are therefore counted
+  (`ittu_audit_entries_dropped_total`, by reason) and alerted on as an incident — see `Deploy.md` §8
+  and the won't-do reasoning in `Backlog.md`. This distinction is stated in the API
+  (`GET /api/audit`) and on the `/audit` screen too, because "✓ Chain verified" invites the stronger
+  reading and an auditor is entitled to know which claim they are being handed.
+- **What a verified chain proves — and what it does not.** `chain_ok: true` means no entry was
+  **altered or removed**: every hash still links to its predecessor. It does **not** mean every
+  action reached the log. An entry that failed to be written leaves nothing behind — the entries
+  around it link normally, so verification has no gap to find. This is a property of any append-only
+  hash chain, not a defect in this one, and it is why write failures are counted and alerted on
+  separately (`ittu_audit_entries_dropped_total`, `Deploy.md` §8) instead of being inferred from the
+  chain. Recorded here because "verified" invites the stronger reading, and anyone relying on this
+  trail as evidence is entitled to know which of the two claims they are being handed.
 - **Preserved originals** stored separately from enriched/derived data.
 - **`core.evidence_manifest`** per session/case records model + prompt + pipeline versions →
   reproducible & explainable in court.

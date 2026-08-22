@@ -8,6 +8,12 @@ import { CaseSwitcher } from "@/components/cases/case-switcher";
 import { CaseContextBar } from "@/components/cases/case-context-bar";
 import { initialsOf, roleLabel } from "@/lib/auth/types";
 
+// Shown only to agency-admin / platform-admin. Hiding it is UX, not security —
+// /api/users is role-gated server-side, and the page renders whatever 403 comes
+// back rather than trusting that a hidden link kept anyone out.
+const ADMIN_NAV = { href: "/users", label: "Users", glyph: "◫" };
+const ADMIN_ROLES = ["agency-admin", "platform-admin"];
+
 // Two clear groups: the guided case flow vs standalone tools.
 const NAV_GROUPS: { label: string; items: { href: string; label: string; glyph: string }[] }[] = [
   {
@@ -15,6 +21,7 @@ const NAV_GROUPS: { label: string; items: { href: string; label: string; glyph: 
     items: [
       { href: "/case", label: "Case File", glyph: "▤" },
       { href: "/audit", label: "Audit Trail", glyph: "⛓" },
+      // "/users" is appended below, for admins only — see ADMIN_NAV.
     ],
   },
   {
@@ -184,7 +191,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div key={group.label} className="mt-2">
               <div className="eyebrow px-3 pb-1.5">{group.label}</div>
               <ul className="space-y-0.5">
-                {group.items.map((item) => {
+                {(group.label === "Case workflow" && me && ADMIN_ROLES.includes(me.role)
+                  ? [...group.items, ADMIN_NAV]
+                  : group.items
+                ).map((item) => {
                   const active = pathname.startsWith(item.href);
                   return (
                     <li key={item.href}>

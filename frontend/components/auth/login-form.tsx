@@ -6,8 +6,9 @@
  * local offline demo session.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "./auth-provider";
+import { takeLogoutReason } from "@/lib/http";
 import { GoogleSignInButton } from "./google-signin-button";
 import { AGENCIES, canDispatch, roleLabel } from "@/lib/auth/types";
 
@@ -18,6 +19,13 @@ export function LoginForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [offlineOffer, setOfflineOffer] = useState(false);
+  const [expired, setExpired] = useState(false);
+
+  // Read once on mount (and clear): explains an involuntary bounce back here.
+  // Effect, not render — sessionStorage doesn't exist during SSR.
+  useEffect(() => {
+    if (takeLogoutReason() === "expired") setExpired(true);
+  }, []);
 
   const agency = useMemo(
     () => AGENCIES.find((a) => a.id === agencyId) ?? AGENCIES[0],
@@ -57,6 +65,15 @@ export function LoginForm() {
 
   return (
     <div className="w-full rounded-xl border border-line bg-card p-4">
+      {expired && (
+        <p
+          role="status"
+          className="mb-3 rounded-md border border-risk-med/30 bg-risk-med/10 px-3 py-2 text-xs leading-relaxed text-fg"
+        >
+          <span className="font-medium">Your session expired.</span> Sign in again
+          to pick up where you left off.
+        </p>
+      )}
       {/* LIVE Google sign-in (hidden if no client id) — real auth; the picker
           below is the demo path. */}
       <GoogleSignInButton />
