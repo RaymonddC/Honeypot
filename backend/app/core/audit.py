@@ -31,9 +31,11 @@ Memory mode keeps an in-process chain so POC demos and tests exercise the same
 code path; only Postgres persists.
 """
 
+import asyncio
 import hashlib
 import json
 import logging
+import random
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -241,6 +243,35 @@ def _row_to_entry(row) -> AuditEntry:
     )
 
 
+# How many times to re-read the chain head and try again when another writer
+# beat us to a sequence number.
+#
+# A linear hash chain cannot be appended to in parallel — writers to one agency
+# MUST serialise — so the worst case is inherently "roughly one attempt per
+# contending writer", and this budget is what actually decides whether an entry
+# survives contention.
+#
+# Measured against pgserver with 8 simultaneous writers on one agency
+# (tests/test_audit_denials_pg.py), 3 runs each:
+#     5 attempts, no backoff  -> 0/3 runs kept all 8 entries
+#     5 attempts, backoff     -> 1/3
+#    10 attempts, no backoff  -> 3/3
+#    10 attempts, backoff     -> 3/3
+# So the budget dominates and the backoff is a secondary help, not the fix.
+# Beyond ~10 concurrent writers on a SINGLE agency's chain an entry can still be
+# dropped (loudly — see the ERROR at the bottom of record()). That is far past
+# anything one agency's audit trail should be generating; if it is ever reached,
+# the answer is to look at why, not to keep raising this number.
+SEQ_RETRY_ATTEMPTS = 10
+
+# Jittered backoff between attempts. Contending writers otherwise re-read the
+# head in lockstep, pick the same next number, and collide again. Randomised
+# rather than fixed, because a fixed delay just relocates the lockstep. Kept
+# despite being secondary to the budget: it costs nothing and removes wasted
+# round trips under contention.
+SEQ_RETRY_BACKOFF_MAX_S = 0.02
+
+
 class PostgresAuditRepository:
     """Writes ``core.audit_log``. The session is the caller's, so an audit entry
     commits with the action it describes — a separate transaction could leave a
@@ -254,35 +285,85 @@ class PostgresAuditRepository:
         target_type: str | None = None, target_id: str | None = None,
         detail: dict | None = None,
     ) -> AuditEntry:
+        """Append one entry, re-trying if another writer took our slot.
+
+        ``seq`` and ``prev_sha256`` are both derived from the chain head read at
+        the top of this method, so two transactions that read the same head
+        don't merely collide on a number — they produce two entries claiming the
+        same position AND the same predecessor, which is a FORK. ``verify_chain``
+        then reports the log as broken, and a reader has no way to tell a
+        routine concurrent write from someone tampering with the record. That
+        is the failure this loop and the ``uq_audit_log_agency_seq`` index
+        (migration 20260822_17) exist to prevent.
+
+        The index makes the collision loud; this loop makes it survivable. Each
+        attempt runs inside a SAVEPOINT because a unique violation aborts the
+        surrounding transaction in Postgres — without one, the caller's whole
+        request would be poisoned by a conflict we intend to recover from.
+        """
+        from sqlalchemy.exc import IntegrityError
+
         from app.core.models import AuditLog
 
-        last = (
-            await self._session.execute(
-                select(AuditLog)
-                .where(AuditLog.agency_id == uuid.UUID(str(agency_id)))
-                .order_by(AuditLog.seq.desc())
-                .limit(1)
+        last_error: Exception | None = None
+        for attempt in range(1, SEQ_RETRY_ATTEMPTS + 1):
+            last = (
+                await self._session.execute(
+                    select(AuditLog)
+                    .where(AuditLog.agency_id == uuid.UUID(str(agency_id)))
+                    .order_by(AuditLog.seq.desc())
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            seq = (last.seq or 0) + 1 if last else 1
+            prev = (last.sha256 or b"").hex() if last else GENESIS
+            ts, entry_detail = _now(), detail or {}
+            digest = entry_hash(
+                seq=seq, action=action, actor_user_id=actor_user_id,
+                target_type=target_type, target_id=target_id, detail=entry_detail,
+                ts=ts, prev_sha256=prev,
             )
-        ).scalar_one_or_none()
-        seq = (last.seq or 0) + 1 if last else 1
-        prev = (last.sha256 or b"").hex() if last else GENESIS
-        ts, detail = _now(), detail or {}
-        digest = entry_hash(
-            seq=seq, action=action, actor_user_id=actor_user_id,
-            target_type=target_type, target_id=target_id, detail=detail,
-            ts=ts, prev_sha256=prev,
+            # Built fresh per attempt: rolling back to the savepoint expunges the
+            # pending object, and re-adding a stale one would re-insert the seq
+            # we just lost.
+            row = AuditLog(
+                id=uuid.uuid4(), agency_id=uuid.UUID(str(agency_id)),
+                actor_user_id=uuid.UUID(str(actor_user_id)) if actor_user_id else None,
+                action=action, target_type=target_type,
+                target_id=uuid.UUID(str(target_id)) if _is_uuid(target_id) else None,
+                detail=entry_detail, ts=ts, seq=seq,
+                sha256=bytes.fromhex(digest), prev_sha256=bytes.fromhex(prev),
+            )
+            try:
+                async with self._session.begin_nested():
+                    self._session.add(row)
+                    await self._session.flush()
+                return _row_to_entry(row)
+            except IntegrityError as exc:
+                # Someone committed this seq while we were building ours.
+                last_error = exc
+                _log.info(
+                    "audit: seq %s for agency %s was taken, re-reading the chain "
+                    "head (attempt %d/%d)", seq, agency_id, attempt, SEQ_RETRY_ATTEMPTS,
+                )
+                await asyncio.sleep(random.uniform(0, SEQ_RETRY_BACKOFF_MAX_S))
+            # Anything else propagates untouched — in particular a lock_timeout
+            # (a plain DBAPIError, not an IntegrityError), which means the
+            # conflicting row is UNCOMMITTED and held by a transaction we cannot
+            # outwait. Re-reading cannot help there: the blocker is invisible to
+            # us by definition, so every retry would pick the same seq and time
+            # out again. See _record_denial_postgres for when that arises.
+
+        # Budget exhausted. The caller (record_action / record_denial) will
+        # swallow this and let the action stand — but an evidentiary entry has
+        # just been lost, which is an ERROR, not a routine warning: this log line
+        # is the only remaining trace that the action happened at all.
+        _log.error(
+            "audit: GAVE UP recording %s for agency %s after %d attempts — the "
+            "entry is LOST. Sustained contention on this agency's chain.",
+            action, agency_id, SEQ_RETRY_ATTEMPTS,
         )
-        row = AuditLog(
-            id=uuid.uuid4(), agency_id=uuid.UUID(str(agency_id)),
-            actor_user_id=uuid.UUID(str(actor_user_id)) if actor_user_id else None,
-            action=action, target_type=target_type,
-            target_id=uuid.UUID(str(target_id)) if _is_uuid(target_id) else None,
-            detail=detail, ts=ts, seq=seq,
-            sha256=bytes.fromhex(digest), prev_sha256=bytes.fromhex(prev),
-        )
-        self._session.add(row)
-        await self._session.flush()
-        return _row_to_entry(row)
+        raise last_error  # type: ignore[misc]  # unreachable with attempts >= 1
 
     async def list_entries(self, *, agency_id: str, limit: int = 100) -> list[AuditEntry]:
         from app.core.models import AuditLog
@@ -414,6 +495,13 @@ OUTCOME_DENIED = "denied"
 DENIAL_CAP = 5
 DENIAL_WINDOW_SECONDS = 300
 
+# How long the denial's own transaction will wait for a lock before giving up.
+# Short on purpose: the only wait it can encounter that matters is one it can
+# never win (see ``_record_denial_postgres``), so waiting longer buys nothing
+# and stalls the 403 the caller is owed. Long enough to absorb an ordinary
+# concurrent commit, short enough that a human never notices.
+DENIAL_LOCK_TIMEOUT_MS = 750
+
 # (agency, actor, action) -> (window start on the monotonic clock, count).
 #
 # In-process, and therefore PER WORKER: with N uvicorn workers the effective cap
@@ -437,6 +525,13 @@ def _claim_denial_slot(agency_id: str, actor_user_id: str, action: str) -> int |
     count += 1
     _denial_counts[key] = (start, count)
     return count if count <= DENIAL_CAP else None
+
+
+def _is_lock_timeout(exc: BaseException) -> bool:
+    """SQLSTATE 55P03 (``lock_not_available``) — matched on the code, not the
+    message, so a driver upgrade or a non-English server locale can't silently
+    turn this into an unrecognised generic failure."""
+    return getattr(getattr(exc, "orig", None), "sqlstate", None) == "55P03"
 
 
 def _already_recorded_this_request(request, signature: tuple) -> bool:
@@ -570,10 +665,21 @@ async def record_denial(
             detail=detail,
         )
     except Exception as exc:  # noqa: BLE001 - must never turn a 403 into a 500
-        _log.warning(
-            "audit: failed to record denied %s (%s): %s: %s",
-            action, denial_code, type(exc).__name__, exc,
-        )
+        if _is_lock_timeout(exc):
+            # Not a generic failure — a specific, diagnosable one worth naming,
+            # because the log line is the ONLY record that the attempt happened.
+            _log.error(
+                "audit: DROPPED denied %s (%s) by %s — this agency's next chain "
+                "position is held by an uncommitted row in the enclosing "
+                "transaction, which cannot be waited out from here. The refusal "
+                "still stands; the attempt is NOT in the trail.",
+                action, denial_code, actor_user_id,
+            )
+        else:
+            _log.warning(
+                "audit: failed to record denied %s (%s): %s: %s",
+                action, denial_code, type(exc).__name__, exc,
+            )
         return None
 
 
@@ -592,18 +698,28 @@ async def _record_denial_postgres(
     itself — ``core.audit_log``'s insert policy is ``agency_id =
     core.current_agency()``, which fails closed against an unset one.
 
-    KNOWN, PRE-EXISTING: ``seq`` is allocated as ``max(seq) + 1`` read inside the
-    writing transaction, so two transactions committing concurrently for the same
-    agency can both claim the same number and leave a chain that no longer
-    verifies. That race already existed between two concurrent requests; a
-    denial committing mid-request is one more way to reach it, not a new one.
-    Fixing it properly means serialising allocation (a per-agency
-    ``pg_advisory_xact_lock``) and/or a unique index on ``(agency_id, seq)`` —
-    both touch the success path and want a migration, so neither belongs here.
+    **``lock_timeout`` is set here and nowhere else, and it is load-bearing.**
+    This is the only writer that opens a second connection from *inside* another
+    open transaction, which creates a wait no database can resolve: if the
+    enclosing request transaction has already written an uncommitted row at the
+    chain position we want, our INSERT waits on that transaction's id — while
+    that transaction waits on this ``await``. Postgres reports no deadlock,
+    because the enclosing side is not blocked on a database resource at all; it
+    is blocked in Python. Verified empirically: it hangs indefinitely rather
+    than failing. (An advisory lock has exactly the same shape, which is why
+    serialising allocation that way was rejected.)
+
+    A short ``lock_timeout`` turns that hang into a fast, loud
+    ``LockNotAvailableError``, which ``record_denial`` reports and drops. The
+    denial is genuinely unserviceable in that state — the correct chain position
+    is occupied by a row that has neither committed nor rolled back — so failing
+    in under a second beats stalling a request forever. It is scoped ``LOCAL``
+    to this throwaway transaction, so no business query ever inherits it.
     """
     from app.core import db as db_module
 
     async with db_module.SessionLocal() as session, session.begin():
+        await session.execute(text(f"SET LOCAL lock_timeout = '{DENIAL_LOCK_TIMEOUT_MS}ms'"))
         for var, value in (
             ("app.current_agency", str(agency_id)),
             ("app.current_user", str(actor_user_id or "")),

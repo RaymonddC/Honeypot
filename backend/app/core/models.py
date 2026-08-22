@@ -17,6 +17,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    Index,
     Text,
     Uuid,
 )
@@ -139,7 +140,15 @@ class AuditLog(Base):
     """Append-only; hash-chained per agency (sha256 + prev_sha256)."""
 
     __tablename__ = "audit_log"
-    __table_args__ = ({"schema": SCHEMA},)
+    # UNIQUE (agency_id, seq) — migration 20260822_17. Declared here as well as
+    # in the migration because `alembic check` runs in CI: a constraint the DB
+    # has and the model doesn't is drift, and drift is how the `stage` outage
+    # was authored. NULL seq stays permitted (Postgres treats NULLs as distinct),
+    # so only real chain positions are made unique.
+    __table_args__ = (
+        Index("uq_audit_log_agency_seq", "agency_id", "seq", unique=True),
+        {"schema": SCHEMA},
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=_uuid)
     agency_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)

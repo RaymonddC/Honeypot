@@ -20,8 +20,12 @@ Same ephemeral, in-process Postgres harness as ``test_user_repository_pg.py``
 policies are actually enforcing. Skips cleanly if pgserver is unavailable.
 """
 
+import asyncio
+import importlib.util
+import logging
 import os
 import tempfile
+import time
 import uuid
 from pathlib import Path
 
@@ -31,6 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.core import db as db_module
 from app.core.audit import (
+    DENIAL_LOCK_TIMEOUT_MS,
     USER_DEACTIVATED,
     USER_ROLE_CHANGED,
     PostgresAuditRepository,
@@ -43,6 +48,27 @@ from app.core.config import get_mode_resolver, get_settings
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 APP_ROLE_PASSWORD = "ittu-test-role-pw-4"  # noqa: S105 - ephemeral, throwaway DB only
+
+
+def _load_migration_17():
+    """Load migration 20260822_17 by path — its filename starts with a digit, so
+    it cannot be imported normally (same trick as test_user_repository_pg.py).
+
+    Imported rather than restated so the dirty-data test below runs the
+    migration's ACTUAL detection query. A copied query here could drift from the
+    real one and keep passing while the migration silently stopped detecting
+    anything.
+    """
+    path = BACKEND_DIR / "migrations" / "versions" / "20260822_17_audit_log_seq_unique.py"
+    spec = importlib.util.spec_from_file_location("_migration_17", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_MIGRATION_17 = _load_migration_17()
+INDEX_NAME = _MIGRATION_17.INDEX_NAME
+_DUPLICATES = _MIGRATION_17._DUPLICATES
 
 _BUDI = next(u for u in SEED_USERS if u.email == "budi@bareskrim.polri.go.id")
 AGENCY_A = str(_BUDI.agency_id)
@@ -116,6 +142,14 @@ def app_role_uri(pg_cluster):
     return f"postgresql+asyncpg://ittu_app:{APP_ROLE_PASSWORD}@{host_part}"
 
 
+@pytest.fixture(scope="session")
+def owner_uri(pg_cluster, app_role_uri):
+    """The OWNING role's URI. Needed only by the dirty-data test, which drops and
+    recreates the unique index — ``ittu_app`` is deliberately not the index owner
+    (that separation is the same one RLS depends on), so it cannot."""
+    return pg_cluster.get_uri().replace("postgresql://", "postgresql+asyncpg://", 1)
+
+
 @pytest.fixture
 async def pg_audit(app_role_uri, monkeypatch):
     """Wire the app's Postgres path at the two seams denials use.
@@ -178,16 +212,6 @@ async def test_a_denial_survives_the_request_transaction_rolling_back(pg_audit):
         async with maker() as session, session.begin():
             await _set_rls(session, agency, BUDI_ID, "agency-admin")
 
-            # CONTROL: the ordinary success path, on the request's session. It
-            # must NOT survive — if it does, the transaction never rolled back
-            # and this test proves nothing about the denial.
-            await record_action(
-                session,
-                agency_id=agency,
-                action=USER_ROLE_CHANGED,
-                actor_user_id=BUDI_ID,
-                detail={"marker": "control-on-request-session"},
-            )
             # The denial — takes no session, opens and commits its own.
             await record_denial(
                 agency_id=agency,
@@ -199,6 +223,25 @@ async def test_a_denial_survives_the_request_transaction_rolling_back(pg_audit):
                 target_type="user",
                 target_id=str(uuid.uuid4()),
                 detail={"marker": "denied"},
+            )
+            # CONTROL: the ordinary success path, on the request's session. It
+            # must NOT survive — if it does, the transaction never rolled back
+            # and this test proves nothing about the denial.
+            #
+            # ORDER MATTERS, do not swap these back. Since migration 20260822_17
+            # added UNIQUE (agency_id, seq), writing the control FIRST leaves an
+            # uncommitted row squatting on the position the denial needs, and the
+            # denial is then genuinely unserviceable — it is dropped rather than
+            # written. That behaviour is real and is pinned by
+            # test_a_denial_is_dropped_loudly_when_the_chain_head_is_uncommitted
+            # below; this test is about the rollback property, so it does not
+            # manufacture that collision.
+            await record_action(
+                session,
+                agency_id=agency,
+                action=USER_ROLE_CHANGED,
+                actor_user_id=BUDI_ID,
+                detail={"marker": "control-on-request-session"},
             )
             raise _GuardRaised
 
@@ -301,3 +344,236 @@ async def test_a_denial_is_written_under_rls_as_the_unprivileged_app_role(pg_aud
         if r["detail"].get("_denial_code") == "cross_agency_forbidden"
     ]
     assert leaked == [], f"another agency can read this denial: {leaked}"
+
+
+# --------------------------------------------------------------------------- #
+# The seq allocation race (migration 20260822_17 + the retry in record()).
+#
+# `seq` and `prev_sha256` both come from the chain head read at the top of
+# record(). Two transactions that read the same head therefore produce two
+# entries claiming the same position AND the same predecessor — the chain
+# FORKS, verify_chain reports it broken, and "broken" reads as tampering. These
+# tests race real transactions against real Postgres; nothing here is simulated.
+# --------------------------------------------------------------------------- #
+
+
+def _fresh_agency() -> str:
+    """A private agency per test — the cluster is session-scoped and audit_log is
+    append-only, so sharing one would make counts depend on test order."""
+    return str(uuid.uuid4())
+
+
+async def _write_one(maker, agency: str, marker: int, ready: asyncio.Barrier) -> str:
+    """One concurrent writer, shaped like a request: its own transaction, RLS
+    set, one audit entry. The barrier is what makes this a race rather than a
+    sequence — every writer reads the chain head before any of them commits."""
+    async with maker() as session, session.begin():
+        await _set_rls(session, agency, BUDI_ID, "agency-admin")
+        await ready.wait()
+        await record_action(
+            session, agency_id=agency, action=USER_ROLE_CHANGED,
+            actor_user_id=BUDI_ID, detail={"marker": marker},
+        )
+    return "ok"
+
+
+async def test_concurrent_writers_for_one_agency_do_not_fork_the_chain(pg_audit):
+    """THE race. Eight transactions append to one agency's chain at once."""
+    engine, maker = pg_audit
+    agency = _fresh_agency()
+    writers = 8
+
+    ready = asyncio.Barrier(writers)
+    await asyncio.gather(*(_write_one(maker, agency, i, ready) for i in range(writers)))
+
+    rows = await _rows(engine, agency)
+    seqs = [r["seq"] for r in rows]
+    markers = sorted(r["detail"]["marker"] for r in rows)
+
+    assert seqs == sorted(set(seqs)), (
+        f"duplicate seq — the chain forked: {seqs}"
+    )
+    assert seqs == list(range(1, writers + 1)), (
+        f"expected a gapless 1..{writers}; got {seqs}"
+    )
+    assert markers == list(range(writers)), (
+        f"a writer was lost to the race — markers present: {markers}"
+    )
+
+    async with maker() as session, session.begin():
+        await _set_rls(session, agency, BUDI_ID, "agency-admin")
+        ok, broken_at = await PostgresAuditRepository(session).verify_chain(agency_id=agency)
+    assert ok is True, (
+        f"chain broke at seq {broken_at} after {writers} concurrent writers — a "
+        "routine concurrent write must never look like tampering. Chain: "
+        f"{[(r['seq'], r['detail']) for r in rows]}"
+    )
+
+
+async def test_a_racing_writer_chains_onto_the_winner_not_beside_it(pg_audit):
+    """Renumbering alone would not be enough: the loser must also re-read the
+    winner's HASH. If it retried with a fresh seq but a stale ``prev_sha256``,
+    every seq would be unique and the chain would still be forked."""
+    engine, maker = pg_audit
+    agency = _fresh_agency()
+
+    ready = asyncio.Barrier(2)
+    await asyncio.gather(*(_write_one(maker, agency, i, ready) for i in range(2)))
+
+    rows = await _rows(engine, agency)
+    async with engine.connect() as conn, conn.begin():
+        await conn.execute(
+            sa.text("SELECT set_config('app.current_agency', :v, true)"), {"v": agency}
+        )
+        hashes = (
+            await conn.execute(
+                sa.text(
+                    "SELECT seq, encode(sha256,'hex'), encode(prev_sha256,'hex') "
+                    "FROM core.audit_log ORDER BY seq"
+                )
+            )
+        ).fetchall()
+
+    assert len(hashes) == 2, f"expected 2 entries, got {rows}"
+    first, second = hashes
+    assert second[2] == first[1], (
+        "entry 2's prev_sha256 does not point at entry 1's sha256 — the loser "
+        f"retried the number but kept a stale predecessor. Got prev={second[2]}, "
+        f"expected {first[1]}"
+    )
+
+
+async def test_a_denial_is_dropped_loudly_when_the_chain_head_is_uncommitted(pg_audit, caplog):
+    """The one case that cannot be served, pinned so it stays a known quantity.
+
+    If the enclosing request transaction has already written an UNCOMMITTED row
+    at the chain position a denial needs, the denial cannot be appended: it can
+    neither wait (the holder is waiting on this very ``await`` — Postgres sees
+    no deadlock because the other side is blocked in Python, not in the
+    database) nor pick another position (chaining onto a row that may roll back
+    is precisely the fork we just fixed).
+
+    So the requirement is not that it succeeds. It is that it fails FAST and
+    LOUDLY instead of hanging a request forever, which is what it did before
+    ``lock_timeout`` was set on this path.
+    """
+    _engine, maker = pg_audit
+    agency = _fresh_agency()
+    caplog.set_level(logging.ERROR, logger="uvicorn.error")
+
+    async with maker() as session, session.begin():
+        await _set_rls(session, agency, BUDI_ID, "agency-admin")
+        await record_action(
+            session, agency_id=agency, action=USER_ROLE_CHANGED,
+            actor_user_id=BUDI_ID, detail={"marker": "uncommitted-head"},
+        )
+
+        started = time.monotonic()
+        # wait_for is the anti-hang assertion: before lock_timeout this never
+        # returned at all, and the suite had to be killed.
+        entry = await asyncio.wait_for(
+            record_denial(
+                agency_id=agency, action=USER_DEACTIVATED, denial_code="last_admin",
+                actor_user_id=BUDI_ID, actor_role="agency-admin",
+            ),
+            timeout=20,
+        )
+        elapsed = time.monotonic() - started
+
+    assert entry is None, "the denial cannot be appended here and must say so by returning None"
+    assert elapsed < 5, (
+        f"took {elapsed:.1f}s — lock_timeout ({DENIAL_LOCK_TIMEOUT_MS}ms) is not "
+        "bounding this wait, so it is still effectively a hang"
+    )
+    dropped = [r for r in caplog.records if "DROPPED denied" in r.getMessage()]
+    assert dropped, (
+        "a dropped evidentiary entry must be logged at ERROR — the log line is "
+        f"the only record it happened. Saw: {[r.getMessage() for r in caplog.records]}"
+    )
+
+
+async def test_the_migration_refuses_to_install_the_guard_over_a_forked_chain(owner_uri):
+    """The dirty-data path in migration 20260822_17 is not dead code.
+
+    Drops the index, plants the duplicate the index exists to prevent, and runs
+    the migration's OWN detection query against it — then restores. Without this
+    the failure branch would only ever be exercised by an actual outage, which
+    is the worst moment to discover it never worked.
+
+    Runs as the owning role: dropping and recreating an index is a privilege
+    ``ittu_app`` does not (and should not) have.
+    """
+    agency = _fresh_agency()
+    engine = create_async_engine(owner_uri)
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(sa.text(f"DROP INDEX core.{INDEX_NAME}"))
+        try:
+            async with engine.begin() as conn:
+                for _ in range(2):  # same (agency, seq) twice — a forked chain
+                    await conn.execute(
+                        sa.text(
+                            "INSERT INTO core.audit_log (id, agency_id, action, seq) "
+                            "VALUES (gen_random_uuid(), :a, 'case.created', 1)"
+                        ),
+                        {"a": agency},
+                    )
+            async with engine.connect() as conn:
+                found = (await conn.execute(sa.text(_DUPLICATES))).fetchall()
+            assert any(str(r[0]) == agency and r[1] == 1 and r[2] == 2 for r in found), (
+                f"the migration's duplicate check missed a planted fork; it saw {found}"
+            )
+
+            # And the index genuinely refuses to be created over it.
+            with pytest.raises(Exception) as caught:
+                async with engine.begin() as conn:
+                    await conn.execute(
+                        sa.text(
+                            f"CREATE UNIQUE INDEX {INDEX_NAME} "
+                            "ON core.audit_log (agency_id, seq)"
+                        )
+                    )
+            assert "unique" in str(caught.value).lower(), (
+                f"expected a uniqueness failure, got {caught.value}"
+            )
+        finally:
+            async with engine.begin() as conn:
+                await conn.execute(
+                    sa.text("DELETE FROM core.audit_log WHERE agency_id = :a"), {"a": agency}
+                )
+                await conn.execute(
+                    sa.text(
+                        f"CREATE UNIQUE INDEX IF NOT EXISTS {INDEX_NAME} "
+                        "ON core.audit_log (agency_id, seq)"
+                    )
+                )
+    finally:
+        await engine.dispose()
+
+
+async def test_null_seq_rows_are_not_blocked_by_the_unique_index(pg_audit):
+    """`seq` is nullable and the index must leave NULLs alone (Postgres treats
+    them as distinct). Two unsequenced rows for one agency must both insert —
+    otherwise the guard would reject data the column still permits."""
+    engine, _maker = pg_audit
+    agency = _fresh_agency()
+
+    async with engine.begin() as conn:
+        await conn.execute(
+            sa.text("SELECT set_config('app.current_agency', :v, true)"), {"v": agency}
+        )
+        for _ in range(2):
+            await conn.execute(
+                sa.text(
+                    "INSERT INTO core.audit_log (id, agency_id, action) "
+                    "VALUES (gen_random_uuid(), :a, 'case.created')"
+                ),
+                {"a": agency},
+            )
+        n = (
+            await conn.execute(
+                sa.text("SELECT count(*) FROM core.audit_log WHERE agency_id = :a"),
+                {"a": agency},
+            )
+        ).scalar()
+    assert n == 2, f"NULL-seq rows were blocked by the unique index (saw {n})"

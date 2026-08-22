@@ -24,7 +24,7 @@ hub. Live blockchain tracing (async jobs, hardened, cycle-fix). Auth/RLS + Googl
 live in prod. Persistence (Postgres/Neon, dual in-memory/Postgres repositories). **C1 dispatch
 delivery** — production-ready notification layer (HMAC-signed webhooks, idempotency keys, durable
 retried delivery via the Dramatiq actor, `GET /api/notifications` outbox feed + retry, Dispatch Log
-on the Response dashboard). **488 backend tests green**, frontend build green.
+on the Response dashboard). **493 backend tests green**, frontend build green.
 
 ## 🟢 Actionable now — buildable today (no external gate)
 - [x] **B1 — TTS (ElevenLabs)** · S · **DONE (2026-08-08)** — code path complete end-to-end: the
@@ -152,13 +152,36 @@ on the Response dashboard). **488 backend tests green**, frontend build green.
             not a cleanup. Both docstrings now say so.
 - [ ] **Two latent defects found while auditing denials** · S each · *surfaced 2026-08-22, neither
       caused by that work* — recorded because both are the quiet kind that surface as something else.
-      - [ ] **`core.audit_log.seq` allocation race.** `seq` is `max(seq) + 1` read inside the writing
-            transaction, with no unique index on `(agency_id, seq)`. Two transactions committing
-            concurrently for one agency can claim the same number, and the chain then fails
-            verification — which reads as *tampering*, the one conclusion the trail exists to support.
-            Pre-existing between any two concurrent requests; denials add another path to it, not a
-            new class. Fix is a per-agency `pg_advisory_xact_lock` and/or a unique index — both touch
-            the success path and want a migration, so it was left alone deliberately.
+      - [x] **`core.audit_log.seq` allocation race** · **DONE (2026-08-22)** — it was worse than
+            duplicate numbering: `seq` AND `prev_sha256` both come from the same chain-head read, so
+            concurrent writers produced entries claiming the same position *and* the same
+            predecessor. Measured with 8 simultaneous writers on one agency: **all 8 wrote `seq=1`
+            with `prev=GENESIS`** — an 8-way fork, reported by `verify_chain` as a broken chain,
+            i.e. as *tampering*.
+            **`pg_advisory_xact_lock` was tried and rejected — it deadlocks.** The request
+            transaction would hold the lock while `record_denial`'s separate transaction waits for
+            it on another connection, and the request cannot release it because it is `await`ing
+            that very call. Postgres reports **no** deadlock, because the holder is blocked in
+            Python, not on a database resource — verified empirically: it hangs indefinitely.
+            Shipped instead: **UNIQUE `(agency_id, seq)`** (migration `20260822_17`, NULL `seq`
+            still permitted) as the correctness guarantee, plus a **bounded retry** in
+            `PostgresAuditRepository.record` that re-reads the head — under a SAVEPOINT, because a
+            unique violation aborts the surrounding transaction. Retry budget is what decides
+            survival under contention (10 attempts; 5 was measurably too few for 8 writers);
+            jittered backoff helps secondarily. Exhaustion drops the entry and logs **ERROR**.
+            A unique index has the *same* un-outwaitable wait when the conflicting row is
+            uncommitted in the enclosing transaction, so the denial path — the only writer that
+            opens a connection inside another open transaction — now sets a short `LOCAL
+            lock_timeout`, turning that hang into a fast, loud, logged drop. Pinned by a test.
+      - [ ] **A DROPPED audit entry is invisible to `verify_chain`** · S · *surfaced by the fix
+            above, not caused by it* — the chain detects a FORK, but an entry that was never
+            written leaves no gap in the prev-links, so the log verifies clean and the loss shows
+            up only as an ERROR line in the application log. That is the wrong place for it: the
+            evidentiary record should be able to say "something is missing" on its own, without
+            depending on whether anyone was tailing logs that day. Needs a separate mechanism — a
+            per-agency write-attempt counter reconciled against `max(seq)`, or alerting on that
+            ERROR. Exhaustion now requires sustained contention rather than a transient blip, so
+            this is a real but narrow hole; it belongs with metrics/alerting work.
       - [ ] **`get_mode_resolver()` caches the `Settings` INSTANCE.** It is `@lru_cache`d, so
             `get_settings.cache_clear()` does not reach it and the resolver keeps pointing at an
             orphaned `Settings` while tests mutate the new singleton. Today the pgserver tests pass
