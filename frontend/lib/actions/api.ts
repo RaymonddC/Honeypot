@@ -11,7 +11,10 @@
  * (type: account_blocking|str_report|summary), goaml_draft, routing_plan[]
  * ({agency, agency_type, channel, document_type, reason}), notifications[]
  * ({target_agency, status: mock|…}), totals ({at_risk_usdt, at_risk_idr}),
- * audit[] (hash-chained, sha256) }.
+ * audit[] (a filtered, agency-scoped view of the durable core audit trail —
+ * see app/uncover/router.py::_attach_audit; `seq` is the position in the
+ * AGENCY's chain, not the bundle's, so it is intentionally non-contiguous),
+ * evidence_hash (deterministic digest of the document hashes) }.
  *
  * Base URL: NEXT_PUBLIC_API_URL (default http://localhost:8000). Any failure
  * falls back to the local mock (lib/actions/mock.ts) so the screen stays
@@ -413,14 +416,19 @@ function normalizeBundle(raw: any): ActionBundle {
           .join(" · ")
       : "confirmed case entities");
 
-  // Evidence hash: explicit field, else the audit chain head, else doc[0].
-  const audit: any[] = Array.isArray(b?.audit) ? b.audit : [];
-  const chainHead = audit.length
-    ? str(audit[audit.length - 1]?.sha256)
-    : undefined;
+  // Evidence hash: the backend's `evidence_hash` — a deterministic digest of
+  // this bundle's document hashes — else the first document's hash.
+  //
+  // It used to fall back to the AUDIT CHAIN HEAD, and that was a real defect,
+  // not a stylistic one. The chain it read was `uncover.custody`: per-process,
+  // in-memory, and empty after every restart. So the same bundle displayed the
+  // chain head before a restart and `documents[0].sha256` after — an evidence
+  // hash that changed on its own, in a product whose pitch is chain of custody.
+  // The chain-head derivation is deliberately NOT restored now that `audit`
+  // comes from the durable core trail: that list still GROWS (dispatch appends
+  // an entry), so its head would change when the evidence had not.
   const evidenceHash =
     short(str(first(b?.evidence_hash, b?.manifest_hash)), 6) ??
-    short(chainHead, 6) ??
     documents[0]?.sha256 ??
     "—";
 

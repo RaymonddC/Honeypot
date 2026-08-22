@@ -43,7 +43,7 @@ from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Protocol, runtime_checkable
 
-from sqlalchemy import select, text
+from sqlalchemy import or_, select, text
 from sqlalchemy.exc import IntegrityError
 
 from app.core import metrics
@@ -161,6 +161,10 @@ class AuditRepository(Protocol):
 
     async def list_entries(self, *, agency_id: str, limit: int = 100) -> list[AuditEntry]: ...
 
+    async def list_for_target(
+        self, *, agency_id: str, target_id: str, limit: int = 100
+    ) -> list[AuditEntry]: ...
+
     async def verify_chain(self, *, agency_id: str) -> tuple[bool, int | None]: ...
 
 
@@ -198,6 +202,12 @@ class InMemoryAuditRepository:
     async def list_entries(self, *, agency_id: str, limit: int = 100) -> list[AuditEntry]:
         return list(reversed(self._by_agency.get(str(agency_id), [])))[:limit]
 
+    async def list_for_target(
+        self, *, agency_id: str, target_id: str, limit: int = 100
+    ) -> list[AuditEntry]:
+        chain = self._by_agency.get(str(agency_id), [])
+        return [e for e in chain if _targets(e, target_id)][:limit]
+
     async def verify_chain(self, *, agency_id: str) -> tuple[bool, int | None]:
         return _verify(self._by_agency.get(str(agency_id), []))
 
@@ -233,6 +243,14 @@ def _verify(entries: list[AuditEntry]) -> tuple[bool, int | None]:
 # --------------------------------------------------------------------------- #
 # Postgres
 # --------------------------------------------------------------------------- #
+
+
+def _targets(entry: AuditEntry, target_id: str) -> bool:
+    """Does this entry describe ``target_id``? Checks both the uuid column and
+    the preserved business key, so memory and Postgres agree."""
+    return entry.target_id == str(target_id) or (
+        (entry.detail or {}).get("_target_id") == str(target_id)
+    )
 
 
 def _row_to_entry(row) -> AuditEntry:
@@ -379,6 +397,36 @@ class PostgresAuditRepository:
         ).scalars().all()
         return [_row_to_entry(r) for r in rows]
 
+    async def list_for_target(
+        self, *, agency_id: str, target_id: str, limit: int = 100
+    ) -> list[AuditEntry]:
+        """Entries about one thing, OLDEST first, agency-scoped.
+
+        Matches either column: a uuid target lands in ``target_id``, a business
+        key in ``detail->>'_target_id'`` (see ``_preserve_business_key``).
+        Filtered in SQL rather than by listing the agency's chain and filtering
+        in Python — an agency with a long trail would otherwise need its whole
+        history read to answer "what happened to this bundle".
+
+        Oldest first because this is read as a narrative of one artifact
+        (generated, then dispatched), the reverse of the ``/audit`` feed.
+        """
+        from app.core.models import AuditLog
+
+        clauses = [AuditLog.detail["_target_id"].astext == str(target_id)]
+        if _is_uuid(target_id):
+            clauses.append(AuditLog.target_id == uuid.UUID(str(target_id)))
+        rows = (
+            await self._session.execute(
+                select(AuditLog)
+                .where(AuditLog.agency_id == uuid.UUID(str(agency_id)))
+                .where(or_(*clauses))
+                .order_by(AuditLog.seq)
+                .limit(limit)
+            )
+        ).scalars().all()
+        return [_row_to_entry(r) for r in rows]
+
     async def verify_chain(self, *, agency_id: str) -> tuple[bool, int | None]:
         from app.core.models import AuditLog
 
@@ -392,9 +440,31 @@ class PostgresAuditRepository:
         return _verify([_row_to_entry(r) for r in rows])
 
 
+def _preserve_business_key(detail: dict, target_id: str | None) -> None:
+    """Keep a non-uuid ``target_id`` in ``detail`` under ``_target_id``.
+
+    ``core.audit_log.target_id`` is a uuid COLUMN, but half this codebase
+    identifies things with business keys — ``act_9f3…`` (bundle), ``doc_…``,
+    ``ent_…``, ``sess_…``. ``PostgresAuditRepository.record`` drops anything that
+    is not a uuid, so under Postgres those entries stored **no reference to what
+    they were about at all**: five of the wired actions (bundle generated,
+    dispatch sent, evidence exported, entity reviewed, triage attached) lost
+    their target. ``_is_uuid``'s docstring claimed the key was "kept in detail
+    rather than dropped" — that was the intent, never the implementation, and it
+    was verified dropped against a real Postgres before this was written.
+
+    Kept in ``detail`` rather than widened into a text column because ``detail``
+    is inside ``entry_hash``: the reference is tamper-evident for free, and no
+    migration is needed. Entries written before this stay valid — they simply
+    cannot be filtered by target, which is why this is not backfilled.
+    """
+    if target_id and not _is_uuid(target_id):
+        detail["_target_id"] = str(target_id)
+
+
 def _is_uuid(value: str | None) -> bool:
-    """``target_id`` is a uuid column, but some targets are business keys
-    (``sess_ab12…``). Those are kept in ``detail`` rather than dropped."""
+    """Whether ``target_id`` fits the uuid column. Business keys do not — see
+    ``_preserve_business_key``, which keeps those in ``detail``."""
     if not value:
         return False
     try:
@@ -454,6 +524,7 @@ async def record_action(
             detail["_actor"] = actor_name
         if target_label:
             detail["_target"] = target_label
+        _preserve_business_key(detail, target_id)
         # Where it came from, and the id tying this row to its request log line.
         # Standard audit practice records who acted AND from what device and
         # location (CloudTrail/SOC 2); we recorded only who and when.
@@ -660,6 +731,7 @@ async def record_denial(
             detail["_actor_role"] = actor_role
         if target_label:
             detail["_target"] = target_label
+        _preserve_business_key(detail, target_id)
         if request is not None:
             from app.core.requests import client_origin, current_request_id
 

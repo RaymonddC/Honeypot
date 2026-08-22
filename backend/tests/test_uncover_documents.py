@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from app.uncover.custody import AuditLog, audit_log, sha256_hex
+from app.uncover.custody import sha256_hex
 from app.uncover.documents import (
     SUBJECT_PLACEHOLDER,
     AccountTarget,
@@ -123,22 +123,16 @@ def test_custody_hash_deterministic_and_verifiable(ctx):
     assert generate_freeze_request(ctx2).sha256 != d1.sha256
 
 
-def test_generation_emits_chained_audit_entries(ctx):
-    before = len(audit_log.entries())
+def test_document_hashing_survived_the_custody_collapse(ctx):
+    """The per-document *audit entry* is gone with the in-memory custody chain;
+    the per-document *hash* is not, and must not be.
+
+    They were always separate concerns: the chain recorded that a document was
+    made, the hash IS the evidence that these are the bytes. Only the first moved
+    into core.audit_log (as the `documents` array on one bundle entry) — see
+    app/uncover/custody.py. This pins the half that stayed, because deleting a
+    module is exactly when the wrong half gets removed.
+    """
     doc = generate_freeze_request(ctx)
-    entries = audit_log.entries()
-    assert len(entries) == before + 1
-    last = entries[-1]
-    assert last.action == "action.document.generated"
-    assert last.target_id == doc.id
-    assert last.detail["sha256"] == doc.sha256
-    assert audit_log.verify_chain()
-
-
-def test_audit_chain_detects_tampering():
-    log = AuditLog()
-    log.record("a", "t", "1", {"x": 1})
-    log.record("b", "t", "2", {"x": 2})
-    assert log.verify_chain()
-    log._entries[0].detail["x"] = 999  # tamper
-    assert not log.verify_chain()
+    assert doc.sha256 == sha256_hex(doc.pdf), "the stored hash must match the bytes"
+    assert doc.sha256, "a document with no custody hash is not evidence"

@@ -44,6 +44,16 @@
   separately (`ittu_audit_entries_dropped_total`, `Deploy.md` §8) instead of being inferred from the
   chain. Recorded here because "verified" invites the stronger reading, and anyone relying on this
   trail as evidence is entitled to know which of the two claims they are being handed.
+- **One chain per agency, not one per artifact (2026-08-23).** An evidence bundle's custody view
+  (`ActionBundle.audit`) is a filtered, agency-scoped slice of `core.audit_log`, not a chain of its
+  own. It used to come from a second, per-process, **in-memory** chain in `app/uncover/custody.py`,
+  which recorded strictly less than the core trail already did and was empty after every restart —
+  and because the Action Panel derived the displayed **evidence hash** from that chain's head, the
+  same bundle showed one evidence hash before a restart and another after. The evidence hash is now
+  a deterministic digest of the bundle's document hashes: it moves if and only if the documents do.
+  One consequence to read correctly: a bundle's entries carry their `seq` in the **agency's** chain,
+  so they are deliberately non-contiguous — the numbers in between are that agency's other actions,
+  not missing entries.
 - **Preserved originals** stored separately from enriched/derived data.
 - **`core.evidence_manifest`** per session/case records model + prompt + pipeline versions →
   reproducible & explainable in court.

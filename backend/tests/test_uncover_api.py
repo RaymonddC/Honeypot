@@ -61,10 +61,27 @@ def test_generate_returns_draft_bundle_with_hashed_docs():
     doc_types = {t["document_type"] for t in b["routing_plan"]}
     assert {"account_blocking", "str_report", "alert"} <= doc_types
 
-    # audit entries chained onto the bundle
+    # The bundle's audit view is now a filtered slice of the DURABLE core trail
+    # (app/uncover/router.py::_attach_audit), not the old in-memory custody
+    # chain. One entry per bundle rather than one per document — the per-document
+    # facts moved INTO that entry rather than being dropped.
     actions = [a["action"] for a in b["audit"]]
-    assert "action.bundle.generated" in actions
-    assert actions.count("action.document.generated") == 3
+    assert "action.bundle.generated" in actions, f"got {actions}"
+    assert "action.document.generated" not in actions, (
+        "the in-memory per-document custody entries should be gone"
+    )
+    generated = next(a for a in b["audit"] if a["action"] == "action.bundle.generated")
+    recorded_docs = generated["detail"]["documents"]
+    assert len(recorded_docs) == 3, recorded_docs
+    for rd in recorded_docs:
+        # Everything the per-document entries used to carry has to still be here,
+        # or the collapse lost evidence rather than consolidating it.
+        assert len(rd["sha256"]) == 64
+        assert rd["type"] and rd["format"] and rd["template_version"]
+    assert {rd["sha256"] for rd in recorded_docs} == {d["sha256"] for d in b["documents"]}
+    # And the entry names the bundle it belongs to, which is what makes the
+    # filtered view possible at all (see _preserve_business_key).
+    assert generated["detail"]["_target_id"] == b["id"]
 
 
 def test_generate_subset_outputs():
@@ -117,7 +134,15 @@ def test_dispatch_flow_mock_sink_human_gated():
         assert "would dispatch to" in n["payload"]["note"]
     # documents moved draft → issued
     assert all(doc["status"] == "issued" for doc in d["documents"])
-    assert "action.bundle.dispatched" in [a["action"] for a in d["audit"]]
+    # `dispatch.sent` is the core-trail action name; `action.bundle.dispatched`
+    # was the in-memory custody chain's, and that chain is gone.
+    dispatched = next(a for a in d["audit"] if a["action"] == "dispatch.sent")
+    assert dispatched["detail"]["_target_id"] == b["id"]
+    # Per-notification detail was custody's ONE piece of information the core
+    # trail lacked; it was moved across rather than dropped.
+    recorded = dispatched["detail"]["notifications"]
+    assert {n["id"] for n in recorded} == {n["id"] for n in d["notifications"]}
+    assert all(n["agency"] and n["status"] for n in recorded)
 
     # dispatch is idempotence-guarded: second call → 409
     r2 = client.post(f"/api/actions/{b['id']}/dispatch")
@@ -205,3 +230,72 @@ def test_metrics_move_after_generate_and_dispatch():
     live = [c for c in after["cases"] if c["source"] == "action"]
     assert live and live[0]["status"] == "frozen"
     assert live[0]["time_to_freeze_minutes"] is not None
+
+
+# --- the evidence hash: the defect that drove the custody collapse -----------
+
+
+def test_the_evidence_hash_does_not_change_when_the_bundle_is_dispatched():
+    """The displayed evidence hash must describe the EVIDENCE, nothing else.
+
+    It used to be derived from the audit chain's head (frontend/lib/actions/
+    api.ts). That head moved for reasons having nothing to do with the
+    documents: it advanced on dispatch, and — because the chain was per-process
+    and in-memory — it vanished entirely on restart, silently falling back to
+    `documents[0].sha256`. So the same bundle displayed different "evidence
+    hashes" over its life. It is now a digest of the document hashes, so it can
+    only move if the evidence moves.
+    """
+    b = generate()
+    at_generate = b["evidence_hash"]
+    assert len(at_generate) == 64, f"expected a sha256, got {at_generate!r}"
+
+    on_reread = client.get(f"/api/actions/{b['id']}").json()["evidence_hash"]
+    assert on_reread == at_generate, "re-reading the same bundle changed its hash"
+
+    dispatched = client.post(f"/api/actions/{b['id']}/dispatch").json()
+    assert dispatched["evidence_hash"] == at_generate, (
+        "dispatch appended an audit entry and the evidence hash moved with it — "
+        "that is the old chain-head derivation, back again"
+    )
+    # …and the audit view DID grow, so the hash's stability is not just an
+    # artefact of nothing having happened.
+    assert len(dispatched["audit"]) > len(b["audit"]), (
+        "dispatch should have added an audit entry; if not, this test proves nothing"
+    )
+
+
+def test_the_evidence_hash_tracks_the_documents_and_not_their_order():
+    from app.uncover.service import evidence_hash
+
+    class _Doc:
+        def __init__(self, h):
+            self.sha256 = h
+
+    a, b_, c = _Doc("a" * 64), _Doc("b" * 64), _Doc("c" * 64)
+    assert evidence_hash([a, b_, c]) == evidence_hash([c, a, b_]), (
+        "generation order must not change the fingerprint of the same evidence"
+    )
+    assert evidence_hash([a, b_]) != evidence_hash([a, b_, c]), (
+        "an extra document is different evidence and must hash differently"
+    )
+    assert evidence_hash([]) == ""
+
+
+def test_a_bundles_audit_seq_is_the_agency_position_not_a_per_bundle_counter():
+    """Documents the visible contract change, so nobody 'fixes' the numbering.
+
+    The old custody chain numbered a bundle's entries 1, 2. The core trail is
+    per AGENCY, so a bundle's entries carry their position in that chain and are
+    deliberately non-contiguous. Rendering them as if the bundle had its own
+    gapless chain would be the same over-claim the /audit banner was corrected
+    for — the gaps are the agency's other actions, not missing entries.
+    """
+    client.post("/api/cases", json={"title": "noise before"})  # advance the chain
+    b = generate()
+    seqs = [a["seq"] for a in b["audit"]]
+    assert seqs, "the bundle should have at least its generation entry"
+    assert seqs[0] > 1, (
+        f"expected a position in the agency chain, got {seqs} — if this is 1 the "
+        "view is being renumbered per bundle, which is not what it is"
+    )
