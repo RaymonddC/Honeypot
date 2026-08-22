@@ -19,6 +19,7 @@ exactly as they are today (still called directly and synchronously by
 "memory" persistence is unchanged, no DB, by construction.
 """
 
+import dataclasses
 import uuid
 from functools import lru_cache
 from typing import Protocol, runtime_checkable
@@ -27,11 +28,12 @@ from fastapi import Depends
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import SeedAgency, SeedUser, _user_id
+from app.core.auth import ADMIN_ROLES, AuthContext, SeedAgency, SeedUser, _user_id
+from app.core.auth import require_role
 from app.core.auth import find_user_by_email as _mem_find_by_email
 from app.core.auth import register_user as _mem_register_user
 from app.core.config import get_settings
-from app.core.db import get_optional_session
+from app.core.db import get_optional_session, get_optional_tenant_session
 
 
 @runtime_checkable
@@ -45,6 +47,21 @@ class UserRepository(Protocol):
     async def find_by_agency_role(self, agency_id: uuid.UUID, role: str) -> SeedUser | None: ...
 
     async def upsert(self, user: SeedUser) -> SeedUser: ...
+
+    # --- User access management (admin API, app/users/router.py) -------------
+    async def list_users(self, agency_id: uuid.UUID) -> list[SeedUser]: ...
+
+    async def get_by_id(self, user_id: uuid.UUID) -> SeedUser | None: ...
+
+    async def create_user(
+        self, *, agency_id: uuid.UUID, email: str, name: str, role: str
+    ) -> SeedUser: ...
+
+    async def set_role(self, user_id: uuid.UUID, role: str) -> SeedUser | None: ...
+
+    async def set_active(self, user_id: uuid.UUID, is_active: bool) -> SeedUser | None: ...
+
+    async def count_active_admins(self, agency_id: uuid.UUID) -> int: ...
 
 
 class InMemoryUserRepository:
@@ -64,6 +81,52 @@ class InMemoryUserRepository:
     async def upsert(self, user: SeedUser) -> SeedUser:
         return _mem_register_user(user)
 
+    async def list_users(self, agency_id: uuid.UUID) -> list[SeedUser]:
+        from app.core.auth import _USERS
+
+        return sorted(
+            (u for u in _USERS.values() if u.agency_id == agency_id),
+            key=lambda u: u.email,
+        )
+
+    async def get_by_id(self, user_id: uuid.UUID) -> SeedUser | None:
+        from app.core.auth import get_user
+
+        return get_user(str(user_id))
+
+    async def create_user(
+        self, *, agency_id: uuid.UUID, email: str, name: str, role: str
+    ) -> SeedUser:
+        user = SeedUser(_user_id(email), agency_id, email, name, role)
+        return _mem_register_user(user)
+
+    async def set_role(self, user_id: uuid.UUID, role: str) -> SeedUser | None:
+        return self._replace(user_id, role=role)
+
+    async def set_active(self, user_id: uuid.UUID, is_active: bool) -> SeedUser | None:
+        return self._replace(user_id, is_active=is_active)
+
+    @staticmethod
+    def _replace(user_id: uuid.UUID, **changes) -> SeedUser | None:
+        """SeedUser is frozen — swap the stored instance for an updated copy."""
+        from app.core.auth import _USERS
+
+        current = _USERS.get(str(user_id))
+        if current is None:
+            return None
+        updated = dataclasses.replace(current, **changes)
+        _USERS[str(user_id)] = updated
+        return updated
+
+    async def count_active_admins(self, agency_id: uuid.UUID) -> int:
+        from app.core.auth import _USERS
+
+        return sum(
+            1
+            for u in _USERS.values()
+            if u.agency_id == agency_id and u.is_active and u.role in ADMIN_ROLES
+        )
+
 
 @lru_cache
 def _memory_repository() -> InMemoryUserRepository:
@@ -74,6 +137,9 @@ def _row_to_seed_user(row) -> SeedUser:
     return SeedUser(
         id=row.id, agency_id=row.agency_id, email=row.email,
         name=row.name or "", role=row.role,
+        # The login_* helpers return SETOF core.users, so is_active is present;
+        # default True keeps any narrower row shape working.
+        is_active=bool(getattr(row, "is_active", True)),
     )
 
 
@@ -125,6 +191,87 @@ class PostgresUserRepository:
         ).first()
         return _row_to_seed_user(row)
 
+    # --- User access management ---------------------------------------------
+    # These run as ORDINARY queries against core.users, NOT through the
+    # login_* SECURITY DEFINER helpers — deliberately, so the `users_access`
+    # RLS policy still applies underneath the app-level checks in
+    # app/users/router.py. That means this repo MUST be built over an
+    # RLS-scoped session for the admin API (see get_user_admin_repository);
+    # over the unscoped login session every query would return nothing,
+    # because the policy fails closed when app.current_agency is unset.
+
+    async def list_users(self, agency_id: uuid.UUID) -> list[SeedUser]:
+        rows = (
+            await self._session.execute(
+                text(
+                    "SELECT * FROM core.users WHERE agency_id = :agency_id "
+                    "ORDER BY email"
+                ),
+                {"agency_id": agency_id},
+            )
+        ).all()
+        return [_row_to_seed_user(r) for r in rows]
+
+    async def get_by_id(self, user_id: uuid.UUID) -> SeedUser | None:
+        row = (
+            await self._session.execute(
+                text("SELECT * FROM core.users WHERE id = :id"), {"id": user_id}
+            )
+        ).first()
+        return _row_to_seed_user(row) if row is not None else None
+
+    async def create_user(
+        self, *, agency_id: uuid.UUID, email: str, name: str, role: str
+    ) -> SeedUser:
+        row = (
+            await self._session.execute(
+                text(
+                    "INSERT INTO core.users (id, agency_id, email, name, role) "
+                    "VALUES (:id, :agency_id, :email, :name, :role) RETURNING *"
+                ),
+                {
+                    "id": _user_id(email), "agency_id": agency_id,
+                    "email": email, "name": name, "role": role,
+                },
+            )
+        ).first()
+        return _row_to_seed_user(row)
+
+    async def set_role(self, user_id: uuid.UUID, role: str) -> SeedUser | None:
+        row = (
+            await self._session.execute(
+                text(
+                    "UPDATE core.users SET role = :role, updated_at = now() "
+                    "WHERE id = :id RETURNING *"
+                ),
+                {"id": user_id, "role": role},
+            )
+        ).first()
+        return _row_to_seed_user(row) if row is not None else None
+
+    async def set_active(self, user_id: uuid.UUID, is_active: bool) -> SeedUser | None:
+        row = (
+            await self._session.execute(
+                text(
+                    "UPDATE core.users SET is_active = :active, updated_at = now() "
+                    "WHERE id = :id RETURNING *"
+                ),
+                {"id": user_id, "active": is_active},
+            )
+        ).first()
+        return _row_to_seed_user(row) if row is not None else None
+
+    async def count_active_admins(self, agency_id: uuid.UUID) -> int:
+        return (
+            await self._session.execute(
+                text(
+                    "SELECT count(*) FROM core.users WHERE agency_id = :agency_id "
+                    "AND is_active AND role = ANY(:roles)"
+                ),
+                {"agency_id": agency_id, "roles": list(ADMIN_ROLES)},
+            )
+        ).scalar_one()
+
 
 async def get_user_repository(
     session: AsyncSession | None = Depends(get_optional_session),
@@ -157,3 +304,49 @@ async def resolve_demo_user(
     email = f"{role}@{agency.slug}.demo.ittu.id"
     user = SeedUser(_user_id(email), agency.id, email, f"{agency.name} {role}", role)
     return await repo.upsert(user)
+
+
+_require_admin = require_role(ADMIN_ROLES)
+
+
+async def get_user_admin_repository(
+    _auth: AuthContext = Depends(_require_admin),
+    session: AsyncSession | None = Depends(get_optional_tenant_session),
+) -> UserRepository:
+    """Repository for the admin API (``app/users/router.py``), admin-gated.
+
+    Uses the **RLS-scoped** tenant session, not the unscoped login session, so
+    ``core.users``' ``users_access`` policy stays a database-level backstop
+    under the app-level agency checks. That is not merely belt-and-braces: over
+    the unscoped session every query would return **nothing**, because the
+    policy fails closed when ``app.current_agency`` is unset.
+
+    The policy is ``agency_id = core.current_agency() OR id = self``, which by
+    construction cannot express "a platform-admin sees every agency". Rather
+    than drop RLS for this API — or silently return an empty list, which is the
+    worse failure — a platform-admin acting on another agency re-scopes the
+    session to that agency for the transaction (see
+    ``scope_session_to_agency``). It is an explicit, role-gated, audited
+    privilege rather than a hole.
+    """
+    settings = get_settings()
+    if settings.persistence != "postgres":
+        return _memory_repository()
+    if session is None:  # pragma: no cover - tenant session is non-None under postgres
+        raise RuntimeError("postgres persistence requires an RLS-scoped session")
+    return PostgresUserRepository(session)
+
+
+async def scope_session_to_agency(session: AsyncSession | None, agency_id: uuid.UUID) -> None:
+    """Re-point an RLS-scoped session at ``agency_id`` for this transaction.
+
+    ONLY for a verified ``platform-admin`` administering another agency — the
+    caller is responsible for that check (``app/users/router.py`` does it). A
+    no-op under memory persistence, where there is no session and no RLS.
+    """
+    if session is None:
+        return
+    await session.execute(
+        text("SELECT set_config('app.current_agency', :agency, true)"),
+        {"agency": str(agency_id)},
+    )

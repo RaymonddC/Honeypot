@@ -25,6 +25,7 @@ from app.intel.router import router as intel_router
 from app.takedown.router import router as takedown_router
 from app.trace.router import router as trace_router
 from app.uncover.router import router as uncover_router
+from app.users.router import router as users_router
 
 
 @asynccontextmanager
@@ -168,6 +169,7 @@ def create_app() -> FastAPI:
         casedata_router,
         cases_router,
         honeypot_ops_router,
+        users_router,
     ):
         app.include_router(router, prefix="/api")
 

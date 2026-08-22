@@ -62,6 +62,13 @@ BUNDLE_GENERATED = "action.bundle.generated"
 # insider-risk question in forensics — arguably more important than who edited a
 # case title — and it was previously possible with no trace at all.
 EVIDENCE_EXPORTED = "evidence.exported"
+# User access management. Role grants and deactivations are the textbook reason
+# an audit trail exists: they change who can do what, and the person best placed
+# to hide such a change is the admin making it.
+USER_CREATED = "user.created"
+USER_ROLE_CHANGED = "user.role_changed"
+USER_DEACTIVATED = "user.deactivated"
+USER_REACTIVATED = "user.reactivated"
 TRIAGE_ATTACHED = "triage.attached"
 TRIAGE_PROMOTED = "triage.promoted"
 

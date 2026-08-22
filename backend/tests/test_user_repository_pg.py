@@ -325,3 +325,140 @@ async def test_normal_tenant_query_still_cannot_see_other_agencies_users(app_rol
         assert rows == []
     finally:
         await engine.dispose()
+
+
+# --------------------------------------------------------------------------- #
+# User access management (app/users/router.py) against real RLS.
+#
+# The admin API's whole design rests on a claim that can only be checked
+# against a real Postgres: the UAM repository methods run as ORDINARY queries,
+# so `users_access` is a live backstop underneath the app-level agency checks —
+# and a platform-admin reaches another agency only by explicitly re-scoping the
+# session, never by RLS being absent.
+# --------------------------------------------------------------------------- #
+
+
+async def _scoped_session(engine, agency_id: str, user_id: str | None = None):
+    """A session scoped the way get_optional_tenant_session scopes one."""
+    session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)()
+    await session.execute(
+        sa.text("SELECT set_config('app.current_agency', :v, false)"), {"v": agency_id}
+    )
+    await session.execute(
+        sa.text("SELECT set_config('app.current_user', :v, false)"), {"v": user_id or ""}
+    )
+    return session
+
+
+async def test_uam_queries_are_rls_scoped_not_security_definer(app_role_uri):
+    """list/get/count see the scoped agency and nothing else.
+
+    If these had been written over the login helpers (the obvious reuse), they
+    would bypass RLS and the app-level agency check would be the ONLY thing
+    standing between one agency's admin and another's user list.
+    """
+    _owner, app_uri = app_role_uri
+    engine = create_async_engine(app_uri)
+    try:
+        session = await _scoped_session(engine, AGENCY_A)
+        try:
+            repo = PostgresUserRepository(session)
+            emails = {u.email for u in await repo.list_users(uuid.UUID(AGENCY_A))}
+            assert BUDI_EMAIL in emails
+            assert SARI_EMAIL not in emails
+
+            # Asking for agency B while scoped to A returns nothing — RLS, not
+            # the WHERE clause, is what makes this empty.
+            assert await repo.list_users(uuid.UUID(AGENCY_B)) == []
+
+            sari = next(u for u in SEED_USERS if u.email == SARI_EMAIL)
+            assert await repo.get_by_id(sari.id) is None, "cross-agency row must be invisible"
+        finally:
+            await session.close()
+    finally:
+        await engine.dispose()
+
+
+async def test_scope_session_to_agency_moves_what_the_session_can_see(app_role_uri):
+    """The platform-admin path: re-scoping is what makes cross-agency admin
+    possible, and it is the ONLY thing that does."""
+    from app.core.user_repository import scope_session_to_agency
+
+    _owner, app_uri = app_role_uri
+    engine = create_async_engine(app_uri)
+    try:
+        session = await _scoped_session(engine, AGENCY_B)
+        try:
+            repo = PostgresUserRepository(session)
+            assert await repo.list_users(uuid.UUID(AGENCY_A)) == []
+
+            await scope_session_to_agency(session, uuid.UUID(AGENCY_A))
+            emails = {u.email for u in await repo.list_users(uuid.UUID(AGENCY_A))}
+            assert BUDI_EMAIL in emails
+        finally:
+            await session.rollback()
+            await session.close()
+    finally:
+        await engine.dispose()
+
+
+async def test_rls_refuses_a_write_into_another_agency(app_role_uri):
+    """The database backstop under `_resolve_agency`: even if the app-level
+    check were bypassed, `WITH CHECK (agency_id = core.current_agency())`
+    rejects planting a user in someone else's agency."""
+    _owner, app_uri = app_role_uri
+    engine = create_async_engine(app_uri)
+    try:
+        session = await _scoped_session(engine, AGENCY_A)
+        try:
+            repo = PostgresUserRepository(session)
+            with pytest.raises(Exception) as exc:
+                await repo.create_user(
+                    agency_id=uuid.UUID(AGENCY_B),
+                    email="planted@ppatk.go.id",
+                    name="Planted",
+                    role="regulator-analyst",
+                )
+            assert "row-level security" in str(exc.value).lower()
+        finally:
+            await session.rollback()
+            await session.close()
+    finally:
+        await engine.dispose()
+
+
+async def test_uam_create_deactivate_and_admin_count_round_trip(app_role_uri):
+    """The mutations the admin API performs, against the real table."""
+    _owner, app_uri = app_role_uri
+    engine = create_async_engine(app_uri)
+    try:
+        session = await _scoped_session(engine, AGENCY_A)
+        try:
+            repo = PostgresUserRepository(session)
+            before = await repo.count_active_admins(uuid.UUID(AGENCY_A))
+
+            created = await repo.create_user(
+                agency_id=uuid.UUID(AGENCY_A),
+                email="wakil@bareskrim.polri.go.id",
+                name="Wakil",
+                role="agency-admin",
+            )
+            assert created.is_active is True
+            assert await repo.count_active_admins(uuid.UUID(AGENCY_A)) == before + 1
+
+            deactivated = await repo.set_active(created.id, False)
+            assert deactivated is not None and deactivated.is_active is False
+            # An inactive admin does not count toward the last-admin guard —
+            # otherwise a deactivated account could still block a lockout check.
+            assert await repo.count_active_admins(uuid.UUID(AGENCY_A)) == before
+
+            demoted = await repo.set_role(created.id, "police-investigator")
+            assert demoted is not None and demoted.role == "police-investigator"
+
+            fetched = await repo.get_by_id(created.id)
+            assert fetched is not None and fetched.is_active is False
+        finally:
+            await session.rollback()  # leave the shared cluster as we found it
+            await session.close()
+    finally:
+        await engine.dispose()

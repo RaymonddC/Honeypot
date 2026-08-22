@@ -43,6 +43,11 @@ DISPATCH_ROLES = (
     "platform-admin",
 )
 
+# Roles that may administer users. `platform-admin` additionally crosses agency
+# boundaries; `agency-admin` is confined to its own (enforced in app/users).
+ADMIN_ROLES = ("agency-admin", "platform-admin")
+PLATFORM_ADMIN = "platform-admin"
+
 DEFAULT_ROLE_BY_AGENCY_TYPE = {
     "police": "police-investigator",
     "regulator": "regulator-analyst",
@@ -77,6 +82,10 @@ class SeedUser:
     email: str
     name: str
     role: str
+    # Deactivated accounts cannot log in and are rejected on any request whose
+    # identity resolves through the in-process store. Defaults True so every
+    # existing construction site keeps working unchanged.
+    is_active: bool = True
 
 
 SEED_AGENCIES: tuple[SeedAgency, ...] = (
@@ -203,7 +212,25 @@ def _unauthorized(code: str, message: str) -> HTTPException:
 async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
 ) -> AuthContext:
-    """Verify the Bearer JWT → AuthContext. 401 on missing/expired/invalid."""
+    """Verify the Bearer JWT → AuthContext. 401 on missing/expired/invalid.
+
+    **Deactivation and its residual window — read before trusting "revoke".**
+    Request auth is pure JWT: it does NOT query the database. So when a user is
+    deactivated:
+
+    * they can no longer LOG IN (both login paths reject them — that check is
+      the mandatory one, see ``app/auth/router.py``), and
+    * a request is rejected here only when ``get_user`` finds them in the
+      in-process store — which is the POC/memory case, and any process that has
+      already seen them.
+
+    Under Postgres persistence an ALREADY-ISSUED token therefore keeps working
+    until it expires (``ITTU_JWT_TTL_SECONDS``, default 8h), because nothing on
+    the request path reads ``core.users``. Immediate revocation would need a
+    per-request lookup (or a short TTL plus refresh); today the TTL *is* the
+    mitigation. Stated plainly because "deactivate" must not be read as
+    "instantly cut off" when it is not.
+    """
     if credentials is None:
         raise _unauthorized("missing_token", "Authorization: Bearer <jwt> required")
     try:
@@ -218,7 +245,14 @@ async def get_current_user(
         raise _unauthorized("unknown_agency", "Token references an unknown agency")
 
     role = claims["role"]
-    user = get_user(claims["sub"]) or SeedUser(
+    known = get_user(claims["sub"])
+    if known is not None and not known.is_active:
+        # Only reachable when the identity resolves in-process; see the
+        # residual-window note above for the Postgres case.
+        raise _unauthorized(
+            "account_deactivated", "This account has been deactivated"
+        )
+    user = known or SeedUser(
         id=uuid.UUID(claims["sub"]),
         agency_id=agency.id,
         email=claims.get("email", ""),
