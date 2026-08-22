@@ -4,7 +4,7 @@
 > This is the short prioritized list; full rationale, effort, and triggers live in
 > [`Production-Roadmap.md`](Production-Roadmap.md). Status legend: S/M/L = small/medium/large effort.
 
-_Last updated: 2026-08-19 · branch `feat/c1-notifications-delivery`._
+_Last updated: 2026-08-22 · branch `feat/c1-notifications-delivery`._
 
 ---
 
@@ -24,7 +24,7 @@ hub. Live blockchain tracing (async jobs, hardened, cycle-fix). Auth/RLS + Googl
 live in prod. Persistence (Postgres/Neon, dual in-memory/Postgres repositories). **C1 dispatch
 delivery** — production-ready notification layer (HMAC-signed webhooks, idempotency keys, durable
 retried delivery via the Dramatiq actor, `GET /api/notifications` outbox feed + retry, Dispatch Log
-on the Response dashboard). **449 backend tests green**, frontend build green.
+on the Response dashboard). **476 backend tests green**, frontend build green.
 
 ## 🟢 Actionable now — buildable today (no external gate)
 - [x] **B1 — TTS (ElevenLabs)** · S · **DONE (2026-08-08)** — code path complete end-to-end: the
@@ -37,6 +37,21 @@ on the Response dashboard). **449 backend tests green**, frontend build green.
       shim: signed + idempotent + retried LIVE delivery (`ITTU_NOTIFICATION_DELIVERY=worker`),
       agency outbox feed, POC mock path unchanged. Flip `ITTU_MODE=live` + set the webhook URL/secret
       to dispatch for real.
+- [x] **UAM — user access management** · M · **DONE (2026-08-22)** — `GET/POST /api/users`,
+      `PATCH /api/users/{id}`, plus a `/users` screen. Provisioning people no longer means editing
+      the `ITTU_OAUTH_PROVISION` allowlist and redeploying.
+      The gap it closed was worse than "no admin UI": `core.users.is_active` had existed since
+      migration 09 and **nothing read it** — there was no way to revoke anyone's access at all.
+      Guards, each because the failure is unrecoverable from inside the product: an agency-admin
+      cannot create or grant `platform-admin` (privilege escalation), cannot touch another agency,
+      cannot deactivate or demote themselves, and the last active admin of an agency cannot be
+      removed. Every mutation is audited under the **target** agency's chain, noting the acting
+      agency when a platform-admin reached in.
+      **Known limit, stated in the API and the UI:** request auth is pure JWT and never reads the
+      database, so under Postgres a deactivated user's existing token keeps working until it expires
+      (`ITTU_JWT_TTL_SECONDS`, default 8h). Login is blocked immediately; the TTL is the mitigation.
+      Immediate revocation needs a per-request lookup or short TTL + refresh — not built.
+
 - [ ] **A1-prod — Dramatiq executor swap** (investigation jobs) · S–M · *deferred by choice* — async
       already works in-process; build only when there's real concurrency (submit→poll contract is a
       drop-in). *(Note: C1 already stood up the Dramatiq delivery actor + broker for notifications.)*
