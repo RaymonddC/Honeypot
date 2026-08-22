@@ -176,8 +176,10 @@ on the Response dashboard). **508 backend tests green**, frontend build green.
             API response (never stored — see `uncover/repository.py`), while `core.audit_log` is the
             durable per-agency trail. Merging changes that API contract, so it is a product decision,
             not a cleanup. Both docstrings now say so.
-- [ ] **Two latent defects found while auditing denials** · S each · *surfaced 2026-08-22, neither
-      caused by that work* — recorded because both are the quiet kind that surface as something else.
+- [x] **Defects found while auditing denials** · **ALL THREE CLOSED (2026-08-22)** · *surfaced by
+      that work, not caused by it* — recorded because each is the quiet kind that surfaces as
+      something else: a chain fork that reads as tampering, a MODE that ignores config, and a lost
+      entry that leaves a clean-looking chain. Two fixed, one closed as won't-do with reasoning.
       - [x] **`core.audit_log.seq` allocation race** · **DONE (2026-08-22)** — it was worse than
             duplicate numbering: `seq` AND `prev_sha256` both come from the same chain-head read, so
             concurrent writers produced entries claiming the same position *and* the same
