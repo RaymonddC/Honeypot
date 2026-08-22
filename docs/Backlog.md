@@ -48,9 +48,14 @@ on the Response dashboard). **476 backend tests green**, frontend build green.
       removed. Every mutation is audited under the **target** agency's chain, noting the acting
       agency when a platform-admin reached in.
       **Known limit, stated in the API and the UI:** request auth is pure JWT and never reads the
-      database, so under Postgres a deactivated user's existing token keeps working until it expires
-      (`ITTU_JWT_TTL_SECONDS`, default 8h). Login is blocked immediately; the TTL is the mitigation.
-      Immediate revocation needs a per-request lookup or short TTL + refresh — not built.
+      database, so under Postgres a deactivated user's existing token keeps working until it expires.
+      Login is blocked immediately; the TTL is the mitigation — so the TTL was cut **8h → 1h**
+      (`ITTU_JWT_TTL_SECONDS`, default 3600), bounding the revocation window at one hour.
+      That is a deliberate trade, not a fix: with no refresh flow, every expiry is a real re-login,
+      so `/login` now explains an involuntary bounce ("Your session expired") instead of silently
+      swapping the screen. Sub-hour revocation would need a per-request `is_active` lookup
+      (~1 query/request) or short TTL + refresh — **not built**, and worth revisiting if a
+      compromised-account drill ever needs to be measured in seconds.
 
 - [ ] **A1-prod — Dramatiq executor swap** (investigation jobs) · S–M · *deferred by choice* — async
       already works in-process; build only when there's real concurrency (submit→poll contract is a

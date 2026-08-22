@@ -168,7 +168,12 @@ class Settings(BaseSettings):
     # Dev-only default (≥32 bytes for HS256); override via ITTU_JWT_SECRET in prod.
     jwt_secret: str = "ittu-dev-only-secret-change-me-in-prod-0123"
     jwt_algorithm: str = "HS256"
-    jwt_ttl_seconds: int = 8 * 3600
+    # 1h, not a working day. Request auth never reads the database, so an
+    # already-issued token is the ONLY thing between "deactivated" and
+    # "actually cut off" — this TTL *is* that revocation window. Shortening
+    # it further costs real re-logins: there is no refresh flow, so every
+    # expiry bounces the operator to /login (which tells them why).
+    jwt_ttl_seconds: int = 3600
     # LIVE Google OAuth: expected `aud` of the verified id_token.
     google_client_id: str = ""
     # LIVE Google OAuth operator provisioning (no self-service signup): a JSON

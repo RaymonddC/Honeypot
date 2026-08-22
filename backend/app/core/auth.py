@@ -225,7 +225,7 @@ async def get_current_user(
       already seen them.
 
     Under Postgres persistence an ALREADY-ISSUED token therefore keeps working
-    until it expires (``ITTU_JWT_TTL_SECONDS``, default 8h), because nothing on
+    until it expires (``ITTU_JWT_TTL_SECONDS``, default 1h), because nothing on
     the request path reads ``core.users``. Immediate revocation would need a
     per-request lookup (or a short TTL plus refresh); today the TTL *is* the
     mitigation. Stated plainly because "deactivate" must not be read as
