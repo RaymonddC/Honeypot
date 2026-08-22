@@ -4,7 +4,7 @@
 > This is the short prioritized list; full rationale, effort, and triggers live in
 > [`Production-Roadmap.md`](Production-Roadmap.md). Status legend: S/M/L = small/medium/large effort.
 
-_Last updated: 2026-08-18 · branch `feat/c1-notifications-delivery`._
+_Last updated: 2026-08-19 · branch `feat/c1-notifications-delivery`._
 
 ---
 
@@ -24,7 +24,7 @@ hub. Live blockchain tracing (async jobs, hardened, cycle-fix). Auth/RLS + Googl
 live in prod. Persistence (Postgres/Neon, dual in-memory/Postgres repositories). **C1 dispatch
 delivery** — production-ready notification layer (HMAC-signed webhooks, idempotency keys, durable
 retried delivery via the Dramatiq actor, `GET /api/notifications` outbox feed + retry, Dispatch Log
-on the Response dashboard). **282 backend tests green**, frontend build green.
+on the Response dashboard). **449 backend tests green**, frontend build green.
 
 ## 🟢 Actionable now — buildable today (no external gate)
 - [x] **B1 — TTS (ElevenLabs)** · S · **DONE (2026-08-08)** — code path complete end-to-end: the
@@ -40,28 +40,24 @@ on the Response dashboard). **282 backend tests green**, frontend build green.
 - [ ] **A1-prod — Dramatiq executor swap** (investigation jobs) · S–M · *deferred by choice* — async
       already works in-process; build only when there's real concurrency (submit→poll contract is a
       drop-in). *(Note: C1 already stood up the Dramatiq delivery actor + broker for notifications.)*
-- [ ] **Wallet risk scoring — specify and justify the rules** · M · **spec WRITTEN 2026-08-18**
-      ([`Wallet-Risk-Scoring-Rules.md`](Wallet-Risk-Scoring-Rules.md)) — every constant documented and
-      honestly marked *unvalidated default*; band→action mapping proposed; validation plan defined.
-      **It surfaced a probable defect, verified against the real code: an OFAC-sanctioned wallet with
-      no detected pattern scores LOW**, and the output contradicts itself (reasoning names the SDN
-      listing, band says low). Sanctions are a legal fact, not a signal to average — recommendation is
-      a band FLOOR, left as a decision because changing what the system flags is a product call.
-      Still open: fix that, confirm bands with investigator practice, assign an owner for the numbers,
-      and run the validation in §5. *Original framing 2026-08-17* — the pipeline
-      exists and is deterministic (`app/takedown/scoring.py`: 5 typology detectors + an Isolation
-      Forest, combined in `composite_risk`, stamped with `MODEL_VERSION`), but **the rules are
-      undocumented magic numbers**: `0.25·IF + 0.75·min(fired/2, 1)`, `+0.25` for scam/sanctioned
-      tags, `+0.15` for mixer, and detector thresholds like `PEEL_FORWARD_SHARE=0.7`,
-      `RAPID_INOUT_MIN=0.95`, `STRUCTURING_TOLERANCE=0.05`. Nothing records **where those numbers came
-      from, what low/medium/high mean operationally, or what evidence supports them.**
-      Why it matters: this drives who gets frozen. "Why was this wallet scored high?" is the first
-      question defence counsel asks, and `reasoning[]` currently explains *which* rules fired, not
-      *why those are the rules*. Needs: a written spec (thresholds + rationale + who owns changes),
-      a defined mapping from score → band → recommended action, and validation against labelled
-      cases — plus a decision on whether the weights are tunable config rather than constants.
-      Related: `wallet_risk_scores.wallet_id` is nullable in the DB, which is a product decision to
-      settle at the same time.
+- [x] **Wallet risk scoring — rules specified, and the model improved** · M · **DONE (2026-08-18)**
+      — spec: [`Wallet-Risk-Scoring-Rules.md`](Wallet-Risk-Scoring-Rules.md). Every constant is
+      documented and honestly marked *unvalidated default*; band→action mapping proposed; validation
+      plan in §5.
+      Writing the spec forced working out what the rules *implied*, which surfaced a real defect:
+      **an OFAC-sanctioned wallet with no detected pattern scored LOW**, with the output
+      contradicting itself (reasoning named the SDN listing, band said low). Then researching how
+      established tools score wallets showed a **structural** gap — they score *counterparty
+      exposure* (who you transacted with, hop-decayed, value-weighted, category-severity) and we had
+      none of it, so a first-hop mule with no laundering pattern of its own also scored LOW.
+      Both fixed in **v0.2.0** (`911ee9a`): sanctions are a band FLOOR, and `app/takedown/exposure.py`
+      adds counterparty exposure. On our own fixtures the fan-out mules moved LOW → medium/high.
+      `MODEL_VERSION` bumped so older scores stay attributable; Glass Box names the new signals
+      (`sanctions_check()`, `counterparty_exposure()`).
+      **Still open** (needs data or a human, not code): validate the constants against labelled cases
+      (§5 — precision/recall *per band*, ±20% sensitivity), confirm the band→action mapping with
+      investigator practice, and assign an owner for the numbers. Related: `wallet_risk_scores.wallet_id`
+      nullability is a product decision to settle at the same time.
 - [ ] **Go-live hardening** · M · *partly done* — only fully needed when heading to real production.
       - [x] **Contract tests per LIVE adapter** — `tests/test_live_adapter_contract.py` asserts the
             "fail loud, never silently degrade" invariant over the registry, so a new adapter cannot

@@ -9,7 +9,7 @@
 Panel + Dashboard · ✅ **P4/P4b** INFILTRATE Honeypot (text + live-mic voice) · ✅ **P5** auth/RLS +
 integration + LIVE toggles (JWT + RBAC + row-level isolation, `test_rls_isolation.py`; Google OAuth
 hardened). Plus: blockchain **A1 live-validated**, investigation runs as an **async job**, and a
-case-centric hub (`/home` → `/case`) now fronts the four pillars. **286 backend tests green.**
+case-centric hub (`/home` → `/case`) now fronts the four pillars. **449 backend tests green.**
 Lesson baked in: after each phase, do a frontend↔backend live field-alignment pass (bit us on P1 + P3).
 
 ## Execution strategy (usage-conserving)
