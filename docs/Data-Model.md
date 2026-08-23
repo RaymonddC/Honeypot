@@ -18,7 +18,9 @@
    correlation carries method, confidence, model/prompt version, and review status.
 5. **Tamper-evident custody.** Honeypot messages and evidence are hash-chained (SHA-256, `prev_hash`)
    so any alteration is detectable — meets UU ITE Pasal 5 electronic-evidence standard.
-6. **POC and LIVE data are physically separable and never mixed.** A `data_mode` enum tags every
+6. **POC and LIVE data are physically separable and never mixed.** ⚠ *TARGET, not built as of
+   2026-08-23: `data_mode` is stamped but never filtered on, and there is one database — see
+   `Adapter-MODE-Framework.md` and the backlog.* A `data_mode` enum tags every
    data-producing row; LIVE evidence views never read POC rows. In production, real-evidence stores
    run as separate DB instances (POC ≠ LIVE credentials) so demo data can never contaminate a case.
 7. **UUID primary keys** (v7 preferred — time-sortable), `created_at`/`updated_at` on all tables,

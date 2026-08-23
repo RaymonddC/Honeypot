@@ -109,6 +109,17 @@ def get_chain_adapter(module: str) -> ChainDataAdapter:
 ---
 
 ## `data_mode` enforcement (evidentiary integrity)
+
+> ⚠ **NOT BUILT — as of 2026-08-23 this section describes the TARGET, not the system.**
+> Verified: `data_mode` is stamped on 24 of 32 tables and constrained by a CHECK, but it is
+> **never read as a filter** — 0 of 201 references appear in a WHERE clause, and no RLS policy
+> mentions it. There is ONE database, and a LIVE query returns POC rows. `core.audit_log` has
+> no `data_mode` column at all. What genuinely protects against demo data being mistaken for
+> evidence today is narrower and output-level: generated PDFs carry a "POC DEMONSTRATION
+> OUTPUT — not a legal instrument" banner, the dialer refuses to place a `live` call it cannot
+> really make, and responses carry an `X-Data-Mode` header the UI badges. Tracked in
+> `docs/Backlog.md`.
+
 - Produced rows carry `data_mode`; repositories filter by the request's active mode.
 - **LIVE evidence views never read POC rows.** In production, **separate DB instances** per mode
   (distinct creds) so demo data physically cannot enter a real case. (See `docs/Data-Model.md`.)
