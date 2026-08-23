@@ -57,9 +57,27 @@ on the Response dashboard). **513 backend tests green**, frontend build green.
       (~1 query/request) or short TTL + refresh — **not built**, and worth revisiting if a
       compromised-account drill ever needs to be measured in seconds.
 
-- [ ] **A1-prod — Dramatiq executor swap** (investigation jobs) · S–M · *deferred by choice* — async
-      already works in-process; build only when there's real concurrency (submit→poll contract is a
-      drop-in). *(Note: C1 already stood up the Dramatiq delivery actor + broker for notifications.)*
+- [ ] **Horizontal scaling — what breaks with more than one instance** · M · **TARGET CHOSEN
+      2026-08-23 (user): horizontally scalable.** ⛔ **GATED ON REDIS**, which is gated on the Render
+      tier — `/ready` currently reports `redis: unreachable`. Audited for module-level mutable state,
+      the thing that quietly breaks on a second instance. Three real hits:
+      - [ ] **A1-prod — investigation jobs → Dramatiq** · S–M · **THE CORRECTNESS BREAK.**
+            `POST /api/investigate` stores the job in a per-process dict (`takedown/jobs.py:_store`)
+            and `GET /api/investigate/jobs/{id}` 404s `job_not_found` when the poll lands on a
+            different instance. With two instances roughly **half of all polls fail on jobs that are
+            running fine**, so the Investigation screen looks randomly broken. Was "deferred by
+            choice" while single-instance; the scale decision makes it mandatory. The submit→poll
+            contract is unchanged, so this is an executor swap, not an API change. *(C1 already
+            stood up the Dramatiq actor + broker, so the machinery exists.)*
+      - [ ] **Metrics counters are per-process** · S — a scrape hits whichever instance answers and
+            reports a fraction of reality. Needs per-instance scrape targets or a multiprocess
+            collector. Already documented in `app/core/metrics.py` and `Deploy.md` §8; listed here
+            because it stops being a footnote once there IS more than one process.
+      - [ ] **`seed_demo_session` check-then-act race** · XS — it is idempotent by "does a session
+            already exist", so N instances booting together can each see none and all seed. Demo
+            data only, no correctness impact, but it makes the console look wrong on first load.
+      **Accepted as-is:** the denial rate cap becomes N×5 (already documented per-worker), and the
+      TTS audio cache is per-process, costing repeat synthesis rather than correctness.
 - [x] **Wallet risk scoring — rules specified, and the model improved** · M · **DONE (2026-08-18)**
       — spec: [`Wallet-Risk-Scoring-Rules.md`](Wallet-Risk-Scoring-Rules.md). Every constant is
       documented and honestly marked *unvalidated default*; band→action mapping proposed; validation
