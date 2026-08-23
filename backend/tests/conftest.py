@@ -92,3 +92,69 @@ def make_transfer(frm: str, to: str, value: float, ts: str, i: int = 0) -> Trans
         value=value,
         ts=datetime.fromisoformat(ts).replace(tzinfo=timezone.utc),
     )
+
+
+# --------------------------------------------------------------------------- #
+# pgserver seeding — psql that actually fails when the SQL fails
+# --------------------------------------------------------------------------- #
+
+
+class PsqlSeedError(RuntimeError):
+    """A statement in a pgserver seed script failed. Raised at the point of
+    failure so a broken fixture reports itself, instead of the test failing
+    later on an assertion about data that was never inserted."""
+
+
+def psql_strict(cluster, sql: str, *, label: str = "") -> str:
+    """Run ``sql`` on a pgserver cluster and RAISE if any statement fails.
+
+    **Why this exists.** ``pgserver``'s own ``PostgresServer.psql()`` is
+    ``subprocess.check_output(...)`` — so it does check the exit status, and the
+    exit status is genuinely 0. The problem is upstream of that: **psql's
+    default is to keep going after a SQL error and still exit 0.** The error
+    text goes to stderr, which nothing captures, so the call returns cleanly
+    with empty stdout and the fixture looks like it worked.
+
+    Measured, not assumed (see this helper's tests):
+
+    - a NOT NULL violation via plain ``psql()`` returns normally, stdout ``''``;
+    - **a failing statement does NOT abort the rest of the script**, so a seed
+      whose first INSERT fails still runs the second and leaves the database
+      half-populated — which is why the eventual failure looks like a data
+      mismatch rather than a setup error.
+
+    That cost two debugging rounds in one task (a missing ``public_id``, then a
+    missing ``bundle_id``), and every pgserver test file seeds this way — the
+    files that prove RLS isolation, chain integrity, and mode isolation. A
+    harness that hides setup failures is a bad foundation for tests relied on to
+    prove security properties.
+
+    The fix is ``ON_ERROR_STOP``, which makes psql abort at the first error and
+    exit non-zero — so the exit status becomes meaningful and ``check_output``
+    raises. Deliberately NOT stderr-sniffing: matching on the text ``ERROR``
+    would be locale-dependent and would trip over legitimate NOTICE output and
+    over rows that merely contain the word.
+
+    Raises rather than ``pytest.fail``: inside a fixture this surfaces as a
+    pytest ERROR ("setup broke, the test never ran") rather than a FAILURE
+    ("the assertion was wrong"), which is the distinction worth having. It also
+    behaves the same at module, fixture, and test-body level.
+    """
+    import subprocess
+
+    # `\set ON_ERROR_STOP on` is a psql meta-command and works over stdin, so
+    # this needs no change to how pgserver invokes the binary.
+    payload = "\\set ON_ERROR_STOP on\n" + sql
+    try:
+        return cluster.psql(payload)
+    except subprocess.CalledProcessError as exc:
+        # psql exits 3 on a SQL error under ON_ERROR_STOP. pgserver's psql()
+        # does not pipe stderr, so Postgres's own message goes to the parent's
+        # stderr — pytest shows it under "Captured stderr", directly above this
+        # exception. Point at it rather than pretending we have it here.
+        raise PsqlSeedError(
+            f"psql seeding failed{f' ({label})' if label else ''} — exit code "
+            f"{exc.returncode}. Postgres's error is in pytest's Captured stderr "
+            f"for this test, immediately above.\n"
+            f"--- SQL ---\n{sql.strip()}\n-----------"
+        ) from exc

@@ -32,6 +32,17 @@
 -- create ittu_app as a SEPARATE, non-owning role, then set ITTU_DATABASE_URL to
 -- ittu_app's connection string — never the owner's. See docs/Deploy.md.
 
+-- ⚠️ ORDER MATTERS, AND GETTING IT WRONG USED TO BE SILENT. Every GRANT below
+-- names a schema that migrations create. Run this BEFORE `alembic upgrade head`
+-- and those GRANTs fail with `schema "core" does not exist` — but psql's DEFAULT
+-- is to keep going after an error and still exit 0, so the script would appear
+-- to succeed while producing a role with NO grants. The app then connects fine
+-- and dies at the first query with `InsufficientPrivilege`, pointing nowhere
+-- near the cause. That is exactly how the missing `casedata` grants were
+-- authored (docs/Deploy.md §5). ON_ERROR_STOP makes psql abort at the first
+-- failure and exit non-zero instead.
+\set ON_ERROR_STOP on
+
 -- NB: the guarded CREATE ROLE below deliberately does NOT use a PL/pgSQL DO
 -- block — psql's `:'var'` interpolation is NOT performed inside dollar-quoted
 -- ($$...$$) bodies, so a DO block would send the literal, unsubstituted text
