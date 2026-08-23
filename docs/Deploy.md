@@ -92,6 +92,31 @@ Neon-provided owner role. There is no way to verify this from the app process al
 isolation test in `backend/tests/test_rls_isolation.py` is the way to prove it end-to-end
 against a real Postgres before trusting a deployment.
 
+## 4a. POC/LIVE mode isolation (read this before flipping `ITTU_MODE=live`)
+
+Since migration `20260823_18`, mode is enforced by RLS the same way agency is: the app sets
+`app.data_mode` per transaction and the policies compare it to each row's `data_mode`.
+
+**⚠ Flipping an existing deployment to LIVE makes it look empty, and that is CORRECT.** Every row
+written before this change carries `data_mode='poc'` (the column default), so a LIVE deployment
+reads none of them: empty case list, empty everything. The data is **not lost** — it is still in
+the tables and still visible in POC mode. The API logs a warning at startup saying exactly this,
+so a blank screen arrives with its explanation attached. Do **not** "fix" it by loosening the
+policy; that re-opens the contamination this exists to prevent.
+
+**⚠ Mixed module modes are refused under Postgres.** `ITTU_MODULE_MODES` values that disagree with
+the global `ITTU_MODE` abort startup when `ITTU_PERSISTENCE=postgres`, with an error naming the
+offending override and both ways out. `app.data_mode` is one value per transaction and a request
+spans modules, so a per-module mode cannot be honestly stamped on a row. Mixed modes remain fully
+supported under `ITTU_PERSISTENCE=memory` — which is the common local-development setup, and the
+most likely place to meet this error.
+
+**Two things are deliberately outside the boundary**, and both are documented where they live:
+- `core.audit_log` is not mode-filtered (a predicate would break hash-chain verification —
+  `app/core/audit.py`). The trail spans both modes per agency, by design.
+- Background workers connect as the OWNING role and bypass RLS entirely, so they check
+  `data_mode` in code. An owner-role connection sees both modes — the same caveat as §4's RLS note.
+
 ## 5. Automated deploys (no manual redeploy, no manual migrations)
 
 **Auto-migrate on deploy.** The container entrypoint (`backend/scripts/start.sh`, wired as the

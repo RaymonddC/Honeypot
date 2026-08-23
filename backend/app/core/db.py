@@ -67,6 +67,12 @@ async def _tenant_scoped_session(auth: AuthContext) -> AsyncGenerator[AsyncSessi
             ("app.current_agency", str(auth.agency.id)),
             ("app.current_user", str(auth.user.id)),
             ("app.current_role", auth.role),
+            # POC/LIVE evidentiary isolation (migration 20260823_18). ONE value
+            # for the whole transaction — which is why per-module modes are
+            # refused under Postgres (see config.assert_modes_are_coherent):
+            # a request spans modules, so there is no honest per-module value
+            # to put here.
+            ("app.data_mode", get_settings().mode),
         ):
             await session.execute(
                 text("SELECT set_config(:var, :value, true)"),
@@ -148,8 +154,20 @@ async def worker_session() -> AsyncGenerator[AsyncSession, None]:
     when set. That is deliberate: a trusted system worker is handed a row id and
     must read that row to learn which agency owns it — a chicken-and-egg RLS
     cannot resolve. Falls back to ``ITTU_DATABASE_URL`` for single-role setups.
-    Because RLS is NOT filtering these queries, actor code must scope by
-    ``agency_id`` explicitly (see ``honeypot_ops.dialer.resolve_case_id``).
+
+    **Because RLS is NOT filtering these queries, actor code carries BOTH
+    obligations the policies would otherwise discharge:**
+
+    - scope by ``agency_id`` explicitly (see ``honeypot_ops.dialer.resolve_case_id``);
+    - check ``data_mode`` explicitly. The owning role bypasses the mode predicate
+      from migration 20260823_18 exactly as it bypasses the agency one, so a
+      worker will happily act on a row from the other evidentiary universe — a
+      POC row dispatched as if real, or worse. Both actors refuse a mismatched
+      row rather than proceed (``dialer._dial_one``, ``uncover.notifications``).
+
+    They are stated together because a reader who learns "RLS is off here" needs
+    to learn both duties at once; the mode one was added second and is the
+    easier of the two to forget.
 
     **Why a fresh NullPool engine per invocation, not a cached pooled one:** each
     actor message runs under its own ``asyncio.run(...)`` — a brand-new event

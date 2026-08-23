@@ -345,7 +345,15 @@ async def assemble_context(
     return docs.DocumentContext(
         case_id=req.case_id,
         crime_type=req.crime_type,
-        data_mode="poc" if getattr(chain_adapter, "data_mode", "poc") == "poc" else "live",
+        # The REQUEST's mode, not the adapter's — the one canonical convention
+        # (migration 20260823_18). An adapter's ``data_mode`` says where a VALUE
+        # came from; a row's says which evidentiary universe the RECORD belongs
+        # to, and that is what the RLS predicate compares against. This used to
+        # derive from ``chain_adapter.data_mode`` while every repository stamped
+        # ``settings.mode`` — two conventions that agreed only by luck. Under
+        # Postgres they can no longer disagree at all (mixed module modes are
+        # refused at boot), so this is now the same value by construction.
+        data_mode=get_settings().mode,
         generated_at=generated_at or datetime.now(timezone.utc),
         # requesting_agency keeps its model default unless a real agency is passed.
         **({"requesting_agency": agency} if agency else {}),

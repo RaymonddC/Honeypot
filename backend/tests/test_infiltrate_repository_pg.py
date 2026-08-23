@@ -135,6 +135,12 @@ async def _open_repo(app_async_uri: str, agency_id: str, *, data_mode: str = "po
     await session.execute(
         sa.text("SELECT set_config('app.current_agency', :v, true)"), {"v": agency_id}
     )
+    # Mode is an RLS predicate too (migration 20260823_18). Set from the SAME
+    # value the repo stamps with, mirroring _tenant_scoped_session — if the two
+    # ever disagree the write is refused, which is the point.
+    await session.execute(
+        sa.text("SELECT set_config('app.data_mode', :v, true)"), {"v": data_mode}
+    )
     repo = PostgresInfiltrateRepository(session, agency_id=uuid.UUID(agency_id), data_mode=data_mode)
     return _RepoHandle(repo, session, engine)
 

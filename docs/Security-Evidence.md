@@ -85,19 +85,30 @@
 
 ## 6. POC/LIVE evidentiary integrity
 
-> ⚠ **NOT BUILT — as of 2026-08-23 this section describes the TARGET, not the system.**
-> Verified: `data_mode` is stamped on 24 of 32 tables and constrained by a CHECK, but it is
-> **never read as a filter** — 0 of 201 references appear in a WHERE clause, and no RLS policy
-> mentions it. There is ONE database, and a LIVE query returns POC rows. `core.audit_log` has
-> no `data_mode` column at all. What genuinely protects against demo data being mistaken for
-> evidence today is narrower and output-level: generated PDFs carry a "POC DEMONSTRATION
-> OUTPUT — not a legal instrument" banner, the dialer refuses to place a `live` call it cannot
-> really make, and responses carry an `X-Data-Mode` header the UI badges. Tracked in
-> `docs/Backlog.md`.
+> **BUILT 2026-08-23 (migration `20260823_18`) — by row-level security, NOT separate databases.**
+> This section previously claimed separate DB instances per mode. That was never true and is not
+> what shipped. State the mechanism accurately if this is shown to a reviewer: isolation is a
+> Postgres RLS predicate within ONE database, with two deliberate exceptions named below.
 
-- `data_mode` on every produced row; **LIVE evidence views never read POC rows.**
-- Production runs **separate DB instances** per mode (distinct creds) — demo data physically cannot
-  enter a real case. Custody hashing applies in both modes; only LIVE is legal evidence.
+- `data_mode` on every produced row, and **LIVE queries cannot return POC rows** — enforced by RLS
+  on 19 agency-scoped tables (`app.data_mode` + `core.current_mode()`), not by application
+  filtering. Fails closed: a session that does not set the mode sees nothing. A mode-mismatched
+  INSERT is refused, not silently hidden. Proven against a real Postgres in
+  `backend/tests/test_mode_isolation_pg.py`, through the non-owning `ittu_app` role.
+- **An owner-role connection still sees both modes**, exactly as it already bypasses agency
+  isolation (§2). Physical separation would not have this property; RLS does. The deployment
+  invariant that the app connects as `ittu_app` is what makes both boundaries real.
+- **`core.audit_log` is deliberately outside the mode boundary.** A mode predicate there breaks
+  hash-chain verification: entries hidden mid-chain produce a false tamper alarm, and entries
+  hidden at the tail produce SILENT TRUNCATION — a trail that verifies clean while records are
+  missing. The trail is per-agency and spans both modes by design, because "everything that
+  happened in this tenant" is the question it exists to answer and the POC→LIVE transition is the
+  most interesting entry in it. Mode is recorded inside the hashed `detail` blob for provenance.
+- **Background workers connect as the owning role** and so are not covered by the predicate; they
+  check `data_mode` in application code and refuse cross-mode rows.
+- Custody hashing applies in both modes; only LIVE is legal evidence. Generated POC documents also
+  carry a "POC DEMONSTRATION OUTPUT — not a legal instrument" banner, and responses carry an
+  `X-Data-Mode` header the UI badges.
 
 ## 7. Data protection & deployment security
 - **PDP Law (UU 27/2022)** + **PP 71/2019** → local/on-prem hosting likely mandatory for PPATK/OJK/

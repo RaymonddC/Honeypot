@@ -136,7 +136,47 @@ on the Response dashboard). **513 backend tests green**, frontend build green.
             - **Known limit:** counters are per process. One uvicorn worker today, so they are
               complete; adding `--workers` would need per-worker scrape targets or a multiprocess
               collector. Called out in `Deploy.md` §8.
-      - [ ] Separate DB per mode (POC vs LIVE evidentiary isolation).
+      - [x] **POC vs LIVE evidentiary isolation** · **DONE (2026-08-23, migration `20260823_18`)** —
+            filed as "separate DB per mode"; shipped as **RLS-enforced mode** instead, reusing the
+            mechanism that already enforces tenant isolation rather than adding a second compute.
+            - **The survey came first, and the premise was worse than assumed.** `data_mode` was
+              stamped on 24 of 32 tables with CHECK constraints and **read by nothing**: 0 of 201
+              references in a WHERE clause, 0 RLS policies mentioning it. A label, not a boundary.
+            - **Now a per-transaction predicate.** `_tenant_scoped_session` sets `app.data_mode`;
+              `core.current_mode()` reads it; 19 agency-scoped policies compare it to the row.
+              A query that forgets to filter *cannot* leak. **Fails closed** when unset or garbage
+              — the mode twin of `test_rls_isolation.py`'s NULL-agency proof.
+            - **The write side came free and is now pinned.** Postgres applies `USING` as the
+              implicit `WITH CHECK`, so a mode-mismatched INSERT is REFUSED rather than
+              written-and-invisible. A future policy given an explicit permissive `WITH CHECK`
+              would silently lose that, so a test asserts it.
+            - **Why NOT a second database** (the option originally filed): a Neon *branch* is
+              copy-on-write, so a LIVE branch would begin life holding every POC row — backwards.
+              A separate schema means parameterising the whole migration chain for weak isolation.
+              And per-module databases are incoherent: `core.cases`/`audit_log`/`users` are shared
+              by all modules, so "which database does a case live in" has no answer.
+            - **⚠ `core.audit_log` is deliberately EXEMPT, and this is the interesting part.** A
+              mode predicate makes the trail report itself as tampered: measured over a
+              poc,poc,live,live chain, a LIVE session sees `(False, 3)` — a false tamper alarm —
+              and a POC session sees `(True, None)` while entries are **silently truncated** from
+              the tail, which is exactly the blind spot `ittu_audit_entries_dropped_total` exists
+              to close. It is also arguably right on the merits: the trail answers "everything
+              that happened in this tenant", and the POC→LIVE transition is its most interesting
+              entry. Mode is recorded in the hashed `detail` blob instead — tamper-evident AND
+              filterable, so the usual trade-off did not apply.
+            - **⚠ Background workers are outside the boundary too** — they connect as the owning
+              role and bypass RLS by design, so both actors now check `data_mode` explicitly and
+              refuse cross-mode rows (the notification dispatcher previously claimed rows by
+              `public_id` alone, checking neither agency nor mode).
+            - **Cost accepted:** mixed `ITTU_MODULE_MODES` are refused at boot under Postgres —
+              `app.data_mode` is one value per transaction and a request spans modules. Still
+              fully supported under `ITTU_PERSISTENCE=memory`.
+            - **Known limit:** an owner-role connection still sees both modes, exactly as it
+              already bypasses agency isolation. Physical separation would not have that
+              property; the `ittu_app` deployment invariant is what makes both boundaries real.
+            - `chain.*`/`fiat.*` raw ledger tables deferred with a recorded obligation (zero read
+              and zero write sites today — a policy there would be untestable). See
+              `docs/Data-Model.md`.
 - [ ] **Audit trail — broaden & surface** · M · **backend slice DONE (2026-08-17, `7507034`)** —
       roadmap step 2's "chain-of-custody end-to-end". `core.audit_log` was migrated and documented as
       hash-chained but **nothing ever wrote to it**; `app/core/audit.py` is now the writer (per-agency

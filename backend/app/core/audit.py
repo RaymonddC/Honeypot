@@ -27,6 +27,35 @@ this module. A 403 an authenticated user collects while reaching for something
 their role forbids is often the most security-relevant line in the whole trail,
 and it used to vanish without trace.
 
+**Why the audit trail is NOT mode-filtered** (and is the one agency-scoped table
+migration ``20260823_18`` deliberately skipped). Every other table gained a
+``data_mode = core.current_mode()`` RLS predicate for POC/LIVE evidentiary
+isolation. Adding one here makes the trail report itself as TAMPERED, because
+``verify_chain`` reads every row for the agency in ``seq`` order and walks
+``prev_sha256`` — hiding any entry breaks the linkage. Measured over a chain of
+poc,poc,live,live::
+
+    unfiltered (owner):            (True, None)
+    LIVE session, poc hidden:      (False, 3)    <- false tamper alarm
+    POC session, live hidden:      (True, None)  <- SILENT TRUNCATION
+
+The second is the dangerous one: truncating the TAIL of a hash chain is
+undetectable — it verifies clean while records are missing, reintroducing
+precisely the gap ``ittu_audit_entries_dropped_total`` exists to close.
+
+It is also arguably wrong on the merits, not merely impractical. This trail
+answers "everything that happened in this tenant", and an investigator asking
+"was this case built from demo data" needs the POC and the LIVE actions in ONE
+ordered sequence — the moment of transition is the most interesting entry in the
+log, and a mode-partitioned trail is exactly where it would be invisible.
+Provenance belongs IN the record; it must not decide who may read the record.
+
+So mode is recorded as ``detail['_data_mode']`` (see ``_stamp_mode``) — inside
+``entry_hash``, hence tamper-evident, and still filterable via
+``detail->>'_data_mode'`` when a CALLER wants to narrow by mode. If you are here
+to add the "missing" predicate: ``test_mode_isolation_pg.py`` will stop you, and
+explains why in its failure message.
+
 Memory mode keeps an in-process chain so POC demos and tests exercise the same
 code path; only Postgres persists.
 """
@@ -462,6 +491,25 @@ def _preserve_business_key(detail: dict, target_id: str | None) -> None:
         detail["_target_id"] = str(target_id)
 
 
+def _stamp_mode(detail: dict) -> None:
+    """Record the writing deployment's mode as ``detail['_data_mode']``.
+
+    **In ``detail`` rather than a column, and NOT an RLS predicate — both
+    deliberate.** See this module's "Why the audit trail is not mode-filtered"
+    note. In short: ``detail`` is inside ``entry_hash``, so the provenance is
+    tamper-evident for free and needs no migration, and it is still filterable
+    in SQL (``detail->>'_data_mode'``, the same trick ``list_for_target`` uses
+    on ``_target_id``) — so the usual "hashed OR queryable" trade-off does not
+    apply here. A column would have been outside the hash AND needed a backfill
+    decision for existing rows that cannot be truthfully assigned a mode.
+
+    Entries written before this simply lack the key. That asserts nothing
+    retroactive, which is the point: back-stamping them would be a claim about
+    an append-only evidentiary record that we cannot support.
+    """
+    detail["_data_mode"] = get_settings().mode
+
+
 def _is_uuid(value: str | None) -> bool:
     """Whether ``target_id`` fits the uuid column. Business keys do not — see
     ``_preserve_business_key``, which keeps those in ``detail``."""
@@ -525,6 +573,7 @@ async def record_action(
         if target_label:
             detail["_target"] = target_label
         _preserve_business_key(detail, target_id)
+        _stamp_mode(detail)
         # Where it came from, and the id tying this row to its request log line.
         # Standard audit practice records who acted AND from what device and
         # location (CloudTrail/SOC 2); we recorded only who and when.
@@ -732,6 +781,7 @@ async def record_denial(
         if target_label:
             detail["_target"] = target_label
         _preserve_business_key(detail, target_id)
+        _stamp_mode(detail)
         if request is not None:
             from app.core.requests import client_origin, current_request_id
 
