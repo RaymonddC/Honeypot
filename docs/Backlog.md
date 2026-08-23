@@ -96,7 +96,11 @@ on the Response dashboard). **513 backend tests green**, frontend build green.
       (§5 — precision/recall *per band*, ±20% sensitivity), confirm the band→action mapping with
       investigator practice, and assign an owner for the numbers. Related: `wallet_risk_scores.wallet_id`
       nullability is a product decision to settle at the same time.
-- [ ] **Go-live hardening** · M · *partly done* — only fully needed when heading to real production.
+- [x] **Go-live hardening** · M · **ALL FOUR CHILDREN DONE (2026-08-23)** — LIVE-adapter contract
+      tests, the RLS-isolation review, `/ready` diagnostics, and metrics + alerting. The fifth,
+      *separate DB per mode*, was surveyed and REPLACED rather than built: `data_mode` turned out to
+      be a label nothing read (0 of 201 references in a WHERE clause), and the fix shipped as
+      database-enforced mode RLS instead of a second Neon compute — see the mode-isolation entry.
       - [x] **Contract tests per LIVE adapter** — `tests/test_live_adapter_contract.py` asserts the
             "fail loud, never silently degrade" invariant over the registry, so a new adapter cannot
             silently no-op.
@@ -177,7 +181,7 @@ on the Response dashboard). **513 backend tests green**, frontend build green.
             - `chain.*`/`fiat.*` raw ledger tables deferred with a recorded obligation (zero read
               and zero write sites today — a policy there would be untestable). See
               `docs/Data-Model.md`.
-- [ ] **Audit trail — broaden & surface** · M · **backend slice DONE (2026-08-17, `7507034`)** —
+- [x] **Audit trail — broaden & surface** · M · **COMPLETE (2026-08-23)** — every child shipped —
       roadmap step 2's "chain-of-custody end-to-end". `core.audit_log` was migrated and documented as
       hash-chained but **nothing ever wrote to it**; `app/core/audit.py` is now the writer (per-agency
       SHA-256 chain, never raises — audit must not break the action it records) and `GET /api/audit`
