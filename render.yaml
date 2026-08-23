@@ -2,6 +2,28 @@
 # Setup: Render → New → Blueprint → connect this repo → apply.
 # autoDeploy:true → redeploys on every push to the connected branch.
 # NOTE: after the first deploy, set ITTU_CORS_ORIGINS to your Vercel frontend URL.
+#
+# ── THIS FILE IS THE TARGET STATE, NOT NECESSARILY WHAT IS RUNNING ───────────
+# The live deployment may be on a lower tier than the plans below. That is a
+# deliberate, recorded choice — upgrade when ready — but it means the tier
+# determines which FEATURES actually work, not just how fast they are:
+#
+#   free     web service only. Sleeps after ~15 min idle → 30-60s cold start on
+#            the next request. For a honeypot that is not a performance note: an
+#            inbound call or a Twilio webhook arriving cold is one the system
+#            fails to answer. Background workers are NOT offered on free, so the
+#            ittu-worker service below cannot exist, which means
+#            ITTU_NOTIFICATION_DELIVERY=worker silently queues and never
+#            delivers, and outbound dial campaigns never dial. Keep delivery on
+#            the default `sync` while on free.
+#   starter  no sleeping, and background workers become available → durable
+#            notification retries and dial campaigns work. Single instance.
+#   +Redis   required before ANY of this scales horizontally: investigation jobs
+#            are held in-process today, so a poll landing on a second instance
+#            404s a job that is running fine (docs/Backlog.md, A1-prod).
+#
+# In short: free runs the four pillars and the demo. It does not run the
+# queue-backed features, and it cannot run more than one instance.
 services:
   - type: web
     name: ittu-api

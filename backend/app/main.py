@@ -161,7 +161,18 @@ def create_app() -> FastAPI:
                 "mode": result.mode,
                 "persistence": result.persistence,
                 "checks": [
-                    {"name": c.name, "ok": c.ok, "detail": c.detail, "critical": c.critical}
+                    # `status` is the one to read: "pass" | "fail" | "unknown".
+                    # `ok` is null when a check could not determine an answer —
+                    # NOT the same as passing, and reporting it as true is how
+                    # this endpoint once said a service was fine while it had no
+                    # idea whether its schema matched its code.
+                    {
+                        "name": c.name,
+                        "status": c.status,
+                        "ok": c.ok,
+                        "detail": c.detail,
+                        "critical": c.critical,
+                    }
                     for c in result.checks
                 ],
             },
