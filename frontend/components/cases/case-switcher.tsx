@@ -8,6 +8,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useCases } from "@/components/cases/case-provider";
 import { CASE_STAGES } from "@/lib/cases/api";
 
@@ -19,6 +20,7 @@ function stageColor(stage: string): string {
 }
 
 export function CaseSwitcher() {
+  const t = useTranslations("cases.switcher");
   const { cases, activeCase, setActiveCase, createCase, advanceStage } = useCases();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -58,7 +60,7 @@ export function CaseSwitcher() {
     }
   };
 
-  const label = activeCase ? activeCase.title : "No case selected";
+  const label = activeCase ? activeCase.title : t("noCaseSelected");
 
   return (
     <div className="relative" ref={ref}>
@@ -67,8 +69,8 @@ export function CaseSwitcher() {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        title={activeCase ? `Active case · ${activeCase.stage}` : "Pick or open a case"}
-        className="flex max-w-[18rem] cursor-pointer items-center gap-2 rounded-md border border-line bg-elevated px-2.5 py-1 font-mono text-xs text-fg hover:border-white/10"
+        title={activeCase ? t("activeCaseTitle", { stage: activeCase.stage }) : t("pickOrOpenCase")}
+        className="flex min-w-0 max-w-[10rem] cursor-pointer items-center gap-2 rounded-md border border-line bg-elevated px-2.5 py-1 font-mono text-xs text-fg hover:border-white/10 sm:max-w-[18rem]"
       >
         <span
           className={`h-1.5 w-1.5 rounded-full ${activeCase ? "bg-accent" : "bg-muted"}`}
@@ -90,10 +92,10 @@ export function CaseSwitcher() {
           role="menu"
           className="absolute left-0 top-9 z-50 w-72 rounded-lg border border-line bg-card p-1 shadow-xl shadow-black/50"
         >
-          <div className="eyebrow px-3 pb-1 pt-2">Cases</div>
+          <div className="eyebrow px-3 pb-1 pt-2">{t("cases")}</div>
           <ul className="max-h-64 overflow-y-auto">
             {cases.length === 0 && (
-              <li className="px-3 py-2 text-[11px] text-muted">No cases yet.</li>
+              <li className="px-3 py-2 text-[11px] text-muted">{t("noCasesYet")}</li>
             )}
             {cases.map((c) => {
               const active = c.id === activeCase?.id;
@@ -126,7 +128,7 @@ export function CaseSwitcher() {
           {activeCase && activeCase.stage !== "closed" && (
             <div className="mx-2 mt-1 border-t border-line pt-2">
               <div className="px-1 pb-1 text-[10px] text-muted">
-                Advance stage
+                {t("advanceStage")}
               </div>
               <div className="flex flex-wrap gap-1 px-1 pb-1">
                 {CASE_STAGES.map((s) => (
@@ -154,7 +156,7 @@ export function CaseSwitcher() {
                 autoFocus
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="New case title…"
+                placeholder={t("newCaseTitlePlaceholder")}
                 className="h-8 w-full rounded-md border border-white/10 bg-elevated px-2.5 text-[12px] text-fg outline-none focus:border-accent/40"
               />
               <div className="mt-2 flex gap-2">
@@ -163,14 +165,14 @@ export function CaseSwitcher() {
                   disabled={busy}
                   className="h-7 flex-1 rounded-md bg-accent text-[11px] font-semibold text-[#04140d] hover:bg-accent-bright disabled:opacity-50"
                 >
-                  {busy ? "Opening…" : "Open case"}
+                  {busy ? t("opening") : t("openCase")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setCreating(false)}
                   className="h-7 rounded-md border border-line px-2 text-[11px] text-muted hover:text-fg"
                 >
-                  Cancel
+                  {t("cancel")}
                 </button>
               </div>
             </form>
@@ -180,7 +182,7 @@ export function CaseSwitcher() {
               onClick={() => setCreating(true)}
               className="mb-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-[12.5px] text-accent-bright transition-colors hover:bg-white/[.04]"
             >
-              <span aria-hidden>＋</span> New case
+              <span aria-hidden>＋</span> {t("newCase")}
             </button>
           )}
         </div>

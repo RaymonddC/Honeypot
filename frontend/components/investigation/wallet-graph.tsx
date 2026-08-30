@@ -9,6 +9,7 @@
 import cytoscape, { type Core, type EventObject } from "cytoscape";
 import dagre from "cytoscape-dagre";
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import type { RiskLevel, WalletGraph as WalletGraphData } from "@/lib/investigation/types";
 import { RISK_COLORS, RISK_LABELS } from "@/lib/investigation/types";
 
@@ -124,6 +125,7 @@ export function WalletGraph({
   selectedId: string | null;
   onSelect: (address: string) => void;
 }) {
+  const t = useTranslations("investigation.walletGraph");
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
   const onSelectRef = useRef(onSelect);
@@ -257,19 +259,19 @@ export function WalletGraph({
 
       {/* hint */}
       <div className="pointer-events-none absolute left-3 top-3 rounded-lg border border-line bg-black/55 px-2.5 py-1.5 text-[10.5px] text-muted">
-        ◦ hover to preview · click to inspect · drag / scroll to navigate
+        {t("hint")}
       </div>
 
       {/* zoom tools */}
       <div className="absolute right-3 top-3 flex flex-col gap-1.5">
         {(
           [
-            ["＋", "Zoom in", () => zoom(1.25)],
-            ["－", "Zoom out", () => zoom(0.8)],
-            ["⤢", "Fit graph", () => cyRef.current?.fit(undefined, 36)],
+            ["＋", t("zoomIn"), () => zoom(1.25)],
+            ["－", t("zoomOut"), () => zoom(0.8)],
+            ["⤢", t("fitGraph"), () => cyRef.current?.fit(undefined, 36)],
             [
               "⟳",
-              "Reset view",
+              t("resetView"),
               () => {
                 cyRef.current?.fit(undefined, 36);
               },
@@ -304,7 +306,7 @@ export function WalletGraph({
 
       {/* peeling-chain callout */}
       <div className="pointer-events-none absolute bottom-3 right-3 rounded-lg border border-risk-high/20 bg-black/70 px-2.5 py-1.5 font-mono text-[10px] font-bold text-risk-high backdrop-blur-sm">
-        ◆ peeling chain → exchange
+        {t("peelingChain")}
       </div>
 
       {/* hover tooltip */}
@@ -320,7 +322,7 @@ export function WalletGraph({
               style={{ background: RISK_COLORS[tip.risk] }}
             />
             {tip.risk === "exchange"
-              ? "Exchange"
+              ? t("exchange")
               : `${RISK_LABELS[tip.risk]} · ${tip.score.toFixed(2)}`}
             {tip.volume ? ` · ${tip.volume}` : ""}
           </div>

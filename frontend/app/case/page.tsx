@@ -10,6 +10,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useCases } from "@/components/cases/case-provider";
 import { addBankAccount, addCryptoTransfer } from "@/lib/casedata/api";
 import { GOLDEN, deriveCaseBridge } from "@/lib/demo/golden-thread";
@@ -32,20 +33,26 @@ import { ActionsPanel } from "@/components/actions/panel";
 const CATEGORIES = ["unknown", "scam", "mule", "victim", "suspect", "exchange"];
 
 // Victim-report vocabulary (the single intake form now lives in the Intake stage).
+// UI labels come from i18n (see `crimeTypes` in the caseFile namespace); the
+// English labels below are used only for the case-brief summary text written
+// to the backend (see `submit` in IntakeStage) — that's persisted case DATA,
+// not UI chrome, so it stays as authored English regardless of the UI locale.
 const CRIME_TYPES = [
-  { value: "investment_scam", label: "Investment scam", glyph: "📈" },
-  { value: "judol_deposit", label: "Online gambling", glyph: "🎰" },
-  { value: "crypto_phishing", label: "Crypto phishing", glyph: "⛓" },
-  { value: "romance_scam", label: "Romance scam", glyph: "💔" },
-  { value: "impersonation", label: "Impersonation", glyph: "🎭" },
-  { value: "other", label: "Other", glyph: "◇" },
+  { value: "investment_scam", glyph: "📈", enLabel: "Investment scam" },
+  { value: "judol_deposit", glyph: "🎰", enLabel: "Online gambling" },
+  { value: "crypto_phishing", glyph: "⛓", enLabel: "Crypto phishing" },
+  { value: "romance_scam", glyph: "💔", enLabel: "Romance scam" },
+  { value: "impersonation", glyph: "🎭", enLabel: "Impersonation" },
+  { value: "other", glyph: "◇", enLabel: "Other" },
 ];
 
+// UI labels come from i18n (see `sources` in the caseFile namespace); enLabel
+// is used only for the persisted case-brief summary text (see CRIME_TYPES note).
 const SOURCES = [
-  { value: "iasc", label: "IASC" },
-  { value: "bank", label: "Bank" },
-  { value: "police", label: "Police report" },
-  { value: "walk_in", label: "Direct / walk-in" },
+  { value: "iasc", enLabel: "IASC" },
+  { value: "bank", enLabel: "Bank" },
+  { value: "police", enLabel: "Police report" },
+  { value: "walk_in", enLabel: "Direct / walk-in" },
 ];
 
 /** Current local date-time as "YYYY-MM-DDTHH:mm" for <input type=datetime-local>. */
@@ -60,13 +67,7 @@ function nowLocal() {
 // (Command Center is agency-wide — it lives in the sidebar, not the case flow.)
 type ToolTab = "overview" | "honeypot" | "bridge" | "investigation" | "actions";
 
-const TOOL_META: Record<ToolTab, { label: string; glyph: string }> = {
-  overview: { label: "Overview", glyph: "▤" },
-  honeypot: { label: "Infiltrate", glyph: "⬡" },
-  bridge: { label: "Trace", glyph: "⇌" },
-  investigation: { label: "Takedown", glyph: "◉" },
-  actions: { label: "Uncover", glyph: "⚑" },
-};
+// Tool labels come from i18n (see `toolMeta` in the caseFile namespace).
 
 // Which tool each stage's work happens in — the stage step opens this tool.
 // Recovery reviews THIS case (overview), not the agency-wide dashboard — that
@@ -84,43 +85,11 @@ const STAGE_TAB: Record<CaseStage, ToolTab> = {
 // What the workspace is currently showing: the case dashboard, or one stage's tool.
 type View = "overview" | CaseStage;
 
-const STAGE_LABEL: Record<CaseStage, string> = {
-  intake: "Intake",
-  freeze: "Freeze",
-  trace: "Trace",
-  takedown: "Takedown",
-  report: "Report",
-  recovery: "Recovery",
-  closed: "Closed",
-};
-
-const STAGE_HINT: Record<CaseStage, string> = {
-  intake: "Report / proactive intel in",
-  freeze: "Race to freeze receiving accounts",
-  trace: "Follow the money (fiat ↔ crypto)",
-  takedown: "Attribute + score the wallet network",
-  report: "Package evidence + file STR/LTKM",
-  recovery: "Recover funds",
-  closed: "Case done",
-};
-
-// One line of "what to do at this stage" — the single source of stage guidance.
-// (Replaces the per-panel guide strips; no more double banners.)
-const VIEW_GUIDE: Record<CaseStage, string> = {
-  intake:
-    "Log the submitted victim report, or run a honeypot — both feed this case.",
-  freeze:
-    "Emergency step: generate the account-blocking request and dispatch it before the money moves. The formal STR comes later, at Report.",
-  trace:
-    "Follow the money across the fiat→crypto bridge. Your accounts light up “in flow”; hand the exit wallets to Takedown.",
-  takedown:
-    "Score the wallets Trace surfaced to find the collection wallet. Click a node for the Glass Box reasoning, then package the risky ones.",
-  report:
-    "Formal filing: STR / LTKM to PPATK (goAML), the multi-agency alert and the evidence bundle — every artifact hashed into custody.",
-  recovery:
-    "Get the frozen funds back to the victim. Confirm the freeze landed, then record the outcome to close the case.",
-  closed: "Case closed — outcome recorded.",
-};
+// STAGE_LABEL, STAGE_HINT, and VIEW_GUIDE (one line of "what to do at this
+// stage" — the single source of stage guidance, replacing the per-panel guide
+// strips) all come from i18n now: `t(\`stageLabel.${stage}\`)`,
+// `t(\`stageHint.${stage}\`)`, `t(\`viewGuide.${stage}\`)` on the caseFile.page
+// namespace, keyed by the same CaseStage values.
 
 // Per-stage action: the task, the module to do it in, and the checklist that
 // ticks off from the case's actual rollup data.
@@ -133,72 +102,77 @@ type StageAction = {
   checks: Check[];
 };
 
-function stageAction(stage: CaseStage, r: CaseRollup | null): StageAction {
+function stageAction(
+  stage: CaseStage,
+  r: CaseRollup | null,
+  t: ReturnType<typeof useTranslations>,
+): StageAction {
   const documents = r?.counts.documents ?? 0;
   const banks = r?.counts.bank_accounts ?? 0;
   const txs = r?.counts.crypto_transfers ?? 0;
   const dispatched = (r?.documents ?? []).some((d) => d.status === "dispatched");
+  const sa = (key: CaseStage) => (k: string) => t(`stageAction.${key}.${k}`);
   const map: Record<CaseStage, StageAction> = {
     intake: {
-      task: "Surface the suspect accounts & wallets",
-      why: "Catch the lead — log the submitted victim report, or run a honeypot.",
+      task: sa("intake")("task"),
+      why: sa("intake")("why"),
       href: "/honeypot",
-      cta: "Open Intake",
+      cta: sa("intake")("cta"),
       checks: [
         // Either path (victim report or honeypot) satisfies intake — the real
         // requirement to move on is a captured suspect account or wallet.
-        { label: "Suspect account or wallet captured", done: banks + txs > 0 },
+        { label: sa("intake")("checkSuspectCaptured"), done: banks + txs > 0 },
       ],
     },
     freeze: {
-      task: "Generate & dispatch the freeze request",
-      why: "Race to freeze the receiving accounts before the money moves.",
+      task: sa("freeze")("task"),
+      why: sa("freeze")("why"),
       href: "/actions",
-      cta: "Open Action Panel",
+      cta: sa("freeze")("cta"),
       checks: [
-        { label: "Freeze document generated", done: documents > 0 },
-        { label: "Dispatched to bank / exchange", done: dispatched },
+        { label: sa("freeze")("checkDocGenerated"), done: documents > 0 },
+        { label: sa("freeze")("checkDispatched"), done: dispatched },
       ],
     },
     trace: {
-      task: "Trace the money flow (fiat ↔ crypto)",
-      why: "Map where the funds went and find the mule accounts.",
+      task: sa("trace")("task"),
+      why: sa("trace")("why"),
       href: "/bridge",
-      cta: "Open Bridge",
+      cta: sa("trace")("cta"),
       checks: [
-        { label: "Bank account tracked", done: banks > 0 },
-        { label: "Crypto transfer logged", done: txs > 0 },
+        { label: sa("trace")("checkBankTracked"), done: banks > 0 },
+        { label: sa("trace")("checkTxLogged"), done: txs > 0 },
       ],
     },
     takedown: {
-      task: "Score the wallet network",
-      why: "Identify collection wallets and the syndicate behind them.",
+      task: sa("takedown")("task"),
+      why: sa("takedown")("why"),
       href: "/investigation",
-      cta: "Open Investigation",
-      checks: [{ label: "Wallet in the graph", done: txs > 0 }],
+      cta: sa("takedown")("cta"),
+      checks: [{ label: sa("takedown")("checkWalletInGraph"), done: txs > 0 }],
     },
     report: {
-      task: "File the STR / LTKM to PPATK",
-      why: "Package court-admissible evidence and report it.",
+      task: sa("report")("task"),
+      why: sa("report")("why"),
       href: "/actions",
-      cta: "Open Action Panel",
+      cta: sa("report")("cta"),
       checks: [
-        { label: "Document bundle generated", done: documents > 0 },
-        { label: "Dispatched to agencies", done: dispatched },
+        { label: sa("report")("checkBundleGenerated"), done: documents > 0 },
+        { label: sa("report")("checkDispatchedAgencies"), done: dispatched },
       ],
     },
     recovery: {
-      task: "Track fund recovery",
-      why: "Coordinate returning the frozen funds to victims.",
+      task: sa("recovery")("task"),
+      why: sa("recovery")("why"),
       href: "/case",
-      cta: "Review recovery",
-      checks: [{ label: "Freeze dispatched", done: dispatched }],
+      cta: sa("recovery")("cta"),
+      checks: [{ label: sa("recovery")("checkFreezeDispatched"), done: dispatched }],
     },
     closed: {
-      task: "Case closed",
-      why: "Outcome recorded — nothing more to do.",
+      task: sa("closed")("task"),
+      why: sa("closed")("why"),
       href: "/case",
-      cta: "Review case",
+      cta: sa("closed")("cta"),
       checks: [],
     },
   };
@@ -222,6 +196,7 @@ function StageFlow({
   view: View; // what's open (drives selection)
   onView: (v: View) => void;
 }) {
+  const t = useTranslations("caseFile.page");
   const idx = CASE_STAGES.indexOf(stage);
   // Closed is a STATUS, not a clickable work step — render the doing-stages as
   // steps and Closed as an end-marker.
@@ -230,11 +205,15 @@ function StageFlow({
   return (
     <div className="rounded-card border border-line bg-card p-3.5">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <div className="eyebrow">Case workflow</div>
+        <div className="eyebrow">{t("stageFlow.eyebrow")}</div>
         <div className="text-[10.5px] text-muted">
           {isClosed
-            ? "Case closed"
-            : `${STAGE_LABEL[stage]} · step ${idx + 1} of ${workflow.length} — click a step to work on it`}
+            ? t("stageFlow.caseClosed")
+            : t("stageFlow.stepOf", {
+                stage: t(`stageLabel.${stage}`),
+                current: idx + 1,
+                total: workflow.length,
+              })}
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
@@ -250,7 +229,7 @@ function StageFlow({
           }`}
         >
           <span aria-hidden>▤</span>
-          Overview
+          {t("stageFlow.overview")}
         </button>
         <span className="mx-1 h-5 w-px bg-line" aria-hidden />
         {workflow.map((s, i) => {
@@ -260,16 +239,20 @@ function StageFlow({
           const tool = STAGE_TAB[s];
           const opensLabel =
             s === "intake"
-              ? "Victim report or Honeypot"
+              ? t("opensVictimReportOrHoneypot")
               : s === "recovery"
-                ? "Recovery review"
-                : TOOL_META[tool].label;
+                ? t("opensRecoveryReview")
+                : t(`toolMeta.${tool}`);
           return (
             <div key={s} className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => onView(s)}
-                title={`${STAGE_LABEL[s]} — ${STAGE_HINT[s]} · opens ${opensLabel}`}
+                title={t("stageFlow.stepTitle", {
+                  stage: t(`stageLabel.${s}`),
+                  hint: t(`stageHint.${s}`),
+                  opens: opensLabel,
+                })}
                 aria-current={selected ? "page" : current ? "step" : undefined}
                 className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-medium transition-colors ${
                   selected
@@ -292,10 +275,10 @@ function StageFlow({
                 >
                   {past ? "✓" : i + 1}
                 </span>
-                {STAGE_LABEL[s]}
+                {t(`stageLabel.${s}`)}
                 {current && (
                   <span className="text-[8.5px] font-bold uppercase tracking-wide text-accent-bright/80">
-                    now
+                    {t("stageFlow.now")}
                   </span>
                 )}
               </button>
@@ -311,7 +294,7 @@ function StageFlow({
         {/* Closed — a status marker, not a clickable step */}
         <span className="mx-1 h-5 w-px bg-line" aria-hidden />
         <div
-          title={isClosed ? "Case closed" : "Set from the Recovery step or the Close case button"}
+          title={isClosed ? t("stageFlow.closedTitle") : t("stageFlow.closedSetFromTitle")}
           className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-medium ${
             isClosed
               ? "border-accent/50 bg-accent/10 text-accent-bright"
@@ -325,7 +308,7 @@ function StageFlow({
           >
             {isClosed ? "✓" : "•"}
           </span>
-          Closed
+          {t("stageFlow.closed")}
         </div>
       </div>
     </div>
@@ -345,7 +328,8 @@ function StageNav({
   rollup: CaseRollup | null;
   onGo: (s: CaseStage) => void;
 }) {
-  const a = stageAction(stage, rollup);
+  const t = useTranslations("caseFile.page");
+  const a = stageAction(stage, rollup, t);
   const idx = CASE_STAGES.indexOf(stage);
   const prevStage = idx > 0 ? CASE_STAGES[idx - 1] : undefined;
   const nextStage = CASE_STAGES[idx + 1];
@@ -364,7 +348,7 @@ function StageNav({
       {showBlock && !allDone && nextStage && (
         <div className="mb-2 rounded-lg border border-risk-med/30 bg-risk-med/10 px-3 py-2.5 text-[11px]">
           <div className="mb-1 font-semibold text-risk-med">
-            Finish these before {STAGE_LABEL[nextStage]}:
+            {t("stageNav.finishBefore", { stage: t(`stageLabel.${nextStage}`) })}
           </div>
           <ul className="space-y-0.5">
             {missing.map((m) => (
@@ -379,7 +363,7 @@ function StageNav({
             onClick={() => onGo(nextStage)}
             className="mt-2 text-[10.5px] font-semibold text-muted hover:text-fg hover:underline"
           >
-            Advance anyway →
+            {t("stageNav.advanceAnyway")}
           </button>
         </div>
       )}
@@ -390,20 +374,26 @@ function StageNav({
             onClick={() => onGo(prevStage)}
             className="rounded-lg border border-line px-2.5 py-1.5 text-[11.5px] font-medium text-muted transition-colors hover:text-fg"
           >
-            ← {STAGE_LABEL[prevStage]}
+            {t("stageNav.back", { stage: t(`stageLabel.${prevStage}`) })}
           </button>
         ) : (
           <span />
         )}
         {nextStage === "closed" ? (
           <span className="text-[11px] text-muted">
-            Close via <b className="text-white/70">Record outcome</b> in Recovery
+            {t.rich("stageNav.closeViaRecovery", {
+              b: (chunks) => <b className="text-white/70">{chunks}</b>,
+            })}
           </span>
         ) : nextStage ? (
           <button
             type="button"
             onClick={tryNext}
-            title={allDone ? `Advance to ${STAGE_LABEL[nextStage]}` : "Some steps are still open"}
+            title={
+              allDone
+                ? t("stageNav.advanceTo", { stage: t(`stageLabel.${nextStage}`) })
+                : t("stageNav.someStepsOpen")
+            }
             className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[11.5px] font-semibold transition-colors ${
               allDone
                 ? "bg-accent text-[#04140d] hover:bg-accent-bright"
@@ -411,7 +401,7 @@ function StageNav({
             }`}
           >
             {allDone && <span aria-hidden>✓</span>}
-            Next: {STAGE_LABEL[nextStage]} →
+            {t("stageNav.next", { stage: t(`stageLabel.${nextStage}`) })}
           </button>
         ) : (
           <span />
@@ -435,7 +425,8 @@ function NextAction({
   onFreeze: () => void;
   onOpen: () => void;
 }) {
-  const a = stageAction(stage, rollup);
+  const t = useTranslations("caseFile.page");
+  const a = stageAction(stage, rollup, t);
   // The time-critical shortcut: on Intake, jump straight to the freeze desk
   // once there's an account to block (on Freeze the main CTA already goes there).
   const canFreeze = stage === "intake" && (rollup?.counts.bank_accounts ?? 0) > 0;
@@ -444,7 +435,7 @@ function NextAction({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="eyebrow mb-1 text-accent-bright">
-            Now: {STAGE_LABEL[stage]}
+            {t("nextAction.now", { stage: t(`stageLabel.${stage}`) })}
           </div>
           <div className="text-[14px] font-semibold text-fg">{a.task}</div>
           <p className="mt-0.5 text-[11.5px] text-muted">{a.why}</p>
@@ -456,7 +447,7 @@ function NextAction({
               onClick={onFreeze}
               className="h-8 whitespace-nowrap rounded-lg border border-risk-high/50 bg-risk-high/15 px-3.5 text-xs font-semibold text-risk-high transition-colors hover:bg-risk-high/25"
             >
-              ⚡ Freeze now →
+              {t("nextAction.freezeNow")}
             </button>
           )}
           <button
@@ -513,6 +504,7 @@ function CardShell({
   adding: boolean;
   children: React.ReactNode;
 }) {
+  const t = useTranslations("caseFile.page");
   return (
     <div className="rounded-card border border-line bg-card">
       <div className="flex items-center justify-between border-b border-line px-3.5 py-2.5">
@@ -525,10 +517,10 @@ function CardShell({
             onClick={onAddToggle}
             className="text-[11px] font-semibold text-accent-bright hover:underline"
           >
-            {adding ? "Cancel" : "+ Add"}
+            {adding ? t("cardShell.cancel") : t("cardShell.add")}
           </button>
           <button type="button" onClick={onOpen} className="text-[11px] text-muted hover:text-fg">
-            {openLabel} →
+            {t("cardShell.openArrow", { label: openLabel })}
           </button>
         </div>
       </div>
@@ -595,6 +587,7 @@ function CaseSessions({
   sessions: CaseSessionSummary[];
   onOpenHoneypot: () => void;
 }) {
+  const t = useTranslations("caseFile.page");
   // One row open at a time — keeps this half-width card from growing unbounded.
   const [openId, setOpenId] = useState<string | null>(null);
   // Transcripts are fetched on first expand and cached per session.
@@ -607,20 +600,20 @@ function CaseSessions({
     }
     setOpenId(id);
     if (transcripts[id]?.status === "ready") return; // cached — no refetch
-    setTranscripts((t) => ({ ...t, [id]: { status: "loading" } }));
+    setTranscripts((prev) => ({ ...prev, [id]: { status: "loading" } }));
     void fetchSessionTranscript(id)
       .then((r) =>
-        setTranscripts((t) => ({
-          ...t,
+        setTranscripts((prev) => ({
+          ...prev,
           [id]: { status: "ready", session: r.session, messages: r.messages },
         })),
       )
       .catch((e: unknown) =>
-        setTranscripts((t) => ({
-          ...t,
+        setTranscripts((prev) => ({
+          ...prev,
           [id]: {
             status: "error",
-            message: e instanceof Error ? e.message : "could not load transcript",
+            message: e instanceof Error ? e.message : t("caseSessions.transcriptErrorFallback"),
           },
         })),
       );
@@ -629,19 +622,19 @@ function CaseSessions({
   return (
     <div className="rounded-card border border-line bg-card">
       <div className="flex items-center justify-between border-b border-line px-3.5 py-2.5">
-        <span className="eyebrow">Calls &amp; conversations · {sessions.length}</span>
+        <span className="eyebrow">{t("caseSessions.eyebrow", { count: sessions.length })}</span>
         <button
           type="button"
           onClick={onOpenHoneypot}
           className="text-[11px] text-accent-bright hover:underline"
         >
-          Honeypot →
+          {t("caseSessions.honeypotLink")}
         </button>
       </div>
       <div className="p-2">
         {sessions.length === 0 ? (
           <p className="px-1.5 py-2 text-[11px] text-muted">
-            None yet — start a call from the Honeypot with this case active.
+            {t("caseSessions.empty")}
           </p>
         ) : (
           <ul className="space-y-1">
@@ -664,10 +657,10 @@ function CaseSessions({
                       <span className="flex flex-wrap items-center gap-x-1.5">
                         {voice && (
                           <span
-                            title="Voice call"
+                            title={t("caseSessions.voiceCallTitle")}
                             className="rounded border border-accent/[.22] bg-accent/10 px-1 py-px font-mono text-[9.5px] uppercase tracking-[.06em] text-accent-bright"
                           >
-                            ☎ call
+                            {t("caseSessions.voiceCallBadge")}
                           </span>
                         )}
                         <span className="font-mono text-fg">{s.channel_ref || s.channel}</span>
@@ -682,10 +675,10 @@ function CaseSessions({
                   {open && (
                     <div className="border-t border-line px-2 pb-2 pt-2">
                       {!tr || tr.status === "loading" ? (
-                        <p className="px-1.5 py-2 text-[11px] text-muted">Loading transcript…</p>
+                        <p className="px-1.5 py-2 text-[11px] text-muted">{t("caseSessions.loadingTranscript")}</p>
                       ) : tr.status === "error" ? (
                         <p className="px-1.5 py-2 text-[11px] text-risk-high">
-                          ✗ {tr.message} — open it in the Honeypot console instead.
+                          ✗ {tr.message} {t("caseSessions.transcriptErrorSuffix")}
                         </p>
                       ) : (
                         <ChatTranscript
@@ -731,6 +724,7 @@ function IntakeStage({
   /** Trace a honeypot-surfaced wallet in the case's Takedown tab. */
   onTraceWallet: (addr: string) => void;
 }) {
+  const t = useTranslations("caseFile.page");
   const [mode, setMode] = useState<"report" | "honeypot">("report");
   const [form, setForm] = useState({ bank_name: "", account_number: "", holder_name: "" });
   const [crimeType, setCrimeType] = useState(
@@ -756,8 +750,11 @@ function IntakeStage({
     }
   };
 
-  const sourceLabel = SOURCES.find((s) => s.value === source)?.label ?? source;
-  const crimeLabel = CRIME_TYPES.find((c) => c.value === crimeType)?.label ?? crimeType;
+  // Note: this label/summary text is written into the case's persisted brief
+  // (`summary`, saved via onSaveReport below) — that's case DATA, not UI
+  // chrome, so it stays as authored English regardless of the UI locale.
+  const sourceLabel = SOURCES.find((s) => s.value === source)?.enLabel ?? source;
+  const crimeLabel = CRIME_TYPES.find((c) => c.value === crimeType)?.enLabel ?? crimeType;
   const amountPretty = amount.trim() ? `Rp ${Number(amount).toLocaleString("id-ID")}` : "";
 
   const submit = async (e: React.FormEvent) => {
@@ -785,7 +782,7 @@ function IntakeStage({
       await onLogged();
       onDone(freezeNow);
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Failed to log the report");
+      setErr(e2 instanceof Error ? e2.message : t("intake.errorFallback"));
     } finally {
       setBusy(false);
     }
@@ -821,17 +818,17 @@ function IntakeStage({
     <div>
       {/* how did this case come in? */}
       <div className="mb-3.5 rounded-card border border-line bg-card p-3.5">
-        <div className="eyebrow mb-2">How did this case come in?</div>
+        <div className="eyebrow mb-2">{t("intake.howDidThisComeIn")}</div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <ModeCard
             id="report"
-            title="① Victim report — case submitted"
-            sub="Reactive: a report from IASC, a bank, or police. Log the receiving account and freeze fast."
+            title={t("intake.modeReportTitle")}
+            sub={t("intake.modeReportSub")}
           />
           <ModeCard
             id="honeypot"
-            title="② Honeypot — proactive"
-            sub="Our AI persona baits the scammer and extracts the receiving accounts & wallets."
+            title={t("intake.modeHoneypotTitle")}
+            sub={t("intake.modeHoneypotSub")}
           />
         </div>
       </div>
@@ -841,8 +838,8 @@ function IntakeStage({
           <form onSubmit={submit} className="space-y-4 rounded-card border border-line bg-card p-4">
             {/* the report */}
             <div>
-              <div className="eyebrow mb-2">The report</div>
-              <label className="mb-1 block text-[11px] font-medium text-muted">Scam type</label>
+              <div className="eyebrow mb-2">{t("intake.theReport")}</div>
+              <label className="mb-1 block text-[11px] font-medium text-muted">{t("intake.scamType")}</label>
               <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {CRIME_TYPES.map((c) => {
                   const on = crimeType === c.value;
@@ -859,13 +856,13 @@ function IntakeStage({
                       }`}
                     >
                       <span aria-hidden className="text-[13px]">{c.glyph}</span>
-                      {c.label}
+                      {t(`crimeTypes.${c.value}`)}
                     </button>
                   );
                 })}
               </div>
 
-              <label className="mb-1 block text-[11px] font-medium text-muted">Reported via</label>
+              <label className="mb-1 block text-[11px] font-medium text-muted">{t("intake.reportedVia")}</label>
               <div className="mb-3 flex flex-wrap gap-1.5">
                 {SOURCES.map((s) => {
                   const on = source === s.value;
@@ -881,7 +878,7 @@ function IntakeStage({
                           : "border-line bg-elevated text-muted hover:text-fg"
                       }`}
                     >
-                      {s.label}
+                      {t(`sources.${s.value}`)}
                     </button>
                   );
                 })}
@@ -889,9 +886,9 @@ function IntakeStage({
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-[11px] font-medium text-muted">Amount lost (IDR)</label>
+                  <label className="mb-1 block text-[11px] font-medium text-muted">{t("intake.amountLost")}</label>
                   <input className={fieldCls} type="number" min="0" inputMode="numeric"
-                    placeholder="e.g. 25000000" value={amount}
+                    placeholder={t("intake.amountPlaceholder")} value={amount}
                     onChange={(e) => setAmount(e.target.value)} />
                   {amountPretty && (
                     <div className="mt-1 font-mono text-[11px] text-accent-bright">{amountPretty}</div>
@@ -899,16 +896,16 @@ function IntakeStage({
                 </div>
                 <div>
                   <div className="mb-1 flex items-center justify-between">
-                    <label className="text-[11px] font-medium text-muted">When it happened</label>
+                    <label className="text-[11px] font-medium text-muted">{t("intake.whenItHappened")}</label>
                     <button type="button" onClick={() => setIncidentAt(nowLocal())}
-                      className="text-[10.5px] font-semibold text-accent-bright hover:underline">Now</button>
+                      className="text-[10.5px] font-semibold text-accent-bright hover:underline">{t("intake.now")}</button>
                   </div>
                   <div className="relative">
                     <input ref={dateRef}
                       className={`${fieldCls} cursor-pointer pr-9 [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:opacity-0`}
                       type="datetime-local" max={nowLocal()} value={incidentAt}
                       onChange={(e) => setIncidentAt(e.target.value)} onClick={openPicker} />
-                    <button type="button" onClick={openPicker} aria-label="Open calendar" tabIndex={-1}
+                    <button type="button" onClick={openPicker} aria-label={t("intake.openCalendar")} tabIndex={-1}
                       className="absolute right-2 top-1/2 -translate-y-1/2 text-[13px] text-muted transition-colors hover:text-accent-bright">📅</button>
                   </div>
                 </div>
@@ -917,13 +914,13 @@ function IntakeStage({
 
             {/* receiving account */}
             <div className="border-t border-line pt-3.5">
-              <div className="eyebrow mb-2">Receiving account <span className="font-normal normal-case text-muted">· the account you freeze</span></div>
+              <div className="eyebrow mb-2">{t("intake.receivingAccount")} <span className="font-normal normal-case text-muted">{t("intake.receivingAccountHint")}</span></div>
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-                <input required placeholder="Bank (e.g. BCA)" className={fieldCls}
+                <input required placeholder={t("intake.bankPlaceholder")} className={fieldCls}
                   value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} />
-                <input required placeholder="Account number" className={fieldCls}
+                <input required placeholder={t("intake.accountNumberPlaceholder")} className={fieldCls}
                   value={form.account_number} onChange={(e) => setForm({ ...form, account_number: e.target.value })} />
-                <input placeholder="Holder name (optional)" className={fieldCls}
+                <input placeholder={t("intake.holderNamePlaceholder")} className={fieldCls}
                   value={form.holder_name} onChange={(e) => setForm({ ...form, holder_name: e.target.value })} />
               </div>
             </div>
@@ -931,11 +928,11 @@ function IntakeStage({
             {/* context */}
             <div className="border-t border-line pt-3.5">
               <label className="mb-1 block text-[11px] font-medium text-muted">
-                What happened <span className="text-muted">· optional, goes into the case brief</span>
+                {t("intake.whatHappened")} <span className="text-muted">{t("intake.whatHappenedHint")}</span>
               </label>
               <textarea
                 className="min-h-[64px] w-full rounded-lg border border-white/10 bg-card px-3 py-2 text-[13px] leading-relaxed text-fg outline-none placeholder:text-muted focus:border-accent/40"
-                placeholder="How the victim was contacted, promises made, transfers sent…"
+                placeholder={t("intake.whatHappenedPlaceholder")}
                 value={description} onChange={(e) => setDescription(e.target.value)} />
             </div>
 
@@ -943,9 +940,8 @@ function IntakeStage({
               <input type="checkbox" checked={freezeNow} onChange={(e) => setFreezeNow(e.target.checked)}
                 className="h-4 w-4 accent-[#10b981]" />
               <span className="text-[12px] text-fg">
-                <b className="text-accent-bright">Continue to the freeze desk now</b> — jump
-                straight to generating &amp; dispatching the blocking request (the real
-                30-min window). Freeze first, trace later.
+                <b className="text-accent-bright">{t("intake.continueToFreezeLabel")}</b>{" "}
+                {t("intake.continueToFreezeRest")}
               </span>
             </label>
 
@@ -957,18 +953,18 @@ function IntakeStage({
 
             <button type="submit" disabled={busy}
               className="h-9 w-full rounded-lg bg-accent px-4 text-xs font-semibold text-[#04140d] transition-colors hover:bg-accent-bright disabled:opacity-60">
-              {busy ? "Working…" : freezeNow ? "Log report & continue to Freeze →" : "Log report →"}
+              {busy ? t("intake.working") : freezeNow ? t("intake.logAndContinue") : t("intake.logReport")}
             </button>
           </form>
 
           <div className="rounded-card border border-line bg-card">
             <div className="border-b border-line px-3.5 py-2.5">
-              <span className="eyebrow">Reported accounts · {banks.length}</span>
+              <span className="eyebrow">{t("intake.reportedAccountsEyebrow", { count: banks.length })}</span>
             </div>
             <div className="p-2">
               {banks.length === 0 ? (
                 <p className="px-1.5 py-2 text-[11px] text-muted">
-                  None logged yet — add the receiving account from the report.
+                  {t("intake.noneLoggedYet")}
                 </p>
               ) : (
                 <ul className="space-y-1">
@@ -1004,12 +1000,13 @@ function RecoveryStage({
     patch: Partial<Pick<Case, "summary" | "status" | "stage">>,
   ) => Promise<void>;
 }) {
+  const t = useTranslations("caseFile.page");
   const docs = rollup?.documents ?? [];
   const txs = rollup?.crypto_transfers ?? [];
   const banks = rollup?.bank_accounts ?? [];
   const dispatched = docs.some((d) => d.status === "dispatched");
   const dispatchedCount = docs.filter((d) => d.status === "dispatched").length;
-  const cryptoExposure = txs.reduce((s, t) => s + Number(t.value ?? 0), 0);
+  const cryptoExposure = txs.reduce((sum, tx) => sum + Number(tx.value ?? 0), 0);
   const closed = caseData.status === "closed";
 
   const [amount, setAmount] = useState("");
@@ -1018,15 +1015,18 @@ function RecoveryStage({
   const [err, setErr] = useState<string | null>(null);
 
   const checklist = [
-    { label: "Freeze request generated", done: docs.length > 0 },
-    { label: "Freeze dispatched to bank / exchange", done: dispatched },
-    { label: "Outcome recorded & case closed", done: closed },
+    { label: t("recovery.checklist.freezeGenerated"), done: docs.length > 0 },
+    { label: t("recovery.checklist.freezeDispatched"), done: dispatched },
+    { label: t("recovery.checklist.outcomeRecorded"), done: closed },
   ];
 
   const recordOutcome = async () => {
     setBusy(true);
     setErr(null);
     try {
+      // Note: this outcome line is written into the case's persisted brief
+      // (`summary`) — that's case DATA, not UI chrome, so it stays as
+      // authored English regardless of the UI locale.
       const amt = amount.trim()
         ? `Rp ${Number(amount).toLocaleString("id-ID")}`
         : "an unspecified amount";
@@ -1036,7 +1036,7 @@ function RecoveryStage({
       const summary = `${base}${base ? "\n\n" : ""}— Outcome: ${line}`;
       await onUpdate({ summary, status: "closed", stage: "closed" });
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Failed to record the outcome");
+      setErr(e instanceof Error ? e.message : t("recovery.errorFallback"));
     } finally {
       setBusy(false);
     }
@@ -1046,19 +1046,19 @@ function RecoveryStage({
     <div>
       <div className="mb-3.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <StatTile
-          label="Crypto exposure"
+          label={t("recovery.cryptoExposure")}
           value={cryptoExposure > 0 ? `${cryptoExposure.toLocaleString()} USDT` : "—"}
           accent
         />
-        <StatTile label="Accounts tracked" value={banks.length} />
-        <StatTile label="Freeze requests" value={docs.length} />
-        <StatTile label="Dispatched" value={dispatchedCount} />
+        <StatTile label={t("recovery.accountsTracked")} value={banks.length} />
+        <StatTile label={t("recovery.freezeRequests")} value={docs.length} />
+        <StatTile label={t("recovery.dispatched")} value={dispatchedCount} />
       </div>
 
       <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
         {/* checklist */}
         <div className="rounded-card border border-line bg-card p-3.5">
-          <div className="eyebrow mb-2.5">Recovery checklist</div>
+          <div className="eyebrow mb-2.5">{t("recovery.checklistTitle")}</div>
           <ul className="space-y-2">
             {checklist.map((c) => (
               <li key={c.label} className="flex items-center gap-2 text-[12px]">
@@ -1078,7 +1078,7 @@ function RecoveryStage({
           {dispatched ? (
             <div className="mt-3 border-t border-line pt-2.5">
               <div className="mb-1.5 text-[10px] uppercase tracking-wide text-muted">
-                Dispatched to agencies
+                {t("recovery.dispatchedToAgencies")}
               </div>
               <ul className="space-y-1">
                 {docs
@@ -1088,9 +1088,9 @@ function RecoveryStage({
                       key={d.id}
                       className="flex items-center justify-between rounded-lg bg-elevated px-2.5 py-1.5 text-[11px]"
                     >
-                      <span className="font-mono text-fg">{d.document_count} docs</span>
+                      <span className="font-mono text-fg">{t("recovery.docsCount", { count: d.document_count })}</span>
                       <span className="text-[10px] text-accent-bright">
-                        {d.crime_type} · dispatched
+                        {d.crime_type} · {t("recovery.dispatchedLabel")}
                       </span>
                     </li>
                   ))}
@@ -1098,47 +1098,46 @@ function RecoveryStage({
             </div>
           ) : (
             <p className="mt-3 text-[11px] text-muted">
-              No freeze dispatched yet — generate &amp; dispatch it from the
-              Freeze / Report step first.
+              {t("recovery.noFreezeYet")}
             </p>
           )}
         </div>
 
         {/* outcome */}
         <div className="rounded-card border border-line bg-card p-3.5">
-          <div className="eyebrow mb-2.5">Record outcome</div>
+          <div className="eyebrow mb-2.5">{t("recovery.recordOutcomeTitle")}</div>
           {closed ? (
             <div>
               <p className="rounded-lg border border-accent/30 bg-accent/[.06] px-3 py-2 text-[12px] text-fg">
-                ✓ Case closed — the outcome is recorded in the case brief.
+                {t("recovery.closedNotice")}
               </p>
               <button
                 type="button"
                 onClick={() => void onUpdate({ status: "open", stage: "recovery" })}
                 className="mt-2.5 h-8 rounded-lg border border-white/10 bg-elevated px-3 text-[11.5px] font-semibold text-muted transition-colors hover:text-fg"
               >
-                Reopen case
+                {t("recovery.reopenCase")}
               </button>
             </div>
           ) : (
             <div className="space-y-2.5">
               <div>
                 <label className="mb-1 block text-[11px] text-muted">
-                  Recovered amount (IDR)
+                  {t("recovery.recoveredAmountLabel")}
                 </label>
                 <input
                   type="number"
                   min="0"
-                  placeholder="e.g. 18000000"
+                  placeholder={t("recovery.recoveredAmountPlaceholder")}
                   className={fieldCls}
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                 />
               </div>
               <div>
-                <label className="mb-1 block text-[11px] text-muted">Note (optional)</label>
+                <label className="mb-1 block text-[11px] text-muted">{t("recovery.noteLabel")}</label>
                 <input
-                  placeholder="e.g. BCA froze Rp 18M, returned to victim"
+                  placeholder={t("recovery.notePlaceholder")}
                   className={fieldCls}
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
@@ -1151,7 +1150,7 @@ function RecoveryStage({
                 onClick={() => void recordOutcome()}
                 className="h-9 w-full rounded-lg bg-accent px-4 text-xs font-semibold text-[#04140d] transition-colors hover:bg-accent-bright disabled:opacity-60"
               >
-                {busy ? "Saving…" : "Record outcome & close case"}
+                {busy ? t("recovery.saving") : t("recovery.recordOutcomeAndClose")}
               </button>
             </div>
           )}
@@ -1162,6 +1161,7 @@ function RecoveryStage({
 }
 
 export default function CaseFilePage() {
+  const t = useTranslations("caseFile.page");
   const { activeCase, advanceStage, updateCase, createCase } = useCases();
   const [rollup, setRollup] = useState<CaseRollup | null>(null);
   const [view, setView] = useState<View>("overview");
@@ -1233,7 +1233,7 @@ export default function CaseFilePage() {
       setAddingBank(false);
       await load();
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Failed to add account");
+      setErr(e2 instanceof Error ? e2.message : t("overview.errorFallbackBank"));
     } finally {
       setBusy(false);
     }
@@ -1258,7 +1258,7 @@ export default function CaseFilePage() {
       setAddingTx(false);
       await load();
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Failed to add transfer");
+      setErr(e2 instanceof Error ? e2.message : t("overview.errorFallbackTx"));
     } finally {
       setBusy(false);
     }
@@ -1270,19 +1270,18 @@ export default function CaseFilePage() {
     setView(v);
   };
   // Open the tool for a stage, given the tool id (used by the rollup cards).
-  const openTool = (t: ToolTab, addr?: string) => {
-    const stage = (Object.keys(STAGE_TAB) as CaseStage[]).find((s) => STAGE_TAB[s] === t);
-    openView(t === "overview" || !stage ? "overview" : stage, addr);
+  const openTool = (tool: ToolTab, addr?: string) => {
+    const stage = (Object.keys(STAGE_TAB) as CaseStage[]).find((s) => STAGE_TAB[s] === tool);
+    openView(tool === "overview" || !stage ? "overview" : stage, addr);
   };
 
   // No active case → prompt to open one.
   if (!activeCase) {
     return (
       <div className="mx-auto max-w-[560px] pt-10 text-center">
-        <h1 className="text-xl font-bold tracking-tight">No case selected</h1>
+        <h1 className="text-xl font-bold tracking-tight">{t("noCase.title")}</h1>
         <p className="mx-auto mt-1 max-w-[46ch] text-xs text-muted">
-          A case is the file every investigation hangs off — accounts, wallets,
-          honeypot sessions and documents all attach to it. Open one to begin.
+          {t("noCase.body")}
         </p>
         <form
           onSubmit={(e) => {
@@ -1294,19 +1293,20 @@ export default function CaseFilePage() {
           <input
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
-            placeholder="Case title (e.g. PT A2Z syndicate)"
+            placeholder={t("noCase.titlePlaceholder")}
             className="h-9 flex-1 rounded-lg border border-white/10 bg-card px-3 text-[13px] text-fg outline-none focus:border-accent/40"
           />
           <button
             type="submit"
             className="h-9 rounded-lg bg-accent px-4 text-xs font-semibold text-[#04140d] hover:bg-accent-bright"
           >
-            Open case
+            {t("noCase.openCase")}
           </button>
         </form>
         <div className="mt-3 text-[11.5px] text-muted">
-          Opening a case lands you on the <b className="text-white/60">Intake</b> stage —
-          log the victim report, capture the receiving account, and freeze it in one step.
+          {t.rich("noCase.hint", {
+            b: (chunks) => <b className="text-white/60">{chunks}</b>,
+          })}
         </div>
       </div>
     );
@@ -1321,7 +1321,7 @@ export default function CaseFilePage() {
   const caseWallets = Array.from(
     new Set(
       txs
-        .flatMap((t) => [String(t.from_addr), String(t.to_addr)])
+        .flatMap((tx) => [String(tx.from_addr), String(tx.to_addr)])
         .filter((a) => a && a.length >= 4),
     ),
   );
@@ -1332,17 +1332,17 @@ export default function CaseFilePage() {
   const viewTool = view === "overview" ? "overview" : STAGE_TAB[view];
   const viewToolLabel =
     view === "intake"
-      ? "Victim report or Honeypot"
+      ? t("opensVictimReportOrHoneypot")
       : view === "recovery"
-        ? "Recovery review"
-        : TOOL_META[viewTool].label;
+        ? t("opensRecoveryReview")
+        : t(`toolMeta.${viewTool}`);
 
   return (
     <div className={`mx-auto ${viewTool === "overview" ? "max-w-[1000px]" : "max-w-[1320px]"}`}>
       {/* header */}
       <div className="mb-4">
         <div className="mb-1 flex items-center justify-between gap-3">
-          <div className="eyebrow">Case file</div>
+          <div className="eyebrow">{t("header.eyebrow")}</div>
           <div className="flex items-center gap-2">
             {!editing && (
               <button
@@ -1357,7 +1357,7 @@ export default function CaseFilePage() {
                 }}
                 className="h-7 rounded-lg border border-white/10 bg-elevated px-2.5 text-[11px] font-semibold text-muted transition-colors hover:text-fg"
               >
-                ✎ Edit
+                {t("header.edit")}
               </button>
             )}
             <button
@@ -1374,7 +1374,7 @@ export default function CaseFilePage() {
                   : "border-white/10 bg-elevated text-muted hover:text-fg"
               }`}
             >
-              {activeCase.status === "closed" ? "Reopen case" : "Close case"}
+              {activeCase.status === "closed" ? t("header.reopenCase") : t("header.closeCase")}
             </button>
           </div>
         </div>
@@ -1385,19 +1385,19 @@ export default function CaseFilePage() {
               className="mb-2 h-9 w-full rounded-lg border border-white/10 bg-elevated px-3 text-[15px] font-semibold text-fg outline-none focus:border-accent/40"
               value={draft.title}
               onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-              placeholder="Case title"
+              placeholder={t("header.titlePlaceholder")}
             />
             <input
               className="mb-2 h-8 w-full rounded-lg border border-white/10 bg-elevated px-3 text-[12px] text-fg outline-none focus:border-accent/40"
               value={draft.crime_type}
               onChange={(e) => setDraft({ ...draft, crime_type: e.target.value })}
-              placeholder="Crime type (e.g. investment_scam)"
+              placeholder={t("header.crimeTypePlaceholder")}
             />
             <textarea
               className="mb-2.5 min-h-[64px] w-full rounded-lg border border-white/10 bg-elevated px-3 py-2 text-[12px] text-fg outline-none focus:border-accent/40"
               value={draft.summary}
               onChange={(e) => setDraft({ ...draft, summary: e.target.value })}
-              placeholder="Case brief / notes — what happened, amounts, context…"
+              placeholder={t("header.summaryPlaceholder")}
             />
             <div className="flex justify-end gap-2">
               <button
@@ -1405,7 +1405,7 @@ export default function CaseFilePage() {
                 onClick={() => setEditing(false)}
                 className="h-8 rounded-lg border border-line px-3 text-[11.5px] text-muted hover:text-fg"
               >
-                Cancel
+                {t("header.cancel")}
               </button>
               <button
                 type="button"
@@ -1419,7 +1419,7 @@ export default function CaseFilePage() {
                 }}
                 className="h-8 rounded-lg bg-accent px-3.5 text-[11.5px] font-semibold text-[#04140d] hover:bg-accent-bright"
               >
-                Save
+                {t("header.save")}
               </button>
             </div>
           </div>
@@ -1464,9 +1464,9 @@ export default function CaseFilePage() {
       {view !== "overview" && (
         <div className="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-1.5 rounded-lg border border-accent/20 bg-accent/[.05] px-3 py-2">
           <p className="min-w-0 flex-1 text-[11.5px] leading-relaxed text-muted">
-            <b className="text-accent-bright">{STAGE_LABEL[view]}</b>{" "}
+            <b className="text-accent-bright">{t(`stageLabel.${view}`)}</b>{" "}
             <span className="text-white/45">· {viewToolLabel}</span> —{" "}
-            {VIEW_GUIDE[view]}
+            {t(`viewGuide.${view}`)}
           </p>
           <div className="flex flex-none items-center gap-3 pt-0.5 text-[11px]">
             {view !== activeCase.stage && view !== "closed" && (
@@ -1474,9 +1474,9 @@ export default function CaseFilePage() {
                 type="button"
                 onClick={() => void advanceStage(activeCase.id, view)}
                 className="font-semibold text-accent-bright hover:underline"
-                title="Mark the case as being at this stage"
+                title={t("stageBanner.setAsCurrentStage")}
               >
-                Set as current stage
+                {t("stageBanner.setAsCurrentStage")}
               </button>
             )}
             <button
@@ -1484,7 +1484,7 @@ export default function CaseFilePage() {
               onClick={() => openView("overview")}
               className="text-muted hover:text-fg"
             >
-              ← Overview
+              {t("stageBanner.backToOverview")}
             </button>
           </div>
         </div>
@@ -1576,12 +1576,12 @@ export default function CaseFilePage() {
         <>
       {/* overview stat tiles */}
       <div className="mb-3.5 grid grid-cols-3 gap-2 sm:grid-cols-6">
-        <StatTile label="Stage" value={activeCase.stage} accent />
-        <StatTile label="Accounts" value={banks.length} />
-        <StatTile label="Wallets" value={txs.length} />
-        <StatTile label="Honeypot" value={sessions.length} />
-        <StatTile label="Documents" value={documents.length} />
-        <StatTile label="Days open" value={daysOpen(activeCase.created_at)} />
+        <StatTile label={t("overview.statStage")} value={activeCase.stage} accent />
+        <StatTile label={t("overview.statAccounts")} value={banks.length} />
+        <StatTile label={t("overview.statWallets")} value={txs.length} />
+        <StatTile label={t("overview.statHoneypot")} value={sessions.length} />
+        <StatTile label={t("overview.statDocuments")} value={documents.length} />
+        <StatTile label={t("overview.statDaysOpen")} value={daysOpen(activeCase.created_at)} />
       </div>
 
       <div className="mb-3.5">
@@ -1604,20 +1604,20 @@ export default function CaseFilePage() {
       <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
         {/* Bank accounts */}
         <CardShell
-          title="Tracked bank accounts"
+          title={t("overview.trackedBankAccounts")}
           count={banks.length}
           onOpen={() => openTool("bridge")}
-          openLabel="Bridge"
+          openLabel={t("overview.openBridge")}
           adding={addingBank}
           onAddToggle={() => setAddingBank((v) => !v)}
         >
           {addingBank && (
             <form onSubmit={submitBank} className="mb-2 space-y-2 rounded-lg bg-elevated p-2.5">
-              <input required placeholder="Bank (e.g. BCA)" className={fieldCls}
+              <input required placeholder={t("intake.bankPlaceholder")} className={fieldCls}
                 value={bank.bank_name} onChange={(e) => setBank({ ...bank, bank_name: e.target.value })} />
-              <input required placeholder="Account number" className={fieldCls}
+              <input required placeholder={t("intake.accountNumberPlaceholder")} className={fieldCls}
                 value={bank.account_number} onChange={(e) => setBank({ ...bank, account_number: e.target.value })} />
-              <input placeholder="Holder name (optional)" className={fieldCls}
+              <input placeholder={t("intake.holderNamePlaceholder")} className={fieldCls}
                 value={bank.holder_name} onChange={(e) => setBank({ ...bank, holder_name: e.target.value })} />
               <select className={`${fieldCls} font-sans`} value={bank.category}
                 onChange={(e) => setBank({ ...bank, category: e.target.value })}>
@@ -1625,14 +1625,14 @@ export default function CaseFilePage() {
               </select>
               <button type="submit" disabled={busy}
                 className="h-8 w-full rounded-lg bg-accent text-xs font-semibold text-[#04140d] hover:bg-accent-bright disabled:opacity-50">
-                {busy ? "Adding…" : "Add to case"}
+                {busy ? t("overview.adding") : t("overview.addToCase")}
               </button>
             </form>
           )}
           {loading ? (
-            <p className="px-1.5 py-2 text-[11px] text-muted">Loading…</p>
+            <p className="px-1.5 py-2 text-[11px] text-muted">{t("overview.loading")}</p>
           ) : banks.length === 0 ? (
-            <p className="px-1.5 py-2 text-[11px] text-muted">None yet — click “+ Add”.</p>
+            <p className="px-1.5 py-2 text-[11px] text-muted">{t("overview.noneYetAdd")}</p>
           ) : (
             <ul className="space-y-1">
               {banks.map((b) => (
@@ -1647,20 +1647,20 @@ export default function CaseFilePage() {
 
         {/* Crypto transfers */}
         <CardShell
-          title="Crypto transfers"
+          title={t("overview.cryptoTransfers")}
           count={txs.length}
           onOpen={() => openTool("investigation")}
-          openLabel="Investigation"
+          openLabel={t("overview.openInvestigation")}
           adding={addingTx}
           onAddToggle={() => setAddingTx((v) => !v)}
         >
           {addingTx && (
             <form onSubmit={submitTx} className="mb-2 space-y-2 rounded-lg bg-elevated p-2.5">
-              <input required placeholder="From wallet (T…)" className={fieldCls}
+              <input required placeholder={t("overview.fromWalletPlaceholder")} className={fieldCls}
                 value={tx.from_addr} onChange={(e) => setTx({ ...tx, from_addr: e.target.value })} />
-              <input required placeholder="To wallet (T…)" className={fieldCls}
+              <input required placeholder={t("overview.toWalletPlaceholder")} className={fieldCls}
                 value={tx.to_addr} onChange={(e) => setTx({ ...tx, to_addr: e.target.value })} />
-              <input required type="number" min="0" step="any" placeholder="Amount (USDT)" className={fieldCls}
+              <input required type="number" min="0" step="any" placeholder={t("overview.amountUsdtPlaceholder")} className={fieldCls}
                 value={tx.value} onChange={(e) => setTx({ ...tx, value: e.target.value })} />
               <select className={`${fieldCls} font-sans`} value={tx.category}
                 onChange={(e) => setTx({ ...tx, category: e.target.value })}>
@@ -1668,32 +1668,32 @@ export default function CaseFilePage() {
               </select>
               <button type="submit" disabled={busy}
                 className="h-8 w-full rounded-lg bg-accent text-xs font-semibold text-[#04140d] hover:bg-accent-bright disabled:opacity-50">
-                {busy ? "Adding…" : "Add to case"}
+                {busy ? t("overview.adding") : t("overview.addToCase")}
               </button>
             </form>
           )}
           {loading ? (
-            <p className="px-1.5 py-2 text-[11px] text-muted">Loading…</p>
+            <p className="px-1.5 py-2 text-[11px] text-muted">{t("overview.loading")}</p>
           ) : txs.length === 0 ? (
-            <p className="px-1.5 py-2 text-[11px] text-muted">None yet — click “+ Add”.</p>
+            <p className="px-1.5 py-2 text-[11px] text-muted">{t("overview.noneYetAdd")}</p>
           ) : (
             <ul className="space-y-1">
-              {txs.map((t) => (
-                <li key={String(t.id)} className="flex items-center justify-between gap-2 rounded-lg bg-elevated px-2.5 py-1.5 font-mono text-[11px] text-fg">
+              {txs.map((tx2) => (
+                <li key={String(tx2.id)} className="flex items-center justify-between gap-2 rounded-lg bg-elevated px-2.5 py-1.5 font-mono text-[11px] text-fg">
                   <span className="min-w-0 truncate">
-                    <span className="text-muted">{String(t.from_addr).slice(0, 8)}…</span>
+                    <span className="text-muted">{String(tx2.from_addr).slice(0, 8)}…</span>
                     {" → "}
-                    <span>{String(t.to_addr).slice(0, 8)}…</span>
+                    <span>{String(tx2.to_addr).slice(0, 8)}…</span>
                     <span className="ml-2 text-[10.5px] text-accent-bright">
-                      {Number(t.value).toLocaleString()} USDT
+                      {Number(tx2.value).toLocaleString()} USDT
                     </span>
                   </span>
                   <button
                     type="button"
-                    onClick={() => openTool("investigation", String(t.to_addr))}
+                    onClick={() => openTool("investigation", String(tx2.to_addr))}
                     className="flex-none text-[10.5px] text-accent-bright hover:underline"
                   >
-                    investigate →
+                    {t("overview.investigateArrow")}
                   </button>
                 </li>
               ))}
@@ -1710,25 +1710,25 @@ export default function CaseFilePage() {
         {/* Action documents (UNCOVER) */}
         <div className="rounded-card border border-line bg-card">
           <div className="flex items-center justify-between border-b border-line px-3.5 py-2.5">
-            <span className="eyebrow">Action documents · {documents.length}</span>
+            <span className="eyebrow">{t("overview.actionDocumentsEyebrow", { count: documents.length })}</span>
             <button
               type="button"
               onClick={() => openTool("actions")}
               className="text-[11px] text-accent-bright hover:underline"
             >
-              Action Panel →
+              {t("overview.actionPanelLink")}
             </button>
           </div>
           <div className="p-2">
             {documents.length === 0 ? (
               <p className="px-1.5 py-2 text-[11px] text-muted">
-                None yet — generate a bundle from the Action Panel with this case active.
+                {t("overview.noDocumentsYet")}
               </p>
             ) : (
               <ul className="space-y-1">
                 {documents.map((d) => (
                   <li key={d.id} className="rounded-lg bg-elevated px-2.5 py-1.5 text-[11.5px]">
-                    <span className="font-mono text-fg">{d.document_count} docs</span>
+                    <span className="font-mono text-fg">{t("recovery.docsCount", { count: d.document_count })}</span>
                     <span className="ml-2 text-muted">
                       {d.crime_type} ·{" "}
                       <span className={d.status === "dispatched" ? "text-accent-bright" : ""}>
@@ -1746,7 +1746,7 @@ export default function CaseFilePage() {
       {/* activity timeline — derived from the case's records */}
       <div className="mt-3.5 rounded-card border border-line bg-card">
         <div className="border-b border-line px-3.5 py-2.5">
-          <span className="eyebrow">Activity</span>
+          <span className="eyebrow">{t("overview.activityEyebrow")}</span>
         </div>
         <div className="p-3.5">
           <ol className="space-y-2.5">
@@ -1755,17 +1755,17 @@ export default function CaseFilePage() {
               const evs: Ev[] = [
                 {
                   t: new Date(activeCase.created_at).getTime(),
-                  label: "Case opened",
-                  sub: activeCase.crime_type ?? "investigation",
+                  label: t("overview.activityCaseOpened"),
+                  sub: activeCase.crime_type ?? t("overview.activityCaseOpenedSub"),
                 },
                 ...sessions.map((s) => ({
                   t: new Date(s.started_at).getTime(),
-                  label: "Honeypot session engaged",
+                  label: t("overview.activityHoneypotEngaged"),
                   sub: `${s.crime_type ?? "—"} · ${s.entity_count} entities`,
                 })),
                 ...documents.map((d) => ({
                   t: new Date(d.created_at).getTime(),
-                  label: `${d.document_count} document(s) generated`,
+                  label: t("overview.activityDocumentsGenerated", { count: d.document_count }),
                   sub: `${d.crime_type} · ${d.status}`,
                 })),
               ].sort((a, b) => a.t - b.t);
@@ -1794,11 +1794,10 @@ export default function CaseFilePage() {
       </div>
 
       <p className="mt-5 border-t border-line pt-3.5 text-[10.5px] leading-relaxed text-muted">
-        Everything you touch while this case is active attaches to{" "}
-        <b className="text-white/70">{activeCase.title}</b>: bank accounts feed the
-        TRACE Bridge, crypto transfers merge into the TAKEDOWN graph, honeypot
-        sessions and action documents roll up here. Switch cases from the top-bar
-        selector.
+        {t.rich("overview.footerNote", {
+          title: activeCase.title,
+          b: (chunks) => <b className="text-white/70">{chunks}</b>,
+        })}
       </p>
         </>
       )}

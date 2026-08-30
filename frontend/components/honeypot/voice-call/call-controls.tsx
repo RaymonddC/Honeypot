@@ -7,6 +7,7 @@
  * focus-visible rings from globals.css.
  */
 
+import { useTranslations } from "next-intl";
 import type { CallState } from "./call-view";
 
 /* ── Inline SVG icons (lucide paths, stroke currentColor) ──────────────── */
@@ -86,16 +87,6 @@ function NeutralButton(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   );
 }
 
-/* ── Status line (mirrors the console composer note) ───────────────────── */
-
-const STATUS: Record<CallState, string> = {
-  idle: "agent ready · press Start call to answer the scam line",
-  live: "agent live on call · human-in-the-loop arms at the disclosure turn…",
-  paused: "call on hold · playback paused",
-  takeover: "analyst on the line — agent muted (human-in-the-loop)",
-  ended: "call ended · transcript sealed in custody log",
-};
-
 export function CallControls({
   state,
   takeoverArmed,
@@ -116,6 +107,14 @@ export function CallControls({
   onTakeOver: () => void;
   onHandBack: () => void;
 }) {
+  const t = useTranslations("honeypot.voiceCall.controls");
+  const STATUS: Record<CallState, string> = {
+    idle: t("statusIdle"),
+    live: t("statusLive"),
+    paused: t("statusPaused"),
+    takeover: t("statusTakeover"),
+    ended: t("statusEnded"),
+  };
   const onCall = state === "live" || state === "paused";
 
   return (
@@ -123,19 +122,19 @@ export function CallControls({
       <div className="flex flex-wrap items-center justify-center gap-2.5">
         {state === "idle" && (
           <PrimaryButton onClick={onStart}>
-            <PhoneIcon /> Start call
+            <PhoneIcon /> {t("startCall")}
           </PrimaryButton>
         )}
 
         {state === "live" && (
           <NeutralButton onClick={onPause}>
-            <PauseIcon /> Pause
+            <PauseIcon /> {t("pause")}
           </NeutralButton>
         )}
 
         {state === "paused" && (
           <PrimaryButton onClick={onResume}>
-            <PlayIcon /> Resume
+            <PlayIcon /> {t("resume")}
           </PrimaryButton>
         )}
 
@@ -146,32 +145,32 @@ export function CallControls({
             disabled={!takeoverArmed}
             title={
               takeoverArmed
-                ? "Barge in — mute the agent and take the call"
-                : "Arms at the disclosure turn"
+                ? t("takeOverArmedTitle")
+                : t("takeOverDisarmedTitle")
             }
             className={`${BASE_BTN} border border-risk-med/40 bg-risk-med/10 text-risk-med hover:bg-risk-med/20 ${
               takeoverArmed ? "animate-pulse" : ""
             }`}
           >
-            <HeadsetIcon /> Take over
+            <HeadsetIcon /> {t("takeOver")}
           </button>
         )}
 
         {state === "takeover" && (
           <PrimaryButton onClick={onHandBack}>
-            <PlayIcon /> Hand back to agent
+            <PlayIcon /> {t("handBack")}
           </PrimaryButton>
         )}
 
         {state === "ended" && (
           <PrimaryButton onClick={onRestart}>
-            <RestartIcon /> Replay call
+            <RestartIcon /> {t("replayCall")}
           </PrimaryButton>
         )}
 
         {state !== "idle" && state !== "ended" && (
           <NeutralButton onClick={onRestart}>
-            <RestartIcon /> Restart
+            <RestartIcon /> {t("restart")}
           </NeutralButton>
         )}
       </div>

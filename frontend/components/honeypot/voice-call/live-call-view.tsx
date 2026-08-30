@@ -16,6 +16,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useCases } from "@/components/cases/case-provider";
 import { CustodyCard } from "@/components/honeypot/custody-card";
 import { EntityPanel } from "@/components/honeypot/entity-panel";
@@ -41,8 +42,6 @@ import { Waveform } from "./waveform";
 
 type LiveState = "idle" | "connecting" | "live" | "ended";
 type MicStatus = "unsupported" | "denied" | "muted" | "on";
-
-const OPERATOR_WHO = "Operator · scam caller";
 
 /* ── Icons (lucide paths, stroke currentColor) ─────────────────────────── */
 
@@ -161,6 +160,7 @@ export function LiveCallView({
   /** Bubbles the api/mock source up to the page badge once connected. */
   onSourceChange?: (source: DataSource | null) => void;
 }) {
+  const t = useTranslations("honeypot.voiceCall.liveCallView");
   const { activeCaseId } = useCases();
   const [state, setState] = useState<LiveState>("idle");
   const [call, setCall] = useState<VoiceCallSession | null>(null);
@@ -255,7 +255,7 @@ export function LiveCallView({
         id: `op-${seq}`,
         seq,
         speaker: "scammer",
-        who: OPERATOR_WHO,
+        who: t("operatorWho"),
         text: clean,
         durationSec: estimateDurationSec(clean),
         offsetSec: nextOffset(),
@@ -347,7 +347,7 @@ export function LiveCallView({
       const queued = queueRef.current.shift();
       if (queued && runIdRef.current === runId) void submitTurn(queued);
     },
-    [appendLines, bargeIn, speakLine],
+    [appendLines, bargeIn, speakLine, t],
   );
 
   /* ── mic ── */
@@ -355,9 +355,7 @@ export function LiveCallView({
   const startMic = useCallback(() => {
     if (!sttSupported()) {
       setMicStatus("unsupported");
-      setNotice(
-        "Speech recognition is not available in this browser (Safari/Firefox) — type as the scammer below instead.",
-      );
+      setNotice(t("sttUnsupportedNotice"));
       return;
     }
     const stt = (sttRef.current ??= new MicTranscriber({
@@ -371,21 +369,16 @@ export function LiveCallView({
       onError: (kind, message) => {
         if (kind === "permission") {
           setMicStatus("denied");
-          setNotice(
-            "Microphone permission denied — allow mic access or type as the scammer below.",
-          );
+          setNotice(t("micDeniedNotice"));
         } else if (kind === "audio") {
           setMicStatus("denied");
-          setNotice("No microphone found — type as the scammer below.");
+          setNotice(t("noMicNotice"));
         } else if (kind === "unsupported") {
           // Persistent network failure = STT unusable here → text fallback.
           setMicStatus("unsupported");
-          setNotice(
-            message ||
-              "Live speech isn't available in this browser — type as the scammer below.",
-          );
+          setNotice(message || t("sttUnavailableNotice"));
         } else if (kind === "network") {
-          setNotice("Reconnecting to the speech service…");
+          setNotice(t("reconnectingNotice"));
         }
       },
       onListeningChange: (listening) => {
@@ -399,7 +392,7 @@ export function LiveCallView({
       },
     }));
     stt.start();
-  }, [bargeIn, submitTurn]);
+  }, [bargeIn, submitTurn, t]);
 
   const toggleMic = () => {
     if (micStatus === "on") {
@@ -480,7 +473,7 @@ export function LiveCallView({
 
   /* ── render mapping ── */
 
-  const personaFirst = (call?.persona ?? "Bu Sari, 54").split(",")[0].trim();
+  const personaFirst = (call?.persona ?? t("defaultPersona")).split(",")[0].trim();
   const speakingIndex = speakingLineId
     ? lines.findIndex((l) => l.id === speakingLineId)
     : -1;
@@ -500,18 +493,18 @@ export function LiveCallView({
 
   const statusLine =
     state === "idle"
-      ? "Tier-B live call — you play the scammer on the mic; the AI persona answers"
+      ? t("statusIdle")
       : state === "connecting"
-        ? "dialing… starting interactive session"
+        ? t("statusConnecting")
         : state === "ended"
-          ? "call ended · transcript sealed in custody log"
+          ? t("statusEnded")
           : thinking
-            ? "persona thinking… agent loop running on your turn"
+            ? t("statusThinking")
             : personaSpeaking
-              ? "persona speaking — talk to barge in"
+              ? t("statusSpeaking")
               : micStatus === "on"
-                ? "listening (id-ID) — speak as the scammer"
-                : "mic muted — unmute or type below";
+                ? t("statusListening")
+                : t("statusMuted");
 
   const custody = call
     ? {
@@ -527,9 +520,9 @@ export function LiveCallView({
       {/* ── The call ─────────────────────────────────────────────────── */}
       <div className="flex h-[calc(100vh-13.5rem)] min-h-[480px] flex-col rounded-card border border-line bg-card">
         <CallHeader
-          callerId={call?.callerId ?? "live mic · operator"}
-          persona={call?.persona ?? "Bu Sari, 54"}
-          modeTag={call?.modeTag ?? "Tier-B · live mic"}
+          callerId={call?.callerId ?? t("defaultCallerId")}
+          persona={call?.persona ?? t("defaultPersona")}
+          modeTag={call?.modeTag ?? t("defaultModeTag")}
           state={headerState}
           elapsed={elapsed}
         />
@@ -537,22 +530,22 @@ export function LiveCallView({
         {/* speaker stage */}
         <div className="grid grid-cols-2 gap-3 border-b border-line p-4">
           <SpeakerTile
-            label="Operator (scammer role)"
+            label={t("operatorLabel")}
             sub={
               micStatus === "on"
-                ? "live mic · listening"
+                ? t("micListening")
                 : micStatus === "unsupported"
-                  ? "text input · no STT"
+                  ? t("micNoStt")
                   : micStatus === "denied"
-                    ? "text input · mic blocked"
-                    : "mic muted"
+                    ? t("micBlocked")
+                    : t("micMuted")
             }
             active={interim.length > 0}
             tone="danger"
           />
           <SpeakerTile
-            label={`Honeypot · ${personaFirst}`}
-            sub="AI persona · agent loop"
+            label={t("personaLabel", { persona: personaFirst })}
+            sub={t("personaSub")}
             active={personaSpeaking}
             tone="accent"
           />
@@ -562,8 +555,8 @@ export function LiveCallView({
           lines={lines}
           currentIndex={currentIndex}
           state={captionState}
-          interim={interim ? { who: OPERATOR_WHO, text: interim } : null}
-          emptyNote="Start the live call, then speak as the scammer — the AI persona answers in voice and the transcript appears here."
+          interim={interim ? { who: t("operatorWho"), text: interim } : null}
+          emptyNote={t("emptyNote")}
           providerByLine={providerByLine}
         />
 
@@ -587,7 +580,7 @@ export function LiveCallView({
                 className={`${BASE_BTN} border border-accent/40 bg-accent/15 text-accent-bright hover:bg-accent/25`}
               >
                 <PhoneCallIcon />
-                {state === "connecting" ? "Dialing…" : "Start live call"}
+                {state === "connecting" ? t("dialing") : t("startLiveCall")}
               </button>
             )}
 
@@ -600,10 +593,10 @@ export function LiveCallView({
                   aria-pressed={micStatus === "on"}
                   title={
                     micStatus === "unsupported"
-                      ? "SpeechRecognition unavailable — use the text field"
+                      ? t("micUnsupportedTitle")
                       : micStatus === "on"
-                        ? "Mute the mic"
-                        : "Unmute the mic"
+                        ? t("muteMicTitle")
+                        : t("unmuteMicTitle")
                   }
                   className={`${BASE_BTN} ${
                     micStatus === "on"
@@ -612,14 +605,14 @@ export function LiveCallView({
                   }`}
                 >
                   {micStatus === "on" ? <MicIcon /> : <MicOffIcon />}
-                  {micStatus === "on" ? "Mic live" : "Mic muted"}
+                  {micStatus === "on" ? t("micLive") : t("micMutedButton")}
                 </button>
                 <button
                   type="button"
                   onClick={handleEnd}
                   className={`${BASE_BTN} border border-risk-high/40 bg-risk-high/10 text-risk-high hover:bg-risk-high/20`}
                 >
-                  <PhoneOffIcon /> End call
+                  <PhoneOffIcon /> {t("endCall")}
                 </button>
               </>
             )}
@@ -630,7 +623,7 @@ export function LiveCallView({
                 onClick={() => void handleStart()}
                 className={`${BASE_BTN} border border-accent/40 bg-accent/15 text-accent-bright hover:bg-accent/25`}
               >
-                <PhoneCallIcon /> Start new call
+                <PhoneCallIcon /> {t("startNewCall")}
               </button>
             )}
           </div>
@@ -641,7 +634,7 @@ export function LiveCallView({
               className="mx-auto mt-2.5 flex max-w-md items-center gap-2"
             >
               <label htmlFor="live-turn-input" className="sr-only">
-                Type as the scammer
+                {t("typeAsScammerLabel")}
               </label>
               <input
                 id="live-turn-input"
@@ -649,8 +642,8 @@ export function LiveCallView({
                 onChange={(e) => setTextDraft(e.target.value)}
                 placeholder={
                   micStatus === "on"
-                    ? "…or type as the scammer"
-                    : "Type as the scammer (mic off)"
+                    ? t("typePlaceholderMicOn")
+                    : t("typePlaceholderMicOff")
                 }
                 autoComplete="off"
                 className="h-9 min-w-0 flex-1 rounded-lg border border-line bg-elevated px-3 text-xs text-fg placeholder:text-muted"
@@ -658,10 +651,10 @@ export function LiveCallView({
               <button
                 type="submit"
                 disabled={!textDraft.trim() || thinking}
-                aria-label="Send turn"
+                aria-label={t("sendAriaLabel")}
                 className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/15 px-3 text-xs font-semibold text-accent-bright transition-colors hover:bg-accent/25 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <SendIcon /> Send
+                <SendIcon /> {t("send")}
               </button>
             </form>
           )}
@@ -683,9 +676,10 @@ export function LiveCallView({
         <EntityPanel entities={entities} />
         {custody && <CustodyCard custody={custody} />}
         <p className="mt-3 px-1 text-[10.5px] leading-relaxed text-muted">
-          Entities are extracted live from what you say on the call —{" "}
-          <b className="text-white/60">{entities.length}</b> so far. Disclosed
-          wallets/accounts feed the Investigation graph.
+          {t.rich("entitiesNote", {
+            count: entities.length,
+            b: (chunks) => <b className="text-white/60">{chunks}</b>,
+          })}
         </p>
       </div>
     </div>

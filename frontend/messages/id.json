@@ -1,0 +1,1425 @@
+{
+  "common": {
+    "appName": "ITTU",
+    "tagline": "Infiltrate · Trace · Takedown · Uncover",
+    "openNavigationMenu": "Buka menu navigasi",
+    "agencyLabel": "Instansi"
+  },
+  "appShell": {
+    "nav": {
+      "home": "Beranda",
+      "caseWorkflow": "Alur kasus",
+      "operations": "Operasi",
+      "caseFile": "Berkas Kasus",
+      "auditTrail": "Jejak Audit",
+      "users": "Pengguna",
+      "infiltrate": "Infiltrate",
+      "honeypotOps": "Honeypot Ops",
+      "trace": "Trace",
+      "takedown": "Takedown",
+      "uncover": "Uncover",
+      "commandCenter": "Command Center",
+      "guide": "Panduan",
+      "controlPanel": "Panel Kontrol",
+      "authBadge": "P5 · auth"
+    },
+    "modeBadge": {
+      "dataModeTitle": "Mode data: {mode}",
+      "envFallback": " (fallback env — /api/config tidak dapat dijangkau)"
+    },
+    "userMenu": {
+      "accountLabel": "Akun: {name}",
+      "sessionVerified": "sesi terverifikasi",
+      "offlineSession": "sesi offline",
+      "signOut": "Keluar"
+    },
+    "agencyChip": {
+      "signedInAs": "{agency} — masuk sebagai {role}",
+      "loading": "Memuat konteks instansi…"
+    }
+  },
+  "roles": {
+    "police-investigator": "Penyidik kepolisian",
+    "regulator-analyst": "Analis regulator",
+    "bank-compliance": "Kepatuhan bank",
+    "exchange-compliance": "Kepatuhan exchange",
+    "agency-admin": "Admin instansi",
+    "platform-admin": "Admin platform"
+  },
+  "login": {
+    "sessionExpiredTitle": "Sesi Anda telah berakhir.",
+    "sessionExpiredBody": "Masuk kembali untuk melanjutkan.",
+    "agencyLegend": "Instansi",
+    "roleLegend": "Peran",
+    "ownData": "data sendiri (RLS)",
+    "canDispatch": "Dapat mengirim freeze / STR",
+    "receiveOnly": "Menerima permintaan · tidak dapat mengirim",
+    "errorUnreachable": "Login gagal — backend tidak dapat dijangkau (apakah API berjalan di :8000?)",
+    "errorGeneric": "Login gagal — {message}",
+    "continueOffline": "Lanjutkan offline — sesi demo dengan data mock",
+    "signingIn": "Sedang masuk…",
+    "enterConsole": "Masuk ke konsol",
+    "footer": "Demo sign-in · Mode data POC · tanpa kredensial"
+  },
+  "honeypot": {
+    "panel": {
+      "title": "Honeypot",
+      "titleModule": "INFILTRATE",
+      "subtitle": "Persona AI memancing pelaku penipuan dan diam-diam mengekstrak intelijen — bersifat reaktif, tercatat dalam rantai pengawasan (chain-of-custody).",
+      "liveApi": "live api",
+      "offlineMock": "offline · mock",
+      "liveApiTitle": "API backend live",
+      "offlineMockTitle": "Backend tidak dapat dijangkau — menampilkan dataset demo lokal",
+      "refreshing": "Menyegarkan…",
+      "refreshSession": "Segarkan sesi",
+      "startVoiceCall": "Mulai panggilan suara →",
+      "loadingState": "Menyambungkan ke sesi penipuan…",
+      "footerNote": "Agen tetap <b>bersifat reaktif & berkedok korban</b> — tidak pernah memulai penipuan, mengakses sistem, atau mendistribusikan ulang data (bebas dari jebakan/entrapment + UU ITE Pasal 30/32/33). Wallet yang terekstrak langsung mengalir ke grafik Investigation."
+    },
+    "chatTranscript": {
+      "sessionEyebrow": "Sesi · {channel} · persona \"{persona}\"",
+      "transcriptLogLabel": "Transkrip sesi penipuan · {channel}",
+      "extractedBadge": "◇ terekstrak · {label} · conf {confidence}"
+    },
+    "custodyCard": {
+      "title": "Rantai pengawasan",
+      "intact": "◇ utuh",
+      "unverified": "◇ belum terverifikasi",
+      "messagesLogged": "Pesan tercatat",
+      "crimeClass": "Klasifikasi kejahatan",
+      "syndicateLink": "Tautan sindikat",
+      "feedsLabel": "→ mengalir ke",
+      "feedsValue": "Investigation"
+    },
+    "entityPanel": {
+      "title": "Entitas terekstrak",
+      "validatedCount": "{count} · tervalidasi",
+      "empty": "Belum ada entitas tervalidasi — agen masih memancing.",
+      "trace": "Lacak →",
+      "traceTitle": "Lacak wallet ini di Takedown",
+      "traceAttachTitle": "Lampirkan ke kasus & lacak wallet ini di Takedown",
+      "inCase": "✓ dalam kasus",
+      "inCaseTitle": "Ditambahkan ke kasus → BridgeWatch",
+      "addCase": "+ Kasus",
+      "retry": "coba lagi",
+      "trackTitle": "Lacak pada kasus ini → menautkan wallet on-ramp",
+      "openCaseTitle": "Buka kasus untuk melampirkan"
+    },
+    "callPage": {
+      "backLink": "← Konsol Honeypot",
+      "title": "Panggilan suara",
+      "titleModule": "· INFILTRATE",
+      "descScripted": "Persona AI menjawab panggilan penipuan secara live — STT → agent loop → TTS — entitas diekstrak saat diucapkan, tercatat dalam rantai pengawasan.",
+      "descLiveMic": "Live mic Tier-B — Anda berperan sebagai pelaku penipuan lewat mikrofon, persona AI menjawab bergiliran (docs/Live-Voice-Calls.md).",
+      "modeScripted": "Berskrip",
+      "modeLiveMic": "Live mic",
+      "modeScriptedTitle": "Replay yang telah dijalankan sebelumnya — simulasi yang setia",
+      "modeLiveMicTitle": "Interaktif — Anda berperan sebagai pelaku penipuan lewat mikrofon",
+      "callModeLabel": "Mode panggilan",
+      "liveApi": "● live api",
+      "offlineMock": "● offline · mock",
+      "liveApiTitle": "API backend live",
+      "offlineMockTitle": "Backend tidak dapat dijangkau — menampilkan panggilan demo lokal",
+      "dialing": "Menghubungi jalur penipuan… memulai sesi suara"
+    },
+    "voiceCall": {
+      "controls": {
+        "startCall": "Mulai panggilan",
+        "pause": "Jeda",
+        "resume": "Lanjutkan",
+        "takeOver": "Ambil alih",
+        "takeOverArmedTitle": "Sela panggilan — bisukan agen dan ambil alih panggilan",
+        "takeOverDisarmedTitle": "Aktif pada giliran pengungkapan",
+        "handBack": "Kembalikan ke agen",
+        "replayCall": "Putar ulang panggilan",
+        "restart": "Mulai ulang",
+        "statusIdle": "agen siap · tekan Mulai panggilan untuk menjawab jalur penipuan",
+        "statusLive": "agen aktif di panggilan · human-in-the-loop aktif pada giliran pengungkapan…",
+        "statusPaused": "panggilan ditahan · pemutaran dijeda",
+        "statusTakeover": "analis mengambil alih panggilan — agen dibisukan (human-in-the-loop)",
+        "statusEnded": "panggilan berakhir · transkrip tersegel dalam catatan pengawasan"
+      },
+      "header": {
+        "stateIdle": "Suara · siap",
+        "stateLive": "Panggilan berlangsung · agen aktif",
+        "statePaused": "Panggilan ditahan",
+        "stateTakeover": "Panggilan berlangsung · analis aktif",
+        "stateEnded": "Panggilan berakhir",
+        "callerSub": "penelepon tidak dikenal · diduga jalur penipuan · persona \"{persona}\" menjawab",
+        "timerLabel": "Waktu panggilan {timer}"
+      },
+      "captions": {
+        "logLabel": "Teks panggilan live",
+        "idleEmpty": "Teks akan muncul di sini saat panggilan berlangsung — tekan Mulai panggilan untuk menjawab.",
+        "connecting": "Menyambungkan…",
+        "hearing": "mendengarkan…",
+        "extractedBadge": "◇ terekstrak · {label} · conf {confidence}"
+      },
+      "callView": {
+        "scammerLabel": "Pelaku penipuan",
+        "personaLabel": "Honeypot · {persona}",
+        "personaSub": "Persona AI · agent loop",
+        "entitiesNote": "Entitas muncul saat terdengar dalam panggilan — <b>{heard}/{total}</b> sejauh ini. Wallet yang terungkap mengalir ke grafik Investigation."
+      },
+      "liveCallView": {
+        "operatorLabel": "Operator (peran pelaku penipuan)",
+        "operatorWho": "Operator · pelaku penipuan",
+        "personaLabel": "Honeypot · {persona}",
+        "personaSub": "Persona AI · agent loop",
+        "micListening": "mikrofon live · mendengarkan",
+        "micNoStt": "input teks · tanpa STT",
+        "micBlocked": "input teks · mikrofon diblokir",
+        "micMuted": "mikrofon dibisukan",
+        "sttUnsupportedNotice": "Pengenalan suara tidak tersedia di browser ini (Safari/Firefox) — ketik sebagai pelaku penipuan di bawah ini.",
+        "micDeniedNotice": "Izin mikrofon ditolak — izinkan akses mikrofon atau ketik sebagai pelaku penipuan di bawah ini.",
+        "noMicNotice": "Mikrofon tidak ditemukan — ketik sebagai pelaku penipuan di bawah ini.",
+        "sttUnavailableNotice": "Suara live tidak tersedia di browser ini — ketik sebagai pelaku penipuan di bawah ini.",
+        "reconnectingNotice": "Menyambungkan kembali ke layanan suara…",
+        "emptyNote": "Mulai panggilan live, lalu bicara sebagai pelaku penipuan — persona AI menjawab dengan suara dan transkrip muncul di sini.",
+        "startLiveCall": "Mulai panggilan live",
+        "dialing": "Menghubungi…",
+        "micUnsupportedTitle": "SpeechRecognition tidak tersedia — gunakan kolom teks",
+        "muteMicTitle": "Bisukan mikrofon",
+        "unmuteMicTitle": "Aktifkan mikrofon",
+        "micLive": "Mikrofon aktif",
+        "micMutedButton": "Mikrofon dibisukan",
+        "endCall": "Akhiri panggilan",
+        "startNewCall": "Mulai panggilan baru",
+        "typeAsScammerLabel": "Ketik sebagai pelaku penipuan",
+        "typePlaceholderMicOn": "…atau ketik sebagai pelaku penipuan",
+        "typePlaceholderMicOff": "Ketik sebagai pelaku penipuan (mikrofon mati)",
+        "send": "Kirim",
+        "sendAriaLabel": "Kirim giliran",
+        "statusIdle": "Panggilan live Tier-B — Anda berperan sebagai pelaku penipuan lewat mikrofon; persona AI menjawab",
+        "statusConnecting": "menghubungi… memulai sesi interaktif",
+        "statusEnded": "panggilan berakhir · transkrip tersegel dalam catatan pengawasan",
+        "statusThinking": "persona berpikir… agent loop berjalan pada giliran Anda",
+        "statusSpeaking": "persona sedang berbicara — bicara untuk menyela",
+        "statusListening": "mendengarkan (id-ID) — bicara sebagai pelaku penipuan",
+        "statusMuted": "mikrofon dibisukan — aktifkan atau ketik di bawah",
+        "entitiesNote": "Entitas diekstrak secara live dari apa yang Anda ucapkan dalam panggilan — <b>{count}</b> sejauh ini. Wallet/rekening yang terungkap mengalir ke grafik Investigation.",
+        "defaultCallerId": "live mic · operator",
+        "defaultPersona": "Bu Sari, 54",
+        "defaultModeTag": "Tier-B · live mic"
+      },
+      "providerBadge": {
+        "browserTitle": "Diucapkan oleh suara browser (provider yang dipilih gagal atau tidak memiliki kunci)",
+        "voicedByTitle": "Disuarakan oleh {provider}"
+      }
+    }
+  },
+  "bridge": {
+    "panel": {
+      "title": "Bridge View",
+      "titleModule": "BridgeWatch",
+      "subtitle": "Jalur fiat→crypto on-ramp — tempat rupiah kotor berubah menjadi USDT. Template kasus: PT A2Z (Rp 530 M · 4.656 rekening · 22 bank).",
+      "liveApi": "● live api",
+      "offlineMock": "● offline · mock",
+      "liveApiTitle": "API backend live",
+      "offlineMockTitle": "Backend tidak dapat dijangkau — menampilkan dataset demo lokal",
+      "viewReport": "⧉ Lihat laporan",
+      "viewReportTitle": "Lihat & unduh laporan pelacakan fiat→crypto",
+      "generating": "Membuat…",
+      "regenerateFeed": "Buat ulang feed",
+      "scoreWallets": "Nilai wallet di Takedown →",
+      "scoreTopOnRampTitle": "Nilai wallet on-ramp teratas di Takedown",
+      "scoreWalletsTitle": "Nilai wallet di Takedown",
+      "moneyFlowEyebrow": "Aliran dana · fiat → crypto",
+      "ribbonHint": "lebar pita = volume · arahkan kursor untuk mengisolasi satu jalur",
+      "fiatSimulated": "Fiat · simulasi",
+      "bridgeLabel": "Bridge",
+      "cryptoRealTron": "Crypto · TRON asli",
+      "hoverIsolateHint": "Arahkan kursor ke node atau tautan untuk mengisolasi satu jalur",
+      "legend": {
+        "qrisFiat": "QRIS / fiat",
+        "muleAccounts": "Rekening mule",
+        "exchange": "Exchange",
+        "usdtWallets": "Wallet USDT",
+        "foreign": "Luar negeri"
+      },
+      "caseOnRamp": "Kasus ini · on-ramp",
+      "bankHolderPrefix": "a.n. {holder}",
+      "traceThisWallet": "Lacak wallet ini di Takedown →",
+      "loadingState": "Mengorelasikan aliran fiat↔crypto…",
+      "footerNote": "Sisi fiat bersifat <b>sintetis</b> (parameter PT A2Z / PaySim) — data bank & QRIS asli tidak bersifat publik; sisi crypto bersifat <b>asli</b> TRON. Adapter akan beralih ke feed bank live pasca-MoU tanpa mengubah tampilan ini."
+    },
+    "accountWatchlist": {
+      "title": "Rekening terlacak",
+      "inFlowTitle": "Berapa banyak rekening terlacak yang muncul dalam aliran bridge saat ini",
+      "inFlowCount": "{inFlow}/{total} dalam aliran",
+      "empty": "Belum ada rekening terlacak. Tambahkan dari <b>Case File → Overview</b> atau di <b>Intake</b> — akan muncul di sini saat terlihat dalam aliran.",
+      "holderPrefix": "a.n. {holder} · ",
+      "inFlowBadge": "dalam aliran",
+      "inFlowBadgeTitle": "Nomor rekening ini muncul dalam aliran bridge saat ini",
+      "watchBadge": "pantau",
+      "watchBadgeTitle": "Terlacak, tetapi belum terlihat dalam aliran saat ini"
+    },
+    "muleStatsCard": {
+      "title": "Jaringan mule",
+      "clusters": "Klaster",
+      "muleAccounts": "Rekening mule",
+      "shellMerchants": "Merchant fiktif",
+      "correlationWindow": "Jendela korelasi"
+    },
+    "onrampFeed": {
+      "title": "Dugaan on-ramp · {count}",
+      "byConfidence": "berdasarkan tingkat keyakinan",
+      "savedTitle": "Disimpan sebagai transfer kasus → Takedown",
+      "inCase": "✓ dalam kasus",
+      "saveTitle": "Simpan on-ramp ini sebagai transfer kasus (mengalir ke Takedown)",
+      "saving": "…",
+      "retry": "coba lagi",
+      "addCase": "+ kasus",
+      "traceTitle": "Lacak {address} di Takedown",
+      "trace": "lacak →",
+      "empty": "Belum ada on-ramp yang terkorelasi — jalankan simulasi."
+    },
+    "sankeyChart": {
+      "ariaLabel": "Aliran dana fiat ke crypto: merchant QRIS melalui rekening mule dan deposit exchange menuju wallet USDT dan tujuan luar negeri",
+      "empty": "Tidak ada aliran bridge untuk ditampilkan."
+    },
+    "statRow": {
+      "qrisInflowLabel": "Inflow QRIS",
+      "qrisInflowSub": "fiat masuk ke funnel",
+      "bridgedToCryptoLabel": "Dijembatani ke crypto",
+      "bridgedToCryptoSub": "mencapai USDT / exchange",
+      "correlatedOnRampsLabel": "On-ramp terkorelasi",
+      "correlatedOnRampsSub": "kecocokan fiat ↔ crypto"
+    },
+    "traceReport": {
+      "dialogLabel": "Pratinjau laporan pelacakan",
+      "eyebrow": "Laporan pelacakan",
+      "previewNote": "Pratinjau — inilah yang akan diunduh persis seperti ini",
+      "downloadReport": "⬇ Unduh laporan",
+      "close": "Tutup",
+      "iframeTitle": "Pratinjau laporan pelacakan"
+    }
+  },
+  "investigation": {
+    "panel": {
+      "title": "Investigation",
+      "subtitle": "Lacak aliran dana, nilai risiko wallet, dan tandai tipologi pencucian uang secara on-chain.",
+      "subtitleCta": "Klik node mana pun.",
+      "sendToActions": "Kirim ke Action Panel →",
+      "packageForAction": "Kemas untuk tindakan →",
+      "packageForActionTitle": "Bawa wallet ini ke meja Report (freeze / STR)",
+      "walletAddressLabel": "Alamat wallet",
+      "walletAddressPlaceholder": "Alamat wallet TRON…",
+      "tracing": "Melacak…",
+      "traceWallet": "Lacak wallet",
+      "caseWalletsLabel": "Wallet kasus:",
+      "traceWalletTitle": "Lacak {address}",
+      "attributedExchange": "Exchange teratribusi",
+      "riskSuffix": "Risiko {risk}",
+      "tracingOnChain": "Melacak on-chain…",
+      "tracingHint": "wallet yang sibuk bisa memakan waktu hingga satu menit",
+      "footerNote": "Isolation Forest disajikan sebagai <b>triase anomali</b>, dipadukan dengan aturan tipologi deterministik untuk sinyal yang dapat dijelaskan di pengadilan · setiap flag disertai tingkat keyakinan + penalaran (UU ITE Pasal 5).",
+      "statusBadge": {
+        "idle": {
+          "label": "● live",
+          "title": "Backend live — masukkan wallet untuk melacak"
+        },
+        "ok": {
+          "label": "● live api",
+          "title": "API backend live"
+        },
+        "mock": {
+          "label": "● offline · mock",
+          "title": "Backend tidak dapat dijangkau — menampilkan dataset demo lokal"
+        },
+        "empty": {
+          "label": "● live · tanpa data",
+          "title": "Dapat dijangkau — wallet ini tidak memiliki aktivitas USDT-TRC20"
+        },
+        "rate_limited": {
+          "label": "● rate-limited",
+          "title": "Penyedia data sedang membatasi laju — coba lagi sebentar lagi"
+        },
+        "error": {
+          "label": "● error",
+          "title": "Penyedia data tidak tersedia"
+        }
+      },
+      "statePanel": {
+        "idle": {
+          "title": "Masukkan alamat wallet TRON untuk memulai.",
+          "sub": "Lacak aliran dana, nilai risiko wallet, dan tandai tipologi pencucian uang pada data on-chain live."
+        },
+        "empty": {
+          "title": "Tidak ditemukan aktivitas USDT-TRC20 untuk wallet ini.",
+          "sub": "Coba wallet yang pernah memindahkan USDT-TRC20 di TRON."
+        },
+        "rate_limited": {
+          "title": "Dibatasi lajunya oleh penyedia data.",
+          "sub": "Coba lagi sesaat lagi — tekan Lacak wallet untuk mencoba ulang."
+        },
+        "error": {
+          "title": "Pelacakan gagal — penyedia data tidak tersedia.",
+          "sub": "Pastikan backend berjalan, lalu coba lagi."
+        }
+      },
+      "riskReco": {
+        "high": "Kemungkinan wallet penampung / mule. Kemas untuk permintaan freeze + STR di Action Panel.",
+        "medium": "Sinyal beragam — kuatkan dengan satu atau dua hop lagi sebelum bertindak.",
+        "low": "Anomali rendah — kemungkinan wallet pass-through atau korban. Lanjutkan pelacakan ke hulu.",
+        "exchange": "Exchange teratribusi — kirim RFI / panggilan pengadilan untuk data KYC pada alamat deposit ini."
+      }
+    },
+    "addTransaction": {
+      "addTransaction": "+ Tambah transaksi",
+      "formTitle": "Tambah transaksi → grafik",
+      "cancel": "Batal",
+      "fromWallet": "Wallet asal",
+      "fromWalletPlaceholder": "T… alamat sumber",
+      "toWallet": "Wallet tujuan",
+      "toWalletPlaceholder": "T… alamat tujuan",
+      "amountUsdt": "Jumlah (USDT)",
+      "timestampOptional": "Stempel waktu (opsional)",
+      "category": "Kategori",
+      "adding": "Menambahkan…",
+      "addAndTrace": "Tambah & lacak",
+      "errorFallback": "Gagal menambahkan transfer"
+    },
+    "glassBox": {
+      "eyebrow": "◇ Glass Box · jejak penalaran",
+      "confidence": "tingkat keyakinan {confidence}",
+      "empty": "Pilih wallet untuk melihat bagaimana skornya diperoleh — setiap tahap pipeline tercatat."
+    },
+    "walletDetailCard": {
+      "selectedWallet": "Wallet terpilih",
+      "scoringWallet": "Menilai wallet…",
+      "clickToInspect": "Klik node pada grafik untuk memeriksanya.",
+      "calculatedRisk": "Risiko terhitung",
+      "confidence": "Tingkat keyakinan",
+      "attributedExchange": "Exchange",
+      "riskSuffix": "Risiko {risk}",
+      "address": "Alamat",
+      "usdtVolume": "Volume USDT",
+      "counterparties": "Lawan transaksi",
+      "firstSeen": "Pertama terlihat",
+      "tags": "Tag",
+      "tabOverview": "Ringkasan",
+      "tabTransactions": "Transaksi",
+      "flaggedTypologies": "Tipologi yang ditandai",
+      "fired": "{count} terpicu",
+      "notApplicableExchange": "Tidak berlaku — exchange teratribusi.",
+      "noPatternsFired": "Tidak ada pola tipologi yang terpicu.",
+      "riskFactors": "Faktor risiko · 12 indikator",
+      "percentileHint": "persentil · tertinggi dahulu",
+      "hoverFactorHint": "Arahkan kursor ke faktor untuk melihat maknanya.",
+      "noTransactions": "Tidak ada transaksi yang dimuat.",
+      "factorHelp": {
+        "rapidRelayRate": "Porsi dana masuk yang diteruskan keluar dalam ~5 menit — perilaku pass-through/relay.",
+        "inOutRatio": "Nilai keluar vs masuk (~1.0 = pass-through murni, khas mule).",
+        "txVelocity": "Transaksi per hari aktif — semakin tinggi = semakin sibuk / terotomatisasi.",
+        "uniqueCounterparties": "Jumlah wallet berbeda yang bertransaksi dengannya.",
+        "roundNumberPct": "Porsi jumlah angka bulat — ciri khas structuring / smurfing.",
+        "accountAgeInv": "Seberapa baru wallet ini (terbalik) — wallet baru mendapat skor lebih tinggi.",
+        "fanInOutRatio": "Pengirim vs penerima — fan-out tinggi berarti penyebaran ke banyak wallet.",
+        "timeDistEntropy": "Seberapa tersebar waktunya sepanjang hari — rendah = terjadi tiba-tiba / terotomatisasi.",
+        "chainDepth": "Jumlah hop dari wallet yang dilacak — semakin dalam = semakin jauh dalam rantai pencucian.",
+        "volumeTotal": "Total USDT yang bergerak melalui wallet ini.",
+        "maxTxSize": "Transfer tunggal terbesar.",
+        "selfLoopCount": "Transfer kembali ke wallet itu sendiri — taktik penyamaran."
+      }
+    },
+    "walletGraph": {
+      "hint": "◦ arahkan kursor untuk pratinjau · klik untuk memeriksa · seret / gulir untuk navigasi",
+      "zoomIn": "Perbesar",
+      "zoomOut": "Perkecil",
+      "fitGraph": "Sesuaikan tampilan",
+      "resetView": "Atur ulang tampilan",
+      "peelingChain": "◆ peeling chain → exchange",
+      "exchange": "Exchange"
+    },
+    "riskPill": {
+      "exchange": "Exchange"
+    }
+  },
+  "actions": {
+    "panel": {
+      "title": "Action Panel",
+      "subtitle": "Satu klik mengubah kasus yang telah dikonfirmasi menjadi tindakan hukum — setiap dokumen di-hash sebagai barang bukti.",
+      "liveApiTitle": "API backend live",
+      "offlineMockTitle": "Backend tidak dapat dijangkau — menampilkan dataset demo lokal",
+      "liveApi": "● live api",
+      "offlineMock": "● offline · mock",
+      "regenerateTitle": "Buat ulang dari rekening & wallet terkini pada kasus ini",
+      "generating": "Membuat…",
+      "regenerateFreeze": "⎙ Buat ulang permohonan pemblokiran",
+      "regenerateAll": "⎙ Buat ulang semua dokumen",
+      "generatedFromPrefix": "Dibuat dari",
+      "reasoningAttached": "penalaran terlampir pada setiap artefak",
+      "assemblingFreeze": "Menyusun permohonan pemblokiran rekening…",
+      "assemblingAll": "Menyusun permohonan pemblokiran · draf LTKM · alert multi-instansi…",
+      "footerNote": "Setiap artefak <b>di-hash SHA-256</b> + diberi cap waktu ke rantai custody kasus (UU ITE Pasal 5) dan menyertakan penalaran Glass Box di balik setiap tanda risiko. Pembuatan bersifat otomatis; <b>pengiriman bersifat human-gated</b> — mode POC diarahkan ke mock sink, LIVE ke goAML + IASC."
+    },
+    "agencyAlertCard": {
+      "agencyCountOne": "1 instansi",
+      "agencyCountOther": "{count} instansi",
+      "urgent": "Mendesak",
+      "channelComplianceApi": "Compliance API",
+      "channelSecureEmail": "Email aman",
+      "channelSecureChannel": "Kanal aman",
+      "viaChannel": "via {channel}",
+      "noTargets": "Belum ada target pengiriman — buat dokumen terlebih dahulu.",
+      "footerNote": "Alert terkoordinasi · pengiriman bersifat <b>human-gated</b>; POC diarahkan ke mock sink, LIVE ke kanal live masing-masing instansi."
+    },
+    "dispatchBar": {
+      "dispatchHumanGated": "Pengiriman · human-gated",
+      "receipt": "Tanda terima",
+      "cancel": "Batal",
+      "dispatchedMockSink": "✓ Terkirim (mock sink)",
+      "dispatching": "Mengirim…",
+      "confirmDispatchTo": "Konfirmasi — kirim ke {count} target",
+      "confirmAndDispatch": "Konfirmasi & kirim",
+      "pocModeExplainer": "Pada mode <b>POC</b> tidak ada data yang keluar dari sistem — mode LIVE mengarahkan ke kanal nyata + goAML + pemblokiran IASC. Pengiriman memerlukan konfirmasi eksplisit.",
+      "evidenceSha256": "SHA-256 barang bukti"
+    },
+    "dispatchReceipt": {
+      "dispatchReceipt": "Tanda terima pengiriman",
+      "confirmationSubtitle": "Konfirmasi apa yang dikirim ke setiap instansi.",
+      "printSaveAsPdf": "Cetak / Simpan sebagai PDF",
+      "html": "HTML",
+      "close": "Tutup"
+    },
+    "docCard": {
+      "downloadFailed": "Unduhan gagal — coba lagi",
+      "viewTitle": "Lihat surat yang telah diformat — cetak atau simpan sebagai PDF",
+      "view": "Lihat",
+      "downloadPdfTitle": "Unduh PDF resmi — berkas rantai-hash SHA-256 yang menjadi arsip resmi yang dikirim ke instansi",
+      "pdfShort": "↓ PDF",
+      "humanFilledBeforeDispatch": "Diisi manusia sebelum dikirim"
+    },
+    "documentView": {
+      "kindLtkm": "Draf LTKM / STR",
+      "kindFreeze": "Surat permohonan pemblokiran",
+      "documentViewer": "Penampil dokumen",
+      "printHint": "Cetak / Simpan sebagai PDF untuk mendapatkan salinan yang identik dengan tampilan ini.",
+      "printSaveAsPdf": "Cetak / Simpan sebagai PDF",
+      "saveAsHtmlTitle": "Simpan surat sebagai berkas HTML",
+      "html": "HTML",
+      "close": "Tutup",
+      "document": "Dokumen"
+    }
+  },
+  "auth": {
+    "appGate": {
+      "appName": "ITTU"
+    },
+    "googleSignInButton": {
+      "cancelled": "Sign-in Google dibatalkan.",
+      "signInFailed": "Sign-in Google gagal.",
+      "loadFailed": "Gagal memuat sign-in Google.",
+      "signingYouIn": "Sedang masuk…",
+      "continueWithGoogle": "Lanjutkan dengan Google",
+      "orDemoSignIn": "atau demo sign-in"
+    }
+  },
+  "cases": {
+    "contextBar": {
+      "noActiveCase": "Belum ada kasus aktif.",
+      "openACase": "Buka kasus →",
+      "openACaseHint": "— pekerjaan Anda di sini akan dilampirkan padanya.",
+      "backToCaseFile": "Kembali ke Case File",
+      "currentStageTitle": "Tahap investigasi saat ini",
+      "caseFileLink": "Case File →",
+      "stageTask": {
+        "intake": "Munculkan rekening & wallet terduga (Honeypot)",
+        "freeze": "Buat & kirim permohonan pemblokiran (Action Panel)",
+        "trace": "Lacak aliran dana (Bridge)",
+        "takedown": "Nilai jaringan wallet (Investigation)",
+        "report": "Ajukan STR / LTKM (Action Panel)",
+        "recovery": "Lacak pemulihan dana untuk kasus ini",
+        "closed": "Kasus ditutup"
+      }
+    },
+    "switcher": {
+      "noCaseSelected": "Belum ada kasus terpilih",
+      "activeCaseTitle": "Kasus aktif · {stage}",
+      "pickOrOpenCase": "Pilih atau buka kasus",
+      "cases": "Kasus",
+      "noCasesYet": "Belum ada kasus.",
+      "advanceStage": "Lanjutkan tahap",
+      "newCaseTitlePlaceholder": "Judul kasus baru…",
+      "opening": "Membuka…",
+      "openCase": "Buka kasus",
+      "cancel": "Batal",
+      "newCase": "Kasus baru"
+    }
+  },
+  "screenPlaceholder": {
+    "comingIn": "hadir di {phase}"
+  },
+  "audit": {
+    "page": {
+      "title": "Jejak audit",
+      "subtitle": "Setiap tindakan yang tercatat oleh instansi Anda, terbaru lebih dulu — siapa yang melakukannya, kapan, dan apa yang berubah. Tindakan yang <r>ditolak</r> juga tercatat, dan ditandai sebagai demikian: percobaan yang tidak diizinkan oleh peran seseorang sering kali menjadi baris yang paling penting. Bersifat append-only dan hash-chained, sehingga perubahan dapat dideteksi. Tindakan instansi lain tidak pernah ditampilkan.",
+      "reverify": "Verifikasi ulang",
+      "reverifying": "…",
+      "errorFallback": "jejak audit tidak dapat dimuat",
+      "chainVerified": {
+        "title": "✓ Rantai terverifikasi — setiap entri tertaut ke entri sebelumnya.",
+        "body": "Setiap catatan di-hash bersama dengan pendahulunya, sehingga mengubah atau menghapus entri mana pun akan merusak semua hash setelahnya. Baru saja diperiksa ulang.",
+        "caveat": "Yang <b>tidak</b> dibuktikan oleh ini: bahwa setiap tindakan tercatat sejak awal. Rantai ini menunjukkan tidak ada yang diubah atau dihapus di sini — entri yang tidak pernah dituliskan tidak meninggalkan jejak untuk diputus. Kegagalan penulisan tersebut dihitung dan dipantau secara terpisah, sehingga catatan yang hilang terdeteksi oleh pemantauan, bukan oleh pemeriksaan ini."
+      },
+      "chainFailed": {
+        "title": "✗ Verifikasi rantai GAGAL",
+        "titleAtEntry": "✗ Verifikasi rantai GAGAL pada entri #{seq}",
+        "body": "Log telah diubah sejak dituliskan, atau ada entri yang hilang. Semua yang berasal dari titik itu dan seterusnya harus dianggap tidak dapat diandalkan dan perlu diselidiki — jangan mengandalkan jejak ini sebagai bukti sampai dijelaskan."
+      },
+      "recordedActionsEyebrow": "Tindakan tercatat · {count}",
+      "loading": "Memuat…",
+      "emptyState": "Belum ada yang tercatat. Tindakan akan muncul di sini saat terjadi — masuk, membuka atau mengubah kasus, meninjau entitas yang terekstrak, mengajukan panggilan ke dalam kasus.",
+      "deniedChip": "Ditolak",
+      "rateCapReached": "⚠ Batas laju tercapai ({cap}) — penolakan sejenis berikutnya oleh pengguna ini TIDAK dicatat.",
+      "unknownUser": "Pengguna tidak dikenal",
+      "actionCopy": {
+        "authLogin": {
+          "label": "Masuk"
+        },
+        "caseCreated": {
+          "label": "Membuka kasus"
+        },
+        "caseUpdated": {
+          "label": "Mengubah kasus"
+        },
+        "entityReviewed": {
+          "label": "Meninjau entitas"
+        },
+        "dispatchSent": {
+          "label": "Mengirim ke instansi"
+        },
+        "triageAttached": {
+          "label": "Mengajukan panggilan ke dalam kasus"
+        },
+        "triagePromoted": {
+          "label": "Membuka kasus dari panggilan"
+        },
+        "actionBundleGenerated": {
+          "label": "Membuat bundel bukti"
+        },
+        "evidenceExported": {
+          "label": "Mengunduh bukti"
+        },
+        "userCreated": {
+          "label": "Membuat pengguna",
+          "attempt": "mencoba membuat pengguna"
+        },
+        "userRoleChanged": {
+          "label": "Mengubah peran pengguna",
+          "attempt": "mencoba mengubah peran pengguna"
+        },
+        "userDeactivated": {
+          "label": "Menonaktifkan pengguna",
+          "attempt": "mencoba menonaktifkan pengguna"
+        },
+        "userReactivated": {
+          "label": "Mengaktifkan kembali pengguna",
+          "attempt": "mencoba mengaktifkan kembali pengguna"
+        },
+        "accessForbidden": {
+          "label": "Ditolak aksesnya",
+          "attempt": "mencoba mengakses sesuatu yang dilarang oleh perannya"
+        }
+      },
+      "attemptedFallback": "mencoba {label}",
+      "denialCopy": {
+        "privilege_escalation": "hanya admin platform yang dapat memberikan peran tersebut",
+        "self_lockout": "akan mengunci akunnya sendiri",
+        "last_admin": "akan membuat instansi tanpa admin aktif",
+        "cross_agency_forbidden": "pengguna itu berasal dari instansi lain",
+        "user_not_found": "tidak ada pengguna seperti itu yang terlihat olehnya",
+        "forbidden": "perannya tidak mengizinkan hal itu"
+      },
+      "loginMethod": {
+        "google": "Google",
+        "demo": "demo login"
+      }
+    }
+  },
+  "home": {
+    "page": {
+      "eyebrow": "ITTU · forensik kejahatan finansial",
+      "title": "Apa yang ingin Anda lakukan?",
+      "subtitle": "Kerjakan kasus melalui alur terpandu, atau langsung ke sebuah alat.",
+      "section1Label": "1 · Alur kerja kasus",
+      "section1Hint": "— investigasi terpandu",
+      "activeCase": "Kasus aktif",
+      "next": "Berikutnya: {task}",
+      "continueCase": "Lanjutkan kasus →",
+      "newReport": "Laporan baru",
+      "opening": "Membuka…",
+      "startNewInvestigation": "Mulai investigasi baru",
+      "startNewInvestigationDesc": "Sebagian besar kasus dimulai dari laporan korban — catat laporannya, dan aplikasi akan membuka kasus, mencatat rekening, dan dapat memblokirnya dalam satu langkah.",
+      "newReportCta": "✎ Laporan baru (Intake) →",
+      "recentCases": "Kasus terbaru",
+      "section2Label": "2 · Alat cepat",
+      "section2Hint": "— jalankan tugas secara mandiri, tanpa perlu kasus",
+      "walletPlaceholder": "Tempel alamat wallet untuk melacaknya…",
+      "trace": "Lacak →",
+      "footerNote": "Alat bersifat mandiri — gunakan untuk menjelajah atau menjawab pertanyaan singkat. Saat mengerjakan kasus nyata, mulailah dari <caseLink>Case File</caseLink> agar semuanya melekat pada kasus tersebut.",
+      "stageTask": {
+        "intake": "Munculkan rekening & wallet terduga",
+        "freeze": "Buat & kirim permohonan pemblokiran",
+        "trace": "Lacak aliran dana",
+        "takedown": "Nilai jaringan wallet",
+        "report": "Ajukan STR / LTKM",
+        "recovery": "Lacak pemulihan dana",
+        "closed": "Kasus ditutup"
+      },
+      "tools": {
+        "honeypot": {
+          "title": "Jalankan honeypot",
+          "desc": "Libatkan pelaku penipuan dengan persona AI; ekstrak wallet & rekening."
+        },
+        "bridge": {
+          "title": "Bridge / BridgeWatch",
+          "desc": "Lihat aliran dana fiat → QRIS → crypto sebagai Sankey."
+        },
+        "investigation": {
+          "title": "Investigasi wallet",
+          "desc": "Lacak jaringan wallet dan nilai risikonya."
+        },
+        "actions": {
+          "title": "Dokumen tindakan",
+          "desc": "Buat permohonan pemblokiran & laporan transaksi mencurigakan."
+        },
+        "response": {
+          "title": "Command Center",
+          "desc": "Metrik seluruh instansi: dana dalam risiko / diblokir, tingkat pemulihan, waktu-ke-pemblokiran."
+        }
+      }
+    }
+  },
+  "guide": {
+    "page": {
+      "eyebrow": "Orientasi",
+      "title": "Cara kerja ITTU — panduan singkat",
+      "subtitle": "ITTU (Infiltrate, Trace, Takedown & Uncover) mengubah respons kejahatan finansial dari reaktif menjadi proaktif. Empat modul terangkai menjadi satu investigasi: memburu intelijen dari pelaku penipuan, melacak aliran dana lintas jalur bank dan crypto, menilai jaringan wallet, dan menghasilkan tindakan hukum — setiap langkah tersimpan untuk pengadilan.",
+      "modulesCardTitle": "Empat modul",
+      "open": "buka →",
+      "produces": "Menghasilkan:",
+      "flowCardTitle": "Alur investigasi",
+      "flowBody": "Semuanya bergantung pada sebuah <caseLink>Case File</caseLink>. Anda mulai pada tahap <intake>Intake</intake>-nya — catat laporan korban atau jalankan honeypot — lalu pelacak tahap membawa kasus melalui empat modul. Percakapan dengan pelaku penipuan (atau sebuah laporan) memunculkan wallet dan rekening mule; wallet tersebut mengalir ke bridge (fiat ↔ crypto) dan grafik (penilaian risiko); target yang telah dinilai mengalir ke Uncover, yang menerbitkan permohonan pemblokiran dan notifikasi instansi. Semuanya di-hash untuk rantai pengawasan sejak pesan pertama hingga dokumen akhir.",
+      "screensCardTitle": "Per layar",
+      "seeLabel": "Lihat:",
+      "doLabel": "Lakukan:",
+      "postureCardTitle": "Postur data — POC vs LIVE",
+      "postureIntro": "Setiap batas eksternal (LLM honeypot, data blockchain, feed bank, notifikasi) berada di balik adapter yang berjalan dalam salah satu dari dua mode. Lencana pada bilah atas menunjukkan mode saat ini.",
+      "postures": {
+        "poc": {
+          "badge": "POC",
+          "body": "Default yang aman — sepenuhnya offline, deterministik, tanpa kredensial. Replay honeypot berskrip, fixture blockchain, data bank sintetis. PDF dan hashing rantai pengawasan bersifat <b>nyata</b>; notifikasi diarahkan ke mock sink (tidak ada yang keluar dari sistem)."
+        },
+        "live": {
+          "badge": "LIVE",
+          "body": "Kode yang sama terhadap sumber nyata — LLM nyata, API Tronscan, feed bank, webhook instansi. Memerlukan konfigurasi dan kunci eksplisit, dan gagal secara terang-terangan jika tidak ada, bukannya menurun secara diam-diam."
+        }
+      },
+      "scenariosCardTitle": "Skenario honeypot",
+      "scenariosIntro": "Honeypot menyediakan tiga tipologi penipuan MVP. Mulai salah satunya dari layar <honeypotLink>Honeypot</honeypotLink>; masing-masing memutar ulang percakapan lengkap yang entitas terungkapnya divalidasi menjadi intelijen yang dapat digunakan di pengadilan.",
+      "discloses": "mengungkapkan {discloses}",
+      "riskModelCardTitle": "Model risiko wallet",
+      "riskModelBody": "TAKEDOWN menilai setiap wallet dengan <b>Isolation Forest</b> tanpa pengawasan atas 12 fitur perilaku, didukung oleh 5 detektor tipologi deterministik — peeling chain, rapid relay, sirkular (wash), structuring, dan fan-out. Model ini divalidasi terhadap <b>Elliptic Data Set</b> (203 ribu transaksi Bitcoin) untuk ROC-AUC / presisi / recall.",
+      "riskModelApiNote": "Kartu model live disajikan di",
+      "footerTip": "Tip: cara tercepat untuk melihat rantai lengkap adalah memulai sesi honeypot, lalu membawa wallet yang terungkap ke grafik Takedown.",
+      "modules": {
+        "infiltrate": {
+          "name": "INFILTRATE",
+          "tagline": "Persona honeypot AI berperan sebagai korban penipuan dan melibatkan pelaku penipuan. Setiap giliran mengekstrak intelijen (wallet, rekening bank, telepon, tautan), mengklasifikasikan kejahatan, dan mengelompokkan sindikat — setiap pesan di-hash-chain SHA-256.",
+          "produces": "Intelijen wallet & rekening tervalidasi + jenis kejahatan"
+        },
+        "trace": {
+          "name": "TRACE",
+          "tagline": "BridgeWatch mengorelasikan transfer bank fiat dengan deposit crypto berdasarkan jumlah dan jendela waktu, lalu merender aliran dana end-to-end sebagai Sankey — jembatan yang tidak dilintasi alat asing.",
+          "produces": "Diagram aliran fiat → QRIS → crypto"
+        },
+        "takedown": {
+          "name": "TAKEDOWN",
+          "tagline": "Melacak jaringan transaksi wallet (≤3 hop), menghitung 12 fitur perilaku, menjalankan Isolation Forest ditambah 5 detektor tipologi, dan menilai setiap wallet dengan penalaran 'Glass Box' berbahasa sederhana.",
+          "produces": "Jaringan wallet yang dinilai risikonya"
+        },
+        "uncover": {
+          "name": "UNCOVER",
+          "tagline": "Mengubah analisis menjadi PDF nyata — permohonan pemblokiran rekening dan laporan transaksi mencurigakan format PPATK — masing-masing di-hash untuk rantai pengawasan, ditambah rencana notifikasi multi-instansi.",
+          "produces": "Dokumen siap pengadilan + notifikasi instansi"
+        }
+      },
+      "screens": {
+        "caseFile": {
+          "name": "Case File",
+          "see": "Layar utama — kasus aktif, pelacak tahap (Intake → Freeze → Trace → Takedown → Report → Recovery → Closed), dan setiap rekening, wallet, sesi, dan dokumen yang melekat padanya.",
+          "doWhat": "Buka kasus dan Anda akan berada di Intake: catat laporan korban (jenis, jumlah, rekening penerima) atau jalankan honeypot. Setiap tahap membuka alat yang dibutuhkannya, tepat di bawah pelacak."
+        },
+        "infiltrate": {
+          "name": "Infiltrate",
+          "see": "Sesi penipuan, transkrip hash-chained, entitas terekstrak, dan profil sindikat.",
+          "doWhat": "Mulai sesi, pilih salah satu dari 3 skenario, baca percakapan, konfirmasi atau tolak entitas."
+        },
+        "trace": {
+          "name": "Trace",
+          "see": "Sankey aliran dana (bank → QRIS → crypto), rekening mule, dan korelasi.",
+          "doWhat": "Simulasikan atau periksa bagaimana dana sebuah kasus bergerak lintas kanal."
+        },
+        "takedown": {
+          "name": "Takedown",
+          "see": "Grafik wallet interaktif dengan risiko per wallet, penalaran, dan tipologi yang terpicu.",
+          "doWhat": "Masukkan wallet, perluas hop, klik node untuk membaca rincian risikonya."
+        },
+        "uncover": {
+          "name": "Uncover",
+          "see": "Generator dokumen untuk permohonan pemblokiran dan laporan transaksi mencurigakan.",
+          "doWhat": "Buat dokumen, tinjau, lalu kirim ke instansi terkait."
+        },
+        "commandCenter": {
+          "name": "Command Center",
+          "see": "Dasbor KPI seluruh instansi — dana dalam risiko / diblokir, tingkat pemulihan, waktu-ke-pemblokiran, dan pipeline operasi (sesi honeypot, wallet dinilai, dokumen, pengiriman).",
+          "doWhat": "Lacak hasil di SELURUH kasus pada rentang waktu pilihan (di luar kasus tertentu)."
+        },
+        "controlPanel": {
+          "name": "Control Panel",
+          "see": "Adapter POC/LIVE mana yang aktif per batas, preferensi suara/panggilan.",
+          "doWhat": "Periksa postur data; atur opsi panggilan lokal analis."
+        }
+      },
+      "scenarios": {
+        "investmentScam": {
+          "name": "Investment scam",
+          "persona": "Bu Sari · 54 · Bandung",
+          "discloses": "wallet TRON, rekening mule BCA, nomor telepon operator"
+        },
+        "judolDeposit": {
+          "name": "Judol deposit",
+          "persona": "Pak Budi · 47 · Surabaya",
+          "discloses": "situs judi, admin WA, mule setoran BCA"
+        },
+        "cryptoPhishing": {
+          "name": "Crypto phishing",
+          "persona": "Mbak Rina · 28 · Jakarta",
+          "discloses": "situs fake-airdrop, wallet ETH, upaya pancingan seed-phrase"
+        }
+      }
+    }
+  },
+  "response": {
+    "panel": {
+      "title": "Command Center",
+      "titleModule": "metrik",
+      "subtitle": "Dampak operasional di seluruh instansi pada semua kasus — dari hitungan hari menjadi menit, berdasarkan data nyata.",
+      "liveApi": "● live api",
+      "offlineMock": "● offline · mock",
+      "liveApiTitle": "API backend live",
+      "offlineMockTitle": "Backend tidak dapat dijangkau — menampilkan dataset demo lokal",
+      "range": {
+        "7d": "7 hari terakhir",
+        "30d": "30 hari terakhir",
+        "all": "Sepanjang waktu"
+      },
+      "heroFasterSuffix": "lebih cepat dibanding alur kerja pemblokiran manual",
+      "heroBaseline": "rata-rata waktu-ke-pemblokiran vs baseline manual >12 jam · {trendNow} saat ini",
+      "opsPipelineEyebrow": "Pipeline operasi · {range}",
+      "trendEyebrow": "Waktu-ke-pemblokiran · tren",
+      "loadingState": "Mengagregasi read-model kasus · pemblokiran · notifikasi…",
+      "footerNote": "Semua angka dihitung dari data <b>cases · action_documents · notifications</b> yang nyata — tanpa angka kosmetik. Data POC mengalir melalui pipeline yang sama, sehingga proses demo mengisi dasbor ini sendiri. Tingkat pemulihan dibandingkan terhadap <b>baseline IASC 4,76%</b>; waktu-ke-pemblokiran terhadap alur kerja manual >12 jam."
+    },
+    "casesTable": {
+      "activeCases": "Kasus aktif",
+      "colCase": "Kasus",
+      "colType": "Jenis",
+      "colAtRisk": "Dalam risiko",
+      "colStatus": "Status",
+      "empty": "Tidak ada kasus aktif pada rentang ini."
+    },
+    "dispatchLog": {
+      "eyebrow": "Log pengiriman · outbox instansi",
+      "liveApi": "● live api",
+      "offlineMock": "● offline · mock",
+      "dispatchedCount": "{count} terkirim",
+      "loading": "Memuat catatan pengiriman…",
+      "empty": "Belum ada notifikasi yang dikirim — buat bundel tindakan lalu kirim untuk memicu alert multi-instansi.",
+      "colAgency": "Instansi",
+      "colChannel": "Kanal",
+      "colStatus": "Status",
+      "colCase": "Kasus",
+      "colDelivery": "Pengiriman",
+      "retrying": "mencoba lagi…",
+      "retry": "↻ coba lagi"
+    },
+    "trendSparkline": {
+      "empty": "Belum cukup peristiwa pemblokiran — tren akan muncul setelah kasus pertama.",
+      "ariaLabel": "Tren waktu-ke-pemblokiran, terbaru {nowLabel}"
+    }
+  },
+  "caseFile": {
+    "page": {
+      "stageLabel": {
+        "intake": "Intake",
+        "freeze": "Freeze",
+        "trace": "Trace",
+        "takedown": "Takedown",
+        "report": "Report",
+        "recovery": "Recovery",
+        "closed": "Closed"
+      },
+      "stageHint": {
+        "intake": "Laporan / intelijen proaktif masuk",
+        "freeze": "Kejar untuk memblokir rekening penerima",
+        "trace": "Ikuti aliran dana (fiat ↔ crypto)",
+        "takedown": "Atribusikan + nilai jaringan wallet",
+        "report": "Kemas bukti + ajukan STR/LTKM",
+        "recovery": "Pulihkan dana",
+        "closed": "Kasus selesai"
+      },
+      "viewGuide": {
+        "intake": "Catat laporan korban yang masuk, atau jalankan honeypot — keduanya mengalir ke kasus ini.",
+        "freeze": "Langkah darurat: buat permohonan pemblokiran rekening dan kirimkan sebelum dana berpindah. STR resmi menyusul kemudian, di tahap Report.",
+        "trace": "Ikuti aliran dana melintasi jembatan fiat→crypto. Rekening Anda menyala “dalam aliran”; serahkan wallet keluar ke Takedown.",
+        "takedown": "Nilai wallet yang dimunculkan Trace untuk menemukan wallet penampung. Klik node untuk penalaran Glass Box, lalu kemas yang berisiko.",
+        "report": "Pengajuan resmi: STR / LTKM ke PPATK (goAML), alert multi-instansi, dan bundel bukti — setiap artefak di-hash ke dalam rantai pengawasan.",
+        "recovery": "Kembalikan dana yang dibekukan ke korban. Konfirmasi pemblokiran berhasil, lalu catat hasilnya untuk menutup kasus.",
+        "closed": "Kasus ditutup — hasil telah dicatat."
+      },
+      "toolMeta": {
+        "overview": "Overview",
+        "honeypot": "Infiltrate",
+        "bridge": "Trace",
+        "investigation": "Takedown",
+        "actions": "Uncover"
+      },
+      "opensVictimReportOrHoneypot": "Laporan korban atau Honeypot",
+      "opensRecoveryReview": "Tinjauan pemulihan",
+      "crimeTypes": {
+        "investment_scam": "Investment scam",
+        "judol_deposit": "Judi online",
+        "crypto_phishing": "Crypto phishing",
+        "romance_scam": "Romance scam",
+        "impersonation": "Penyamaran",
+        "other": "Lainnya"
+      },
+      "sources": {
+        "iasc": "IASC",
+        "bank": "Bank",
+        "police": "Laporan polisi",
+        "walk_in": "Langsung / datang sendiri"
+      },
+      "stageAction": {
+        "intake": {
+          "task": "Munculkan rekening & wallet terduga",
+          "why": "Tangkap petunjuknya — catat laporan korban yang masuk, atau jalankan honeypot.",
+          "cta": "Buka Intake",
+          "checkSuspectCaptured": "Rekening atau wallet terduga tertangkap"
+        },
+        "freeze": {
+          "task": "Buat & kirim permohonan pemblokiran",
+          "why": "Kejar untuk memblokir rekening penerima sebelum dana berpindah.",
+          "cta": "Buka Action Panel",
+          "checkDocGenerated": "Dokumen pemblokiran dibuat",
+          "checkDispatched": "Dikirim ke bank / exchange"
+        },
+        "trace": {
+          "task": "Lacak aliran dana (fiat ↔ crypto)",
+          "why": "Petakan ke mana dana mengalir dan temukan rekening mule.",
+          "cta": "Buka Bridge",
+          "checkBankTracked": "Rekening bank terlacak",
+          "checkTxLogged": "Transfer crypto tercatat"
+        },
+        "takedown": {
+          "task": "Nilai jaringan wallet",
+          "why": "Identifikasi wallet penampung dan sindikat di baliknya.",
+          "cta": "Buka Investigation",
+          "checkWalletInGraph": "Wallet ada dalam grafik"
+        },
+        "report": {
+          "task": "Ajukan STR / LTKM ke PPATK",
+          "why": "Kemas bukti yang layak untuk pengadilan dan laporkan.",
+          "cta": "Buka Action Panel",
+          "checkBundleGenerated": "Bundel dokumen dibuat",
+          "checkDispatchedAgencies": "Dikirim ke instansi"
+        },
+        "recovery": {
+          "task": "Lacak pemulihan dana",
+          "why": "Koordinasikan pengembalian dana yang dibekukan kepada korban.",
+          "cta": "Tinjau pemulihan",
+          "checkFreezeDispatched": "Pemblokiran terkirim"
+        },
+        "closed": {
+          "task": "Kasus ditutup",
+          "why": "Hasil telah dicatat — tidak ada lagi yang perlu dilakukan.",
+          "cta": "Tinjau kasus"
+        }
+      },
+      "stageFlow": {
+        "eyebrow": "Alur kerja kasus",
+        "caseClosed": "Kasus ditutup",
+        "stepOf": "{stage} · langkah {current} dari {total} — klik langkah untuk mengerjakannya",
+        "overview": "Overview",
+        "now": "sekarang",
+        "closed": "Closed",
+        "closedTitle": "Kasus ditutup",
+        "closedSetFromTitle": "Diatur dari langkah Recovery atau tombol Close case",
+        "stepTitle": "{stage} — {hint} · membuka {opens}"
+      },
+      "stageNav": {
+        "finishBefore": "Selesaikan ini sebelum {stage}:",
+        "advanceAnyway": "Tetap lanjutkan →",
+        "back": "← {stage}",
+        "closeViaRecovery": "Tutup lewat <b>Catat hasil</b> di Recovery",
+        "advanceTo": "Lanjutkan ke {stage}",
+        "someStepsOpen": "Masih ada langkah yang belum selesai",
+        "next": "Berikutnya: {stage} →"
+      },
+      "nextAction": {
+        "now": "Sekarang: {stage}",
+        "freezeNow": "⚡ Blokir sekarang →"
+      },
+      "cardShell": {
+        "cancel": "Batal",
+        "add": "+ Tambah",
+        "openArrow": "{label} →"
+      },
+      "caseSessions": {
+        "eyebrow": "Panggilan & percakapan · {count}",
+        "honeypotLink": "Honeypot →",
+        "empty": "Belum ada — mulai panggilan dari Honeypot dengan kasus ini aktif.",
+        "voiceCallTitle": "Panggilan suara",
+        "voiceCallBadge": "☎ panggilan",
+        "loadingTranscript": "Memuat transkrip…",
+        "transcriptErrorFallback": "transkrip tidak dapat dimuat",
+        "transcriptErrorSuffix": "— buka di konsol Honeypot sebagai gantinya."
+      },
+      "intake": {
+        "howDidThisComeIn": "Bagaimana kasus ini masuk?",
+        "modeReportTitle": "① Laporan korban — kasus diajukan",
+        "modeReportSub": "Reaktif: laporan dari IASC, bank, atau polisi. Catat rekening penerima dan blokir dengan cepat.",
+        "modeHoneypotTitle": "② Honeypot — proaktif",
+        "modeHoneypotSub": "Persona AI kami memancing pelaku penipuan dan mengekstrak rekening & wallet penerima.",
+        "theReport": "Laporan",
+        "scamType": "Jenis penipuan",
+        "reportedVia": "Dilaporkan melalui",
+        "amountLost": "Jumlah kerugian (IDR)",
+        "amountPlaceholder": "mis. 25000000",
+        "whenItHappened": "Kapan kejadiannya",
+        "now": "Sekarang",
+        "openCalendar": "Buka kalender",
+        "receivingAccount": "Rekening penerima",
+        "receivingAccountHint": "· rekening yang Anda blokir",
+        "bankPlaceholder": "Bank (mis. BCA)",
+        "accountNumberPlaceholder": "Nomor rekening",
+        "holderNamePlaceholder": "Nama pemilik (opsional)",
+        "whatHappened": "Apa yang terjadi",
+        "whatHappenedHint": "· opsional, masuk ke ringkasan kasus",
+        "whatHappenedPlaceholder": "Bagaimana korban dihubungi, janji yang diberikan, transfer yang dikirim…",
+        "continueToFreezeLabel": "Lanjutkan ke meja pemblokiran sekarang",
+        "continueToFreezeRest": "— langsung buat & kirim permohonan pemblokiran (jendela nyata 30 menit). Blokir dulu, lacak kemudian.",
+        "working": "Memproses…",
+        "logAndContinue": "Catat laporan & lanjut ke Freeze →",
+        "logReport": "Catat laporan →",
+        "reportedAccountsEyebrow": "Rekening yang dilaporkan · {count}",
+        "noneLoggedYet": "Belum ada yang dicatat — tambahkan rekening penerima dari laporan.",
+        "errorFallback": "Gagal mencatat laporan"
+      },
+      "recovery": {
+        "cryptoExposure": "Eksposur crypto",
+        "accountsTracked": "Rekening terlacak",
+        "freezeRequests": "Permohonan pemblokiran",
+        "dispatched": "Terkirim",
+        "checklistTitle": "Daftar periksa pemulihan",
+        "checklist": {
+          "freezeGenerated": "Permohonan pemblokiran dibuat",
+          "freezeDispatched": "Pemblokiran dikirim ke bank / exchange",
+          "outcomeRecorded": "Hasil dicatat & kasus ditutup"
+        },
+        "dispatchedToAgencies": "Dikirim ke instansi",
+        "docsCount": "{count} dokumen",
+        "dispatchedLabel": "terkirim",
+        "noFreezeYet": "Belum ada pemblokiran yang dikirim — buat & kirim dulu dari langkah Freeze / Report.",
+        "recordOutcomeTitle": "Catat hasil",
+        "closedNotice": "✓ Kasus ditutup — hasil telah dicatat dalam ringkasan kasus.",
+        "reopenCase": "Buka kembali kasus",
+        "recoveredAmountLabel": "Jumlah yang dipulihkan (IDR)",
+        "recoveredAmountPlaceholder": "mis. 18000000",
+        "noteLabel": "Catatan (opsional)",
+        "notePlaceholder": "mis. BCA memblokir Rp 18 Jt, dikembalikan ke korban",
+        "saving": "Menyimpan…",
+        "recordOutcomeAndClose": "Catat hasil & tutup kasus",
+        "errorFallback": "Gagal mencatat hasil"
+      },
+      "noCase": {
+        "title": "Belum ada kasus terpilih",
+        "body": "Kasus adalah berkas tempat setiap investigasi bergantung — rekening, wallet, sesi honeypot, dan dokumen semuanya melekat padanya. Buka satu untuk memulai.",
+        "titlePlaceholder": "Judul kasus (mis. sindikat PT A2Z)",
+        "openCase": "Buka kasus",
+        "hint": "Membuka kasus akan membawa Anda ke tahap <b>Intake</b> — catat laporan korban, tangkap rekening penerima, dan blokir dalam satu langkah."
+      },
+      "header": {
+        "eyebrow": "Case file",
+        "edit": "✎ Ubah",
+        "reopenCase": "Buka kembali kasus",
+        "closeCase": "Tutup kasus",
+        "titlePlaceholder": "Judul kasus",
+        "crimeTypePlaceholder": "Jenis kejahatan (mis. investment_scam)",
+        "summaryPlaceholder": "Ringkasan / catatan kasus — apa yang terjadi, jumlah, konteks…",
+        "cancel": "Batal",
+        "save": "Simpan"
+      },
+      "stageBanner": {
+        "setAsCurrentStage": "Jadikan tahap saat ini",
+        "backToOverview": "← Overview"
+      },
+      "toolLabels": {
+        "sendToActions": "Kemas untuk tindakan"
+      },
+      "overview": {
+        "statStage": "Tahap",
+        "statAccounts": "Rekening",
+        "statWallets": "Wallet",
+        "statHoneypot": "Honeypot",
+        "statDocuments": "Dokumen",
+        "statDaysOpen": "Hari berjalan",
+        "errorFallbackBank": "Gagal menambahkan rekening",
+        "errorFallbackTx": "Gagal menambahkan transfer",
+        "trackedBankAccounts": "Rekening bank terlacak",
+        "cryptoTransfers": "Transfer crypto",
+        "openBridge": "Bridge",
+        "openInvestigation": "Investigation",
+        "loading": "Memuat…",
+        "noneYetAdd": "Belum ada — klik “+ Tambah”.",
+        "adding": "Menambahkan…",
+        "addToCase": "Tambahkan ke kasus",
+        "fromWalletPlaceholder": "Wallet asal (T…)",
+        "toWalletPlaceholder": "Wallet tujuan (T…)",
+        "amountUsdtPlaceholder": "Jumlah (USDT)",
+        "investigateArrow": "investigasi →",
+        "actionDocumentsEyebrow": "Dokumen tindakan · {count}",
+        "actionPanelLink": "Action Panel →",
+        "noDocumentsYet": "Belum ada — buat bundel dari Action Panel dengan kasus ini aktif.",
+        "activityEyebrow": "Aktivitas",
+        "activityCaseOpened": "Kasus dibuka",
+        "activityCaseOpenedSub": "investigasi",
+        "activityHoneypotEngaged": "Sesi honeypot terlibat",
+        "activityDocumentsGenerated": "{count} dokumen dibuat",
+        "footerNote": "Semua yang Anda sentuh selagi kasus ini aktif melekat pada <b>{title}</b>: rekening bank mengalir ke Bridge TRACE, transfer crypto menyatu ke grafik TAKEDOWN, sesi honeypot dan dokumen tindakan terkumpul di sini. Beralih kasus dari pemilih di bilah atas."
+      }
+    }
+  },
+  "users": {
+    "title": "Pengguna",
+    "gateBody": "Mengelola akun memerlukan peran admin. Hubungi admin instansi Anda jika perlu perubahan akses.",
+    "subtitle": "Siapa yang dapat masuk ke {agency}, dan apa yang boleh mereka lakukan. Setiap perubahan di sini tercatat di {auditLink}. Tidak ada kata sandi yang perlu dikelola — orang masuk dengan Google, dan akses ditentukan oleh apakah mereka muncul di daftar ini.",
+    "agencyFallback": "instansi Anda",
+    "auditLinkText": "jejak audit",
+    "giveAccessEyebrow": "Berikan akses kepada seseorang",
+    "emailPlaceholder": "nama@instansi.go.id",
+    "emailAriaLabel": "Alamat email",
+    "namePlaceholder": "Nama lengkap",
+    "nameAriaLabel": "Nama lengkap",
+    "roleAriaLabel": "Peran",
+    "addUser": "Tambah pengguna",
+    "addUserBusy": "…",
+    "emailHint": "Email harus sesuai dengan akun Google yang mereka gunakan untuk masuk — ini adalah identitas, bukan sekadar alamat kontak.",
+    "peopleEyebrow": "Orang · {count}",
+    "loading": "Memuat…",
+    "emptyState": "Belum ada siapa pun. Tambahkan orang pertama di atas — sampai saat itu, hanya akun demo bawaan yang dapat masuk.",
+    "deactivatedChip": "dinonaktifkan",
+    "roleForUser": "Peran untuk {email}",
+    "stopSignIn": "Hentikan akun ini agar tidak bisa masuk",
+    "allowSignIn": "Izinkan akun ini masuk kembali",
+    "deactivate": "Nonaktifkan",
+    "reactivate": "Aktifkan kembali",
+    "actionBusy": "…",
+    "errors": {
+      "generic": "Terjadi kesalahan.",
+      "selfLockout": "Anda tidak dapat menonaktifkan atau menurunkan peran akun Anda sendiri — minta admin lain untuk melakukannya, agar tidak ada yang terkunci dari akun sendiri.",
+      "lastAdmin": "Ini adalah admin aktif terakhir di instansi ini. Promosikan orang lain terlebih dahulu, atau instansi ini tidak akan memiliki siapa pun yang dapat memulihkan akses.",
+      "privilegeEscalation": "Hanya platform-admin yang dapat memberikan peran platform-admin.",
+      "crossAgencyForbidden": "Anda hanya dapat mengelola pengguna di instansi Anda sendiri.",
+      "accountDeactivated": "Akun tersebut dinonaktifkan."
+    },
+    "notices": {
+      "invited": "{email} kini dapat masuk dengan Google sebagai {role}.",
+      "deactivated": "{email} tidak dapat masuk lagi. Sesi yang sedang aktif mungkin masih berlaku hingga token-nya kedaluwarsa.",
+      "reactivated": "{email} dapat masuk kembali.",
+      "roleChanged": "{email} kini menjadi {role}. Berlaku pada saat berikutnya mereka masuk."
+    }
+  },
+  "settings": {
+    "title": "Panel Kontrol",
+    "subtitle": "Preferensi suara & panggilan khusus analis (di perangkat ini) — disimpan di peramban ini, berlaku pada panggilan honeypot berikutnya. Tidak ada kunci API atau rahasia yang tersimpan di sini.",
+    "refresh": "Segarkan status",
+    "refreshing": "Menyegarkan…",
+    "language": {
+      "cardTitle": "Bahasa",
+      "legend": "Bahasa antarmuka",
+      "hint": "Berlaku instan di peramban ini — tidak memuat ulang halaman.",
+      "id": {
+        "label": "Bahasa Indonesia",
+        "sub": "Default"
+      },
+      "en": {
+        "label": "English",
+        "sub": "Terjemahan Inggris"
+      }
+    },
+    "voiceCall": {
+      "cardTitle": "Suara & panggilan",
+      "voiceProvider": {
+        "legend": "Penyedia suara",
+        "hint": "Mesin mana yang mengucapkan dialog persona honeypot.",
+        "browser": {
+          "label": "Peramban",
+          "sub": "Web Speech API · gratis, luring"
+        },
+        "elevenlabs": {
+          "label": "ElevenLabs",
+          "sub": "Audio backend · GET /sessions/'{id}'/audio/'{seq}'"
+        },
+        "gemini": {
+          "label": "Gemini TTS",
+          "sub": "Audio backend · persona dengan kontrol gaya (AI Studio)"
+        },
+        "google": {
+          "label": "Google TTS",
+          "sub": "Audio backend · GET /sessions/'{id}'/audio/'{seq}'"
+        }
+      },
+      "callMode": {
+        "legend": "Mode panggilan",
+        "hint": "Bagaimana /honeypot/call menjalankan percakapan.",
+        "scripted": {
+          "label": "Replai naskah",
+          "sub": "Loop agen dijalankan lebih dulu di server · simulasi yang setia"
+        },
+        "liveMic": {
+          "label": "Mikrofon langsung (interaktif)",
+          "sub": "Anda memerankan penipu lewat mikrofon · Tingkat-B, docs/Live-Voice-Calls.md"
+        }
+      },
+      "sttSource": {
+        "legend": "Sumber ucapan-ke-teks",
+        "hint": "Digunakan untuk mentranskrip mikrofon operator pada mode mikrofon langsung.",
+        "webSpeech": {
+          "label": "Web Speech API peramban",
+          "sub": "Hanya Chrome/Edge · id-ID · gratis (Safari/Firefox beralih ke input teks)"
+        }
+      },
+      "overridesNote": "Menimpa nilai bawaan build peramban ini (NEXT_PUBLIC_*). Kosongkan untuk kembali ke nilai bawaan yang dikonfigurasi deployment.",
+      "resetToDefaults": "Setel ulang ke bawaan"
+    },
+    "advancedVoice": {
+      "elevenlabsEyebrow": "Suara lanjutan · ElevenLabs",
+      "geminiEyebrow": "Suara lanjutan · Gemini",
+      "googleEyebrow": "Suara lanjutan · Google",
+      "openVoices": "Buka Voices ↗",
+      "getApiKey": "Dapatkan kunci API ↗",
+      "voiceDocs": "Dokumentasi suara ↗",
+      "voiceList": "Daftar suara ↗",
+      "elevenlabsHelp": "Penimpaan per-permintaan — tanpa mulai ulang. Kosong = bawaan server. ▶ Test memutar contoh singkat (memakai sedikit kredit). Test yang gagal akan kembali ke suara terakhir yang berfungsi dan menyebutkan alasannya — kredit habis, kunci ditolak, atau ID suara tidak valid.",
+      "geminiHelp": "Penimpaan per-permintaan — tanpa mulai ulang. Ketik atau pilih suara bawaan (nada adalah karakternya); arahan gaya yang membentuk nuansa emosinya. ▶ Test memutar contoh dan memakai satu permintaan Gemini (tingkat gratis = 10/hari).",
+      "googleHelp": "Penimpaan per-permintaan — tanpa mulai ulang. Ketik atau pilih suara WaveNet / Standard id-ID datar (tanpa kontrol gaya). ▶ Test memutar contoh; ~1 juta karakter/bulan gratis.",
+      "modelLabel": "Model",
+      "modelPlaceholder": "eleven_flash_v2_5",
+      "personaVoiceIdLabel": "ID suara persona",
+      "scammerVoiceIdLabel": "ID suara penipu",
+      "personaVoiceLabel": "Suara persona",
+      "scammerVoiceLabel": "Suara penipu",
+      "serverDefaultPlaceholder": "bawaan server",
+      "serverDefaultWithFallback": "bawaan server ({fallback})",
+      "testTitle": "Putar contoh singkat suara ini",
+      "testTitleWithCheck": "Putar contoh singkat suara ini (memeriksa kunci + kuota)",
+      "testButton": "▶ Test",
+      "testBusy": "…",
+      "revertHint": "✗ bukan suara yang tersedia — kembali ke semula saat Anda beralih fokus"
+    },
+    "voiceCheck": {
+      "elevenlabs": {
+        "playing": "✓ memutar contoh…",
+        "noKey": "tidak ada kunci ElevenLabs yang diatur di server",
+        "keyRejected": "✗ kunci ditolak — periksa kunci API",
+        "outOfCredits": "✗ kredit habis — tingkatkan paket atau tunggu pemulihan",
+        "badVoiceId": "✗ bukan ID suara yang bisa dipakai (tidak ada di pustaka Anda)",
+        "httpError": "✗ galat ElevenLabs ({code})",
+        "unreachable": "✗ tidak dapat menjangkau ElevenLabs / backend"
+      },
+      "gemini": {
+        "ready": "✓ siap — memutar contoh…",
+        "noKey": "tidak ada kunci Gemini yang diatur di server",
+        "quotaExceeded": "✗ kuota terlampaui — aktifkan penagihan (tingkat gratis = 10/hari)",
+        "keyRejected": "✗ kunci ditolak — periksa kunci AI Studio",
+        "badVoiceName": "✗ bukan nama suara yang valid (periksa ejaan)",
+        "modelUnavailable": "✗ model tidak tersedia di wilayah Anda",
+        "configError": "✗ {message}",
+        "httpError": "✗ galat Gemini ({code})",
+        "unreachable": "✗ tidak dapat menjangkau Gemini / backend"
+      },
+      "google": {
+        "ready": "✓ siap — memutar contoh…",
+        "noKey": "tidak ada kunci Google TTS yang diatur di server",
+        "keyRejected": "✗ kunci ditolak / Text-to-Speech API belum diaktifkan",
+        "quotaExceeded": "✗ kuota terlampaui",
+        "badRequest": "✗ permintaan tidak valid (suara tidak tersedia untuk id-ID)",
+        "httpError": "✗ galat Google ({code})",
+        "unreachable": "✗ tidak dapat menjangkau Google / backend"
+      }
+    },
+    "backendStatus": {
+      "cardTitle": "Status backend · GET /api/config (hanya-baca)",
+      "loadingLine": "Membaca GET /api/config…",
+      "globalMode": "Mode global",
+      "envFallback": "cadangan env · backend tak terjangkau",
+      "envFallbackTitle": "GET /api/config tidak terjangkau — menampilkan cadangan build NEXT_PUBLIC_ITTU_MODE",
+      "perModuleMode": "Mode per-modul",
+      "ttsProvider": "Penyedia TTS server",
+      "ttsProviderUnreported": "tidak dilaporkan oleh build backend ini — pilihan Panel Kontrol di bawah tetap menentukan jalur pemutaran (peramban vs. audio backend)",
+      "keyPresence": "Keberadaan kunci suara langsung",
+      "keyPresenceHint": "(hanya boolean — tidak pernah berupa nilai)",
+      "keyConfigured": "terkonfigurasi",
+      "keyNotSet": "belum diatur",
+      "keysUnreported": "belum dilaporkan oleh build backend ini."
+    }
+  },
+  "honeypotOps": {
+    "title": "Ops Honeypot",
+    "subtitle": "Operasi panggilan keluar — kumpulan nomor tempat kami menelepon, kampanye nomor yang dikerjakan, dan panggilan yang menunggu untuk ditempatkan ke sebuah kasus. Digunakan bersama di seluruh instansi Anda (berbeda dari Panel Kontrol, yang khusus per-peramban).",
+    "steps": {
+      "registerNumbers": "Daftarkan nomor tempat Anda menelepon",
+      "uploadNumbers": "Unggah daftar nomor yang akan ditelepon",
+      "fileCalls": "Arsipkan hasil panggilan ke dalam kasus"
+    },
+    "tabsAriaLabel": "Bagian Ops Honeypot",
+    "tabs": {
+      "numbers": "Nomor",
+      "campaigns": "Kampanye",
+      "triage": "Triase"
+    },
+    "numbersTab": {
+      "cardTitle": "Kumpulan nomor",
+      "twilioConsole": "Konsol Twilio ↗",
+      "intro": "Nomor tempat honeypot menelepon, dirotasi agar satu ID penelepon tidak terbakar. Beli dan konfigurasikan di konsol Twilio, lalu daftarkan di sini — aplikasi ini tidak pernah menyediakan nomor sendiri.",
+      "phonePlaceholder": "+6281234567890",
+      "sidPlaceholder": "SID Twilio (opsional)",
+      "labelPlaceholder": "Label, mis. Bareskrim #1",
+      "register": "Daftarkan",
+      "registerBusy": "…",
+      "phoneInvalidHint": "Harus E.164 dengan kode negara — mis. +6281234567890 (angka 08… saja akan ditolak, bukan ditebak).",
+      "loading": "Memuat…",
+      "empty": "Belum ada nomor. Ini adalah ID penelepon tempat honeypot menelepon — beli satu di konsol Twilio, lalu daftarkan di atas. Kampanye tidak dapat menempatkan panggilan sampai kumpulan ini memiliki setidaknya satu nomor.",
+      "noLabel": "—",
+      "reactivateTitle": "Kembalikan nomor ini ke rotasi",
+      "retireTitle": "Hentikan penggunaan nomor ini untuk menelepon (tetap disimpan untuk keperluan provenans)",
+      "reactivate": "Aktifkan kembali",
+      "retire": "Nonaktifkan",
+      "errors": {
+        "loadFailed": "gagal memuat nomor",
+        "registerFailed": "gagal mendaftarkan nomor",
+        "updateFailed": "gagal memperbarui nomor"
+      },
+      "numberStatus": {
+        "active": "aktif",
+        "retired": "dinonaktifkan",
+        "rate_limited": "dibatasi laju"
+      }
+    },
+    "campaignsTab": {
+      "cardTitle": "Kampanye panggilan",
+      "intro": "Sekumpulan nomor penipu untuk dikerjakan. Beri nama, tempel daftarnya, lalu mulai — persona menelepon setiap nomor secara berurutan. Panggilan disimulasikan pada build ini, dan menghubungi nomor yang benar-benar dilaporkan tetap memerlukan otorisasi penegak hukum.",
+      "namePlaceholder": "Nama kampanye, mis. Sapu bersih judol Agu",
+      "pacingTitle": "Seberapa cepat kampanye ini mengerjakan daftarnya",
+      "pacingUnit": "panggilan/mnt",
+      "create": "Buat",
+      "createBusy": "…",
+      "loading": "Memuat…",
+      "empty": "Belum ada kampanye. Kampanye adalah satu kumpulan nomor untuk dikerjakan — beri nama di atas, lalu tempelkan nomor yang ingin ditelepon.",
+      "noNumbersAddedYet": "belum ada nomor ditambahkan",
+      "errors": {
+        "loadFailed": "gagal memuat kampanye",
+        "createFailed": "gagal membuat kampanye"
+      },
+      "status": {
+        "draft": "draf",
+        "running": "berjalan",
+        "paused": "dijeda",
+        "completed": "selesai"
+      },
+      "progress": {
+        "called": "{called} dari {total} ditelepon",
+        "dialingNow": "{count} sedang menelepon",
+        "engaged": "{count} terhubung",
+        "noAnswer": "{count} tidak dijawab",
+        "failed": "{count} gagal"
+      }
+    },
+    "campaignDetail": {
+      "resume": "Lanjutkan",
+      "start": "Mulai",
+      "startTitle": "Mulai mengerjakan daftar ini — nomor dalam antrean diserahkan ke pemanggil otomatis",
+      "pause": "Jeda",
+      "pauseTitle": "Hentikan pemberian nomor baru; panggilan yang sedang berlangsung tetap diselesaikan",
+      "callAgain": "Telepon lagi",
+      "callAgainTitle": "Kembalikan setiap nomor tak dijawab dan gagal ke antrean untuk ditelepon lagi",
+      "dialingOffNote": "Panggilan dimatikan di server — Mulai menandai kampanye berjalan tetapi tidak menempatkan panggilan.",
+      "simulatedNote": "Panggilan disimulasikan pada build ini — tidak ada yang benar-benar ditelepon.",
+      "requeuedSummary": "↻ {count} diantrekan untuk ditelepon lagi",
+      "requeuedSkipped": "· {count} dilewati (sudah menunggu, atau sedang dalam panggilan)",
+      "addNumbersLabel": "Tambahkan nomor untuk ditelepon — satu per baris (atau tempel CSV: nomor terlebih dahulu)",
+      "pastePlaceholder": "+6281234567890\n+6285600001111,Kredibel,dilaporkan 3x",
+      "upload": "Unggah",
+      "uploadBusy": "…",
+      "validCount": "{valid} dari {total} baris tampak valid",
+      "added": "✓ {count} ditambahkan",
+      "numbersToCall": "Nomor untuk ditelepon · {count}",
+      "loading": "Memuat…",
+      "emptyTargets": "Belum ada apa pun di kampanye ini — tempelkan nomor yang ingin ditelepon ke kotak di atas. Setiap nomor menyimpan catatan panggilannya sendiri setelah pemanggilan dimulai.",
+      "errors": {
+        "loadTargetsFailed": "gagal memuat nomor tujuan",
+        "uploadFailed": "unggah gagal",
+        "lifecycleFailed": "gagal {action} kampanye",
+        "requeueFailed": "gagal mengantrekan ulang"
+      },
+      "rejectReasons": {
+        "invalid": "bukan nomor yang valid — sertakan kode negara, mis. +6281234567890",
+        "duplicate_in_upload": "tercantum dua kali dalam tempelan ini",
+        "already_in_campaign": "sudah ada di kampanye ini — gunakan “Telepon lagi” untuk meneleponnya sekali lagi"
+      }
+    },
+    "targetRow": {
+      "attemptsSuffix": "· {count} percobaan",
+      "loadingCallLog": "Memuat catatan panggilan…",
+      "noAttempts": "Belum ditelepon — belum ada percobaan tercatat.",
+      "errorLoadFailed": "gagal memuat catatan panggilan",
+      "outcome": {
+        "engaged": "terhubung",
+        "no_answer": "tidak dijawab",
+        "failed": "gagal"
+      },
+      "targetStatus": {
+        "queued": "dalam antrean",
+        "dialing": "sedang menelepon",
+        "no_answer": "tidak dijawab",
+        "engaged": "terhubung",
+        "failed": "gagal"
+      }
+    },
+    "triageTab": {
+      "cardTitle": "Triase · {count}",
+      "intro": "Panggilan yang terhubung namun belum punya kasus. Panggilan hanya ditautkan otomatis pada kecocokan persis — nomor yang sama, atau dompet yang sudah ada di suatu kasus — karena tautan yang keliru diam-diam menggabungkan dua investigasi dalam satu berkas yang mungkin berujung ke pengadilan. Selebihnya berakhir di sini untuk Anda tempatkan.",
+      "loading": "Memuat…",
+      "empty": "Tidak ada yang menunggu. Ketika sebuah panggilan terhubung dan tidak dapat dicocokkan ke kasus secara otomatis, panggilan itu muncul di sini agar Anda dapat mengarsipkannya.",
+      "errors": {
+        "loadFailed": "gagal memuat antrean triase",
+        "placeFailed": "gagal menempatkan panggilan ini"
+      }
+    },
+    "triageRow": {
+      "unknownNumber": "tidak diketahui",
+      "entityCount": "{count} entitas",
+      "entityCountPlural": "{count} entitas",
+      "attachSelectLabel": "Lampirkan ke kasus yang sudah ada",
+      "attachPlaceholder": "Lampirkan ke kasus yang sudah ada…",
+      "attach": "Lampirkan",
+      "attachBusy": "…",
+      "newCase": "Kasus baru",
+      "newCaseTitle": "Buka kasus baru yang terisi otomatis dari panggilan ini"
+    }
+  }
+}

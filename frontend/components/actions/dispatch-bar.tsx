@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import type { ActionBundle } from "@/lib/actions/types";
 import { DispatchReceipt } from "@/components/actions/dispatch-receipt";
 
@@ -20,6 +21,7 @@ export function DispatchBar({
   dispatching: boolean;
   onDispatch: () => void;
 }) {
+  const t = useTranslations("actions.dispatchBar");
   const [armed, setArmed] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
 
@@ -33,7 +35,7 @@ export function DispatchBar({
   return (
     <div className="mt-3.5 rounded-card border border-line bg-card">
       <div className="flex items-center justify-between gap-3 border-b border-line px-3.5 py-3">
-        <span className="eyebrow">Dispatch · human-gated</span>
+        <span className="eyebrow">{t("dispatchHumanGated")}</span>
         <div className="flex items-center gap-2">
           {bundle.dispatched && (
             <button
@@ -41,7 +43,7 @@ export function DispatchBar({
               onClick={() => setShowReceipt(true)}
               className="h-7 rounded-lg border border-accent/30 bg-accent/10 px-3 text-[11px] font-semibold text-accent-bright transition-colors hover:bg-accent/20"
             >
-              ⧉ Receipt
+              ⧉ {t("receipt")}
             </button>
           )}
           {armed && !bundle.dispatched && (
@@ -50,7 +52,7 @@ export function DispatchBar({
               onClick={() => setArmed(false)}
               className="h-7 rounded-lg border border-line bg-elevated px-3 text-[11px] font-semibold text-white/60 transition-colors hover:bg-white/[.07]"
             >
-              Cancel
+              {t("cancel")}
             </button>
           )}
           <button
@@ -71,24 +73,24 @@ export function DispatchBar({
             }`}
           >
             {bundle.dispatched
-              ? "✓ Dispatched (mock sink)"
+              ? t("dispatchedMockSink")
               : dispatching
-                ? "Dispatching…"
+                ? t("dispatching")
                 : armed
-                  ? `Confirm — dispatch to ${bundle.targets.length} targets`
-                  : "Confirm & dispatch"}
+                  ? t("confirmDispatchTo", { count: bundle.targets.length })
+                  : t("confirmAndDispatch")}
           </button>
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3.5 py-3 text-[11px] text-muted">
         <span>
-          In <b className="text-white/60">POC mode</b> nothing leaves the
-          system — LIVE mode routes to real channels + goAML + IASC freeze.
-          Sending requires explicit confirmation.
+          {t.rich("pocModeExplainer", {
+            b: (chunks) => <b className="text-white/60">{chunks}</b>,
+          })}
         </span>
         <span className="ml-auto flex-none font-mono text-[10.5px]">
-          evidence SHA-256{" "}
+          {t("evidenceSha256")}{" "}
           <b className="text-accent-bright">{bundle.evidenceHash}</b>
         </span>
       </div>

@@ -1,21 +1,25 @@
+"use client";
+
 /**
  * Mule network stats card — Louvain clusters, mule accounts, shell merchants,
  * correlation window, as a compact 2×2 tile grid.
  */
 
+import { useTranslations } from "next-intl";
 import type { MuleNetworkStats } from "@/lib/bridge/types";
 
 export function MuleStatsCard({ mules }: { mules: MuleNetworkStats }) {
+  const t = useTranslations("bridge.muleStatsCard");
   const tiles: { label: string; value: string }[] = [
-    { label: "Clusters", value: mules.clusters },
-    { label: "Mule accounts", value: mules.muleAccounts },
-    { label: "Shell merchants", value: mules.shellMerchants },
-    { label: "Corr. window", value: mules.correlationWindow },
+    { label: t("clusters"), value: mules.clusters },
+    { label: t("muleAccounts"), value: mules.muleAccounts },
+    { label: t("shellMerchants"), value: mules.shellMerchants },
+    { label: t("correlationWindow"), value: mules.correlationWindow },
   ];
   return (
     <div className="rounded-card border border-line bg-card">
       <div className="flex items-center justify-between border-b border-line px-3.5 py-2.5">
-        <span className="eyebrow">Mule network</span>
+        <span className="eyebrow">{t("title")}</span>
         <span className="rounded-md border border-line bg-elevated px-1.5 py-0.5 text-[9.5px] uppercase tracking-wide text-muted">
           Louvain
         </span>

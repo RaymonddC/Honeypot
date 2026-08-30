@@ -1,3 +1,7 @@
+"use client";
+
+import { useTranslations } from "next-intl";
+
 export function ScreenPlaceholder({
   title,
   module,
@@ -9,6 +13,7 @@ export function ScreenPlaceholder({
   phase: string;
   blurb: string;
 }) {
+  const t = useTranslations("screenPlaceholder");
   return (
     <div className="mx-auto max-w-3xl">
       <div className="eyebrow mb-1">{module}</div>
@@ -18,7 +23,7 @@ export function ScreenPlaceholder({
         <div className="flex items-center gap-2">
           <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden />
           <span className="font-mono text-xs text-accent-bright">
-            coming in {phase}
+            {t("comingIn", { phase })}
           </span>
         </div>
         <p className="mt-3 text-sm leading-relaxed text-muted">{blurb}</p>

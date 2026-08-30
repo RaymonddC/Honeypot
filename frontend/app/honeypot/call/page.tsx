@@ -22,18 +22,19 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { CallView } from "@/components/honeypot/voice-call/call-view";
 import { LiveCallView } from "@/components/honeypot/voice-call/live-call-view";
 import type { DataSource } from "@/lib/honeypot/types";
 import { fetchVoiceCall, type VoiceCallSession } from "@/lib/honeypot/voice";
 import { useSettings, type CallModeSetting } from "@/lib/settings";
 
-const MODE_LABEL: Record<CallModeSetting, string> = {
-  scripted: "Scripted",
-  "live-mic": "Live mic",
-};
-
 export default function HoneypotCallPage() {
+  const t = useTranslations("honeypot.callPage");
+  const MODE_LABEL: Record<CallModeSetting, string> = {
+    scripted: t("modeScripted"),
+    "live-mic": t("modeLiveMic"),
+  };
   const { settings, update } = useSettings();
   const mode = settings.callMode;
 
@@ -68,23 +69,21 @@ export default function HoneypotCallPage() {
             href="/honeypot"
             className="text-[11px] text-muted transition-colors hover:text-fg"
           >
-            ← Honeypot console
+            {t("backLink")}
           </Link>
           <h1 className="text-xl font-bold tracking-tight">
-            Voice call{" "}
-            <span className="font-semibold text-muted">· INFILTRATE</span>
+            {t("title")}{" "}
+            <span className="font-semibold text-muted">{t("titleModule")}</span>
           </h1>
           <p className="mt-1 max-w-[52ch] text-xs text-muted">
-            {mode === "scripted"
-              ? "The AI persona answers the scam call live — STT → agent loop → TTS — entities extracted as they're spoken, chain-of-custody logged."
-              : "Tier-B live mic — you play the scammer over the mic, the AI persona answers turn-by-turn (docs/Live-Voice-Calls.md)."}
+            {mode === "scripted" ? t("descScripted") : t("descLiveMic")}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <div
             role="radiogroup"
-            aria-label="Call mode"
+            aria-label={t("callModeLabel")}
             className="flex rounded-lg border border-line bg-elevated p-0.5"
           >
             {(["scripted", "live-mic"] as const).map((m) => (
@@ -96,8 +95,8 @@ export default function HoneypotCallPage() {
                 onClick={() => update({ callMode: m })}
                 title={
                   m === "scripted"
-                    ? "Pre-run replay — faithful simulation"
-                    : "Interactive — you play the scammer on the mic"
+                    ? t("modeScriptedTitle")
+                    : t("modeLiveMicTitle")
                 }
                 className={`cursor-pointer rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${
                   mode === m
@@ -119,11 +118,11 @@ export default function HoneypotCallPage() {
               }`}
               title={
                 source === "api"
-                  ? "Live backend API"
-                  : "Backend unreachable — rendering local demo call"
+                  ? t("liveApiTitle")
+                  : t("offlineMockTitle")
               }
             >
-              {source === "api" ? "● live api" : "● offline · mock"}
+              {source === "api" ? t("liveApi") : t("offlineMock")}
             </span>
           )}
         </div>
@@ -135,7 +134,7 @@ export default function HoneypotCallPage() {
         <CallView data={data} />
       ) : (
         <div className="grid h-[calc(100vh-13.5rem)] min-h-[480px] animate-pulse place-items-center rounded-card border border-line bg-card text-[11px] text-muted">
-          Dialing scam line… starting voice session
+          {t("dialing")}
         </div>
       )}
     </div>

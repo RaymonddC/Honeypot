@@ -8,6 +8,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   fetchNotifications,
   retryNotification,
@@ -35,6 +36,7 @@ function StatusPill({ status }: { status: DispatchNotification["status"] }) {
 }
 
 export function DispatchLog() {
+  const t = useTranslations("response.dispatchLog");
   const [items, setItems] = useState<DispatchNotification[] | null>(null);
   const [source, setSource] = useState<"api" | "mock">("api");
   const [retrying, setRetrying] = useState<string | null>(null);
@@ -66,7 +68,7 @@ export function DispatchLog() {
     <div className="rounded-card border border-line bg-card">
       <div className="flex items-center justify-between border-b border-line px-3.5 py-[13px]">
         <div className="flex items-center gap-2">
-          <span className="eyebrow">Dispatch log · agency outbox</span>
+          <span className="eyebrow">{t("eyebrow")}</span>
           <span
             className={`rounded-md border px-1.5 py-0.5 font-mono text-[9.5px] font-semibold ${
               source === "api"
@@ -74,33 +76,32 @@ export function DispatchLog() {
                 : "border-risk-med/30 bg-risk-med/10 text-risk-med"
             }`}
           >
-            {source === "api" ? "● live api" : "● offline · mock"}
+            {source === "api" ? t("liveApi") : t("offlineMock")}
           </span>
         </div>
         <span className="font-mono text-[10.5px] text-muted">
-          {items?.length ?? 0} dispatched
+          {t("dispatchedCount", { count: items?.length ?? 0 })}
         </span>
       </div>
 
       {items === null ? (
         <div className="grid h-[180px] animate-pulse place-items-center text-[11px] text-muted">
-          Loading dispatch records…
+          {t("loading")}
         </div>
       ) : items.length === 0 ? (
         <div className="grid h-[120px] place-items-center px-4 text-center text-[11px] text-muted">
-          No notifications dispatched yet — generate an action bundle and
-          dispatch it to fire the multi-agency alerts.
+          {t("empty")}
         </div>
       ) : (
         <div className="max-h-[340px] overflow-y-auto">
           <table className="w-full border-collapse text-[11.5px]">
             <thead>
               <tr className="sticky top-0 bg-card text-left text-[9px] uppercase tracking-wide text-muted">
-                <th className="px-3.5 py-2 font-medium">Agency</th>
-                <th className="px-2 py-2 font-medium">Channel</th>
-                <th className="px-2 py-2 font-medium">Status</th>
-                <th className="px-2 py-2 font-medium">Case</th>
-                <th className="px-3.5 py-2 text-right font-medium">Delivery</th>
+                <th className="px-3.5 py-2 font-medium">{t("colAgency")}</th>
+                <th className="px-2 py-2 font-medium">{t("colChannel")}</th>
+                <th className="px-2 py-2 font-medium">{t("colStatus")}</th>
+                <th className="px-2 py-2 font-medium">{t("colCase")}</th>
+                <th className="px-3.5 py-2 text-right font-medium">{t("colDelivery")}</th>
               </tr>
             </thead>
             <tbody>
@@ -135,7 +136,7 @@ export function DispatchLog() {
                         onClick={() => onRetry(n.id)}
                         className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10px] font-semibold text-accent-bright transition-colors hover:bg-white/[.04] disabled:opacity-50"
                       >
-                        {retrying === n.id ? "retrying…" : "↻ retry"}
+                        {retrying === n.id ? t("retrying") : t("retry")}
                       </button>
                     ) : (
                       <span className="font-mono text-[10px] text-muted">

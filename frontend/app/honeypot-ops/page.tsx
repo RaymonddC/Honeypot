@@ -26,6 +26,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { listCases, type Case } from "@/lib/cases/api";
 import { fetchBackendConfig } from "@/lib/settings";
 import {
@@ -57,6 +58,7 @@ import {
 } from "@/lib/honeypot-ops/api";
 
 type Tab = "numbers" | "campaigns" | "triage";
+type OpsT = ReturnType<typeof useTranslations>;
 
 const INPUT_CLS =
   "h-8 rounded-lg border border-line bg-elevated px-2.5 text-[11.5px] text-fg outline-none transition-colors placeholder:text-muted focus:border-accent/40";
@@ -114,6 +116,7 @@ function ErrorLine({ msg }: { msg: string | null }) {
 /* ── Numbers tab ─────────────────────────────────────────────────────────── */
 
 function NumbersTab() {
+  const t = useTranslations("honeypotOps");
   const [rows, setRows] = useState<HoneypotNumber[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -128,11 +131,11 @@ function NumbersTab() {
       setRows(await listNumbers());
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "could not load numbers");
+      setError(e instanceof Error ? e.message : t("numbersTab.errors.loadFailed"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -156,7 +159,7 @@ function NumbersTab() {
       setError(null);
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "could not register number");
+      setError(e instanceof Error ? e.message : t("numbersTab.errors.registerFailed"));
     } finally {
       setSaving(false);
     }
@@ -170,13 +173,13 @@ function NumbersTab() {
       setError(null);
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "could not update number");
+      setError(e instanceof Error ? e.message : t("numbersTab.errors.updateFailed"));
     }
   };
 
   return (
     <Card
-      title="Number pool"
+      title={t("numbersTab.cardTitle")}
       action={
         <a
           href="https://console.twilio.com/us1/develop/phone-numbers/manage/incoming"
@@ -184,21 +187,19 @@ function NumbersTab() {
           rel="noopener noreferrer"
           className="text-[10px] text-accent-bright hover:underline"
         >
-          Twilio console ↗
+          {t("numbersTab.twilioConsole")}
         </a>
       }
     >
       <p className="mb-3 text-[10.5px] text-muted">
-        The numbers the honeypot dials <em>from</em>, rotated so a single caller
-        ID isn&apos;t burned. Buy and configure them in the Twilio console, then
-        register them here — this app never provisions numbers itself.
+        {t("numbersTab.intro")}
       </p>
 
       <div className="mb-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)_auto]">
         <input
           type="text"
           value={phone}
-          placeholder="+6281234567890"
+          placeholder={t("numbersTab.phonePlaceholder")}
           spellCheck={false}
           onChange={(e) => setPhone(e.target.value)}
           className={`${INPUT_CLS} font-mono ${phoneBad ? "border-risk-high" : ""}`}
@@ -206,7 +207,7 @@ function NumbersTab() {
         <input
           type="text"
           value={sid}
-          placeholder="Twilio SID (optional)"
+          placeholder={t("numbersTab.sidPlaceholder")}
           spellCheck={false}
           onChange={(e) => setSid(e.target.value)}
           className={`${INPUT_CLS} font-mono`}
@@ -214,7 +215,7 @@ function NumbersTab() {
         <input
           type="text"
           value={label}
-          placeholder="Label, e.g. Bareskrim #1"
+          placeholder={t("numbersTab.labelPlaceholder")}
           onChange={(e) => setLabel(e.target.value)}
           className={INPUT_CLS}
         />
@@ -224,23 +225,20 @@ function NumbersTab() {
           disabled={!normalized || saving}
           className={BTN_CLS}
         >
-          {saving ? "…" : "Register"}
+          {saving ? t("numbersTab.registerBusy") : t("numbersTab.register")}
         </button>
       </div>
       {phoneBad && (
         <p className="mb-2 text-[10px] text-risk-high">
-          Must be E.164 with a country code — e.g. +6281234567890 (a bare
-          08&hellip; is rejected rather than guessed at).
+          {t("numbersTab.phoneInvalidHint")}
         </p>
       )}
 
       {loading ? (
-        <p className="text-[11px] text-muted">Loading…</p>
+        <p className="text-[11px] text-muted">{t("numbersTab.loading")}</p>
       ) : rows.length === 0 ? (
         <p className="text-[11px] text-muted">
-          No numbers yet. These are the caller IDs the honeypot dials{" "}
-          <em>from</em> — buy one in the Twilio console, then register it above.
-          Campaigns can&apos;t place calls until the pool has at least one.
+          {t("numbersTab.empty")}
         </p>
       ) : (
         <ul className="space-y-1">
@@ -252,9 +250,9 @@ function NumbersTab() {
               <div className="min-w-0">
                 <span className="font-mono text-fg">{n.phone_number}</span>
                 <span className="ml-2 text-muted">
-                  {n.label || "—"} ·{" "}
+                  {n.label || t("numbersTab.noLabel")} ·{" "}
                   <span className={NUMBER_STATUS_STYLE[n.status] ?? "text-muted"}>
-                    {n.status}
+                    {t(`numbersTab.numberStatus.${n.status}`)}
                   </span>
                 </span>
               </div>
@@ -263,12 +261,12 @@ function NumbersTab() {
                 onClick={() => void toggleRetire(n)}
                 title={
                   n.status === "retired"
-                    ? "Return this number to rotation"
-                    : "Stop dialing from this number (kept for provenance)"
+                    ? t("numbersTab.reactivateTitle")
+                    : t("numbersTab.retireTitle")
                 }
                 className="shrink-0 text-[10.5px] text-accent-bright hover:underline"
               >
-                {n.status === "retired" ? "Reactivate" : "Retire"}
+                {n.status === "retired" ? t("numbersTab.reactivate") : t("numbersTab.retire")}
               </button>
             </li>
           ))}
@@ -287,11 +285,9 @@ function NumbersTab() {
  * state change on that row, not a second row — two rows for one number would
  * make the per-status counts meaningless.
  */
-const REJECT_COPY: Record<RejectReason, string> = {
-  invalid: "not a valid number — include the country code, e.g. +6281234567890",
-  duplicate_in_upload: "listed twice in this paste",
-  already_in_campaign: "already in this campaign — use “Call again” to dial it once more",
-};
+function rejectCopy(reason: RejectReason, t: OpsT): string {
+  return t(`campaignDetail.rejectReasons.${reason}`);
+}
 
 /**
  * Whether Start will actually hand numbers to the dialer, per GET /api/config.
@@ -322,6 +318,7 @@ function CampaignDetail({
   campaign: DialCampaign;
   onChanged: () => void;
 }) {
+  const t = useTranslations("honeypotOps");
   const [targets, setTargets] = useState<DialTarget[] | null>(null);
   const [paste, setPaste] = useState("");
   const [result, setResult] = useState<UploadTargetsResult | null>(null);
@@ -334,9 +331,9 @@ function CampaignDetail({
       setTargets(await listTargets(campaign.id));
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "could not load targets");
+      setError(e instanceof Error ? e.message : t("campaignDetail.errors.loadTargetsFailed"));
     }
-  }, [campaign.id]);
+  }, [campaign.id, t]);
 
   useEffect(() => {
     void loadTargets();
@@ -358,7 +355,7 @@ function CampaignDetail({
       await loadTargets();
       onChanged();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "upload failed");
+      setError(e instanceof Error ? e.message : t("campaignDetail.errors.uploadFailed"));
     } finally {
       setBusy(false);
     }
@@ -371,7 +368,9 @@ function CampaignDetail({
       setError(null);
       onChanged();
     } catch (e) {
-      setError(e instanceof Error ? e.message : `could not ${action} campaign`);
+      setError(
+        e instanceof Error ? e.message : t("campaignDetail.errors.lifecycleFailed", { action }),
+      );
     } finally {
       setBusy(false);
     }
@@ -392,14 +391,14 @@ function CampaignDetail({
       await loadTargets();
       onChanged();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "could not requeue");
+      setError(e instanceof Error ? e.message : t("campaignDetail.errors.requeueFailed"));
     } finally {
       setBusy(false);
     }
   };
 
-  const finished = (targets ?? []).filter((t) =>
-    ["no_answer", "failed"].includes(t.status),
+  const finished = (targets ?? []).filter((tg) =>
+    ["no_answer", "failed"].includes(tg.status),
   );
   const dialingEnabled = useDialingEnabled();
 
@@ -410,45 +409,45 @@ function CampaignDetail({
           type="button"
           onClick={() => void lifecycle("start")}
           disabled={busy || campaign.status === "running" || campaign.status === "completed"}
-          title="Start working through this list — queued numbers are handed to the dialer"
+          title={t("campaignDetail.startTitle")}
           className={BTN_CLS}
         >
-          {campaign.status === "paused" ? "Resume" : "Start"}
+          {campaign.status === "paused" ? t("campaignDetail.resume") : t("campaignDetail.start")}
         </button>
         <button
           type="button"
           onClick={() => void lifecycle("pause")}
           disabled={busy || campaign.status !== "running"}
-          title="Stop handing out new numbers; a call already in flight still finishes"
+          title={t("campaignDetail.pauseTitle")}
           className={BTN_CLS}
         >
-          Pause
+          {t("campaignDetail.pause")}
         </button>
         <button
           type="button"
           onClick={() => void requeue({ statuses: ["no_answer", "failed"] })}
           disabled={busy || finished.length === 0}
-          title="Put every no-answer and failed number back in the queue to be dialed again"
+          title={t("campaignDetail.callAgainTitle")}
           className={BTN_CLS}
         >
-          Call again {finished.length > 0 ? `(${finished.length})` : ""}
+          {t("campaignDetail.callAgain")} {finished.length > 0 ? `(${finished.length})` : ""}
         </button>
         <span className="text-[10px] text-muted">
           {dialingEnabled === false
-            ? "Dialing is off on the server — Start marks the campaign running but places no calls."
-            : "Calls are simulated in this build — nothing is dialed for real."}
+            ? t("campaignDetail.dialingOffNote")
+            : t("campaignDetail.simulatedNote")}
         </span>
       </div>
 
       {requeued && (
         <p className="mb-2 text-[10.5px]">
           <span className="text-accent-bright">
-            ↻ {requeued.requeued} queued to call again
+            {t("campaignDetail.requeuedSummary", { count: requeued.requeued })}
           </span>
           {requeued.skipped > 0 && (
             <span className="text-muted">
               {" "}
-              · {requeued.skipped} skipped (already waiting, or on a call now)
+              {t("campaignDetail.requeuedSkipped", { count: requeued.skipped })}
             </span>
           )}
         </p>
@@ -456,14 +455,14 @@ function CampaignDetail({
 
       <label className="grid gap-1">
         <span className="text-[11px] font-medium text-fg">
-          Add numbers to call — one per line (or paste CSV: number first)
+          {t("campaignDetail.addNumbersLabel")}
         </span>
         <textarea
           value={paste}
           onChange={(e) => setPaste(e.target.value)}
           rows={4}
           spellCheck={false}
-          placeholder={"+6281234567890\n+6285600001111,Kredibel,reported 3x"}
+          placeholder={t("campaignDetail.pastePlaceholder")}
           className="rounded-lg border border-line bg-elevated px-2.5 py-2 font-mono text-[11px] text-fg outline-none transition-colors placeholder:text-muted focus:border-accent/40"
         />
       </label>
@@ -474,25 +473,28 @@ function CampaignDetail({
           disabled={busy || validCount === 0}
           className={BTN_CLS}
         >
-          {busy ? "…" : "Upload"}
+          {busy ? t("campaignDetail.uploadBusy") : t("campaignDetail.upload")}
         </button>
         {parsed.length > 0 && (
           <span className="text-[10px] text-muted">
-            {validCount} of {parsed.length} line{parsed.length === 1 ? "" : "s"}{" "}
-            look valid
+            {t("campaignDetail.validCount", {
+              valid: validCount,
+              total: parsed.length,
+              plural: parsed.length === 1 ? "" : "s",
+            })}
           </span>
         )}
       </div>
 
       {result && (
         <div className="mt-2 text-[10.5px]">
-          <span className="text-accent-bright">✓ {result.added} added</span>
+          <span className="text-accent-bright">{t("campaignDetail.added", { count: result.added })}</span>
           {result.rejected.length > 0 && (
             <ul className="mt-1 space-y-0.5">
               {result.rejected.map((r, i) => (
                 <li key={`${r.value}-${i}`} className="text-risk-high">
                   ✗ <span className="font-mono">{r.value || "(blank)"}</span> —{" "}
-                  {REJECT_COPY[r.reason]}
+                  {rejectCopy(r.reason, t)}
                 </li>
               ))}
             </ul>
@@ -502,19 +504,18 @@ function CampaignDetail({
 
       <div className="mt-3">
         <div className="eyebrow mb-1">
-          Numbers to call · {targets?.length ?? 0}
+          {t("campaignDetail.numbersToCall", { count: targets?.length ?? 0 })}
         </div>
         {targets === null ? (
-          <p className="text-[11px] text-muted">Loading…</p>
+          <p className="text-[11px] text-muted">{t("campaignDetail.loading")}</p>
         ) : targets.length === 0 ? (
           <p className="text-[11px] text-muted">
-            Nothing in this campaign yet — paste the numbers you want called into
-            the box above. Each one keeps its own call log once dialing starts.
+            {t("campaignDetail.emptyTargets")}
           </p>
         ) : (
           <ul className="max-h-52 space-y-1 overflow-y-auto">
-            {targets.map((t) => (
-              <TargetRow key={t.id} target={t} />
+            {targets.map((tg) => (
+              <TargetRow key={tg.id} target={tg} />
             ))}
           </ul>
         )}
@@ -532,12 +533,6 @@ const ATTEMPT_STYLE: Record<string, string> = {
   failed: "text-risk-high",
 };
 
-const ATTEMPT_COPY: Record<string, string> = {
-  engaged: "engaged",
-  no_answer: "no answer",
-  failed: "failed",
-};
-
 /**
  * A dial target, expandable into its call log.
  *
@@ -547,6 +542,7 @@ const ATTEMPT_COPY: Record<string, string> = {
  * hundreds of targets and most are never opened.
  */
 function TargetRow({ target }: { target: DialTarget }) {
+  const t = useTranslations("honeypotOps");
   const [open, setOpen] = useState(false);
   const [attempts, setAttempts] = useState<DialAttempt[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -558,7 +554,7 @@ function TargetRow({ target }: { target: DialTarget }) {
     try {
       setAttempts(await listAttempts(target.id));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "could not load the call log");
+      setError(e instanceof Error ? e.message : t("targetRow.errorLoadFailed"));
     }
   };
 
@@ -576,8 +572,8 @@ function TargetRow({ target }: { target: DialTarget }) {
           {target.phone_number}
         </span>
         <span className="text-muted">
-          {target.status}
-          {target.attempt_count > 0 && ` · ${target.attempt_count} attempts`}
+          {t(`targetRow.targetStatus.${target.status}`)}
+          {target.attempt_count > 0 && ` · ${t("targetRow.attemptsSuffix", { count: target.attempt_count })}`}
           {target.last_error && ` · ${target.last_error}`}
         </span>
       </button>
@@ -587,10 +583,10 @@ function TargetRow({ target }: { target: DialTarget }) {
           {error ? (
             <p className="text-[10.5px] text-risk-high">✗ {error}</p>
           ) : attempts === null ? (
-            <p className="text-[10.5px] text-muted">Loading call log…</p>
+            <p className="text-[10.5px] text-muted">{t("targetRow.loadingCallLog")}</p>
           ) : attempts.length === 0 ? (
             <p className="text-[10.5px] text-muted">
-              Not dialed yet — no attempts logged.
+              {t("targetRow.noAttempts")}
             </p>
           ) : (
             <ul className="space-y-0.5">
@@ -602,7 +598,7 @@ function TargetRow({ target }: { target: DialTarget }) {
                   <span
                     className={`w-16 shrink-0 ${ATTEMPT_STYLE[a.outcome] ?? "text-fg"}`}
                   >
-                    {ATTEMPT_COPY[a.outcome] ?? a.outcome}
+                    {t(`targetRow.outcome.${a.outcome}`)}
                   </span>
                   <span className="text-muted">
                     {fmtDate(a.started_at)}
@@ -631,18 +627,19 @@ function TargetRow({ target }: { target: DialTarget }) {
  * Built from the per-status counts the list endpoint already returns; statuses
  * with a zero count are omitted rather than padding the line with noise.
  */
-function progressSummary(c: DialCampaign): string {
+function progressSummary(c: DialCampaign, t: OpsT): string {
   const n = (k: string) => c.counts[k] ?? 0;
   const called = n("engaged") + n("no_answer") + n("failed");
-  const parts = [`${called} of ${c.target_count} called`];
-  if (n("dialing")) parts.push(`${n("dialing")} calling now`);
-  if (n("engaged")) parts.push(`${n("engaged")} engaged`);
-  if (n("no_answer")) parts.push(`${n("no_answer")} no answer`);
-  if (n("failed")) parts.push(`${n("failed")} failed`);
+  const parts = [t("campaignsTab.progress.called", { called, total: c.target_count })];
+  if (n("dialing")) parts.push(t("campaignsTab.progress.dialingNow", { count: n("dialing") }));
+  if (n("engaged")) parts.push(t("campaignsTab.progress.engaged", { count: n("engaged") }));
+  if (n("no_answer")) parts.push(t("campaignsTab.progress.noAnswer", { count: n("no_answer") }));
+  if (n("failed")) parts.push(t("campaignsTab.progress.failed", { count: n("failed") }));
   return parts.join(" · ");
 }
 
 function CampaignsTab() {
+  const t = useTranslations("honeypotOps");
   const [rows, setRows] = useState<DialCampaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -657,11 +654,11 @@ function CampaignsTab() {
       setRows(await listCampaigns());
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "could not load campaigns");
+      setError(e instanceof Error ? e.message : t("campaignsTab.errors.loadFailed"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -681,26 +678,23 @@ function CampaignsTab() {
       await load();
       setOpen(created.id); // jump straight to uploading its targets
     } catch (e) {
-      setError(e instanceof Error ? e.message : "could not create campaign");
+      setError(e instanceof Error ? e.message : t("campaignsTab.errors.createFailed"));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Card title="Dial campaigns">
+    <Card title={t("campaignsTab.cardTitle")}>
       <p className="mb-3 text-[10.5px] text-muted">
-        A batch of scammer numbers to work through. Name one, paste the list into
-        it, then start it — the persona calls each number in turn. Calls are
-        simulated in this build, and engaging real reported numbers stays gated
-        on law-enforcement authorization.
+        {t("campaignsTab.intro")}
       </p>
 
       <div className="mb-3 grid gap-2 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto]">
         <input
           type="text"
           value={name}
-          placeholder="Campaign name, e.g. Judol sweep Aug"
+          placeholder={t("campaignsTab.namePlaceholder")}
           onChange={(e) => setName(e.target.value)}
           className={INPUT_CLS}
         />
@@ -711,10 +705,10 @@ function CampaignsTab() {
             max={60}
             value={pacing}
             onChange={(e) => setPacing(e.target.value)}
-            title="How fast this campaign works through its list"
+            title={t("campaignsTab.pacingTitle")}
             className={`${INPUT_CLS} tnum w-full min-w-0`}
           />
-          <span className="shrink-0 text-[10px] text-muted">calls/min</span>
+          <span className="shrink-0 text-[10px] text-muted">{t("campaignsTab.pacingUnit")}</span>
         </label>
         <button
           type="button"
@@ -722,16 +716,15 @@ function CampaignsTab() {
           disabled={!name.trim() || saving}
           className={BTN_CLS}
         >
-          {saving ? "…" : "Create"}
+          {saving ? t("campaignsTab.createBusy") : t("campaignsTab.create")}
         </button>
       </div>
 
       {loading ? (
-        <p className="text-[11px] text-muted">Loading…</p>
+        <p className="text-[11px] text-muted">{t("campaignsTab.loading")}</p>
       ) : rows.length === 0 ? (
         <p className="text-[11px] text-muted">
-          No campaigns yet. A campaign is one batch of numbers to work through —
-          name it above, then paste in the numbers you want called.
+          {t("campaignsTab.empty")}
         </p>
       ) : (
         <ul className="space-y-1">
@@ -752,11 +745,11 @@ function CampaignsTab() {
                       <span
                         className={CAMPAIGN_STATUS_STYLE[c.status] ?? "text-muted"}
                       >
-                        {c.status}
+                        {t(`campaignsTab.status.${c.status}`)}
                       </span>
                       {c.target_count === 0
-                        ? " · no numbers added yet"
-                        : ` · ${progressSummary(c)}`}
+                        ? ` · ${t("campaignsTab.noNumbersAddedYet")}`
+                        : ` · ${progressSummary(c, t)}`}
                     </span>
                   </span>
                   <span className="shrink-0 text-[10px] text-muted">
@@ -792,6 +785,7 @@ function TriageRow({
   cases: Case[];
   onPlaced: () => void;
 }) {
+  const t = useTranslations("honeypotOps");
   const [busy, setBusy] = useState(false);
   const [picked, setPicked] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -803,7 +797,7 @@ function TriageRow({
       setError(null);
       onPlaced();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "could not place this call");
+      setError(e instanceof Error ? e.message : t("triageTab.errors.placeFailed"));
     } finally {
       setBusy(false);
     }
@@ -812,7 +806,7 @@ function TriageRow({
   return (
     <li className="rounded-lg bg-elevated px-2.5 py-2">
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[11.5px]">
-        <span className="font-mono text-fg">{row.channel_ref ?? "unknown"}</span>
+        <span className="font-mono text-fg">{row.channel_ref ?? t("triageRow.unknownNumber")}</span>
         <span className="text-muted">
           {fmtDate(row.started_at)}
           {row.duration_seconds ? ` · ${row.duration_seconds}s` : ""}
@@ -821,7 +815,9 @@ function TriageRow({
           {/* An engaged call with nothing extracted is still evidence the
               number is live — shown, never hidden, but easy to rank by. */}
           <span className={row.entity_count > 0 ? "text-accent-bright" : ""}>
-            {row.entity_count} entit{row.entity_count === 1 ? "y" : "ies"}
+            {row.entity_count === 1
+              ? t("triageRow.entityCount", { count: row.entity_count })
+              : t("triageRow.entityCountPlural", { count: row.entity_count })}
           </span>
         </span>
       </div>
@@ -836,10 +832,10 @@ function TriageRow({
         <select
           value={picked}
           onChange={(e) => setPicked(e.target.value)}
-          aria-label="Attach to an existing case"
+          aria-label={t("triageRow.attachSelectLabel")}
           className={`${INPUT_CLS} min-w-0 flex-1`}
         >
-          <option value="">Attach to an existing case…</option>
+          <option value="">{t("triageRow.attachPlaceholder")}</option>
           {cases.map((c) => (
             <option key={c.id} value={c.id}>
               {c.title}
@@ -852,16 +848,16 @@ function TriageRow({
           onClick={() => void place(() => attachTriageSession(row.id, picked))}
           className={BTN_CLS}
         >
-          {busy ? "…" : "Attach"}
+          {busy ? t("triageRow.attachBusy") : t("triageRow.attach")}
         </button>
         <button
           type="button"
           disabled={busy}
-          title="Open a new case prefilled from this call"
+          title={t("triageRow.newCaseTitle")}
           onClick={() => void place(() => promoteTriageSession(row.id))}
           className={BTN_CLS}
         >
-          New case
+          {t("triageRow.newCase")}
         </button>
       </div>
       <ErrorLine msg={error} />
@@ -870,6 +866,7 @@ function TriageRow({
 }
 
 function TriageTab() {
+  const t = useTranslations("honeypotOps");
   const [rows, setRows] = useState<TriageSession[]>([]);
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
@@ -883,31 +880,27 @@ function TriageTab() {
       setCases(caseList);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "could not load the triage queue");
+      setError(e instanceof Error ? e.message : t("triageTab.errors.loadFailed"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   return (
-    <Card title={`Triage · ${rows.length}`}>
+    <Card title={t("triageTab.cardTitle", { count: rows.length })}>
       <p className="mb-3 text-[10.5px] text-muted">
-        Connected calls with no case yet. A call is only auto-linked on an exact
-        match — the same number, or a wallet already on a case — because a wrong
-        link quietly merges two investigations in a file that may end up in
-        court. Everything else lands here for you to place.
+        {t("triageTab.intro")}
       </p>
 
       {loading ? (
-        <p className="text-[11px] text-muted">Loading…</p>
+        <p className="text-[11px] text-muted">{t("triageTab.loading")}</p>
       ) : rows.length === 0 ? (
         <p className="text-[11px] text-muted">
-          Nothing waiting. When a call connects and can&apos;t be matched to a
-          case automatically, it appears here so you can file it.
+          {t("triageTab.empty")}
         </p>
       ) : (
         <ul className="space-y-1.5">
@@ -924,28 +917,34 @@ function TriageTab() {
 /* ── Page ────────────────────────────────────────────────────────────────── */
 
 export default function HoneypotOpsPage() {
+  const t = useTranslations("honeypotOps");
   const [tab, setTab] = useState<Tab>("numbers");
+
+  const steps = [
+    t("steps.registerNumbers"),
+    t("steps.uploadNumbers"),
+    t("steps.fileCalls"),
+  ];
+
+  const tabList: [Tab, string][] = [
+    ["numbers", t("tabs.numbers")],
+    ["campaigns", t("tabs.campaigns")],
+    ["triage", t("tabs.triage")],
+  ];
 
   return (
     <div className="mx-auto max-w-[760px]">
       <div className="mb-3">
-        <h1 className="text-xl font-bold tracking-tight">Honeypot Ops</h1>
+        <h1 className="text-xl font-bold tracking-tight">{t("title")}</h1>
         <p className="mt-1 text-xs text-muted">
-          Outbound calling operations — the pool of numbers we dial from, the
-          campaigns of numbers to work through, and the calls waiting to be
-          placed into a case. Shared across your agency (unlike the Control
-          Panel, which is per-browser).
+          {t("subtitle")}
         </p>
       </div>
 
       {/* The three tabs are a pipeline, not three unrelated screens — a first-
           time operator has no way to know the order without being told. */}
       <ol className="mb-3.5 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-card border border-line bg-card px-3 py-2 text-[10.5px] text-muted">
-        {[
-          "Register the numbers you call from",
-          "Upload a list of numbers to call",
-          "File the resulting calls into cases",
-        ].map((step, i) => (
+        {steps.map((step, i) => (
           <li key={step} className="flex items-center gap-2">
             {i > 0 && <span aria-hidden="true">→</span>}
             <span>
@@ -961,15 +960,9 @@ export default function HoneypotOpsPage() {
       <div
         className="mb-3.5 flex gap-0.5 border-b border-line"
         role="tablist"
-        aria-label="Honeypot Ops sections"
+        aria-label={t("tabsAriaLabel")}
       >
-        {(
-          [
-            ["numbers", "Numbers"],
-            ["campaigns", "Campaigns"],
-            ["triage", "Triage"],
-          ] as const
-        ).map(([key, label]) => (
+        {tabList.map(([key, label]) => (
           <button
             key={key}
             type="button"

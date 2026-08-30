@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 import { formatConf } from "@/lib/honeypot/types";
 import type { VoiceLine } from "@/lib/honeypot/voice";
 import type { CallState } from "./call-view";
@@ -24,6 +25,7 @@ function CaptionLine({
   /** The TTS provider that actually voiced this line, once it has played. */
   provider?: string;
 }) {
+  const t = useTranslations("honeypot.voiceCall.captions");
   const isPersona = line.speaker === "persona";
   return (
     <div
@@ -59,7 +61,7 @@ function CaptionLine({
           key={`${line.id}-${ex.label}`}
           className="mt-[7px] flex items-center gap-1.5 border-t border-dashed border-accent/[.22] pt-[7px] font-mono text-[10px] text-accent-bright"
         >
-          ◇ extracted · {ex.label} · conf {formatConf(ex.confidence)}
+          {t("extractedBadge", { label: ex.label, confidence: formatConf(ex.confidence) })}
         </div>
       ))}
     </div>
@@ -84,6 +86,7 @@ export function Captions({
   /** line id → the TTS provider that voiced it (recorded after each line plays). */
   providerByLine?: Record<string, string>;
 }) {
+  const t = useTranslations("honeypot.voiceCall.captions");
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -96,15 +99,14 @@ export function Captions({
     <div
       role="log"
       aria-live="polite"
-      aria-label="Live call captions"
+      aria-label={t("logLabel")}
       className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4"
     >
       {visible.length === 0 && !interim ? (
         <div className="grid flex-1 place-items-center text-center text-[11px] text-muted">
           {state === "idle"
-            ? (emptyNote ??
-              "Captions appear here as the call is spoken — press Start call to answer.")
-            : "Connecting…"}
+            ? (emptyNote ?? t("idleEmpty"))
+            : t("connecting")}
         </div>
       ) : (
         visible.map((line, i) => (
@@ -119,7 +121,7 @@ export function Captions({
       {interim && interim.text && (
         <div className="max-w-[78%] self-start rounded-xl rounded-bl-[4px] border border-dashed border-white/15 bg-elevated/60 px-3 py-[9px] text-xs leading-relaxed text-fg/70">
           <div className="mb-[3px] flex items-center gap-2 text-[9.5px] uppercase tracking-[.06em] opacity-60">
-            {interim.who} · hearing…
+            {interim.who} · {t("hearing")}
             <Waveform active bars={5} tone="neutral" className="!h-3" />
           </div>
           {interim.text}

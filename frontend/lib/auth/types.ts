@@ -48,6 +48,12 @@ export interface AgencyOption {
   roles: string[];
 }
 
+// English fallback only — used when no translator is passed (e.g. non-React
+// call sites) or the role isn't a known key. The real, localized labels live
+// in messages/{locale}.json under "roles.*"; components should call
+// `roleLabel(role, t)` with `t = useTranslations("roles")` so the label
+// follows the active locale. See components/auth/login-form.tsx for the
+// reference usage.
 export const ROLE_LABELS: Record<string, string> = {
   "police-investigator": "Police investigator",
   "regulator-analyst": "Regulator analyst",
@@ -95,9 +101,27 @@ export const AGENCIES: AgencyOption[] = [
   },
 ];
 
-export const roleLabel = (role: string): string =>
-  ROLE_LABELS[role] ??
-  role.replace(/[_-]+/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+/**
+ * `t` is `useTranslations("roles")` from next-intl. Falls back to the
+ * English static map (then a humanized slug) when no translator is given or
+ * the role has no message key, so existing non-component callers still work.
+ */
+export const roleLabel = (
+  role: string,
+  t?: (key: string) => string,
+): string => {
+  if (t) {
+    try {
+      return t(role);
+    } catch {
+      // no message for this role key — fall through to the static map
+    }
+  }
+  return (
+    ROLE_LABELS[role] ??
+    role.replace(/[_-]+/g, " ").replace(/^\w/, (c) => c.toUpperCase())
+  );
+};
 
 /**
  * Roles allowed to dispatch outward actions (freeze requests, STR filings) —

@@ -1,18 +1,13 @@
+"use client";
+
 /**
  * Call header — caller card (unknown caller + suspected scam line), mode tag,
  * on-call state pill (reuses VoiceIndicator) and the running call timer.
  */
 
+import { useTranslations } from "next-intl";
 import { VoiceIndicator } from "@/components/honeypot/voice-indicator";
 import type { CallState } from "./call-view";
-
-const STATE_LABEL: Record<CallState, string> = {
-  idle: "Voice · ready",
-  live: "On call · agent live",
-  paused: "Call on hold",
-  takeover: "On call · analyst live",
-  ended: "Call ended",
-};
 
 function formatTimer(totalSec: number): string {
   const m = Math.floor(totalSec / 60);
@@ -53,6 +48,14 @@ export function CallHeader({
   state: CallState;
   elapsed: number;
 }) {
+  const t = useTranslations("honeypot.voiceCall.header");
+  const STATE_LABEL: Record<CallState, string> = {
+    idle: t("stateIdle"),
+    live: t("stateLive"),
+    paused: t("statePaused"),
+    takeover: t("stateTakeover"),
+    ended: t("stateEnded"),
+  };
   const onAir = state === "live" || state === "takeover";
   const timer = formatTimer(elapsed);
 
@@ -75,8 +78,7 @@ export function CallHeader({
             {callerId}
           </div>
           <small className="block truncate text-[10.5px] text-muted">
-            unknown caller · suspected scam line · persona &ldquo;{persona}
-            &rdquo; answering
+            {t("callerSub", { persona })}
           </small>
         </div>
       </div>
@@ -89,7 +91,7 @@ export function CallHeader({
         <VoiceIndicator voice={{ active: onAir, label: STATE_LABEL[state] }} />
         <span
           role="timer"
-          aria-label={`Call time ${timer}`}
+          aria-label={t("timerLabel", { timer })}
           className={`rounded-md border border-line bg-elevated px-2.5 py-0.5 font-mono text-[13px] font-semibold tnum ${
             onAir ? "text-accent-bright" : "text-muted"
           }`}

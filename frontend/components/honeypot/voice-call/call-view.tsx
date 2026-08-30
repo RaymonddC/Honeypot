@@ -12,6 +12,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { CustodyCard } from "@/components/honeypot/custody-card";
 import { EntityPanel } from "@/components/honeypot/entity-panel";
 import { createVoiceProvider, type VoiceProvider } from "@/lib/honeypot/tts";
@@ -74,6 +75,7 @@ function SpeakerTile({
 /* ── Orchestrator ──────────────────────────────────────────────────────── */
 
 export function CallView({ data }: { data: VoiceCallSession }) {
+  const t = useTranslations("honeypot.voiceCall.callView");
   const [state, setState] = useState<CallState>("idle");
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [elapsed, setElapsed] = useState(0);
@@ -204,14 +206,14 @@ export function CallView({ data }: { data: VoiceCallSession }) {
         {/* speaker stage */}
         <div className="grid grid-cols-2 gap-3 border-b border-line p-4">
           <SpeakerTile
-            label="Scammer"
+            label={t("scammerLabel")}
             sub={data.callerId}
             active={speaking && currentLine?.speaker === "scammer"}
             tone="danger"
           />
           <SpeakerTile
-            label={`Honeypot · ${personaFirst}`}
-            sub="AI persona · agent loop"
+            label={t("personaLabel", { persona: personaFirst })}
+            sub={t("personaSub")}
             active={speaking && currentLine?.speaker === "persona"}
             tone="accent"
           />
@@ -241,11 +243,11 @@ export function CallView({ data }: { data: VoiceCallSession }) {
         <EntityPanel entities={heardEntities} />
         <CustodyCard custody={data.custody} />
         <p className="mt-3 px-1 text-[10.5px] leading-relaxed text-muted">
-          Entities appear as they are heard on the call —{" "}
-          <b className="text-white/60">
-            {heardEntities.length}/{data.entities.length}
-          </b>{" "}
-          so far. The disclosed wallet feeds the Investigation graph.
+          {t.rich("entitiesNote", {
+            heard: heardEntities.length,
+            total: data.entities.length,
+            b: (chunks) => <b className="text-white/60">{chunks}</b>,
+          })}
         </p>
       </div>
     </div>

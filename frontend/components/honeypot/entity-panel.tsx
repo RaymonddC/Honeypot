@@ -13,6 +13,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useCases } from "@/components/cases/case-provider";
 import { addBankAccount, addCryptoTransfer } from "@/lib/casedata/api";
 import { GOLDEN } from "@/lib/demo/golden-thread";
@@ -26,6 +27,7 @@ function PromoteControl({
   e: HpEntity;
   onTraceWallet?: (addr: string) => void;
 }) {
+  const t = useTranslations("honeypot.entityPanel");
   const { activeCaseId } = useCases();
   const [state, setState] = useState<"idle" | "busy" | "done" | "err">("idle");
   const full = e.rawValue ?? e.value;
@@ -59,19 +61,19 @@ function PromoteControl({
             }
             onTraceWallet(full);
           }}
-          title="Attach to case & trace this wallet in Takedown"
+          title={t("traceAttachTitle")}
           className="flex-none rounded-md border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent-bright transition-colors hover:bg-accent/20 disabled:opacity-40"
         >
-          {state === "busy" ? "…" : "Trace →"}
+          {state === "busy" ? "…" : t("trace")}
         </button>
       );
     return (
       <Link
         href={`/investigation?address=${encodeURIComponent(full)}`}
-        title="Trace this wallet in Takedown"
+        title={t("traceTitle")}
         className="flex-none rounded-md border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent-bright transition-colors hover:bg-accent/20"
       >
-        Trace →
+        {t("trace")}
       </Link>
     );
   }
@@ -80,8 +82,8 @@ function PromoteControl({
   if (e.type === "bank_account") {
     if (state === "done")
       return (
-        <span className="flex-none text-[9.5px] font-semibold text-accent-bright" title="Added to case → BridgeWatch">
-          ✓ in case
+        <span className="flex-none text-[9.5px] font-semibold text-accent-bright" title={t("inCaseTitle")}>
+          {t("inCase")}
         </span>
       );
     return (
@@ -115,10 +117,10 @@ function PromoteControl({
             setState("err");
           }
         }}
-        title={activeCaseId ? "Track on this case → links the on-ramp wallet" : "Open a case to attach"}
+        title={activeCaseId ? t("trackTitle") : t("openCaseTitle")}
         className="flex-none rounded-md border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent-bright transition-colors hover:bg-accent/20 disabled:opacity-40"
       >
-        {state === "busy" ? "…" : state === "err" ? "retry" : "+ Case"}
+        {state === "busy" ? "…" : state === "err" ? t("retry") : t("addCase")}
       </button>
     );
   }
@@ -134,12 +136,13 @@ export function EntityPanel({
   /** In-case: open the case's Takedown tab on a wallet (else it links out). */
   onTraceWallet?: (addr: string) => void;
 }) {
+  const t = useTranslations("honeypot.entityPanel");
   return (
     <div className="mb-3.5 rounded-card border border-line bg-card">
       <div className="flex items-center justify-between border-b border-line px-3.5 py-3">
-        <span className="eyebrow">Extracted entities</span>
+        <span className="eyebrow">{t("title")}</span>
         <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] text-white/60">
-          {entities.length} · validated
+          {t("validatedCount", { count: entities.length })}
         </span>
       </div>
 
@@ -177,7 +180,7 @@ export function EntityPanel({
         ))
       ) : (
         <div className="px-3.5 py-6 text-center text-[11px] text-muted">
-          No validated entities yet — the agent is still baiting.
+          {t("empty")}
         </div>
       )}
     </div>
