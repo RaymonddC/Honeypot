@@ -202,11 +202,31 @@ class Settings(BaseSettings):
 
     @property
     def conflicting_module_modes(self) -> dict[str, Mode]:
-        """Module overrides that DISAGREE with the global mode. Empty = coherent.
+        """Overrides that disagree with the global mode ON A MODULE THAT PERSISTS.
 
-        Only meaningful under Postgres — see ``assert_modes_are_coherent``.
+        Empty = coherent. Only meaningful under Postgres — see
+        ``assert_modes_are_coherent``.
+
+        **Why this is narrowed to persisting modules.** The incoherence is about
+        the row STAMP: ``app.data_mode`` is one value per transaction, so a
+        module whose mode differs from the global one would write rows tagged
+        with a mode that is not theirs. A module that writes no rows cannot do
+        that. ``takedown`` and ``trace`` have no Postgres repository at all —
+        their data flows through adapters (TRONSCAN, fixtures) and is never
+        persisted — so ``ITTU_MODULE_MODES={"takedown":"live"}`` is provably
+        incapable of mis-stamping anything.
+
+        The first version of this guard refused every override and would have
+        blocked exactly that configuration, which is the one a developer
+        actually uses (a LIVE blockchain adapter against a POC database). A
+        guard that refuses a provably safe setup does not make anyone safer; it
+        teaches them to switch guards off.
         """
-        return {m: v for m, v in self.module_modes.items() if v != self.mode}
+        return {
+            m: v
+            for m, v in self.module_modes.items()
+            if v != self.mode and m in PERSISTING_MODULES
+        }
 
     @property
     def effective_llm_api_key(self) -> str:
@@ -280,6 +300,16 @@ def get_settings() -> Settings:
 @lru_cache
 def get_mode_resolver() -> ModeResolver:
     return ModeResolver()
+
+
+# Modules that own a Postgres repository and therefore write mode-stamped rows.
+# Verified against the tree: takedown and trace have no repository.py Postgres
+# class and no session writes — they read through adapters and persist nothing.
+# If a module here ever gains or loses persistence, this set must follow it, or
+# the coherence guard silently stops covering it.
+PERSISTING_MODULES = frozenset(
+    {"infiltrate", "uncover", "cases", "casedata", "honeypot_ops"}
+)
 
 
 def assert_modes_are_coherent() -> None:
