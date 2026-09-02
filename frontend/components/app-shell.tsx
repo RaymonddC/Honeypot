@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/auth/auth-provider";
 import { CaseSwitcher } from "@/components/cases/case-switcher";
 import { CaseContextBar } from "@/components/cases/case-context-bar";
@@ -11,28 +12,32 @@ import { initialsOf, roleLabel } from "@/lib/auth/types";
 // Shown only to agency-admin / platform-admin. Hiding it is UX, not security —
 // /api/users is role-gated server-side, and the page renders whatever 403 comes
 // back rather than trusting that a hidden link kept anyone out.
-const ADMIN_NAV = { href: "/users", label: "Users", glyph: "◫" };
+const ADMIN_NAV = { href: "/users", labelKey: "users", glyph: "◫" };
 const ADMIN_ROLES = ["agency-admin", "platform-admin"];
 
-// Two clear groups: the guided case flow vs standalone tools.
-const NAV_GROUPS: { label: string; items: { href: string; label: string; glyph: string }[] }[] = [
+// Two clear groups: the guided case flow vs standalone tools. Labels are
+// i18n keys under appShell.nav.*, resolved at render time (SidebarNav).
+const NAV_GROUPS: {
+  groupKey: string;
+  items: { href: string; labelKey: string; glyph: string }[];
+}[] = [
   {
-    label: "Case workflow",
+    groupKey: "caseWorkflow",
     items: [
-      { href: "/case", label: "Case File", glyph: "▤" },
-      { href: "/audit", label: "Audit Trail", glyph: "⛓" },
+      { href: "/case", labelKey: "caseFile", glyph: "▤" },
+      { href: "/audit", labelKey: "auditTrail", glyph: "⛓" },
       // "/users" is appended below, for admins only — see ADMIN_NAV.
     ],
   },
   {
-    label: "Operations",
+    groupKey: "operations",
     items: [
-      { href: "/honeypot", label: "Infiltrate", glyph: "⬡" },
-      { href: "/honeypot-ops", label: "Honeypot Ops", glyph: "☎" },
-      { href: "/bridge", label: "Trace", glyph: "⇌" },
-      { href: "/investigation", label: "Takedown", glyph: "◉" },
-      { href: "/actions", label: "Uncover", glyph: "⚑" },
-      { href: "/response", label: "Command Center", glyph: "▦" },
+      { href: "/honeypot", labelKey: "infiltrate", glyph: "⬡" },
+      { href: "/honeypot-ops", labelKey: "honeypotOps", glyph: "☎" },
+      { href: "/bridge", labelKey: "trace", glyph: "⇌" },
+      { href: "/investigation", labelKey: "takedown", glyph: "◉" },
+      { href: "/actions", labelKey: "uncover", glyph: "⚑" },
+      { href: "/response", labelKey: "commandCenter", glyph: "▦" },
     ],
   },
 ];
@@ -40,11 +45,12 @@ const NAV_GROUPS: { label: string; items: { href: string; label: string; glyph: 
 /* ── MODE badge — real per-deployment mode from GET /api/config ─────────── */
 
 function ModeBadge() {
+  const t = useTranslations("appShell.modeBadge");
   const { config } = useAuth();
   const mode = config?.mode ?? "POC";
   const perModule = config?.modules ?? [];
   const title = [
-    `Data mode: ${mode}${config?.source === "env" ? " (env fallback — /api/config unreachable)" : ""}`,
+    `${t("dataModeTitle", { mode })}${config?.source === "env" ? t("envFallback") : ""}`,
     ...perModule.map((m) => `${m.module}: ${m.mode}`),
   ].join("\n");
 
@@ -65,6 +71,7 @@ function ModeBadge() {
 /* ── User menu — avatar from /api/auth/me + logout ──────────────────────── */
 
 function UserMenu() {
+  const t = useTranslations("appShell.userMenu");
   const { me, logout, liveVerified } = useAuth();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -96,7 +103,7 @@ function UserMenu() {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={`Account: ${name}`}
+        aria-label={t("accountLabel", { name })}
         title={name}
         className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-line bg-elevated text-[11px] font-semibold text-accent-bright transition-colors hover:border-accent/40"
       >
@@ -133,7 +140,7 @@ function UserMenu() {
                   className={`h-1 w-1 rounded-full ${liveVerified ? "bg-accent" : "bg-muted"}`}
                   aria-hidden
                 />
-                {liveVerified ? "session verified" : "offline session"}
+                {liveVerified ? t("sessionVerified") : t("offlineSession")}
               </span>
             </div>
           </div>
@@ -147,7 +154,7 @@ function UserMenu() {
             <span aria-hidden className="text-xs">
               ⏻
             </span>
-            Sign out
+            {t("signOut")}
           </button>
         </div>
       )}
@@ -157,116 +164,190 @@ function UserMenu() {
 
 /* ── Shell ──────────────────────────────────────────────────────────────── */
 
+function SidebarNav({
+  pathname,
+  me,
+  onNavigate,
+}: {
+  pathname: string;
+  me: ReturnType<typeof useAuth>["me"];
+  onNavigate?: () => void;
+}) {
+  const t = useTranslations("appShell.nav");
+  const tCommon = useTranslations("common");
+
+  return (
+    <>
+      <div className="flex items-center gap-2 px-4 py-4">
+        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent/15 font-mono text-xs font-bold text-accent-bright">
+          IT
+        </span>
+        <span className="text-sm font-semibold tracking-wide">{tCommon("appName")}</span>
+      </div>
+
+      <nav className="flex-1 overflow-y-auto px-2 pt-1">
+        {/* Home */}
+        <Link
+          href="/home"
+          onClick={onNavigate}
+          aria-current={pathname === "/home" ? "page" : undefined}
+          className={`mb-1 flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
+            pathname === "/home"
+              ? "bg-accent/10 font-medium text-accent-bright"
+              : "text-muted hover:bg-white/[.04] hover:text-fg"
+          }`}
+        >
+          <span className="w-4 text-center text-xs" aria-hidden>⌂</span>
+          {t("home")}
+        </Link>
+
+        {NAV_GROUPS.map((group) => (
+          <div key={group.groupKey} className="mt-2">
+            <div className="eyebrow px-3 pb-1.5">{t(group.groupKey)}</div>
+            <ul className="space-y-0.5">
+              {(group.groupKey === "caseWorkflow" && me && ADMIN_ROLES.includes(me.role)
+                ? [...group.items, ADMIN_NAV]
+                : group.items
+              ).map((item) => {
+                const active = pathname.startsWith(item.href);
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      onClick={onNavigate}
+                      aria-current={active ? "page" : undefined}
+                      className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
+                        active
+                          ? "bg-accent/10 font-medium text-accent-bright"
+                          : "text-muted hover:bg-white/[.04] hover:text-fg"
+                      }`}
+                    >
+                      <span className="w-4 text-center text-xs" aria-hidden>
+                        {item.glyph}
+                      </span>
+                      {t(item.labelKey)}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </nav>
+
+      <div className="border-t border-line px-2 py-2">
+        <Link
+          href="/guide"
+          onClick={onNavigate}
+          aria-current={pathname.startsWith("/guide") ? "page" : undefined}
+          className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
+            pathname.startsWith("/guide")
+              ? "bg-accent/10 font-medium text-accent-bright"
+              : "text-muted hover:bg-white/[.04] hover:text-fg"
+          }`}
+        >
+          <span className="w-4 text-center text-xs" aria-hidden>
+            ?
+          </span>
+          {t("guide")}
+        </Link>
+        <Link
+          href="/settings"
+          onClick={onNavigate}
+          aria-current={pathname.startsWith("/settings") ? "page" : undefined}
+          className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
+            pathname.startsWith("/settings")
+              ? "bg-accent/10 font-medium text-accent-bright"
+              : "text-muted hover:bg-white/[.04] hover:text-fg"
+          }`}
+        >
+          <span className="w-4 text-center text-xs" aria-hidden>
+            ⚙
+          </span>
+          {t("controlPanel")}
+        </Link>
+        <span className="eyebrow mt-1 block px-3">{t("authBadge")}</span>
+      </div>
+    </>
+  );
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const t = useTranslations("common");
+  const tShell = useTranslations("appShell.agencyChip");
   const pathname = usePathname();
   const { me } = useAuth();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Close the mobile drawer whenever the route changes (covers back/forward
+  // nav that doesn't go through a Link's onClick).
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
+
+  // Lock body scroll while the mobile drawer is open.
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileNavOpen]);
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* ── Left module rail ─────────────────────────────────────────── */}
-      <aside className="flex w-56 shrink-0 flex-col border-r border-line bg-sidebar">
-        <div className="flex items-center gap-2 px-4 py-4">
-          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent/15 font-mono text-xs font-bold text-accent-bright">
-            IT
-          </span>
-          <span className="text-sm font-semibold tracking-wide">ITTU</span>
-        </div>
-
-        <nav className="flex-1 overflow-y-auto px-2 pt-1">
-          {/* Home */}
-          <Link
-            href="/home"
-            aria-current={pathname === "/home" ? "page" : undefined}
-            className={`mb-1 flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
-              pathname === "/home"
-                ? "bg-accent/10 font-medium text-accent-bright"
-                : "text-muted hover:bg-white/[.04] hover:text-fg"
-            }`}
-          >
-            <span className="w-4 text-center text-xs" aria-hidden>⌂</span>
-            Home
-          </Link>
-
-          {NAV_GROUPS.map((group) => (
-            <div key={group.label} className="mt-2">
-              <div className="eyebrow px-3 pb-1.5">{group.label}</div>
-              <ul className="space-y-0.5">
-                {(group.label === "Case workflow" && me && ADMIN_ROLES.includes(me.role)
-                  ? [...group.items, ADMIN_NAV]
-                  : group.items
-                ).map((item) => {
-                  const active = pathname.startsWith(item.href);
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        aria-current={active ? "page" : undefined}
-                        className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
-                          active
-                            ? "bg-accent/10 font-medium text-accent-bright"
-                            : "text-muted hover:bg-white/[.04] hover:text-fg"
-                        }`}
-                      >
-                        <span className="w-4 text-center text-xs" aria-hidden>
-                          {item.glyph}
-                        </span>
-                        {item.label}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
-        </nav>
-
-        <div className="border-t border-line px-2 py-2">
-          <Link
-            href="/guide"
-            aria-current={pathname.startsWith("/guide") ? "page" : undefined}
-            className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
-              pathname.startsWith("/guide")
-                ? "bg-accent/10 font-medium text-accent-bright"
-                : "text-muted hover:bg-white/[.04] hover:text-fg"
-            }`}
-          >
-            <span className="w-4 text-center text-xs" aria-hidden>
-              ?
-            </span>
-            Guide
-          </Link>
-          <Link
-            href="/settings"
-            aria-current={pathname.startsWith("/settings") ? "page" : undefined}
-            className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
-              pathname.startsWith("/settings")
-                ? "bg-accent/10 font-medium text-accent-bright"
-                : "text-muted hover:bg-white/[.04] hover:text-fg"
-            }`}
-          >
-            <span className="w-4 text-center text-xs" aria-hidden>
-              ⚙
-            </span>
-            Control Panel
-          </Link>
-          <span className="eyebrow mt-1 block px-3">P5 · auth</span>
-        </div>
+      {/* ── Left module rail — desktop/tablet only ───────────────────── */}
+      <aside className="hidden w-56 shrink-0 flex-col border-r border-line bg-sidebar md:flex">
+        <SidebarNav pathname={pathname} me={me} />
       </aside>
+
+      {/* ── Mobile drawer — hidden nav, slides in over the page ──────── */}
+      {mobileNavOpen && (
+        <div className="fixed inset-0 z-50 flex md:hidden">
+          <div
+            className="fixed inset-0 bg-black/60"
+            aria-hidden
+            onClick={() => setMobileNavOpen(false)}
+          />
+          <aside className="relative flex h-full w-64 max-w-[80vw] flex-col border-r border-line bg-sidebar shadow-xl shadow-black/50">
+            <SidebarNav
+              pathname={pathname}
+              me={me}
+              onNavigate={() => setMobileNavOpen(false)}
+            />
+          </aside>
+        </div>
+      )}
 
       {/* ── Main column ──────────────────────────────────────────────── */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar */}
-        <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line bg-sidebar px-4">
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b border-line bg-sidebar px-3 sm:gap-3 sm:px-4">
+          {/* Hamburger — mobile only */}
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen(true)}
+            aria-label={t("openNavigationMenu")}
+            aria-haspopup="menu"
+            aria-expanded={mobileNavOpen}
+            className="flex h-8 w-8 flex-none items-center justify-center rounded-md border border-line bg-elevated text-fg md:hidden"
+          >
+            <span aria-hidden>☰</span>
+          </button>
+
           {/* Case switcher — the active-case selector (case-centric flow) */}
           <CaseSwitcher />
 
-          {/* Agency context chip — from GET /api/auth/me */}
+          {/* Agency context chip — from GET /api/auth/me. Hidden on the
+              smallest screens so it never pushes the mode badge / avatar
+              off-screen; the case switcher already carries the case name. */}
           <span
-            className="max-w-[16rem] truncate rounded-md border border-line bg-elevated px-2.5 py-1 text-xs text-muted"
+            className="hidden max-w-[16rem] truncate rounded-md border border-line bg-elevated px-2.5 py-1 text-xs text-muted sm:inline"
             title={
               me
-                ? `${me.agency.name} — signed in as ${roleLabel(me.role)}`
-                : "Loading agency context…"
+                ? tShell("signedInAs", { agency: me.agency.name, role: roleLabel(me.role) })
+                : tShell("loading")
             }
           >
             {me?.agency.name ?? "…"}
@@ -283,7 +364,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <CaseContextBar />
 
         {/* Screen canvas */}
-        <main className="min-h-0 flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-6">{children}</main>
       </div>
     </div>
   );

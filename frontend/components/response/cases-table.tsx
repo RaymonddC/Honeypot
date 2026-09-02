@@ -3,6 +3,9 @@
  * risk · status pill (risk-colored; "Frozen" renders on the low/emerald tint).
  */
 
+"use client";
+
+import { useTranslations } from "next-intl";
 import type { ActiveCase, CaseRisk } from "@/lib/response/types";
 
 const PILL_STYLES: Record<CaseRisk, string> = {
@@ -12,17 +15,19 @@ const PILL_STYLES: Record<CaseRisk, string> = {
 };
 
 export function CasesTable({ cases }: { cases: ActiveCase[] }) {
+  const t = useTranslations("response.casesTable");
+  const columns = [t("colCase"), t("colType"), t("colAtRisk"), t("colStatus")];
   return (
     <div className="rounded-card border border-line bg-card">
       <div className="border-b border-line px-3.5 py-[13px]">
-        <span className="eyebrow">Active cases</span>
+        <span className="eyebrow">{t("activeCases")}</span>
       </div>
 
       {cases.length ? (
         <table className="w-full border-collapse text-[11.5px]">
           <thead>
             <tr>
-              {["Case", "Type", "At risk", "Status"].map((h) => (
+              {columns.map((h) => (
                 <th
                   key={h}
                   className="border-b border-line px-3.5 py-2.5 text-left text-[9.5px] font-bold uppercase tracking-[.07em] text-muted"
@@ -65,7 +70,7 @@ export function CasesTable({ cases }: { cases: ActiveCase[] }) {
         </table>
       ) : (
         <div className="px-3.5 py-6 text-center text-[11px] text-muted">
-          No active cases in this range.
+          {t("empty")}
         </div>
       )}
     </div>

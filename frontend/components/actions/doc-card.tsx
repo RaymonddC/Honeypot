@@ -13,6 +13,7 @@
  */
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { downloadDocument } from "@/lib/actions/api";
 import type { ActionDocument, DispatchTarget } from "@/lib/actions/types";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -32,6 +33,7 @@ export function DocCard({
   evidenceHash?: string;
   targets?: DispatchTarget[];
 }) {
+  const t = useTranslations("actions.docCard");
   const { me } = useAuth();
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +58,7 @@ export function DocCard({
     try {
       await downloadDocument(doc);
     } catch {
-      setError("Download failed — try again");
+      setError(t("downloadFailed"));
     } finally {
       setDownloading(false);
     }
@@ -78,10 +80,10 @@ export function DocCard({
             <button
               type="button"
               onClick={() => setShowDoc(true)}
-              title="View the formatted letter — print or save it as PDF"
+              title={t("viewTitle")}
               className="cursor-pointer rounded-md border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent-bright transition-colors hover:bg-accent/20"
             >
-              ⧉ View
+              ⧉ {t("view")}
             </button>
           )}
           {doc.downloadUrl && (
@@ -89,10 +91,10 @@ export function DocCard({
               type="button"
               onClick={() => void download()}
               disabled={downloading}
-              title="Download the official PDF — the SHA-256 hash-chained file of record dispatched to agencies"
+              title={t("downloadPdfTitle")}
               className="cursor-pointer rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10px] text-white/60 transition-colors hover:border-accent/30 hover:text-accent-bright disabled:cursor-default disabled:opacity-50"
             >
-              {downloading ? "…" : "↓ PDF"}
+              {downloading ? "…" : t("pdfShort")}
             </button>
           )}
         </div>
@@ -123,7 +125,7 @@ export function DocCard({
               <span
                 className="truncate text-right tnum"
                 style={f.color ? { color: f.color } : undefined}
-                title={f.placeholder ? "Human-filled before dispatch" : undefined}
+                title={f.placeholder ? t("humanFilledBeforeDispatch") : undefined}
               >
                 {f.value}
               </span>

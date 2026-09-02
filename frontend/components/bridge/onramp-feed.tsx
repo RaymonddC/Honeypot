@@ -10,6 +10,7 @@
  */
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { useCases } from "@/components/cases/case-provider";
 import { addCryptoTransfer } from "@/lib/casedata/api";
 import type { OnRampAlert } from "@/lib/bridge/types";
@@ -22,6 +23,7 @@ function AlertActions({
   a: OnRampAlert;
   onTrace?: (addr: string) => void;
 }) {
+  const t = useTranslations("bridge.onrampFeed");
   const { activeCaseId } = useCases();
   const [state, setState] = useState<"idle" | "busy" | "done" | "err">("idle");
   const canSave =
@@ -53,28 +55,28 @@ function AlertActions({
     <div className="flex flex-none items-center gap-1.5">
       {canSave &&
         (state === "done" ? (
-          <span className="text-[9.5px] font-semibold text-accent-bright" title="Saved as a case transfer → Takedown">
-            ✓ in case
+          <span className="text-[9.5px] font-semibold text-accent-bright" title={t("savedTitle")}>
+            {t("inCase")}
           </span>
         ) : (
           <button
             type="button"
             onClick={save}
             disabled={state === "busy"}
-            title="Save this on-ramp as a case transfer (feeds Takedown)"
+            title={t("saveTitle")}
             className="rounded-md border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent-bright transition-colors hover:bg-accent/20 disabled:opacity-50"
           >
-            {state === "busy" ? "…" : state === "err" ? "retry" : "+ case"}
+            {state === "busy" ? t("saving") : state === "err" ? t("retry") : t("addCase")}
           </button>
         ))}
       {onTrace && a.wallet && (
         <button
           type="button"
           onClick={() => onTrace(a.wallet as string)}
-          title={`Trace ${a.wallet} in Takedown`}
+          title={t("traceTitle", { address: a.wallet })}
           className="rounded-md border border-line px-1.5 py-0.5 text-[9.5px] font-semibold text-muted transition-colors hover:text-fg"
         >
-          trace →
+          {t("trace")}
         </button>
       )}
     </div>
@@ -89,12 +91,13 @@ export function OnRampFeed({
   /** Trace this on-ramp's crypto wallet in Takedown. */
   onTrace?: (addr: string) => void;
 }) {
+  const t = useTranslations("bridge.onrampFeed");
   return (
     <div className="mb-3.5 rounded-card border border-line bg-card">
       <div className="flex items-center justify-between border-b border-line px-3.5 py-2.5">
-        <span className="eyebrow">Suspected on-ramps · {alerts.length}</span>
+        <span className="eyebrow">{t("title", { count: alerts.length })}</span>
         <span className="rounded-md border border-line bg-elevated px-1.5 py-0.5 text-[9.5px] uppercase tracking-wide text-muted">
-          by confidence
+          {t("byConfidence")}
         </span>
       </div>
 
@@ -136,7 +139,7 @@ export function OnRampFeed({
         </div>
       ) : (
         <div className="px-3.5 py-6 text-center text-[11px] text-muted">
-          No correlated on-ramps yet — run the simulation.
+          {t("empty")}
         </div>
       )}
     </div>

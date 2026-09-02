@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useMemo } from "react";
+import { useTranslations } from "next-intl";
 import type { BridgeData } from "@/lib/bridge/types";
 import {
   buildTraceReportHtml,
@@ -23,6 +24,7 @@ export function TraceReport({
   caseTitle?: string;
   onClose: () => void;
 }) {
+  const t = useTranslations("bridge.traceReport");
   const html = useMemo(
     () => buildTraceReportHtml(data, caseTitle),
     [data, caseTitle],
@@ -42,7 +44,7 @@ export function TraceReport({
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label="Trace report preview"
+      aria-label={t("dialogLabel")}
     >
       <div
         className="flex h-[86vh] w-full max-w-[920px] flex-col overflow-hidden rounded-card border border-line bg-card shadow-2xl shadow-black/50"
@@ -50,9 +52,9 @@ export function TraceReport({
       >
         <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5">
           <div>
-            <div className="eyebrow text-accent-bright">Trace report</div>
+            <div className="eyebrow text-accent-bright">{t("eyebrow")}</div>
             <div className="text-[10.5px] text-muted">
-              Preview — this is exactly what downloads
+              {t("previewNote")}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -61,19 +63,19 @@ export function TraceReport({
               onClick={() => downloadHtml(html, traceReportFilename())}
               className="h-8 rounded-lg bg-accent px-3.5 text-xs font-semibold text-[#04140d] transition-colors hover:bg-accent-bright"
             >
-              ⬇ Download report
+              {t("downloadReport")}
             </button>
             <button
               type="button"
               onClick={onClose}
               className="h-8 rounded-lg border border-white/10 bg-elevated px-3 text-xs font-semibold text-muted transition-colors hover:text-fg"
             >
-              Close
+              {t("close")}
             </button>
           </div>
         </div>
         <iframe
-          title="Trace report preview"
+          title={t("iframeTitle")}
           srcDoc={html}
           className="w-full flex-1 bg-white"
         />

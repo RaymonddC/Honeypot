@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useMemo, useRef } from "react";
+import { useTranslations } from "next-intl";
 import type { ActionDocument } from "@/lib/actions/types";
 import {
   buildDocumentHtml,
@@ -24,6 +25,7 @@ export function DocumentView({
   ctx: LetterContext;
   onClose: () => void;
 }) {
+  const t = useTranslations("actions.documentView");
   const html = useMemo(() => buildDocumentHtml(doc, ctx), [doc, ctx]);
   const frameRef = useRef<HTMLIFrameElement>(null);
 
@@ -42,7 +44,7 @@ export function DocumentView({
     w.print();
   };
 
-  const kind = doc.kind === "ltkm" ? "LTKM / STR draft" : "Freeze request letter";
+  const kind = doc.kind === "ltkm" ? t("kindLtkm") : t("kindFreeze");
 
   return (
     <div
@@ -50,7 +52,7 @@ export function DocumentView({
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label="Document viewer"
+      aria-label={t("documentViewer")}
     >
       <div
         className="flex h-[88vh] w-full max-w-[900px] flex-col overflow-hidden rounded-card border border-line bg-card shadow-2xl shadow-black/50"
@@ -60,7 +62,7 @@ export function DocumentView({
           <div className="min-w-0">
             <div className="eyebrow text-accent-bright">{kind}</div>
             <div className="truncate text-[10.5px] text-muted">
-              Print / Save as PDF to get a copy that looks exactly like this.
+              {t("printHint")}
             </div>
           </div>
           <div className="flex flex-none items-center gap-2">
@@ -69,28 +71,28 @@ export function DocumentView({
               onClick={printDoc}
               className="h-8 rounded-lg bg-accent px-3.5 text-xs font-semibold text-[#04140d] transition-colors hover:bg-accent-bright"
             >
-              🖶 Print / Save as PDF
+              🖶 {t("printSaveAsPdf")}
             </button>
             <button
               type="button"
               onClick={() => downloadHtml(html, documentFilename(doc))}
-              title="Save the letter as an HTML file"
+              title={t("saveAsHtmlTitle")}
               className="h-8 rounded-lg border border-white/10 bg-elevated px-3 text-xs font-semibold text-muted transition-colors hover:text-fg"
             >
-              ⬇ HTML
+              ⬇ {t("html")}
             </button>
             <button
               type="button"
               onClick={onClose}
               className="h-8 rounded-lg border border-white/10 bg-elevated px-3 text-xs font-semibold text-muted transition-colors hover:text-fg"
             >
-              Close
+              {t("close")}
             </button>
           </div>
         </div>
         <iframe
           ref={frameRef}
-          title="Document"
+          title={t("document")}
           srcDoc={html}
           className="w-full flex-1 bg-white"
         />

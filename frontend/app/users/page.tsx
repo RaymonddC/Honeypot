@@ -18,7 +18,9 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/auth/auth-provider";
+import { roleLabel } from "@/lib/auth/types";
 import {
   ROLES,
   UsersApiError,
@@ -34,44 +36,36 @@ const INPUT =
 const BTN =
   "h-8 shrink-0 rounded-lg border border-line bg-elevated px-3 text-[11px] font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-50";
 
-/** Plain-language labels — `bank-compliance` is a key, not a job title. */
-const ROLE_LABEL: Record<string, string> = {
-  "police-investigator": "Police investigator",
-  "regulator-analyst": "Regulator analyst",
-  "bank-compliance": "Bank compliance",
-  "exchange-compliance": "Exchange compliance",
-  "agency-admin": "Agency admin",
-  "platform-admin": "Platform admin",
-};
-
 /**
  * Each guard explains the rule it enforced. These are deliberate safety rails,
  * and an admin who hits one should learn why it exists — otherwise a correct
  * refusal reads as a broken button.
  */
-function explain(err: unknown): string {
+function explain(err: unknown, t: ReturnType<typeof useTranslations>): string {
   if (!(err instanceof UsersApiError)) {
-    return err instanceof Error ? err.message : "Something went wrong.";
+    return err instanceof Error ? err.message : t("errors.generic");
   }
   switch (err.code) {
     case "self_lockout":
-      return "You can't deactivate or demote your own account — ask another admin to do it, so nobody locks themselves out.";
+      return t("errors.selfLockout");
     case "last_admin":
-      return "This is the agency's last active admin. Promote someone else first, or the agency would have nobody able to restore access.";
+      return t("errors.lastAdmin");
     case "privilege_escalation":
-      return "Only a platform-admin can grant the platform-admin role.";
+      return t("errors.privilegeEscalation");
     case "cross_agency_forbidden":
-      return "You can only administer your own agency's users.";
+      return t("errors.crossAgencyForbidden");
     case "user_exists":
       return err.message;
     case "account_deactivated":
-      return "That account is deactivated.";
+      return t("errors.accountDeactivated");
     default:
       return err.message;
   }
 }
 
 export default function UsersPage() {
+  const t = useTranslations("users");
+  const tRoles = useTranslations("roles");
   // The app's own auth context — no second round-trip just to learn the role.
   const { me } = useAuth();
   const [rows, setRows] = useState<AdminUser[]>([]);
@@ -91,11 +85,11 @@ export default function UsersPage() {
       setRows(await listUsers());
       setError(null);
     } catch (e) {
-      setError(explain(e));
+      setError(explain(e, t));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const isAdmin = canAdminister(me?.role);
 
@@ -117,11 +111,11 @@ export default function UsersPage() {
       setName("");
       setError(null);
       setNotice(
-        `${created.email} can now sign in with Google as ${ROLE_LABEL[created.role] ?? created.role}.`,
+        t("notices.invited", { email: created.email, role: roleLabel(created.role, tRoles) }),
       );
       await load();
     } catch (e) {
-      setError(explain(e));
+      setError(explain(e, t));
     } finally {
       setInviting(false);
     }
@@ -137,19 +131,17 @@ export default function UsersPage() {
         // Say what actually happens. Request auth is pure JWT and never reads
         // the database, so an already-issued token stays valid until it
         // expires — implying an instant lockout would be a lie.
-        setNotice(
-          `${u.email} can no longer sign in. An active session may persist until their token expires.`,
-        );
+        setNotice(t("notices.deactivated", { email: u.email }));
       } else if (change.is_active === true) {
-        setNotice(`${u.email} can sign in again.`);
+        setNotice(t("notices.reactivated", { email: u.email }));
       } else if (change.role) {
         setNotice(
-          `${u.email} is now ${ROLE_LABEL[change.role] ?? change.role}. It applies the next time they sign in.`,
+          t("notices.roleChanged", { email: u.email, role: roleLabel(change.role, tRoles) }),
         );
       }
       await load();
     } catch (e) {
-      setError(explain(e));
+      setError(explain(e, t));
     } finally {
       setBusyId(null);
     }
@@ -158,10 +150,9 @@ export default function UsersPage() {
   if (!loading && !isAdmin) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="text-xl font-bold tracking-tight">Users</h1>
+        <h1 className="text-xl font-bold tracking-tight">{t("title")}</h1>
         <p className="mt-2 text-xs text-muted">
-          Managing accounts needs an admin role. Ask your agency admin if you
-          need access changed.
+          {t("gateBody")}
         </p>
       </div>
     );
@@ -172,15 +163,16 @@ export default function UsersPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-5">
       <div className="mb-3.5">
-        <h1 className="text-xl font-bold tracking-tight">Users</h1>
+        <h1 className="text-xl font-bold tracking-tight">{t("title")}</h1>
         <p className="mt-1 text-xs text-muted">
-          Who can sign in to {me?.agency?.name ?? "your agency"}, and what they may do. Every change
-          here is recorded in the{" "}
-          <a href="/audit" className="text-accent-bright hover:underline">
-            audit trail
-          </a>
-          . There are no passwords to manage — people sign in with Google, and
-          access is decided by whether they appear on this list.
+          {t.rich("subtitle", {
+            agency: me?.agency?.name ?? t("agencyFallback"),
+            auditLink: (chunks) => (
+              <a href="/audit" className="text-accent-bright hover:underline">
+                {chunks}
+              </a>
+            ),
+          })}
         </p>
       </div>
 
@@ -189,36 +181,36 @@ export default function UsersPage() {
 
       <div className="mb-3.5 rounded-card border border-line bg-card">
         <div className="border-b border-line px-3.5 py-2.5">
-          <span className="eyebrow">Give someone access</span>
+          <span className="eyebrow">{t("giveAccessEyebrow")}</span>
         </div>
         <div className="p-3.5">
           <div className="grid gap-2 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
             <input
               type="email"
               value={email}
-              placeholder="name@agency.go.id"
+              placeholder={t("emailPlaceholder")}
               spellCheck={false}
               onChange={(e) => setEmail(e.target.value)}
               className={INPUT}
-              aria-label="Email address"
+              aria-label={t("emailAriaLabel")}
             />
             <input
               type="text"
               value={name}
-              placeholder="Full name"
+              placeholder={t("namePlaceholder")}
               onChange={(e) => setName(e.target.value)}
               className={INPUT}
-              aria-label="Full name"
+              aria-label={t("nameAriaLabel")}
             />
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
               className={INPUT}
-              aria-label="Role"
+              aria-label={t("roleAriaLabel")}
             >
               {ROLES.map((r) => (
                 <option key={r} value={r}>
-                  {ROLE_LABEL[r] ?? r}
+                  {roleLabel(r, tRoles)}
                 </option>
               ))}
             </select>
@@ -228,27 +220,25 @@ export default function UsersPage() {
               disabled={!canSubmit}
               className={BTN}
             >
-              {inviting ? "…" : "Add user"}
+              {inviting ? t("addUserBusy") : t("addUser")}
             </button>
           </div>
           <p className="mt-2 text-[10px] text-muted">
-            The email must match the Google account they sign in with — it is the
-            identity, not just a contact address.
+            {t("emailHint")}
           </p>
         </div>
       </div>
 
       <div className="rounded-card border border-line bg-card">
         <div className="border-b border-line px-3.5 py-2.5">
-          <span className="eyebrow">People · {rows.length}</span>
+          <span className="eyebrow">{t("peopleEyebrow", { count: rows.length })}</span>
         </div>
         <div className="p-2">
           {loading ? (
-            <p className="px-1.5 py-2 text-[11px] text-muted">Loading…</p>
+            <p className="px-1.5 py-2 text-[11px] text-muted">{t("loading")}</p>
           ) : rows.length === 0 ? (
             <p className="px-1.5 py-3 text-[11px] text-muted">
-              Nobody yet. Add the first person above — until then, only seeded
-              demo accounts can sign in.
+              {t("emptyState")}
             </p>
           ) : (
             <ul className="space-y-1">
@@ -267,7 +257,7 @@ export default function UsersPage() {
                     <span className="font-mono text-[10.5px] text-muted">{u.email}</span>
                     {!u.is_active && (
                       <span className="rounded bg-risk-high/[.14] px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wide text-risk-high">
-                        deactivated
+                        {t("deactivatedChip")}
                       </span>
                     )}
 
@@ -277,11 +267,11 @@ export default function UsersPage() {
                         disabled={busy}
                         onChange={(e) => void patch(u, { role: e.target.value })}
                         className={`${INPUT} h-7 disabled:opacity-50`}
-                        aria-label={`Role for ${u.email}`}
+                        aria-label={t("roleForUser", { email: u.email })}
                       >
                         {ROLES.map((r) => (
                           <option key={r} value={r}>
-                            {ROLE_LABEL[r] ?? r}
+                            {roleLabel(r, tRoles)}
                           </option>
                         ))}
                       </select>
@@ -291,12 +281,12 @@ export default function UsersPage() {
                         onClick={() => void patch(u, { is_active: !u.is_active })}
                         title={
                           u.is_active
-                            ? "Stop this account signing in"
-                            : "Let this account sign in again"
+                            ? t("stopSignIn")
+                            : t("allowSignIn")
                         }
                         className={`${BTN} h-7`}
                       >
-                        {busy ? "…" : u.is_active ? "Deactivate" : "Reactivate"}
+                        {busy ? t("actionBusy") : u.is_active ? t("deactivate") : t("reactivate")}
                       </button>
                     </div>
                   </li>

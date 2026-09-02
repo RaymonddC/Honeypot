@@ -1,8 +1,11 @@
+"use client";
+
 /**
  * Chain-of-custody card — hash-chained message count, crime class, syndicate
  * link, and the "→ feeds Investigation" hand-off (mockup .kv rows).
  */
 
+import { useTranslations } from "next-intl";
 import type { CustodyInfo } from "@/lib/honeypot/types";
 
 function KV({
@@ -27,23 +30,24 @@ function KV({
 }
 
 export function CustodyCard({ custody }: { custody: CustodyInfo }) {
+  const t = useTranslations("honeypot.custodyCard");
   return (
     <div className="rounded-card border border-line bg-card pb-1.5">
       <div className="flex items-center justify-between border-b border-line px-3.5 py-3">
-        <span className="eyebrow">Chain of custody</span>
+        <span className="eyebrow">{t("title")}</span>
         <span
           className={`rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] ${
             custody.intact ? "text-accent-bright" : "text-risk-med"
           }`}
         >
-          {custody.intact ? "◇ intact" : "◇ unverified"}
+          {custody.intact ? t("intact") : t("unverified")}
         </span>
       </div>
       <div className="pt-1">
-        <KV label="Messages logged" value={custody.messagesLogged} />
-        <KV label="Crime class" value={custody.crimeClass} />
-        <KV label="Syndicate link" value={custody.syndicateLink} />
-        <KV label="→ feeds" value="Investigation" accent />
+        <KV label={t("messagesLogged")} value={custody.messagesLogged} />
+        <KV label={t("crimeClass")} value={custody.crimeClass} />
+        <KV label={t("syndicateLink")} value={custody.syndicateLink} />
+        <KV label={t("feedsLabel")} value={t("feedsValue")} accent />
       </div>
     </div>
   );

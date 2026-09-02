@@ -13,31 +13,21 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useCases } from "@/components/cases/case-provider";
 
-const STAGE_TASK: Record<string, string> = {
-  intake: "Surface suspect accounts & wallets",
-  freeze: "Generate & dispatch the freeze request",
-  trace: "Trace the money flow",
-  takedown: "Score the wallet network",
-  report: "File the STR / LTKM",
-  recovery: "Track fund recovery",
-  closed: "Case closed",
-};
-
 type Tool = {
+  key: "honeypot" | "bridge" | "investigation" | "actions" | "response";
   glyph: string;
-  title: string;
-  desc: string;
   href: string;
 };
 
 const TOOLS: Tool[] = [
-  { glyph: "⬡", title: "Run a honeypot", desc: "Engage a scammer with an AI persona; extract wallets & accounts.", href: "/honeypot" },
-  { glyph: "⇌", title: "Bridge / BridgeWatch", desc: "See the fiat → QRIS → crypto money flow as a Sankey.", href: "/bridge" },
-  { glyph: "◉", title: "Investigate a wallet", desc: "Trace a wallet's network and score its risk.", href: "/investigation" },
-  { glyph: "⚑", title: "Action documents", desc: "Generate freeze requests & suspicious-transaction reports.", href: "/actions" },
-  { glyph: "▦", title: "Command Center", desc: "Agency-wide metrics: funds at risk / frozen, recovery rate, time-to-freeze.", href: "/response" },
+  { key: "honeypot", glyph: "⬡", href: "/honeypot" },
+  { key: "bridge", glyph: "⇌", href: "/bridge" },
+  { key: "investigation", glyph: "◉", href: "/investigation" },
+  { key: "actions", glyph: "⚑", href: "/actions" },
+  { key: "response", glyph: "▦", href: "/response" },
 ];
 
 function Glyph({ children }: { children: React.ReactNode }) {
@@ -52,6 +42,7 @@ function Glyph({ children }: { children: React.ReactNode }) {
 }
 
 export default function HomePage() {
+  const t = useTranslations("home.page");
   const router = useRouter();
   const { cases, activeCase, setActiveCase, createCase } = useCases();
   const [wallet, setWallet] = useState("");
@@ -74,25 +65,25 @@ export default function HomePage() {
   return (
     <div className="mx-auto max-w-[980px]">
       <div className="mb-5">
-        <div className="eyebrow mb-1">ITTU · financial-crime forensics</div>
-        <h1 className="text-2xl font-bold tracking-tight">What do you want to do?</h1>
+        <div className="eyebrow mb-1">{t("eyebrow")}</div>
+        <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
         <p className="mt-1 text-xs text-muted">
-          Work a case through the guided flow, or jump straight to a tool.
+          {t("subtitle")}
         </p>
       </div>
 
       {/* ── 1. THE CASE FLOW (guided) ─────────────────────────────────── */}
       <section className="mb-6">
         <div className="eyebrow mb-2 flex items-center gap-2">
-          <span className="text-accent-bright">1 · Case workflow</span>
-          <span className="text-muted/60">— the guided investigation</span>
+          <span className="text-accent-bright">{t("section1Label")}</span>
+          <span className="text-muted/60">{t("section1Hint")}</span>
         </div>
 
         <div className="rounded-card border border-accent/25 bg-accent/[.05] p-4">
           {activeCase ? (
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="min-w-0">
-                <div className="text-[11px] text-muted">Active case</div>
+                <div className="text-[11px] text-muted">{t("activeCase")}</div>
                 <div className="flex items-center gap-2.5">
                   <span className="truncate text-lg font-semibold text-fg">
                     {activeCase.title}
@@ -102,7 +93,7 @@ export default function HomePage() {
                   </span>
                 </div>
                 <div className="mt-0.5 text-[12px] text-muted">
-                  Next: {STAGE_TASK[activeCase.stage] ?? "—"}
+                  {t("next", { task: t(`stageTask.${activeCase.stage}`) })}
                 </div>
               </div>
               <div className="flex gap-2">
@@ -110,7 +101,7 @@ export default function HomePage() {
                   href="/case"
                   className="h-9 rounded-lg bg-accent px-4 text-xs font-semibold leading-9 text-[#04140d] transition-colors hover:bg-accent-bright"
                 >
-                  Continue case →
+                  {t("continueCase")}
                 </Link>
                 <button
                   type="button"
@@ -118,7 +109,7 @@ export default function HomePage() {
                   disabled={creating}
                   className="h-9 rounded-lg border border-white/10 bg-elevated px-4 text-xs font-semibold text-fg transition-colors hover:bg-white/[.07] disabled:opacity-60"
                 >
-                  {creating ? "Opening…" : "New report"}
+                  {creating ? t("opening") : t("newReport")}
                 </button>
               </div>
             </div>
@@ -126,11 +117,10 @@ export default function HomePage() {
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <div className="text-[14px] font-semibold text-fg">
-                  Start a new investigation
+                  {t("startNewInvestigation")}
                 </div>
                 <p className="mt-0.5 max-w-[52ch] text-[12px] text-muted">
-                  Most cases begin with a victim report — log it, and the app opens
-                  the case, records the account, and can freeze it in one step.
+                  {t("startNewInvestigationDesc")}
                 </p>
               </div>
               <button
@@ -139,7 +129,7 @@ export default function HomePage() {
                 disabled={creating}
                 className="h-9 rounded-lg bg-accent px-4 text-xs font-semibold text-[#04140d] transition-colors hover:bg-accent-bright disabled:opacity-60"
               >
-                {creating ? "Opening…" : "✎ New report (Intake) →"}
+                {creating ? t("opening") : t("newReportCta")}
               </button>
             </div>
           )}
@@ -147,7 +137,7 @@ export default function HomePage() {
           {recent.length > 0 && (
             <div className="mt-3.5 border-t border-accent/15 pt-3">
               <div className="mb-1.5 text-[10.5px] uppercase tracking-wide text-muted">
-                Recent cases
+                {t("recentCases")}
               </div>
               <div className="flex flex-wrap gap-2">
                 {recent.map((c) => (
@@ -173,8 +163,8 @@ export default function HomePage() {
       {/* ── 2. QUICK TOOLS (ad hoc) ───────────────────────────────────── */}
       <section>
         <div className="eyebrow mb-2 flex items-center gap-2">
-          <span>2 · Quick tools</span>
-          <span className="text-muted/60">— run a task standalone, no case needed</span>
+          <span>{t("section2Label")}</span>
+          <span className="text-muted/60">{t("section2Hint")}</span>
         </div>
 
         {/* immediate task: trace a wallet */}
@@ -192,7 +182,7 @@ export default function HomePage() {
               value={wallet}
               onChange={(e) => setWallet(e.target.value)}
               spellCheck={false}
-              placeholder="Paste a wallet address to trace it…"
+              placeholder={t("walletPlaceholder")}
               className="min-w-0 flex-1 bg-transparent font-mono text-[12.5px] text-fg outline-none placeholder:text-muted"
             />
           </div>
@@ -200,35 +190,38 @@ export default function HomePage() {
             type="submit"
             className="h-[38px] rounded-lg bg-accent px-4 text-xs font-semibold text-[#04140d] transition-colors hover:bg-accent-bright"
           >
-            Trace →
+            {t("trace")}
           </button>
         </form>
 
         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-          {TOOLS.map((t) => (
+          {TOOLS.map((tool) => (
             <Link
-              key={t.href}
-              href={t.href}
+              key={tool.href}
+              href={tool.href}
               className="group flex gap-3 rounded-card border border-line bg-card p-3.5 transition-colors hover:border-white/15"
             >
-              <Glyph>{t.glyph}</Glyph>
+              <Glyph>{tool.glyph}</Glyph>
               <div className="min-w-0">
                 <div className="text-[13px] font-semibold text-fg group-hover:text-accent-bright">
-                  {t.title}
+                  {t(`tools.${tool.key}.title`)}
                 </div>
-                <p className="mt-0.5 text-[11px] leading-snug text-muted">{t.desc}</p>
+                <p className="mt-0.5 text-[11px] leading-snug text-muted">
+                  {t(`tools.${tool.key}.desc`)}
+                </p>
               </div>
             </Link>
           ))}
         </div>
 
         <p className="mt-4 border-t border-line pt-3.5 text-[10.5px] leading-relaxed text-muted">
-          Tools are standalone — use them to explore or answer a quick question.
-          When you&apos;re working a real case, start from the{" "}
-          <Link href="/case" className="text-accent-bright hover:underline">
-            Case File
-          </Link>{" "}
-          so everything attaches to the case.
+          {t.rich("footerNote", {
+            caseLink: (chunks) => (
+              <Link href="/case" className="text-accent-bright hover:underline">
+                {chunks}
+              </Link>
+            ),
+          })}
         </p>
       </section>
     </div>

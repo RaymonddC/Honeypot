@@ -8,6 +8,7 @@
  */
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { useCases } from "@/components/cases/case-provider";
 import { addCryptoTransfer } from "@/lib/casedata/api";
 
@@ -18,6 +19,7 @@ export function AddTransaction({
 }: {
   onAdded: (toAddr: string) => void;
 }) {
+  const t = useTranslations("investigation.addTransaction");
   const { activeCaseId } = useCases();
   const [open, setOpen] = useState(false);
   const [from, setFrom] = useState("");
@@ -55,7 +57,7 @@ export function AddTransaction({
       reset();
       onAdded(to.trim());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add transfer");
+      setError(err instanceof Error ? err.message : t("errorFallback"));
     } finally {
       setBusy(false);
     }
@@ -68,7 +70,7 @@ export function AddTransaction({
         onClick={() => setOpen(true)}
         className="h-8 rounded-lg border border-white/10 bg-elevated px-3.5 text-xs font-semibold text-fg transition-colors hover:bg-white/[.07]"
       >
-        + Add transaction
+        {t("addTransaction")}
       </button>
     );
   }
@@ -82,7 +84,7 @@ export function AddTransaction({
       className="w-full rounded-card border border-line bg-card p-3.5"
     >
       <div className="mb-2.5 flex items-center justify-between">
-        <span className="eyebrow">Add transaction → graph</span>
+        <span className="eyebrow">{t("formTitle")}</span>
         <button
           type="button"
           onClick={() => {
@@ -91,34 +93,34 @@ export function AddTransaction({
           }}
           className="text-[11px] text-muted hover:text-fg"
         >
-          Cancel
+          {t("cancel")}
         </button>
       </div>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <label className="block">
-          <span className="mb-1 block text-[10.5px] text-muted">From wallet</span>
+          <span className="mb-1 block text-[10.5px] text-muted">{t("fromWallet")}</span>
           <input
             required
             value={from}
             onChange={(e) => setFrom(e.target.value)}
-            placeholder="T… source address"
+            placeholder={t("fromWalletPlaceholder")}
             className={field}
           />
         </label>
         <label className="block">
-          <span className="mb-1 block text-[10.5px] text-muted">To wallet</span>
+          <span className="mb-1 block text-[10.5px] text-muted">{t("toWallet")}</span>
           <input
             required
             value={to}
             onChange={(e) => setTo(e.target.value)}
-            placeholder="T… destination address"
+            placeholder={t("toWalletPlaceholder")}
             className={field}
           />
         </label>
         <label className="block">
           <span className="mb-1 block text-[10.5px] text-muted">
-            Amount (USDT)
+            {t("amountUsdt")}
           </span>
           <input
             required
@@ -133,7 +135,7 @@ export function AddTransaction({
         </label>
         <label className="block">
           <span className="mb-1 block text-[10.5px] text-muted">
-            Timestamp (optional)
+            {t("timestampOptional")}
           </span>
           <input
             type="datetime-local"
@@ -143,7 +145,7 @@ export function AddTransaction({
           />
         </label>
         <label className="block">
-          <span className="mb-1 block text-[10.5px] text-muted">Category</span>
+          <span className="mb-1 block text-[10.5px] text-muted">{t("category")}</span>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
@@ -168,7 +170,7 @@ export function AddTransaction({
           disabled={busy}
           className="h-8 rounded-lg bg-accent px-4 text-xs font-semibold text-[#04140d] transition-colors hover:bg-accent-bright disabled:opacity-50"
         >
-          {busy ? "Adding…" : "Add & trace"}
+          {busy ? t("adding") : t("addAndTrace")}
         </button>
       </div>
     </form>

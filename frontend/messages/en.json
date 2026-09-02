@@ -1,0 +1,1425 @@
+{
+  "common": {
+    "appName": "ITTU",
+    "tagline": "Infiltrate · Trace · Takedown · Uncover",
+    "openNavigationMenu": "Open navigation menu",
+    "agencyLabel": "Agency"
+  },
+  "appShell": {
+    "nav": {
+      "home": "Home",
+      "caseWorkflow": "Case workflow",
+      "operations": "Operations",
+      "caseFile": "Case File",
+      "auditTrail": "Audit Trail",
+      "users": "Users",
+      "infiltrate": "Infiltrate",
+      "honeypotOps": "Honeypot Ops",
+      "trace": "Trace",
+      "takedown": "Takedown",
+      "uncover": "Uncover",
+      "commandCenter": "Command Center",
+      "guide": "Guide",
+      "controlPanel": "Control Panel",
+      "authBadge": "P5 · auth"
+    },
+    "modeBadge": {
+      "dataModeTitle": "Data mode: {mode}",
+      "envFallback": " (env fallback — /api/config unreachable)"
+    },
+    "userMenu": {
+      "accountLabel": "Account: {name}",
+      "sessionVerified": "session verified",
+      "offlineSession": "offline session",
+      "signOut": "Sign out"
+    },
+    "agencyChip": {
+      "signedInAs": "{agency} — signed in as {role}",
+      "loading": "Loading agency context…"
+    }
+  },
+  "roles": {
+    "police-investigator": "Police investigator",
+    "regulator-analyst": "Regulator analyst",
+    "bank-compliance": "Bank compliance",
+    "exchange-compliance": "Exchange compliance",
+    "agency-admin": "Agency admin",
+    "platform-admin": "Platform admin"
+  },
+  "login": {
+    "sessionExpiredTitle": "Your session expired.",
+    "sessionExpiredBody": "Sign in again to pick up where you left off.",
+    "agencyLegend": "Agency",
+    "roleLegend": "Role",
+    "ownData": "own data (RLS)",
+    "canDispatch": "Can dispatch freeze / STR",
+    "receiveOnly": "Receives requests · no dispatch",
+    "errorUnreachable": "Login failed — backend unreachable (is the API running on :8000?)",
+    "errorGeneric": "Login failed — {message}",
+    "continueOffline": "Continue offline — demo session with mock data",
+    "signingIn": "Signing in…",
+    "enterConsole": "Enter console",
+    "footer": "Demo sign-in · POC data mode · no credentials required"
+  },
+  "honeypot": {
+    "panel": {
+      "title": "Honeypot",
+      "titleModule": "INFILTRATE",
+      "subtitle": "An AI persona baits the scammer and silently extracts intel — strictly reactive, chain-of-custody logged.",
+      "liveApi": "live api",
+      "offlineMock": "offline · mock",
+      "liveApiTitle": "Live backend API",
+      "offlineMockTitle": "Backend unreachable — rendering local demo dataset",
+      "refreshing": "Refreshing…",
+      "refreshSession": "Refresh session",
+      "startVoiceCall": "Start voice call →",
+      "loadingState": "Attaching to scam session…",
+      "footerNote": "Agent stays <b>strictly reactive & victim-framed</b> — never initiates fraud, accesses systems, or redistributes data (clear of entrapment + UU ITE Arts. 30/32/33). Extracted wallet flows straight into the Investigation graph."
+    },
+    "chatTranscript": {
+      "sessionEyebrow": "Session · {channel} · persona \"{persona}\"",
+      "transcriptLogLabel": "Scam session transcript · {channel}",
+      "extractedBadge": "◇ extracted · {label} · conf {confidence}"
+    },
+    "custodyCard": {
+      "title": "Chain of custody",
+      "intact": "◇ intact",
+      "unverified": "◇ unverified",
+      "messagesLogged": "Messages logged",
+      "crimeClass": "Crime class",
+      "syndicateLink": "Syndicate link",
+      "feedsLabel": "→ feeds",
+      "feedsValue": "Investigation"
+    },
+    "entityPanel": {
+      "title": "Extracted entities",
+      "validatedCount": "{count} · validated",
+      "empty": "No validated entities yet — the agent is still baiting.",
+      "trace": "Trace →",
+      "traceTitle": "Trace this wallet in Takedown",
+      "traceAttachTitle": "Attach to case & trace this wallet in Takedown",
+      "inCase": "✓ in case",
+      "inCaseTitle": "Added to case → BridgeWatch",
+      "addCase": "+ Case",
+      "retry": "retry",
+      "trackTitle": "Track on this case → links the on-ramp wallet",
+      "openCaseTitle": "Open a case to attach"
+    },
+    "callPage": {
+      "backLink": "← Honeypot console",
+      "title": "Voice call",
+      "titleModule": "· INFILTRATE",
+      "descScripted": "The AI persona answers the scam call live — STT → agent loop → TTS — entities extracted as they're spoken, chain-of-custody logged.",
+      "descLiveMic": "Tier-B live mic — you play the scammer over the mic, the AI persona answers turn-by-turn (docs/Live-Voice-Calls.md).",
+      "modeScripted": "Scripted",
+      "modeLiveMic": "Live mic",
+      "modeScriptedTitle": "Pre-run replay — faithful simulation",
+      "modeLiveMicTitle": "Interactive — you play the scammer on the mic",
+      "callModeLabel": "Call mode",
+      "liveApi": "● live api",
+      "offlineMock": "● offline · mock",
+      "liveApiTitle": "Live backend API",
+      "offlineMockTitle": "Backend unreachable — rendering local demo call",
+      "dialing": "Dialing scam line… starting voice session"
+    },
+    "voiceCall": {
+      "controls": {
+        "startCall": "Start call",
+        "pause": "Pause",
+        "resume": "Resume",
+        "takeOver": "Take over",
+        "takeOverArmedTitle": "Barge in — mute the agent and take the call",
+        "takeOverDisarmedTitle": "Arms at the disclosure turn",
+        "handBack": "Hand back to agent",
+        "replayCall": "Replay call",
+        "restart": "Restart",
+        "statusIdle": "agent ready · press Start call to answer the scam line",
+        "statusLive": "agent live on call · human-in-the-loop arms at the disclosure turn…",
+        "statusPaused": "call on hold · playback paused",
+        "statusTakeover": "analyst on the line — agent muted (human-in-the-loop)",
+        "statusEnded": "call ended · transcript sealed in custody log"
+      },
+      "header": {
+        "stateIdle": "Voice · ready",
+        "stateLive": "On call · agent live",
+        "statePaused": "Call on hold",
+        "stateTakeover": "On call · analyst live",
+        "stateEnded": "Call ended",
+        "callerSub": "unknown caller · suspected scam line · persona \"{persona}\" answering",
+        "timerLabel": "Call time {timer}"
+      },
+      "captions": {
+        "logLabel": "Live call captions",
+        "idleEmpty": "Captions appear here as the call is spoken — press Start call to answer.",
+        "connecting": "Connecting…",
+        "hearing": "hearing…",
+        "extractedBadge": "◇ extracted · {label} · conf {confidence}"
+      },
+      "callView": {
+        "scammerLabel": "Scammer",
+        "personaLabel": "Honeypot · {persona}",
+        "personaSub": "AI persona · agent loop",
+        "entitiesNote": "Entities appear as they are heard on the call — <b>{heard}/{total}</b> so far. The disclosed wallet feeds the Investigation graph."
+      },
+      "liveCallView": {
+        "operatorLabel": "Operator (scammer role)",
+        "operatorWho": "Operator · scam caller",
+        "personaLabel": "Honeypot · {persona}",
+        "personaSub": "AI persona · agent loop",
+        "micListening": "live mic · listening",
+        "micNoStt": "text input · no STT",
+        "micBlocked": "text input · mic blocked",
+        "micMuted": "mic muted",
+        "sttUnsupportedNotice": "Speech recognition is not available in this browser (Safari/Firefox) — type as the scammer below instead.",
+        "micDeniedNotice": "Microphone permission denied — allow mic access or type as the scammer below.",
+        "noMicNotice": "No microphone found — type as the scammer below.",
+        "sttUnavailableNotice": "Live speech isn't available in this browser — type as the scammer below.",
+        "reconnectingNotice": "Reconnecting to the speech service…",
+        "emptyNote": "Start the live call, then speak as the scammer — the AI persona answers in voice and the transcript appears here.",
+        "startLiveCall": "Start live call",
+        "dialing": "Dialing…",
+        "micUnsupportedTitle": "SpeechRecognition unavailable — use the text field",
+        "muteMicTitle": "Mute the mic",
+        "unmuteMicTitle": "Unmute the mic",
+        "micLive": "Mic live",
+        "micMutedButton": "Mic muted",
+        "endCall": "End call",
+        "startNewCall": "Start new call",
+        "typeAsScammerLabel": "Type as the scammer",
+        "typePlaceholderMicOn": "…or type as the scammer",
+        "typePlaceholderMicOff": "Type as the scammer (mic off)",
+        "send": "Send",
+        "sendAriaLabel": "Send turn",
+        "statusIdle": "Tier-B live call — you play the scammer on the mic; the AI persona answers",
+        "statusConnecting": "dialing… starting interactive session",
+        "statusEnded": "call ended · transcript sealed in custody log",
+        "statusThinking": "persona thinking… agent loop running on your turn",
+        "statusSpeaking": "persona speaking — talk to barge in",
+        "statusListening": "listening (id-ID) — speak as the scammer",
+        "statusMuted": "mic muted — unmute or type below",
+        "entitiesNote": "Entities are extracted live from what you say on the call — <b>{count}</b> so far. Disclosed wallets/accounts feed the Investigation graph.",
+        "defaultCallerId": "live mic · operator",
+        "defaultPersona": "Bu Sari, 54",
+        "defaultModeTag": "Tier-B · live mic"
+      },
+      "providerBadge": {
+        "browserTitle": "Spoken by the browser voice (the selected provider failed or has no key)",
+        "voicedByTitle": "Voiced by {provider}"
+      }
+    }
+  },
+  "bridge": {
+    "panel": {
+      "title": "Bridge View",
+      "titleModule": "BridgeWatch",
+      "subtitle": "The fiat→crypto on-ramp — where dirty rupiah becomes USDT. Case template: PT A2Z (Rp 530 M · 4,656 accounts · 22 banks).",
+      "liveApi": "● live api",
+      "offlineMock": "● offline · mock",
+      "liveApiTitle": "Live backend API",
+      "offlineMockTitle": "Backend unreachable — rendering local demo dataset",
+      "viewReport": "⧉ View report",
+      "viewReportTitle": "View & download the fiat→crypto trace report",
+      "generating": "Generating…",
+      "regenerateFeed": "Regenerate feed",
+      "scoreWallets": "Score wallets in Takedown →",
+      "scoreTopOnRampTitle": "Score the top on-ramp's wallet in Takedown",
+      "scoreWalletsTitle": "Score wallets in Takedown",
+      "moneyFlowEyebrow": "Money flow · fiat → crypto",
+      "ribbonHint": "ribbon width = volume · hover to isolate a path",
+      "fiatSimulated": "Fiat · simulated",
+      "bridgeLabel": "Bridge",
+      "cryptoRealTron": "Crypto · real TRON",
+      "hoverIsolateHint": "Hover a node or link to isolate a path",
+      "legend": {
+        "qrisFiat": "QRIS / fiat",
+        "muleAccounts": "Mule accounts",
+        "exchange": "Exchange",
+        "usdtWallets": "USDT wallets",
+        "foreign": "Foreign"
+      },
+      "caseOnRamp": "This case · on-ramp",
+      "bankHolderPrefix": "a.n. {holder}",
+      "traceThisWallet": "Trace this wallet in Takedown →",
+      "loadingState": "Correlating fiat↔crypto flows…",
+      "footerNote": "Fiat side is <b>synthetic</b> (PT A2Z params / PaySim) — real bank & QRIS data isn't public; crypto side is <b>real</b> TRON. The adapter swaps to a live bank feed post-MoU without touching this view."
+    },
+    "accountWatchlist": {
+      "title": "Tracked accounts",
+      "inFlowTitle": "How many tracked accounts appear in the current bridge flow",
+      "inFlowCount": "{inFlow}/{total} in flow",
+      "empty": "No tracked accounts yet. Add them from the <b>Case File → Overview</b> or at <b>Intake</b> — they'll light up here when they appear in the flow.",
+      "holderPrefix": "a.n. {holder} · ",
+      "inFlowBadge": "in flow",
+      "inFlowBadgeTitle": "This account number appears in the current bridge flow",
+      "watchBadge": "watch",
+      "watchBadgeTitle": "Tracked, but not seen in the current flow yet"
+    },
+    "muleStatsCard": {
+      "title": "Mule network",
+      "clusters": "Clusters",
+      "muleAccounts": "Mule accounts",
+      "shellMerchants": "Shell merchants",
+      "correlationWindow": "Corr. window"
+    },
+    "onrampFeed": {
+      "title": "Suspected on-ramps · {count}",
+      "byConfidence": "by confidence",
+      "savedTitle": "Saved as a case transfer → Takedown",
+      "inCase": "✓ in case",
+      "saveTitle": "Save this on-ramp as a case transfer (feeds Takedown)",
+      "saving": "…",
+      "retry": "retry",
+      "addCase": "+ case",
+      "traceTitle": "Trace {address} in Takedown",
+      "trace": "trace →",
+      "empty": "No correlated on-ramps yet — run the simulation."
+    },
+    "sankeyChart": {
+      "ariaLabel": "Fiat-to-crypto fund flow: QRIS merchants through mule accounts and exchange deposits to USDT wallets and foreign destinations",
+      "empty": "No bridge flows to render."
+    },
+    "statRow": {
+      "qrisInflowLabel": "QRIS inflow",
+      "qrisInflowSub": "fiat entering the funnel",
+      "bridgedToCryptoLabel": "Bridged to crypto",
+      "bridgedToCryptoSub": "reached USDT / exchanges",
+      "correlatedOnRampsLabel": "Correlated on-ramps",
+      "correlatedOnRampsSub": "fiat ↔ crypto matches"
+    },
+    "traceReport": {
+      "dialogLabel": "Trace report preview",
+      "eyebrow": "Trace report",
+      "previewNote": "Preview — this is exactly what downloads",
+      "downloadReport": "⬇ Download report",
+      "close": "Close",
+      "iframeTitle": "Trace report preview"
+    }
+  },
+  "investigation": {
+    "panel": {
+      "title": "Investigation",
+      "subtitle": "Trace fund flows, score wallets, and flag laundering typologies on-chain.",
+      "subtitleCta": "Click any node.",
+      "sendToActions": "Send to Action Panel →",
+      "packageForAction": "Package for action →",
+      "packageForActionTitle": "Take this wallet to the Report desk (freeze / STR)",
+      "walletAddressLabel": "Wallet address",
+      "walletAddressPlaceholder": "TRON wallet address…",
+      "tracing": "Tracing…",
+      "traceWallet": "Trace wallet",
+      "caseWalletsLabel": "Case wallets:",
+      "traceWalletTitle": "Trace {address}",
+      "attributedExchange": "Attributed exchange",
+      "riskSuffix": "{risk} risk",
+      "tracingOnChain": "Tracing on-chain…",
+      "tracingHint": "a busy wallet can take up to a minute",
+      "footerNote": "Isolation Forest is presented as <b>anomaly triage</b>, paired with deterministic typology rules for court-explainable signal · every flag carries confidence + reasoning (UU ITE Pasal 5).",
+      "statusBadge": {
+        "idle": {
+          "label": "● live",
+          "title": "Live backend — enter a wallet to trace"
+        },
+        "ok": {
+          "label": "● live api",
+          "title": "Live backend API"
+        },
+        "mock": {
+          "label": "● offline · mock",
+          "title": "Backend unreachable — rendering local demo dataset"
+        },
+        "empty": {
+          "label": "● live · no data",
+          "title": "Reachable — this wallet has no USDT-TRC20 activity"
+        },
+        "rate_limited": {
+          "label": "● rate-limited",
+          "title": "Data provider is rate-limiting — retry shortly"
+        },
+        "error": {
+          "label": "● error",
+          "title": "Data provider unavailable"
+        }
+      },
+      "statePanel": {
+        "idle": {
+          "title": "Enter a TRON wallet address to begin.",
+          "sub": "Trace fund flows, score wallets, and flag laundering typologies on live on-chain data."
+        },
+        "empty": {
+          "title": "No USDT-TRC20 activity found for this wallet.",
+          "sub": "Try a wallet that has moved USDT-TRC20 on TRON."
+        },
+        "rate_limited": {
+          "title": "Rate-limited by the data provider.",
+          "sub": "Try again in a moment — press Trace wallet to retry."
+        },
+        "error": {
+          "title": "Trace failed — the data provider is unavailable.",
+          "sub": "Check the backend is running, then retry."
+        }
+      },
+      "riskReco": {
+        "high": "Likely a collection / mule wallet. Package it for a freeze request + STR in the Action Panel.",
+        "medium": "Mixed signals — corroborate with another hop or two before acting.",
+        "low": "Low anomaly — probably a pass-through or victim wallet. Keep tracing upstream.",
+        "exchange": "Attributed exchange — send an RFI / subpoena for KYC on this deposit address."
+      }
+    },
+    "addTransaction": {
+      "addTransaction": "+ Add transaction",
+      "formTitle": "Add transaction → graph",
+      "cancel": "Cancel",
+      "fromWallet": "From wallet",
+      "fromWalletPlaceholder": "T… source address",
+      "toWallet": "To wallet",
+      "toWalletPlaceholder": "T… destination address",
+      "amountUsdt": "Amount (USDT)",
+      "timestampOptional": "Timestamp (optional)",
+      "category": "Category",
+      "adding": "Adding…",
+      "addAndTrace": "Add & trace",
+      "errorFallback": "Failed to add transfer"
+    },
+    "glassBox": {
+      "eyebrow": "◇ Glass Box · reasoning trace",
+      "confidence": "confidence {confidence}",
+      "empty": "Select a wallet to see how its score was reached — every step of the pipeline is logged."
+    },
+    "walletDetailCard": {
+      "selectedWallet": "Selected wallet",
+      "scoringWallet": "Scoring wallet…",
+      "clickToInspect": "Click a node in the graph to inspect it.",
+      "calculatedRisk": "Calculated risk",
+      "confidence": "Confidence",
+      "attributedExchange": "Exchange",
+      "riskSuffix": "{risk} risk",
+      "address": "Address",
+      "usdtVolume": "USDT volume",
+      "counterparties": "Counterparties",
+      "firstSeen": "First seen",
+      "tags": "Tags",
+      "tabOverview": "Overview",
+      "tabTransactions": "Transactions",
+      "flaggedTypologies": "Flagged typologies",
+      "fired": "{count} fired",
+      "notApplicableExchange": "Not applicable — attributed exchange.",
+      "noPatternsFired": "No typology patterns fired.",
+      "riskFactors": "Risk factors · 12 indicators",
+      "percentileHint": "percentile · highest first",
+      "hoverFactorHint": "Hover a factor for its meaning.",
+      "noTransactions": "No transactions loaded.",
+      "factorHelp": {
+        "rapidRelayRate": "Share of incoming funds forwarded out within ~5 minutes — pass-through/relay behaviour.",
+        "inOutRatio": "Value out vs in (~1.0 = pure pass-through, typical of a mule).",
+        "txVelocity": "Transactions per active day — higher = busier / more automated.",
+        "uniqueCounterparties": "Number of distinct wallets it transacts with.",
+        "roundNumberPct": "Share of round-number amounts — a structuring / smurfing signature.",
+        "accountAgeInv": "How new the wallet is (inverted) — fresh wallets score higher.",
+        "fanInOutRatio": "Senders vs receivers — high fan-out means dispersal to many wallets.",
+        "timeDistEntropy": "How spread the timing is across the day — low = bursty / automated.",
+        "chainDepth": "Hops from the wallet you traced — deeper = further down the laundering chain.",
+        "volumeTotal": "Total USDT moved through the wallet.",
+        "maxTxSize": "Largest single transfer.",
+        "selfLoopCount": "Transfers back to itself — an obfuscation tactic."
+      }
+    },
+    "walletGraph": {
+      "hint": "◦ hover to preview · click to inspect · drag / scroll to navigate",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "fitGraph": "Fit graph",
+      "resetView": "Reset view",
+      "peelingChain": "◆ peeling chain → exchange",
+      "exchange": "Exchange"
+    },
+    "riskPill": {
+      "exchange": "Exchange"
+    }
+  },
+  "actions": {
+    "panel": {
+      "title": "Action Panel",
+      "subtitle": "One click turns a confirmed case into legal action — every document hashed as evidence.",
+      "liveApiTitle": "Live backend API",
+      "offlineMockTitle": "Backend unreachable — rendering local demo dataset",
+      "liveApi": "● live api",
+      "offlineMock": "● offline · mock",
+      "regenerateTitle": "Regenerate from the case's current accounts & wallets",
+      "generating": "Generating…",
+      "regenerateFreeze": "⎙ Regenerate freeze request",
+      "regenerateAll": "⎙ Regenerate all documents",
+      "generatedFromPrefix": "Generated from",
+      "reasoningAttached": "reasoning attached to each artifact",
+      "assemblingFreeze": "Assembling the account-blocking freeze request…",
+      "assemblingAll": "Assembling freeze request · LTKM draft · multi-agency alert…",
+      "footerNote": "Every artifact is <b>SHA-256 hashed</b> + timestamped into the case custody chain (UU ITE Pasal 5) and carries the Glass Box reasoning behind each risk flag. Generation is automatic; <b>dispatch is human-gated</b> — POC mode routes to a mock sink, LIVE to goAML + IASC."
+    },
+    "agencyAlertCard": {
+      "agencyCountOne": "1 agency",
+      "agencyCountOther": "{count} agencies",
+      "urgent": "Urgent",
+      "channelComplianceApi": "Compliance API",
+      "channelSecureEmail": "Secure email",
+      "channelSecureChannel": "Secure channel",
+      "viaChannel": "via {channel}",
+      "noTargets": "No dispatch targets — generate documents first.",
+      "footerNote": "Coordinated alert · dispatch is <b>human-gated</b>; POC routes to a mock sink, LIVE to each agency's live channel."
+    },
+    "dispatchBar": {
+      "dispatchHumanGated": "Dispatch · human-gated",
+      "receipt": "Receipt",
+      "cancel": "Cancel",
+      "dispatchedMockSink": "✓ Dispatched (mock sink)",
+      "dispatching": "Dispatching…",
+      "confirmDispatchTo": "Confirm — dispatch to {count} targets",
+      "confirmAndDispatch": "Confirm & dispatch",
+      "pocModeExplainer": "In <b>POC mode</b> nothing leaves the system — LIVE mode routes to real channels + goAML + IASC freeze. Sending requires explicit confirmation.",
+      "evidenceSha256": "evidence SHA-256"
+    },
+    "dispatchReceipt": {
+      "dispatchReceipt": "Dispatch receipt",
+      "confirmationSubtitle": "Confirmation of what was sent to each agency.",
+      "printSaveAsPdf": "Print / Save as PDF",
+      "html": "HTML",
+      "close": "Close"
+    },
+    "docCard": {
+      "downloadFailed": "Download failed — try again",
+      "viewTitle": "View the formatted letter — print or save it as PDF",
+      "view": "View",
+      "downloadPdfTitle": "Download the official PDF — the SHA-256 hash-chained file of record dispatched to agencies",
+      "pdfShort": "↓ PDF",
+      "humanFilledBeforeDispatch": "Human-filled before dispatch"
+    },
+    "documentView": {
+      "kindLtkm": "LTKM / STR draft",
+      "kindFreeze": "Freeze request letter",
+      "documentViewer": "Document viewer",
+      "printHint": "Print / Save as PDF to get a copy that looks exactly like this.",
+      "printSaveAsPdf": "Print / Save as PDF",
+      "saveAsHtmlTitle": "Save the letter as an HTML file",
+      "html": "HTML",
+      "close": "Close",
+      "document": "Document"
+    }
+  },
+  "auth": {
+    "appGate": {
+      "appName": "ITTU"
+    },
+    "googleSignInButton": {
+      "cancelled": "Google sign-in was cancelled.",
+      "signInFailed": "Google sign-in failed.",
+      "loadFailed": "Couldn't load Google sign-in.",
+      "signingYouIn": "Signing you in…",
+      "continueWithGoogle": "Continue with Google",
+      "orDemoSignIn": "or demo sign-in"
+    }
+  },
+  "cases": {
+    "contextBar": {
+      "noActiveCase": "No active case.",
+      "openACase": "Open a case →",
+      "openACaseHint": "— your work here will attach to it.",
+      "backToCaseFile": "Back to the Case File",
+      "currentStageTitle": "Current investigation stage",
+      "caseFileLink": "Case File →",
+      "stageTask": {
+        "intake": "Surface suspect accounts & wallets (Honeypot)",
+        "freeze": "Generate & dispatch the freeze request (Action Panel)",
+        "trace": "Trace the money flow (Bridge)",
+        "takedown": "Score the wallet network (Investigation)",
+        "report": "File the STR / LTKM (Action Panel)",
+        "recovery": "Track fund recovery for this case",
+        "closed": "Case closed"
+      }
+    },
+    "switcher": {
+      "noCaseSelected": "No case selected",
+      "activeCaseTitle": "Active case · {stage}",
+      "pickOrOpenCase": "Pick or open a case",
+      "cases": "Cases",
+      "noCasesYet": "No cases yet.",
+      "advanceStage": "Advance stage",
+      "newCaseTitlePlaceholder": "New case title…",
+      "opening": "Opening…",
+      "openCase": "Open case",
+      "cancel": "Cancel",
+      "newCase": "New case"
+    }
+  },
+  "screenPlaceholder": {
+    "comingIn": "coming in {phase}"
+  },
+  "audit": {
+    "page": {
+      "title": "Audit trail",
+      "subtitle": "Every recorded action by your agency, newest first — who did it, when, and what changed. Actions that were <r>refused</r> are recorded too, and marked as such: an attempt someone's role did not allow is often the line that matters most. Append-only and hash-chained, so alteration is detectable. Other agencies' actions are never shown.",
+      "reverify": "Re-verify",
+      "reverifying": "…",
+      "errorFallback": "could not load the audit trail",
+      "chainVerified": {
+        "title": "✓ Chain verified — every entry links to the one before it.",
+        "body": "Each record is hashed together with its predecessor, so editing or removing any entry breaks every hash after it. Re-checked just now.",
+        "caveat": "What this does <b>not</b> prove: that every action was recorded in the first place. The chain shows nothing here was altered or removed — an entry that was never written leaves no trace to break. Those write failures are counted and alerted on separately, so a missing record is caught by monitoring rather than by this check."
+      },
+      "chainFailed": {
+        "title": "✗ Chain verification FAILED",
+        "titleAtEntry": "✗ Chain verification FAILED at entry #{seq}",
+        "body": "The log has been altered since it was written, or entries are missing. Everything from that point on should be treated as unreliable and investigated — do not rely on this trail as evidence until it is explained."
+      },
+      "recordedActionsEyebrow": "Recorded actions · {count}",
+      "loading": "Loading…",
+      "emptyState": "Nothing recorded yet. Actions appear here as they happen — signing in, opening or changing a case, reviewing an extracted entity, filing a call into a case.",
+      "deniedChip": "Denied",
+      "rateCapReached": "⚠ Rate cap reached ({cap}) — further refusals of this kind by this user were NOT recorded.",
+      "unknownUser": "Unknown user",
+      "actionCopy": {
+        "authLogin": {
+          "label": "Signed in"
+        },
+        "caseCreated": {
+          "label": "Opened a case"
+        },
+        "caseUpdated": {
+          "label": "Changed a case"
+        },
+        "entityReviewed": {
+          "label": "Reviewed an entity"
+        },
+        "dispatchSent": {
+          "label": "Dispatched to an agency"
+        },
+        "triageAttached": {
+          "label": "Filed a call into a case"
+        },
+        "triagePromoted": {
+          "label": "Opened a case from a call"
+        },
+        "actionBundleGenerated": {
+          "label": "Generated an evidence bundle"
+        },
+        "evidenceExported": {
+          "label": "Downloaded evidence"
+        },
+        "userCreated": {
+          "label": "Provisioned a user",
+          "attempt": "tried to provision a user"
+        },
+        "userRoleChanged": {
+          "label": "Changed a user's role",
+          "attempt": "tried to change a user's role"
+        },
+        "userDeactivated": {
+          "label": "Deactivated a user",
+          "attempt": "tried to deactivate a user"
+        },
+        "userReactivated": {
+          "label": "Reactivated a user",
+          "attempt": "tried to reactivate a user"
+        },
+        "accessForbidden": {
+          "label": "Was refused access",
+          "attempt": "tried to reach something their role forbids"
+        }
+      },
+      "attemptedFallback": "attempted {label}",
+      "denialCopy": {
+        "privilege_escalation": "only a platform-admin may grant that role",
+        "self_lockout": "would have locked themselves out of their own account",
+        "last_admin": "would have left the agency with no active admin",
+        "cross_agency_forbidden": "that user belongs to another agency",
+        "user_not_found": "no such user is visible to them",
+        "forbidden": "their role does not allow it"
+      },
+      "loginMethod": {
+        "google": "Google",
+        "demo": "demo login"
+      }
+    }
+  },
+  "home": {
+    "page": {
+      "eyebrow": "ITTU · financial-crime forensics",
+      "title": "What do you want to do?",
+      "subtitle": "Work a case through the guided flow, or jump straight to a tool.",
+      "section1Label": "1 · Case workflow",
+      "section1Hint": "— the guided investigation",
+      "activeCase": "Active case",
+      "next": "Next: {task}",
+      "continueCase": "Continue case →",
+      "newReport": "New report",
+      "opening": "Opening…",
+      "startNewInvestigation": "Start a new investigation",
+      "startNewInvestigationDesc": "Most cases begin with a victim report — log it, and the app opens the case, records the account, and can freeze it in one step.",
+      "newReportCta": "✎ New report (Intake) →",
+      "recentCases": "Recent cases",
+      "section2Label": "2 · Quick tools",
+      "section2Hint": "— run a task standalone, no case needed",
+      "walletPlaceholder": "Paste a wallet address to trace it…",
+      "trace": "Trace →",
+      "footerNote": "Tools are standalone — use them to explore or answer a quick question. When you're working a real case, start from the <caseLink>Case File</caseLink> so everything attaches to the case.",
+      "stageTask": {
+        "intake": "Surface suspect accounts & wallets",
+        "freeze": "Generate & dispatch the freeze request",
+        "trace": "Trace the money flow",
+        "takedown": "Score the wallet network",
+        "report": "File the STR / LTKM",
+        "recovery": "Track fund recovery",
+        "closed": "Case closed"
+      },
+      "tools": {
+        "honeypot": {
+          "title": "Run a honeypot",
+          "desc": "Engage a scammer with an AI persona; extract wallets & accounts."
+        },
+        "bridge": {
+          "title": "Bridge / BridgeWatch",
+          "desc": "See the fiat → QRIS → crypto money flow as a Sankey."
+        },
+        "investigation": {
+          "title": "Investigate a wallet",
+          "desc": "Trace a wallet's network and score its risk."
+        },
+        "actions": {
+          "title": "Action documents",
+          "desc": "Generate freeze requests & suspicious-transaction reports."
+        },
+        "response": {
+          "title": "Command Center",
+          "desc": "Agency-wide metrics: funds at risk / frozen, recovery rate, time-to-freeze."
+        }
+      }
+    }
+  },
+  "guide": {
+    "page": {
+      "eyebrow": "Orientation",
+      "title": "How ITTU works — a quick guide",
+      "subtitle": "ITTU (Infiltrate, Trace, Takedown & Uncover) turns financial-crime response from reactive to proactive. Four modules chain into one investigation: hunt intel from scammers, trace the money across bank and crypto rails, score the wallet network, and generate the legal action — every step preserved for court.",
+      "modulesCardTitle": "The four modules",
+      "open": "open →",
+      "produces": "Produces:",
+      "flowCardTitle": "The investigation flow",
+      "flowBody": "It all hangs off a <caseLink>Case File</caseLink>. You start at its <intake>Intake</intake> stage — log a victim report or run a honeypot — then the stage tracker walks the case through the four modules. A scammer chat (or a report) surfaces a wallet and a mule account; that wallet feeds the bridge (fiat ↔ crypto) and the graph (risk scoring); the scored targets feed Uncover, which emits the freeze request and agency notifications. Everything is custody-hashed from the first message to the final document.",
+      "screensCardTitle": "Screen-by-screen",
+      "seeLabel": "See:",
+      "doLabel": "Do:",
+      "postureCardTitle": "Data posture — POC vs LIVE",
+      "postureIntro": "Every external boundary (the honeypot LLM, blockchain data, bank feeds, notifications) sits behind an adapter that runs in one of two modes. The badge in the top bar shows the current mode.",
+      "postures": {
+        "poc": {
+          "badge": "POC",
+          "body": "The safe default — fully offline, deterministic, no credentials. Scripted honeypot replays, blockchain fixtures, synthetic bank data. PDFs and custody hashing are <b>real</b>; notifications go to a mock sink (nothing leaves the system)."
+        },
+        "live": {
+          "badge": "LIVE",
+          "body": "The same code against real sources — a real LLM, the Tronscan API, bank feeds, agency webhooks. Requires explicit config and keys, and fails loudly if they are missing rather than silently degrading."
+        }
+      },
+      "scenariosCardTitle": "Honeypot scenarios",
+      "scenariosIntro": "The honeypot ships three MVP scam typologies. Start one from the <honeypotLink>Honeypot</honeypotLink> screen; each replays a full conversation whose disclosed entities are validated into court-usable intel.",
+      "discloses": "discloses {discloses}",
+      "riskModelCardTitle": "The wallet risk model",
+      "riskModelBody": "TAKEDOWN scores each wallet with an unsupervised <b>Isolation Forest</b> over 12 behavioral features, backed by 5 deterministic typology detectors — peeling chain, rapid relay, circular (wash), structuring, and fan-out. The model is validated against the <b>Elliptic Data Set</b> (203k Bitcoin transactions) for ROC-AUC / precision / recall.",
+      "riskModelApiNote": "The live model card is served at",
+      "footerTip": "Tip: the fastest way to see the full chain is to start a honeypot session, then take the disclosed wallet into the Takedown graph.",
+      "modules": {
+        "infiltrate": {
+          "name": "INFILTRATE",
+          "tagline": "An AI honeypot persona poses as a scam victim and engages the scammer. Each turn extracts intel (wallets, bank accounts, phones, links), classifies the crime, and clusters a syndicate — every message SHA-256 hash-chained.",
+          "produces": "Validated wallet & account intel + crime type"
+        },
+        "trace": {
+          "name": "TRACE",
+          "tagline": "BridgeWatch correlates fiat bank transfers with crypto deposits by amount and time window, then renders the end-to-end money flow as a Sankey — the bridge foreign tools don't cross.",
+          "produces": "A fiat → QRIS → crypto flow diagram"
+        },
+        "takedown": {
+          "name": "TAKEDOWN",
+          "tagline": "Traces a wallet's transaction network (≤3 hops), computes 12 behavioral features, runs an Isolation Forest plus 5 typology detectors, and scores each wallet with plain-language 'Glass Box' reasoning.",
+          "produces": "A risk-scored wallet network"
+        },
+        "uncover": {
+          "name": "UNCOVER",
+          "tagline": "Turns the analysis into real PDFs — account-freeze requests and PPATK-format suspicious-transaction reports — each hashed for custody, plus a multi-agency notification plan.",
+          "produces": "Court-ready documents + agency notifications"
+        }
+      },
+      "screens": {
+        "caseFile": {
+          "name": "Case File",
+          "see": "The spine screen — the active case, a stage tracker (Intake → Freeze → Trace → Takedown → Report → Recovery → Closed), and every account, wallet, session and document attached to it.",
+          "doWhat": "Open a case and it lands on Intake: log the victim report (type, amount, receiving account) or run a honeypot. Each stage opens the tool it needs, right below the tracker."
+        },
+        "infiltrate": {
+          "name": "Infiltrate",
+          "see": "Scam sessions, a hash-chained transcript, extracted entities, and the syndicate profile.",
+          "doWhat": "Start a session, pick one of 3 scenarios, read the chat, confirm or reject entities."
+        },
+        "trace": {
+          "name": "Trace",
+          "see": "A Sankey of the money flow (bank → QRIS → crypto), mule accounts, and correlations.",
+          "doWhat": "Simulate or inspect how a case's funds moved across channels."
+        },
+        "takedown": {
+          "name": "Takedown",
+          "see": "An interactive wallet graph with per-wallet risk, reasoning, and fired typologies.",
+          "doWhat": "Enter a wallet, expand hops, click a node to read its risk breakdown."
+        },
+        "uncover": {
+          "name": "Uncover",
+          "see": "A document generator for freeze requests and suspicious-transaction reports.",
+          "doWhat": "Generate a document, review it, then dispatch to the relevant agencies."
+        },
+        "commandCenter": {
+          "name": "Command Center",
+          "see": "Agency-wide KPI dashboard — funds at risk / frozen, recovery rate, time-to-freeze, and the operations pipeline (honeypot sessions, wallets scored, documents, dispatches).",
+          "doWhat": "Track outcomes across ALL cases over a chosen time range (outside any single case)."
+        },
+        "controlPanel": {
+          "name": "Control Panel",
+          "see": "Which POC/LIVE adapter is active per boundary, voice/call preferences.",
+          "doWhat": "Check the data posture; set analyst-local call options."
+        }
+      },
+      "scenarios": {
+        "investmentScam": {
+          "name": "Investment scam",
+          "persona": "Bu Sari · 54 · Bandung",
+          "discloses": "TRON wallet, BCA mule account, operator phones"
+        },
+        "judolDeposit": {
+          "name": "Judol deposit",
+          "persona": "Pak Budi · 47 · Surabaya",
+          "discloses": "Gambling site, WA admin, BCA deposit mule"
+        },
+        "cryptoPhishing": {
+          "name": "Crypto phishing",
+          "persona": "Mbak Rina · 28 · Jakarta",
+          "discloses": "Fake-airdrop site, ETH wallet, seed-phrase probe"
+        }
+      }
+    }
+  },
+  "response": {
+    "panel": {
+      "title": "Command Center",
+      "titleModule": "metrics",
+      "subtitle": "Agency-wide operational impact across all cases — from days to minutes, on real data.",
+      "liveApi": "● live api",
+      "offlineMock": "● offline · mock",
+      "liveApiTitle": "Live backend API",
+      "offlineMockTitle": "Backend unreachable — rendering local demo dataset",
+      "range": {
+        "7d": "Last 7 days",
+        "30d": "Last 30 days",
+        "all": "All time"
+      },
+      "heroFasterSuffix": "faster than the manual freeze workflow",
+      "heroBaseline": "avg time-to-freeze vs the >12h manual baseline · {trendNow} now",
+      "opsPipelineEyebrow": "Operations pipeline · {range}",
+      "trendEyebrow": "Time-to-freeze · trend",
+      "loadingState": "Aggregating case · freeze · notification read-model…",
+      "footerNote": "All figures are computed from real <b>cases · action_documents · notifications</b> rows — no vanity numbers. POC data flows through the same pipeline, so the demo run populates this dashboard itself. Recovery rate is benchmarked against the <b>4.76% IASC baseline</b>; time-to-freeze against the >12h manual workflow."
+    },
+    "casesTable": {
+      "activeCases": "Active cases",
+      "colCase": "Case",
+      "colType": "Type",
+      "colAtRisk": "At risk",
+      "colStatus": "Status",
+      "empty": "No active cases in this range."
+    },
+    "dispatchLog": {
+      "eyebrow": "Dispatch log · agency outbox",
+      "liveApi": "● live api",
+      "offlineMock": "● offline · mock",
+      "dispatchedCount": "{count} dispatched",
+      "loading": "Loading dispatch records…",
+      "empty": "No notifications dispatched yet — generate an action bundle and dispatch it to fire the multi-agency alerts.",
+      "colAgency": "Agency",
+      "colChannel": "Channel",
+      "colStatus": "Status",
+      "colCase": "Case",
+      "colDelivery": "Delivery",
+      "retrying": "retrying…",
+      "retry": "↻ retry"
+    },
+    "trendSparkline": {
+      "empty": "Not enough freeze events yet — trend appears after the first cases.",
+      "ariaLabel": "Time-to-freeze trend, latest {nowLabel}"
+    }
+  },
+  "caseFile": {
+    "page": {
+      "stageLabel": {
+        "intake": "Intake",
+        "freeze": "Freeze",
+        "trace": "Trace",
+        "takedown": "Takedown",
+        "report": "Report",
+        "recovery": "Recovery",
+        "closed": "Closed"
+      },
+      "stageHint": {
+        "intake": "Report / proactive intel in",
+        "freeze": "Race to freeze receiving accounts",
+        "trace": "Follow the money (fiat ↔ crypto)",
+        "takedown": "Attribute + score the wallet network",
+        "report": "Package evidence + file STR/LTKM",
+        "recovery": "Recover funds",
+        "closed": "Case done"
+      },
+      "viewGuide": {
+        "intake": "Log the submitted victim report, or run a honeypot — both feed this case.",
+        "freeze": "Emergency step: generate the account-blocking request and dispatch it before the money moves. The formal STR comes later, at Report.",
+        "trace": "Follow the money across the fiat→crypto bridge. Your accounts light up “in flow”; hand the exit wallets to Takedown.",
+        "takedown": "Score the wallets Trace surfaced to find the collection wallet. Click a node for the Glass Box reasoning, then package the risky ones.",
+        "report": "Formal filing: STR / LTKM to PPATK (goAML), the multi-agency alert and the evidence bundle — every artifact hashed into custody.",
+        "recovery": "Get the frozen funds back to the victim. Confirm the freeze landed, then record the outcome to close the case.",
+        "closed": "Case closed — outcome recorded."
+      },
+      "toolMeta": {
+        "overview": "Overview",
+        "honeypot": "Infiltrate",
+        "bridge": "Trace",
+        "investigation": "Takedown",
+        "actions": "Uncover"
+      },
+      "opensVictimReportOrHoneypot": "Victim report or Honeypot",
+      "opensRecoveryReview": "Recovery review",
+      "crimeTypes": {
+        "investment_scam": "Investment scam",
+        "judol_deposit": "Online gambling",
+        "crypto_phishing": "Crypto phishing",
+        "romance_scam": "Romance scam",
+        "impersonation": "Impersonation",
+        "other": "Other"
+      },
+      "sources": {
+        "iasc": "IASC",
+        "bank": "Bank",
+        "police": "Police report",
+        "walk_in": "Direct / walk-in"
+      },
+      "stageAction": {
+        "intake": {
+          "task": "Surface the suspect accounts & wallets",
+          "why": "Catch the lead — log the submitted victim report, or run a honeypot.",
+          "cta": "Open Intake",
+          "checkSuspectCaptured": "Suspect account or wallet captured"
+        },
+        "freeze": {
+          "task": "Generate & dispatch the freeze request",
+          "why": "Race to freeze the receiving accounts before the money moves.",
+          "cta": "Open Action Panel",
+          "checkDocGenerated": "Freeze document generated",
+          "checkDispatched": "Dispatched to bank / exchange"
+        },
+        "trace": {
+          "task": "Trace the money flow (fiat ↔ crypto)",
+          "why": "Map where the funds went and find the mule accounts.",
+          "cta": "Open Bridge",
+          "checkBankTracked": "Bank account tracked",
+          "checkTxLogged": "Crypto transfer logged"
+        },
+        "takedown": {
+          "task": "Score the wallet network",
+          "why": "Identify collection wallets and the syndicate behind them.",
+          "cta": "Open Investigation",
+          "checkWalletInGraph": "Wallet in the graph"
+        },
+        "report": {
+          "task": "File the STR / LTKM to PPATK",
+          "why": "Package court-admissible evidence and report it.",
+          "cta": "Open Action Panel",
+          "checkBundleGenerated": "Document bundle generated",
+          "checkDispatchedAgencies": "Dispatched to agencies"
+        },
+        "recovery": {
+          "task": "Track fund recovery",
+          "why": "Coordinate returning the frozen funds to victims.",
+          "cta": "Review recovery",
+          "checkFreezeDispatched": "Freeze dispatched"
+        },
+        "closed": {
+          "task": "Case closed",
+          "why": "Outcome recorded — nothing more to do.",
+          "cta": "Review case"
+        }
+      },
+      "stageFlow": {
+        "eyebrow": "Case workflow",
+        "caseClosed": "Case closed",
+        "stepOf": "{stage} · step {current} of {total} — click a step to work on it",
+        "overview": "Overview",
+        "now": "now",
+        "closed": "Closed",
+        "closedTitle": "Case closed",
+        "closedSetFromTitle": "Set from the Recovery step or the Close case button",
+        "stepTitle": "{stage} — {hint} · opens {opens}"
+      },
+      "stageNav": {
+        "finishBefore": "Finish these before {stage}:",
+        "advanceAnyway": "Advance anyway →",
+        "back": "← {stage}",
+        "closeViaRecovery": "Close via <b>Record outcome</b> in Recovery",
+        "advanceTo": "Advance to {stage}",
+        "someStepsOpen": "Some steps are still open",
+        "next": "Next: {stage} →"
+      },
+      "nextAction": {
+        "now": "Now: {stage}",
+        "freezeNow": "⚡ Freeze now →"
+      },
+      "cardShell": {
+        "cancel": "Cancel",
+        "add": "+ Add",
+        "openArrow": "{label} →"
+      },
+      "caseSessions": {
+        "eyebrow": "Calls & conversations · {count}",
+        "honeypotLink": "Honeypot →",
+        "empty": "None yet — start a call from the Honeypot with this case active.",
+        "voiceCallTitle": "Voice call",
+        "voiceCallBadge": "☎ call",
+        "loadingTranscript": "Loading transcript…",
+        "transcriptErrorFallback": "could not load transcript",
+        "transcriptErrorSuffix": "— open it in the Honeypot console instead."
+      },
+      "intake": {
+        "howDidThisComeIn": "How did this case come in?",
+        "modeReportTitle": "① Victim report — case submitted",
+        "modeReportSub": "Reactive: a report from IASC, a bank, or police. Log the receiving account and freeze fast.",
+        "modeHoneypotTitle": "② Honeypot — proactive",
+        "modeHoneypotSub": "Our AI persona baits the scammer and extracts the receiving accounts & wallets.",
+        "theReport": "The report",
+        "scamType": "Scam type",
+        "reportedVia": "Reported via",
+        "amountLost": "Amount lost (IDR)",
+        "amountPlaceholder": "e.g. 25000000",
+        "whenItHappened": "When it happened",
+        "now": "Now",
+        "openCalendar": "Open calendar",
+        "receivingAccount": "Receiving account",
+        "receivingAccountHint": "· the account you freeze",
+        "bankPlaceholder": "Bank (e.g. BCA)",
+        "accountNumberPlaceholder": "Account number",
+        "holderNamePlaceholder": "Holder name (optional)",
+        "whatHappened": "What happened",
+        "whatHappenedHint": "· optional, goes into the case brief",
+        "whatHappenedPlaceholder": "How the victim was contacted, promises made, transfers sent…",
+        "continueToFreezeLabel": "Continue to the freeze desk now",
+        "continueToFreezeRest": "— jump straight to generating & dispatching the blocking request (the real 30-min window). Freeze first, trace later.",
+        "working": "Working…",
+        "logAndContinue": "Log report & continue to Freeze →",
+        "logReport": "Log report →",
+        "reportedAccountsEyebrow": "Reported accounts · {count}",
+        "noneLoggedYet": "None logged yet — add the receiving account from the report.",
+        "errorFallback": "Failed to log the report"
+      },
+      "recovery": {
+        "cryptoExposure": "Crypto exposure",
+        "accountsTracked": "Accounts tracked",
+        "freezeRequests": "Freeze requests",
+        "dispatched": "Dispatched",
+        "checklistTitle": "Recovery checklist",
+        "checklist": {
+          "freezeGenerated": "Freeze request generated",
+          "freezeDispatched": "Freeze dispatched to bank / exchange",
+          "outcomeRecorded": "Outcome recorded & case closed"
+        },
+        "dispatchedToAgencies": "Dispatched to agencies",
+        "docsCount": "{count} docs",
+        "dispatchedLabel": "dispatched",
+        "noFreezeYet": "No freeze dispatched yet — generate & dispatch it from the Freeze / Report step first.",
+        "recordOutcomeTitle": "Record outcome",
+        "closedNotice": "✓ Case closed — the outcome is recorded in the case brief.",
+        "reopenCase": "Reopen case",
+        "recoveredAmountLabel": "Recovered amount (IDR)",
+        "recoveredAmountPlaceholder": "e.g. 18000000",
+        "noteLabel": "Note (optional)",
+        "notePlaceholder": "e.g. BCA froze Rp 18M, returned to victim",
+        "saving": "Saving…",
+        "recordOutcomeAndClose": "Record outcome & close case",
+        "errorFallback": "Failed to record the outcome"
+      },
+      "noCase": {
+        "title": "No case selected",
+        "body": "A case is the file every investigation hangs off — accounts, wallets, honeypot sessions and documents all attach to it. Open one to begin.",
+        "titlePlaceholder": "Case title (e.g. PT A2Z syndicate)",
+        "openCase": "Open case",
+        "hint": "Opening a case lands you on the <b>Intake</b> stage — log the victim report, capture the receiving account, and freeze it in one step."
+      },
+      "header": {
+        "eyebrow": "Case file",
+        "edit": "✎ Edit",
+        "reopenCase": "Reopen case",
+        "closeCase": "Close case",
+        "titlePlaceholder": "Case title",
+        "crimeTypePlaceholder": "Crime type (e.g. investment_scam)",
+        "summaryPlaceholder": "Case brief / notes — what happened, amounts, context…",
+        "cancel": "Cancel",
+        "save": "Save"
+      },
+      "stageBanner": {
+        "setAsCurrentStage": "Set as current stage",
+        "backToOverview": "← Overview"
+      },
+      "toolLabels": {
+        "sendToActions": "Package for action"
+      },
+      "overview": {
+        "statStage": "Stage",
+        "statAccounts": "Accounts",
+        "statWallets": "Wallets",
+        "statHoneypot": "Honeypot",
+        "statDocuments": "Documents",
+        "statDaysOpen": "Days open",
+        "errorFallbackBank": "Failed to add account",
+        "errorFallbackTx": "Failed to add transfer",
+        "trackedBankAccounts": "Tracked bank accounts",
+        "cryptoTransfers": "Crypto transfers",
+        "openBridge": "Bridge",
+        "openInvestigation": "Investigation",
+        "loading": "Loading…",
+        "noneYetAdd": "None yet — click “+ Add”.",
+        "adding": "Adding…",
+        "addToCase": "Add to case",
+        "fromWalletPlaceholder": "From wallet (T…)",
+        "toWalletPlaceholder": "To wallet (T…)",
+        "amountUsdtPlaceholder": "Amount (USDT)",
+        "investigateArrow": "investigate →",
+        "actionDocumentsEyebrow": "Action documents · {count}",
+        "actionPanelLink": "Action Panel →",
+        "noDocumentsYet": "None yet — generate a bundle from the Action Panel with this case active.",
+        "activityEyebrow": "Activity",
+        "activityCaseOpened": "Case opened",
+        "activityCaseOpenedSub": "investigation",
+        "activityHoneypotEngaged": "Honeypot session engaged",
+        "activityDocumentsGenerated": "{count} document(s) generated",
+        "footerNote": "Everything you touch while this case is active attaches to <b>{title}</b>: bank accounts feed the TRACE Bridge, crypto transfers merge into the TAKEDOWN graph, honeypot sessions and action documents roll up here. Switch cases from the top-bar selector."
+      }
+    }
+  },
+  "users": {
+    "title": "Users",
+    "gateBody": "Managing accounts needs an admin role. Ask your agency admin if you need access changed.",
+    "subtitle": "Who can sign in to {agency}, and what they may do. Every change here is recorded in the {auditLink}. There are no passwords to manage — people sign in with Google, and access is decided by whether they appear on this list.",
+    "agencyFallback": "your agency",
+    "auditLinkText": "audit trail",
+    "giveAccessEyebrow": "Give someone access",
+    "emailPlaceholder": "name@agency.go.id",
+    "emailAriaLabel": "Email address",
+    "namePlaceholder": "Full name",
+    "nameAriaLabel": "Full name",
+    "roleAriaLabel": "Role",
+    "addUser": "Add user",
+    "addUserBusy": "…",
+    "emailHint": "The email must match the Google account they sign in with — it is the identity, not just a contact address.",
+    "peopleEyebrow": "People · {count}",
+    "loading": "Loading…",
+    "emptyState": "Nobody yet. Add the first person above — until then, only seeded demo accounts can sign in.",
+    "deactivatedChip": "deactivated",
+    "roleForUser": "Role for {email}",
+    "stopSignIn": "Stop this account signing in",
+    "allowSignIn": "Let this account sign in again",
+    "deactivate": "Deactivate",
+    "reactivate": "Reactivate",
+    "actionBusy": "…",
+    "errors": {
+      "generic": "Something went wrong.",
+      "selfLockout": "You can't deactivate or demote your own account — ask another admin to do it, so nobody locks themselves out.",
+      "lastAdmin": "This is the agency's last active admin. Promote someone else first, or the agency would have nobody able to restore access.",
+      "privilegeEscalation": "Only a platform-admin can grant the platform-admin role.",
+      "crossAgencyForbidden": "You can only administer your own agency's users.",
+      "accountDeactivated": "That account is deactivated."
+    },
+    "notices": {
+      "invited": "{email} can now sign in with Google as {role}.",
+      "deactivated": "{email} can no longer sign in. An active session may persist until their token expires.",
+      "reactivated": "{email} can sign in again.",
+      "roleChanged": "{email} is now {role}. It applies the next time they sign in."
+    }
+  },
+  "settings": {
+    "title": "Control Panel",
+    "subtitle": "Analyst-local voice & call preferences — saved to this browser, applied on your next honeypot call. No API keys or secrets ever live here.",
+    "refresh": "Refresh status",
+    "refreshing": "Refreshing…",
+    "language": {
+      "cardTitle": "Language",
+      "legend": "Interface language",
+      "hint": "Applies instantly in this browser — no page reload.",
+      "id": {
+        "label": "Bahasa Indonesia",
+        "sub": "Default"
+      },
+      "en": {
+        "label": "English",
+        "sub": "English translation"
+      }
+    },
+    "voiceCall": {
+      "cardTitle": "Voice & call",
+      "voiceProvider": {
+        "legend": "Voice provider",
+        "hint": "Which engine speaks the honeypot persona's lines.",
+        "browser": {
+          "label": "Browser",
+          "sub": "Web Speech API · free, offline"
+        },
+        "elevenlabs": {
+          "label": "ElevenLabs",
+          "sub": "Backend audio · GET /sessions/'{id}'/audio/'{seq}'"
+        },
+        "gemini": {
+          "label": "Gemini TTS",
+          "sub": "Backend audio · style-controlled persona (AI Studio)"
+        },
+        "google": {
+          "label": "Google TTS",
+          "sub": "Backend audio · GET /sessions/'{id}'/audio/'{seq}'"
+        }
+      },
+      "callMode": {
+        "legend": "Call mode",
+        "hint": "How /honeypot/call runs the conversation.",
+        "scripted": {
+          "label": "Scripted replay",
+          "sub": "Agent loop pre-run server-side · faithful simulation"
+        },
+        "liveMic": {
+          "label": "Live mic (interactive)",
+          "sub": "You play the scammer on the mic · Tier-B, docs/Live-Voice-Calls.md"
+        }
+      },
+      "sttSource": {
+        "legend": "Speech-to-text source",
+        "hint": "Used to transcribe the operator's mic in live-mic mode.",
+        "webSpeech": {
+          "label": "Browser Web Speech API",
+          "sub": "Chrome/Edge only · id-ID · free (Safari/Firefox fall back to text input)"
+        }
+      },
+      "overridesNote": "Overrides this browser's build defaults (NEXT_PUBLIC_*). Clear to fall back to the deployment's configured defaults.",
+      "resetToDefaults": "Reset to defaults"
+    },
+    "advancedVoice": {
+      "elevenlabsEyebrow": "Advanced voice · ElevenLabs",
+      "geminiEyebrow": "Advanced voice · Gemini",
+      "googleEyebrow": "Advanced voice · Google",
+      "openVoices": "Open Voices ↗",
+      "getApiKey": "Get API key ↗",
+      "voiceDocs": "Voice docs ↗",
+      "voiceList": "Voice list ↗",
+      "elevenlabsHelp": "Per-request overrides — no restart. Blank = the server default. ▶ Test plays a short sample (uses a few credits). Any failed Test reverts to your last working voice and says why — out of credits, key rejected, or a bad voice ID.",
+      "geminiHelp": "Per-request overrides — no restart. Type or pick a prebuilt voice (the tone is its character); the style directive does the emotional shaping. ▶ Test plays a sample and spends one Gemini request (free tier = 10/day).",
+      "googleHelp": "Per-request overrides — no restart. Type or pick a flat id-ID WaveNet / Standard voice (no style control). ▶ Test plays a sample; ~1M chars/month free.",
+      "modelLabel": "Model",
+      "modelPlaceholder": "eleven_flash_v2_5",
+      "personaVoiceIdLabel": "Persona voice ID",
+      "scammerVoiceIdLabel": "Scammer voice ID",
+      "personaVoiceLabel": "Persona voice",
+      "scammerVoiceLabel": "Scammer voice",
+      "serverDefaultPlaceholder": "server default",
+      "serverDefaultWithFallback": "server default ({fallback})",
+      "testTitle": "Play a short sample in this voice",
+      "testTitleWithCheck": "Play a short sample in this voice (checks key + quota)",
+      "testButton": "▶ Test",
+      "testBusy": "…",
+      "revertHint": "✗ not an available voice — reverts when you click away"
+    },
+    "voiceCheck": {
+      "elevenlabs": {
+        "playing": "✓ playing sample…",
+        "noKey": "no ElevenLabs key set on the server",
+        "keyRejected": "✗ key rejected — check API key",
+        "outOfCredits": "✗ out of credits — upgrade or wait for reset",
+        "badVoiceId": "✗ not a usable voice ID (not in your library)",
+        "httpError": "✗ ElevenLabs error ({code})",
+        "unreachable": "✗ couldn't reach ElevenLabs / backend"
+      },
+      "gemini": {
+        "ready": "✓ ready — playing sample…",
+        "noKey": "no Gemini key set on the server",
+        "quotaExceeded": "✗ quota exceeded — enable billing (free tier = 10/day)",
+        "keyRejected": "✗ key rejected — check the AI Studio key",
+        "badVoiceName": "✗ not a valid voice name (check spelling)",
+        "modelUnavailable": "✗ model not available in your region",
+        "configError": "✗ {message}",
+        "httpError": "✗ Gemini error ({code})",
+        "unreachable": "✗ couldn't reach Gemini / backend"
+      },
+      "google": {
+        "ready": "✓ ready — playing sample…",
+        "noKey": "no Google TTS key set on the server",
+        "keyRejected": "✗ key rejected / Text-to-Speech API not enabled",
+        "quotaExceeded": "✗ quota exceeded",
+        "badRequest": "✗ bad request (voice not available for id-ID)",
+        "httpError": "✗ Google error ({code})",
+        "unreachable": "✗ couldn't reach Google / backend"
+      }
+    },
+    "backendStatus": {
+      "cardTitle": "Backend status · GET /api/config (read-only)",
+      "loadingLine": "Reading GET /api/config…",
+      "globalMode": "Global mode",
+      "envFallback": "env fallback · backend unreachable",
+      "envFallbackTitle": "GET /api/config was unreachable — showing the NEXT_PUBLIC_ITTU_MODE build fallback",
+      "perModuleMode": "Per-module mode",
+      "ttsProvider": "Server TTS provider",
+      "ttsProviderUnreported": "not reported by this backend build — Control Panel choice below still governs playback path (browser vs. backend audio)",
+      "keyPresence": "Live-voice key presence",
+      "keyPresenceHint": "(booleans only — never a value)",
+      "keyConfigured": "configured",
+      "keyNotSet": "not set",
+      "keysUnreported": "not reported by this backend build yet."
+    }
+  },
+  "honeypotOps": {
+    "title": "Honeypot Ops",
+    "subtitle": "Outbound calling operations — the pool of numbers we dial from, the campaigns of numbers to work through, and the calls waiting to be placed into a case. Shared across your agency (unlike the Control Panel, which is per-browser).",
+    "steps": {
+      "registerNumbers": "Register the numbers you call from",
+      "uploadNumbers": "Upload a list of numbers to call",
+      "fileCalls": "File the resulting calls into cases"
+    },
+    "tabsAriaLabel": "Honeypot Ops sections",
+    "tabs": {
+      "numbers": "Numbers",
+      "campaigns": "Campaigns",
+      "triage": "Triage"
+    },
+    "numbersTab": {
+      "cardTitle": "Number pool",
+      "twilioConsole": "Twilio console ↗",
+      "intro": "The numbers the honeypot dials from, rotated so a single caller ID isn't burned. Buy and configure them in the Twilio console, then register them here — this app never provisions numbers itself.",
+      "phonePlaceholder": "+6281234567890",
+      "sidPlaceholder": "Twilio SID (optional)",
+      "labelPlaceholder": "Label, e.g. Bareskrim #1",
+      "register": "Register",
+      "registerBusy": "…",
+      "phoneInvalidHint": "Must be E.164 with a country code — e.g. +6281234567890 (a bare 08… is rejected rather than guessed at).",
+      "loading": "Loading…",
+      "empty": "No numbers yet. These are the caller IDs the honeypot dials from — buy one in the Twilio console, then register it above. Campaigns can't place calls until the pool has at least one.",
+      "noLabel": "—",
+      "reactivateTitle": "Return this number to rotation",
+      "retireTitle": "Stop dialing from this number (kept for provenance)",
+      "reactivate": "Reactivate",
+      "retire": "Retire",
+      "errors": {
+        "loadFailed": "could not load numbers",
+        "registerFailed": "could not register number",
+        "updateFailed": "could not update number"
+      },
+      "numberStatus": {
+        "active": "active",
+        "retired": "retired",
+        "rate_limited": "rate limited"
+      }
+    },
+    "campaignsTab": {
+      "cardTitle": "Dial campaigns",
+      "intro": "A batch of scammer numbers to work through. Name one, paste the list into it, then start it — the persona calls each number in turn. Calls are simulated in this build, and engaging real reported numbers stays gated on law-enforcement authorization.",
+      "namePlaceholder": "Campaign name, e.g. Judol sweep Aug",
+      "pacingTitle": "How fast this campaign works through its list",
+      "pacingUnit": "calls/min",
+      "create": "Create",
+      "createBusy": "…",
+      "loading": "Loading…",
+      "empty": "No campaigns yet. A campaign is one batch of numbers to work through — name it above, then paste in the numbers you want called.",
+      "noNumbersAddedYet": "no numbers added yet",
+      "errors": {
+        "loadFailed": "could not load campaigns",
+        "createFailed": "could not create campaign"
+      },
+      "status": {
+        "draft": "draft",
+        "running": "running",
+        "paused": "paused",
+        "completed": "completed"
+      },
+      "progress": {
+        "called": "{called} of {total} called",
+        "dialingNow": "{count} calling now",
+        "engaged": "{count} engaged",
+        "noAnswer": "{count} no answer",
+        "failed": "{count} failed"
+      }
+    },
+    "campaignDetail": {
+      "resume": "Resume",
+      "start": "Start",
+      "startTitle": "Start working through this list — queued numbers are handed to the dialer",
+      "pause": "Pause",
+      "pauseTitle": "Stop handing out new numbers; a call already in flight still finishes",
+      "callAgain": "Call again",
+      "callAgainTitle": "Put every no-answer and failed number back in the queue to be dialed again",
+      "dialingOffNote": "Dialing is off on the server — Start marks the campaign running but places no calls.",
+      "simulatedNote": "Calls are simulated in this build — nothing is dialed for real.",
+      "requeuedSummary": "↻ {count} queued to call again",
+      "requeuedSkipped": "· {count} skipped (already waiting, or on a call now)",
+      "addNumbersLabel": "Add numbers to call — one per line (or paste CSV: number first)",
+      "pastePlaceholder": "+6281234567890\n+6285600001111,Kredibel,reported 3x",
+      "upload": "Upload",
+      "uploadBusy": "…",
+      "validCount": "{valid} of {total} line{plural} look valid",
+      "added": "✓ {count} added",
+      "numbersToCall": "Numbers to call · {count}",
+      "loading": "Loading…",
+      "emptyTargets": "Nothing in this campaign yet — paste the numbers you want called into the box above. Each one keeps its own call log once dialing starts.",
+      "errors": {
+        "loadTargetsFailed": "could not load targets",
+        "uploadFailed": "upload failed",
+        "lifecycleFailed": "could not {action} campaign",
+        "requeueFailed": "could not requeue"
+      },
+      "rejectReasons": {
+        "invalid": "not a valid number — include the country code, e.g. +6281234567890",
+        "duplicate_in_upload": "listed twice in this paste",
+        "already_in_campaign": "already in this campaign — use “Call again” to dial it once more"
+      }
+    },
+    "targetRow": {
+      "attemptsSuffix": "· {count} attempts",
+      "loadingCallLog": "Loading call log…",
+      "noAttempts": "Not dialed yet — no attempts logged.",
+      "errorLoadFailed": "could not load the call log",
+      "outcome": {
+        "engaged": "engaged",
+        "no_answer": "no answer",
+        "failed": "failed"
+      },
+      "targetStatus": {
+        "queued": "queued",
+        "dialing": "dialing",
+        "no_answer": "no answer",
+        "engaged": "engaged",
+        "failed": "failed"
+      }
+    },
+    "triageTab": {
+      "cardTitle": "Triage · {count}",
+      "intro": "Connected calls with no case yet. A call is only auto-linked on an exact match — the same number, or a wallet already on a case — because a wrong link quietly merges two investigations in a file that may end up in court. Everything else lands here for you to place.",
+      "loading": "Loading…",
+      "empty": "Nothing waiting. When a call connects and can't be matched to a case automatically, it appears here so you can file it.",
+      "errors": {
+        "loadFailed": "could not load the triage queue",
+        "placeFailed": "could not place this call"
+      }
+    },
+    "triageRow": {
+      "unknownNumber": "unknown",
+      "entityCount": "{count} entity",
+      "entityCountPlural": "{count} entities",
+      "attachSelectLabel": "Attach to an existing case",
+      "attachPlaceholder": "Attach to an existing case…",
+      "attach": "Attach",
+      "attachBusy": "…",
+      "newCase": "New case",
+      "newCaseTitle": "Open a new case prefilled from this call"
+    }
+  }
+}

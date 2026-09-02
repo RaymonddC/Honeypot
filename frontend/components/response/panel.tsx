@@ -12,17 +12,18 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { CasesTable } from "@/components/response/cases-table";
 import { DispatchLog } from "@/components/response/dispatch-log";
 import { MetricTiles } from "@/components/response/metric-tiles";
 import { TrendSparkline } from "@/components/response/trend-sparkline";
 import { fetchResponseMetrics } from "@/lib/response/api";
 import type { RangeKey, ResponseMetrics } from "@/lib/response/types";
-import { RANGE_LABELS } from "@/lib/response/types";
 
 const RANGES: RangeKey[] = ["7d", "30d", "all"];
 
 export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
+  const t = useTranslations("response.panel");
   const [data, setData] = useState<ResponseMetrics | null>(null);
   const [range, setRange] = useState<RangeKey>("30d");
   const [loading, setLoading] = useState(true);
@@ -45,20 +46,19 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
     <div className={embedded ? "" : "mx-auto max-w-[1200px]"}>
       {/* ── header ─────────────────────────────────────────────────── */}
       <div
-        className={`mb-4 flex items-end gap-4 ${embedded ? "justify-end" : "justify-between"}`}
+        className={`mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:gap-4 ${embedded ? "sm:justify-end" : "sm:justify-between"}`}
       >
         {!embedded && (
           <div>
             <h1 className="text-xl font-bold tracking-tight">
-              Command Center <span className="font-semibold text-muted">· metrics</span>
+              {t("title")} <span className="font-semibold text-muted">· {t("titleModule")}</span>
             </h1>
             <p className="mt-1 text-xs text-muted">
-              Agency-wide operational impact across all cases — from days to
-              minutes, on real data.
+              {t("subtitle")}
             </p>
           </div>
         )}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {data && (
             <span
               className={`rounded-md border px-2 py-0.5 font-mono text-[10.5px] font-semibold ${
@@ -68,11 +68,11 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
               }`}
               title={
                 data.source === "api"
-                  ? "Live backend API"
-                  : "Backend unreachable — rendering local demo dataset"
+                  ? t("liveApiTitle")
+                  : t("offlineMockTitle")
               }
             >
-              {data.source === "api" ? "● live api" : "● offline · mock"}
+              {data.source === "api" ? t("liveApi") : t("offlineMock")}
             </span>
           )}
           <div className="flex overflow-hidden rounded-lg border border-line bg-card">
@@ -89,7 +89,7 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
                 }`}
                 aria-pressed={r === range}
               >
-                {RANGE_LABELS[r]}
+                {t(`range.${r}`)}
               </button>
             ))}
           </div>
@@ -106,10 +106,10 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
               </span>
               <div className="min-w-0">
                 <div className="text-[13.5px] font-semibold text-fg">
-                  faster than the manual freeze workflow
+                  {t("heroFasterSuffix")}
                 </div>
                 <div className="text-[11px] text-muted">
-                  avg time-to-freeze vs the &gt;12h manual baseline · {data.trendNow} now
+                  {t("heroBaseline", { trendNow: data.trendNow })}
                 </div>
               </div>
               <span className="ml-auto hidden flex-none rounded-md border border-accent/30 bg-accent/10 px-2 py-1 font-mono text-[11px] font-semibold text-accent-bright sm:block">
@@ -123,7 +123,7 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
 
           {/* ── operations pipeline ────────────────────────────────── */}
           <div className="mb-3.5">
-            <div className="eyebrow mb-2">Operations pipeline · {RANGE_LABELS[range].toLowerCase()}</div>
+            <div className="eyebrow mb-2">{t("opsPipelineEyebrow", { range: t(`range.${range}`).toLowerCase() })}</div>
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
               {data.ops.map((o) => (
                 <div key={o.label} className="rounded-card border border-line bg-card p-3">
@@ -147,7 +147,7 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
           <div className="grid grid-cols-1 items-start gap-3.5 lg:grid-cols-[1.4fr_1fr]">
             <div className="rounded-card border border-line bg-card">
               <div className="flex items-center justify-between border-b border-line px-3.5 py-[13px]">
-                <span className="eyebrow">Time-to-freeze · trend</span>
+                <span className="eyebrow">{t("trendEyebrow")}</span>
                 <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] text-accent-bright">
                   {data.trendTag}
                 </span>
@@ -167,18 +167,15 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
         </>
       ) : (
         <div className="grid h-[420px] animate-pulse place-items-center rounded-card border border-line bg-card text-[11px] text-muted">
-          Aggregating case · freeze · notification read-model…
+          {t("loadingState")}
         </div>
       )}
 
       {!embedded && (
         <div className="mt-5 border-t border-line pt-3.5 text-[10.5px] leading-relaxed text-muted">
-          All figures are computed from real{" "}
-          <b className="text-white/60">cases · action_documents · notifications</b>{" "}
-          rows — no vanity numbers. POC data flows through the same pipeline, so
-          the demo run populates this dashboard itself. Recovery rate is
-          benchmarked against the <b className="text-white/60">4.76% IASC baseline</b>;
-          time-to-freeze against the &gt;12h manual workflow.
+          {t.rich("footerNote", {
+            b: (chunks) => <b className="text-white/60">{chunks}</b>,
+          })}
         </div>
       )}
     </div>

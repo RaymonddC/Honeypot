@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useMemo, useRef } from "react";
+import { useTranslations } from "next-intl";
 import type { ActionBundle } from "@/lib/actions/types";
 import { downloadHtml } from "@/lib/actions/letter";
 import { buildDispatchReceiptHtml, receiptFilename } from "@/lib/actions/receipt";
@@ -18,6 +19,7 @@ export function DispatchReceipt({
   bundle: ActionBundle;
   onClose: () => void;
 }) {
+  const t = useTranslations("actions.dispatchReceipt");
   const html = useMemo(() => buildDispatchReceiptHtml(bundle), [bundle]);
   const frameRef = useRef<HTMLIFrameElement>(null);
 
@@ -42,7 +44,7 @@ export function DispatchReceipt({
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label="Dispatch receipt"
+      aria-label={t("dispatchReceipt")}
     >
       <div
         className="flex h-[82vh] w-full max-w-[820px] flex-col overflow-hidden rounded-card border border-line bg-card shadow-2xl shadow-black/50"
@@ -50,9 +52,9 @@ export function DispatchReceipt({
       >
         <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5">
           <div>
-            <div className="eyebrow text-accent-bright">Dispatch receipt</div>
+            <div className="eyebrow text-accent-bright">{t("dispatchReceipt")}</div>
             <div className="text-[10.5px] text-muted">
-              Confirmation of what was sent to each agency.
+              {t("confirmationSubtitle")}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -61,25 +63,25 @@ export function DispatchReceipt({
               onClick={printDoc}
               className="h-8 rounded-lg bg-accent px-3.5 text-xs font-semibold text-[#04140d] transition-colors hover:bg-accent-bright"
             >
-              🖶 Print / Save as PDF
+              🖶 {t("printSaveAsPdf")}
             </button>
             <button
               type="button"
               onClick={() => downloadHtml(html, receiptFilename())}
               className="h-8 rounded-lg border border-white/10 bg-elevated px-3 text-xs font-semibold text-muted transition-colors hover:text-fg"
             >
-              ⬇ HTML
+              ⬇ {t("html")}
             </button>
             <button
               type="button"
               onClick={onClose}
               className="h-8 rounded-lg border border-white/10 bg-elevated px-3 text-xs font-semibold text-muted transition-colors hover:text-fg"
             >
-              Close
+              {t("close")}
             </button>
           </div>
         </div>
-        <iframe ref={frameRef} title="Dispatch receipt" srcDoc={html} className="w-full flex-1 bg-white" />
+        <iframe ref={frameRef} title={t("dispatchReceipt")} srcDoc={html} className="w-full flex-1 bg-white" />
       </div>
     </div>
   );

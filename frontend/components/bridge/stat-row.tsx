@@ -1,17 +1,14 @@
+"use client";
+
 /**
  * Bridge View stat row — QRIS inflow (sim) · bridged to crypto · correlated
  * on-ramps, as three metric cards with a colored accent + context sublabel.
  */
 
+import { useTranslations } from "next-intl";
 import type { BridgeStats, StatValue } from "@/lib/bridge/types";
 
 type MetricMeta = { key: keyof BridgeStats; label: string; sub: string; dot: string };
-
-const METRICS: MetricMeta[] = [
-  { key: "qrisInflow", label: "QRIS inflow", sub: "fiat entering the funnel", dot: "#f5a524" },
-  { key: "bridgedToCrypto", label: "Bridged to crypto", sub: "reached USDT / exchanges", dot: "#06b6d4" },
-  { key: "correlatedOnRamps", label: "Correlated on-ramps", sub: "fiat ↔ crypto matches", dot: "#34d399" },
-];
 
 function Metric({ meta, stat }: { meta: MetricMeta; stat: StatValue }) {
   return (
@@ -41,6 +38,12 @@ function Metric({ meta, stat }: { meta: MetricMeta; stat: StatValue }) {
 }
 
 export function StatRow({ stats }: { stats: BridgeStats }) {
+  const t = useTranslations("bridge.statRow");
+  const METRICS: MetricMeta[] = [
+    { key: "qrisInflow", label: t("qrisInflowLabel"), sub: t("qrisInflowSub"), dot: "#f5a524" },
+    { key: "bridgedToCrypto", label: t("bridgedToCryptoLabel"), sub: t("bridgedToCryptoSub"), dot: "#06b6d4" },
+    { key: "correlatedOnRamps", label: t("correlatedOnRampsLabel"), sub: t("correlatedOnRampsSub"), dot: "#34d399" },
+  ];
   return (
     <div className="mb-3.5 grid grid-cols-3 gap-2.5">
       {METRICS.map((m) => (

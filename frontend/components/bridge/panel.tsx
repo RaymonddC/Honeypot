@@ -14,6 +14,7 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { MuleStatsCard } from "@/components/bridge/mule-stats-card";
 import { OnRampFeed } from "@/components/bridge/onramp-feed";
 import { StatRow } from "@/components/bridge/stat-row";
@@ -22,15 +23,6 @@ import { fetchBridgeData } from "@/lib/bridge/api";
 import type { BridgeData } from "@/lib/bridge/types";
 import type { CaseBridge } from "@/lib/demo/golden-thread";
 import { idrShort, usdtShort } from "@/lib/demo/golden-thread";
-
-// Sankey colour key (fiat → crypto ramp) — shown under the chart.
-const LEGEND: Array<[string, string]> = [
-  ["#f5a524", "QRIS / fiat"],
-  ["#f59e0b", "Mule accounts"],
-  ["#06b6d4", "Exchange"],
-  ["#0ea5e9", "USDT wallets"],
-  ["#3b82f6", "Foreign"],
-];
 
 const SankeyChart = dynamic(
   () =>
@@ -57,7 +49,16 @@ export function BridgePanel({
   /** The case's own fiat→crypto on-ramp edge (bank account → collection wallet). */
   caseBridge?: CaseBridge | null;
 }) {
+  const t = useTranslations("bridge.panel");
   const router = useRouter();
+  // Sankey colour key (fiat → crypto ramp) — shown under the chart.
+  const legend: Array<[string, string]> = [
+    ["#f5a524", t("legend.qrisFiat")],
+    ["#f59e0b", t("legend.muleAccounts")],
+    ["#06b6d4", t("legend.exchange")],
+    ["#0ea5e9", t("legend.usdtWallets")],
+    ["#3b82f6", t("legend.foreign")],
+  ];
   const [data, setData] = useState<BridgeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showReport, setShowReport] = useState(false);
@@ -92,21 +93,20 @@ export function BridgePanel({
     <div className={embedded ? "" : "mx-auto max-w-[1200px]"}>
       {/* ── header ─────────────────────────────────────────────────── */}
       <div
-        className={`mb-4 flex items-end gap-4 ${embedded ? "justify-end" : "justify-between"}`}
+        className={`mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:gap-4 ${embedded ? "sm:justify-end" : "sm:justify-between"}`}
       >
         {!embedded && (
           <div>
             <h1 className="text-xl font-bold tracking-tight">
-              Bridge View{" "}
-              <span className="font-semibold text-muted">· BridgeWatch</span>
+              {t("title")}{" "}
+              <span className="font-semibold text-muted">· {t("titleModule")}</span>
             </h1>
             <p className="mt-1 text-xs text-muted">
-              The fiat→crypto on-ramp — where dirty rupiah becomes USDT. Case
-              template: PT A2Z (Rp 530 M · 4,656 accounts · 22 banks).
+              {t("subtitle")}
             </p>
           </div>
         )}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {data && (
             <span
               className={`rounded-md border px-2 py-0.5 font-mono text-[10.5px] font-semibold ${
@@ -116,21 +116,21 @@ export function BridgePanel({
               }`}
               title={
                 data.source === "api"
-                  ? "Live backend API"
-                  : "Backend unreachable — rendering local demo dataset"
+                  ? t("liveApiTitle")
+                  : t("offlineMockTitle")
               }
             >
-              {data.source === "api" ? "● live api" : "● offline · mock"}
+              {data.source === "api" ? t("liveApi") : t("offlineMock")}
             </span>
           )}
           <button
             type="button"
             disabled={!data}
             onClick={() => setShowReport(true)}
-            title="View & download the fiat→crypto trace report"
+            title={t("viewReportTitle")}
             className="h-8 rounded-lg border border-white/10 bg-elevated px-3.5 text-xs font-semibold text-fg transition-colors hover:bg-white/[.07] disabled:opacity-50"
           >
-            ⧉ View report
+            {t("viewReport")}
           </button>
           <button
             type="button"
@@ -138,19 +138,19 @@ export function BridgePanel({
             onClick={() => void load(true)}
             className="h-8 rounded-lg border border-white/10 bg-elevated px-3.5 text-xs font-semibold text-fg transition-colors hover:bg-white/[.07] disabled:opacity-50"
           >
-            {loading ? "Generating…" : "Regenerate feed"}
+            {loading ? t("generating") : t("regenerateFeed")}
           </button>
           <button
             type="button"
             onClick={() => goTakedown(data?.alerts.find((a) => a.wallet)?.wallet)}
             title={
               data?.alerts.find((a) => a.wallet)?.wallet
-                ? "Score the top on-ramp's wallet in Takedown"
-                : "Score wallets in Takedown"
+                ? t("scoreTopOnRampTitle")
+                : t("scoreWalletsTitle")
             }
             className="h-8 rounded-lg bg-accent px-3.5 text-xs font-semibold text-[#04140d] shadow-[0_0_16px_rgba(16,185,129,.28)] transition-colors hover:bg-accent-bright"
           >
-            Score wallets in Takedown →
+            {t("scoreWallets")}
           </button>
         </div>
       </div>
@@ -165,29 +165,29 @@ export function BridgePanel({
             <div className="rounded-card border border-line bg-card px-4 pb-3 pt-3.5">
               {/* card header — what the diagram shows + how to read it */}
               <div className="mb-2.5 flex items-baseline justify-between gap-3 border-b border-line px-1.5 pb-2.5">
-                <span className="eyebrow">Money flow · fiat → crypto</span>
+                <span className="eyebrow">{t("moneyFlowEyebrow")}</span>
                 <span className="hidden text-[10px] text-muted sm:block">
-                  ribbon width = volume · hover to isolate a path
+                  {t("ribbonHint")}
                 </span>
               </div>
               {/* split-screen labels: fiat │ bridge │ crypto */}
               <div className="grid grid-cols-3 px-1.5 pb-1 text-[10px] font-bold uppercase tracking-[.08em]">
-                <span className="text-muted">Fiat · simulated</span>
-                <span className="text-center text-risk-med">Bridge</span>
+                <span className="text-muted">{t("fiatSimulated")}</span>
+                <span className="text-center text-risk-med">{t("bridgeLabel")}</span>
                 <span className="text-right text-[#06b6d4]">
-                  Crypto · real TRON
+                  {t("cryptoRealTron")}
                 </span>
               </div>
               <SankeyChart data={data.sankey} />
               {/* legend + interaction hint */}
               <div className="mt-1 flex flex-wrap items-center gap-x-3.5 gap-y-1 border-t border-line px-1 pt-2.5 text-[10px] text-muted">
-                {LEGEND.map(([c, l]) => (
+                {legend.map(([c, l]) => (
                   <span key={l} className="flex items-center gap-1.5">
                     <span className="h-2.5 w-2.5 rounded-sm" style={{ background: c }} aria-hidden />
                     {l}
                   </span>
                 ))}
-                <span className="ml-auto text-muted/70">Hover a node or link to isolate a path</span>
+                <span className="ml-auto text-muted/70">{t("hoverIsolateHint")}</span>
               </div>
             </div>
 
@@ -195,7 +195,7 @@ export function BridgePanel({
               {caseBridge && (
                 <div className="mb-3.5 rounded-card border border-accent/30 bg-accent/[.06]">
                   <div className="flex items-center justify-between border-b border-accent/20 px-3.5 py-2.5">
-                    <span className="eyebrow text-accent-bright">This case · on-ramp</span>
+                    <span className="eyebrow text-accent-bright">{t("caseOnRamp")}</span>
                     <span className="rounded-md border border-accent/30 bg-accent/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-accent-bright">
                       conf {caseBridge.confidence.toFixed(2)}
                     </span>
@@ -212,7 +212,7 @@ export function BridgePanel({
                       </span>
                     </div>
                     {caseBridge.bankHolder && (
-                      <div className="mt-1 text-[10px] text-muted">a.n. {caseBridge.bankHolder}</div>
+                      <div className="mt-1 text-[10px] text-muted">{t("bankHolderPrefix", { holder: caseBridge.bankHolder })}</div>
                     )}
                     {caseBridge.amountUsdt > 0 && (
                       <div className="mt-2 font-mono text-[11px] text-fg">
@@ -226,7 +226,7 @@ export function BridgePanel({
                       onClick={() => goTakedown(caseBridge.wallet)}
                       className="mt-2.5 h-7 w-full rounded-lg bg-accent px-3 text-[11px] font-semibold text-[#04140d] transition-colors hover:bg-accent-bright"
                     >
-                      Trace this wallet in Takedown →
+                      {t("traceThisWallet")}
                     </button>
                   </div>
                 </div>
@@ -238,16 +238,15 @@ export function BridgePanel({
         </>
       ) : (
         <div className="grid h-[520px] animate-pulse place-items-center rounded-card border border-line bg-card text-[11px] text-muted">
-          Correlating fiat↔crypto flows…
+          {t("loadingState")}
         </div>
       )}
 
       {!embedded && (
         <div className="mt-5 border-t border-line pt-3.5 text-[10.5px] leading-relaxed text-muted">
-          Fiat side is <b className="text-white/60">synthetic</b> (PT A2Z params
-          / PaySim) — real bank &amp; QRIS data isn&apos;t public; crypto side is{" "}
-          <b className="text-white/60">real</b> TRON. The adapter swaps to a live
-          bank feed post-MoU without touching this view.
+          {t.rich("footerNote", {
+            b: (chunks) => <b className="text-white/60">{chunks}</b>,
+          })}
         </div>
       )}
 

@@ -15,6 +15,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { AddTransaction } from "@/components/investigation/add-transaction";
 import { GlassBox } from "@/components/investigation/glass-box";
 import { WalletDetailCard } from "@/components/investigation/wallet-detail-card";
@@ -24,78 +25,20 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { DEFAULT_ADDRESS } from "@/lib/investigation/mock";
 import type {
   DataSource,
-  RiskLevel,
   WalletDetail,
   WalletGraph as WalletGraphData,
 } from "@/lib/investigation/types";
 import { RISK_COLORS, RISK_LABELS, shortAddr } from "@/lib/investigation/types";
 
-// Plain-language "what to do about this verdict" — shown in the score banner so
-// an analyst who isn't a data scientist knows the next move.
-const RISK_RECO: Record<RiskLevel, string> = {
-  high: "Likely a collection / mule wallet. Package it for a freeze request + STR in the Action Panel.",
-  medium: "Mixed signals — corroborate with another hop or two before acting.",
-  low: "Low anomaly — probably a pass-through or victim wallet. Keep tracing upstream.",
-  exchange: "Attributed exchange — send an RFI / subpoena for KYC on this deposit address.",
-};
-
-// Status → search-bar badge. LIVE states are honest (no "mock" unless POC/offline).
-const STATUS_BADGE: Record<
-  TraceStatus,
-  { label: string; cls: string; title: string }
-> = {
-  idle: {
-    label: "● live",
-    cls: "border-accent/30 bg-accent/10 text-accent-bright",
-    title: "Live backend — enter a wallet to trace",
-  },
-  ok: {
-    label: "● live api",
-    cls: "border-accent/30 bg-accent/10 text-accent-bright",
-    title: "Live backend API",
-  },
-  mock: {
-    label: "● offline · mock",
-    cls: "border-risk-med/30 bg-risk-med/10 text-risk-med",
-    title: "Backend unreachable — rendering local demo dataset",
-  },
-  empty: {
-    label: "● live · no data",
-    cls: "border-white/15 bg-white/[.05] text-muted",
-    title: "Reachable — this wallet has no USDT-TRC20 activity",
-  },
-  rate_limited: {
-    label: "● rate-limited",
-    cls: "border-risk-med/30 bg-risk-med/10 text-risk-med",
-    title: "Data provider is rate-limiting — retry shortly",
-  },
-  error: {
-    label: "● error",
-    cls: "border-risk-high/30 bg-risk-high/10 text-risk-high",
-    title: "Data provider unavailable",
-  },
-};
-
-// Full-panel messages for the non-graph LIVE outcomes.
-const STATE_PANEL: Record<TraceStatus, { title: string; sub: string }> = {
-  ok: { title: "", sub: "" },
-  mock: { title: "", sub: "" },
-  idle: {
-    title: "Enter a TRON wallet address to begin.",
-    sub: "Trace fund flows, score wallets, and flag laundering typologies on live on-chain data.",
-  },
-  empty: {
-    title: "No USDT-TRC20 activity found for this wallet.",
-    sub: "Try a wallet that has moved USDT-TRC20 on TRON.",
-  },
-  rate_limited: {
-    title: "Rate-limited by the data provider.",
-    sub: "Try again in a moment — press Trace wallet to retry.",
-  },
-  error: {
-    title: "Trace failed — the data provider is unavailable.",
-    sub: "Check the backend is running, then retry.",
-  },
+// Status → search-bar badge classnames. LIVE states are honest (no "mock"
+// unless POC/offline). Labels/titles come from i18n (see `statusBadge` below).
+const STATUS_BADGE_CLS: Record<TraceStatus, string> = {
+  idle: "border-accent/30 bg-accent/10 text-accent-bright",
+  ok: "border-accent/30 bg-accent/10 text-accent-bright",
+  mock: "border-risk-med/30 bg-risk-med/10 text-risk-med",
+  empty: "border-white/15 bg-white/[.05] text-muted",
+  rate_limited: "border-risk-med/30 bg-risk-med/10 text-risk-med",
+  error: "border-risk-high/30 bg-risk-high/10 text-risk-high",
 };
 
 const WalletGraph = dynamic(
@@ -125,6 +68,7 @@ export function InvestigationPanel({
   /** Handoff: take the scored wallet to the Action Panel (freeze / STR). */
   onSendToActions?: (address: string) => void;
 }) {
+  const t = useTranslations("investigation.panel");
   const { config } = useAuth();
   const [address, setAddress] = useState(DEFAULT_ADDRESS);
   const [graph, setGraph] = useState<WalletGraphData | null>(null);
@@ -227,19 +171,18 @@ export function InvestigationPanel({
     <div className={embedded ? "" : "mx-auto max-w-[1200px]"}>
       {/* ── header ─────────────────────────────────────────────────── */}
       <div
-        className={`mb-4 flex items-end gap-4 ${embedded ? "justify-end" : "justify-between"}`}
+        className={`mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:gap-4 ${embedded ? "sm:justify-end" : "sm:justify-between"}`}
       >
         {!embedded && (
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Investigation</h1>
+            <h1 className="text-xl font-bold tracking-tight">{t("title")}</h1>
             <p className="mt-1 text-xs text-muted">
-              Trace fund flows, score wallets, and flag laundering typologies
-              on-chain.{" "}
-              <span className="text-accent-bright">Click any node.</span>
+              {t("subtitle")}{" "}
+              <span className="text-accent-bright">{t("subtitleCta")}</span>
             </p>
           </div>
         )}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <AddTransaction
             onAdded={(toAddr) => {
               setAddress(toAddr);
@@ -253,7 +196,7 @@ export function InvestigationPanel({
               href="/actions"
               className="flex h-8 items-center rounded-lg bg-accent px-3.5 text-xs font-semibold text-[#04140d] shadow-[0_0_16px_rgba(16,185,129,.28)] transition-colors hover:bg-accent-bright"
             >
-              Send to Action Panel →
+              {t("sendToActions")}
             </Link>
           )}
         </div>
@@ -275,8 +218,8 @@ export function InvestigationPanel({
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             spellCheck={false}
-            aria-label="Wallet address"
-            placeholder="TRON wallet address…"
+            aria-label={t("walletAddressLabel")}
+            placeholder={t("walletAddressPlaceholder")}
             className="min-w-0 flex-1 bg-transparent font-mono text-[12.5px] text-fg outline-none placeholder:text-muted"
           />
           <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] text-white/60">
@@ -284,10 +227,10 @@ export function InvestigationPanel({
           </span>
           {status && (
             <span
-              className={`rounded-md border px-2 py-0.5 font-mono text-[10.5px] font-semibold ${STATUS_BADGE[status].cls}`}
-              title={STATUS_BADGE[status].title}
+              className={`rounded-md border px-2 py-0.5 font-mono text-[10.5px] font-semibold ${STATUS_BADGE_CLS[status]}`}
+              title={t(`statusBadge.${status}.title`)}
             >
-              {STATUS_BADGE[status].label}
+              {t(`statusBadge.${status}.label`)}
             </span>
           )}
         </div>
@@ -296,7 +239,7 @@ export function InvestigationPanel({
           disabled={tracing || !address.trim()}
           className="h-[38px] rounded-lg bg-accent px-4 text-xs font-semibold text-[#04140d] shadow-[0_0_16px_rgba(16,185,129,.28)] transition-colors hover:bg-accent-bright disabled:opacity-50"
         >
-          {tracing ? "Tracing…" : "Trace wallet"}
+          {tracing ? t("tracing") : t("traceWallet")}
         </button>
       </form>
 
@@ -304,7 +247,7 @@ export function InvestigationPanel({
       {caseWallets && caseWallets.length > 0 && (
         <div className="mb-3.5 flex flex-wrap items-center gap-1.5">
           <span className="text-[10px] uppercase tracking-wide text-muted">
-            Case wallets:
+            {t("caseWalletsLabel")}
           </span>
           {caseWallets.map((w) => (
             <button
@@ -314,7 +257,7 @@ export function InvestigationPanel({
                 setAddress(w);
                 void trace(w);
               }}
-              title={`Trace ${w}`}
+              title={t("traceWalletTitle", { address: w })}
               className={`rounded-lg border px-2 py-1 font-mono text-[10.5px] transition-colors ${
                 address === w
                   ? "border-accent/50 bg-accent/15 text-accent-bright"
@@ -356,7 +299,7 @@ export function InvestigationPanel({
                 className="text-[11.5px] font-bold uppercase tracking-wide"
                 style={{ color: RISK_COLORS[detail.risk] }}
               >
-                {detail.risk === "exchange" ? "Attributed exchange" : `${RISK_LABELS[detail.risk]} risk`}
+                {detail.risk === "exchange" ? t("attributedExchange") : t("riskSuffix", { risk: RISK_LABELS[detail.risk] })}
               </div>
               <div className="font-mono text-[10px] text-muted">
                 {detail.shortAddress} · conf {detail.confidence.toFixed(2)}
@@ -364,20 +307,20 @@ export function InvestigationPanel({
             </div>
           </div>
           <p className="min-w-0 flex-1 text-[11.5px] leading-snug text-fg/80">
-            {RISK_RECO[detail.risk]}
+            {t(`riskReco.${detail.risk}`)}
           </p>
           {onSendToActions && (
             <button
               type="button"
               onClick={() => onSendToActions(detail.address)}
-              title="Take this wallet to the Report desk (freeze / STR)"
+              title={t("packageForActionTitle")}
               className={`h-8 flex-none rounded-lg px-3 text-xs font-semibold transition-colors ${
                 detail.risk === "high" || detail.risk === "exchange"
                   ? "bg-accent text-[#04140d] hover:bg-accent-bright"
                   : "border border-accent/40 bg-accent/10 text-accent-bright hover:bg-accent/20"
               }`}
             >
-              Package for action →
+              {t("packageForAction")}
             </button>
           )}
         </div>
@@ -399,9 +342,9 @@ export function InvestigationPanel({
                   aria-hidden
                 />
                 <div>
-                  <p className="text-[13px] font-medium text-fg">Tracing on-chain…</p>
+                  <p className="text-[13px] font-medium text-fg">{t("tracingOnChain")}</p>
                   <p className="mt-1 text-[11px] text-muted">
-                    a busy wallet can take up to a minute
+                    {t("tracingHint")}
                   </p>
                 </div>
               </div>
@@ -422,10 +365,10 @@ export function InvestigationPanel({
             >
               <div className="max-w-xs px-6 text-center">
                 <p className="text-[13px] font-medium text-fg">
-                  {STATE_PANEL[status].title}
+                  {t(`statePanel.${status}.title`)}
                 </p>
                 <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
-                  {STATE_PANEL[status].sub}
+                  {t(`statePanel.${status}.sub`)}
                 </p>
               </div>
             </div>
@@ -441,10 +384,9 @@ export function InvestigationPanel({
 
       {!embedded && (
         <div className="mt-5 border-t border-line pt-3.5 text-[10.5px] leading-relaxed text-muted">
-          Isolation Forest is presented as{" "}
-          <b className="text-white/60">anomaly triage</b>, paired with
-          deterministic typology rules for court-explainable signal · every flag
-          carries confidence + reasoning (UU ITE Pasal 5).
+          {t.rich("footerNote", {
+            b: (chunks) => <b className="text-white/60">{chunks}</b>,
+          })}
         </div>
       )}
     </div>

@@ -14,6 +14,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { AgencyAlertCard } from "@/components/actions/agency-alert-card";
 import { DispatchBar } from "@/components/actions/dispatch-bar";
 import { DocCard } from "@/components/actions/doc-card";
@@ -65,6 +66,7 @@ export function ActionsPanel({
   /** Changes when the case's input entities change → invalidates the cached bundle. */
   cacheSalt?: string;
 }) {
+  const t = useTranslations("actions.panel");
   const { activeCase } = useCases();
   // Stable key parts (array identity must not retrigger the effect).
   const outputsKey = outputs && outputs.length ? [...outputs].sort().join(",") : "all";
@@ -122,18 +124,15 @@ export function ActionsPanel({
     <div className={embedded ? "" : "mx-auto max-w-[1200px]"}>
       {/* ── header ─────────────────────────────────────────────────── */}
       <div
-        className={`mb-4 flex items-end gap-4 ${embedded ? "justify-end" : "justify-between"}`}
+        className={`mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:gap-4 ${embedded ? "sm:justify-end" : "sm:justify-between"}`}
       >
         {!embedded && (
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Action Panel</h1>
-            <p className="mt-1 text-xs text-muted">
-              One click turns a confirmed case into legal action — every
-              document hashed as evidence.
-            </p>
+            <h1 className="text-xl font-bold tracking-tight">{t("title")}</h1>
+            <p className="mt-1 text-xs text-muted">{t("subtitle")}</p>
           </div>
         )}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {bundle && (
             <span
               className={`rounded-md border px-2 py-0.5 font-mono text-[10.5px] font-semibold ${
@@ -143,25 +142,25 @@ export function ActionsPanel({
               }`}
               title={
                 bundle.source === "api"
-                  ? "Live backend API"
-                  : "Backend unreachable — rendering local demo dataset"
+                  ? t("liveApiTitle")
+                  : t("offlineMockTitle")
               }
             >
-              {bundle.source === "api" ? "● live api" : "● offline · mock"}
+              {bundle.source === "api" ? t("liveApi") : t("offlineMock")}
             </span>
           )}
           <button
             type="button"
             disabled={loading}
             onClick={() => void generate(true)}
-            title="Regenerate from the case's current accounts & wallets"
+            title={t("regenerateTitle")}
             className="h-8 rounded-lg bg-accent px-3.5 text-xs font-semibold text-[#04140d] shadow-[0_0_16px_rgba(16,185,129,.28)] transition-colors hover:bg-accent-bright disabled:opacity-50"
           >
             {loading
-              ? "Generating…"
+              ? t("generating")
               : freezeOnly
-                ? "⎙ Regenerate freeze request"
-                : "⎙ Regenerate all documents"}
+                ? t("regenerateFreeze")
+                : t("regenerateAll")}
           </button>
         </div>
       </div>
@@ -171,9 +170,9 @@ export function ActionsPanel({
           {/* ── provenance banner ──────────────────────────────────── */}
           <div className="mb-4 flex items-center gap-2.5 rounded-[9px] border border-accent/[.22] bg-accent/10 px-3.5 py-[9px] text-[11.5px] text-accent-bright">
             <span aria-hidden>◇</span>
-            Generated from{" "}
+            {t("generatedFromPrefix")}{" "}
             <span className="font-mono">{bundle.caseRef}</span> ·{" "}
-            {bundle.summary} · reasoning attached to each artifact
+            {bundle.summary} · {t("reasoningAttached")}
           </div>
 
           {/* ── three doc cards ────────────────────────────────────── */}
@@ -199,19 +198,15 @@ export function ActionsPanel({
         </>
       ) : (
         <div className="grid h-[420px] animate-pulse place-items-center rounded-card border border-line bg-card text-[11px] text-muted">
-          {freezeOnly
-            ? "Assembling the account-blocking freeze request…"
-            : "Assembling freeze request · LTKM draft · multi-agency alert…"}
+          {freezeOnly ? t("assemblingFreeze") : t("assemblingAll")}
         </div>
       )}
 
       {!embedded && (
         <div className="mt-5 border-t border-line pt-3.5 text-[10.5px] leading-relaxed text-muted">
-          Every artifact is <b className="text-white/60">SHA-256 hashed</b> +
-          timestamped into the case custody chain (UU ITE Pasal 5) and carries
-          the Glass Box reasoning behind each risk flag. Generation is
-          automatic; <b className="text-white/60">dispatch is human-gated</b> —
-          POC mode routes to a mock sink, LIVE to goAML + IASC.
+          {t.rich("footerNote", {
+            b: (chunks) => <b className="text-white/60">{chunks}</b>,
+          })}
         </div>
       )}
     </div>

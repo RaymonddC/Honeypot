@@ -11,6 +11,7 @@
  */
 
 import { useId, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   sankey,
   sankeyJustify,
@@ -56,6 +57,7 @@ function displayName(name: string): string {
 const RIGHT_PAD = 150;
 
 export function SankeyChart({ data }: { data: BridgeSankeyData }) {
+  const t = useTranslations("bridge.sankeyChart");
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const [hoverNode, setHoverNode] = useState<string | null>(null);
   const [hoverLink, setHoverLink] = useState<number | null>(null);
@@ -83,7 +85,7 @@ export function SankeyChart({ data }: { data: BridgeSankeyData }) {
   if (!layout) {
     return (
       <div className="grid h-[460px] place-items-center text-[11px] text-muted">
-        No bridge flows to render.
+        {t("empty")}
       </div>
     );
   }
@@ -122,7 +124,7 @@ export function SankeyChart({ data }: { data: BridgeSankeyData }) {
       className="h-[460px]"
       preserveAspectRatio="xMidYMid meet"
       role="img"
-      aria-label="Fiat-to-crypto fund flow: QRIS merchants through mule accounts and exchange deposits to USDT wallets and foreign destinations"
+      aria-label={t("ariaLabel")}
     >
       <defs>
         {links.map((l, i) => {

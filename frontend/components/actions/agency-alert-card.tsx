@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Multi-agency alert card — a broadcast dispatch record: one row per agency
  * with its type, the delivery channel/protocol it's routed over (goAML · IASC ·
@@ -5,6 +7,7 @@
  * status. Reads like a real coordinated-alert manifest.
  */
 
+import { useTranslations } from "next-intl";
 import type { DispatchTarget } from "@/lib/actions/types";
 import { DOC_META, STATUS_COLORS, STATUS_LABELS } from "@/lib/actions/types";
 
@@ -27,19 +30,19 @@ function typeOf(t: DispatchTarget): string {
 }
 
 /** Delivery channel per agency — real routing protocols, defaulted by type. */
-function channelOf(t: DispatchTarget): string {
-  if (t.channel) return t.channel;
-  switch (typeOf(t)) {
+function channelOf(target: DispatchTarget, tr: (key: string) => string): string {
+  if (target.channel) return target.channel;
+  switch (typeOf(target)) {
     case "regulator":
       return "goAML";
     case "bank":
       return "IASC";
     case "exchange":
-      return "Compliance API";
+      return tr("channelComplianceApi");
     case "police":
-      return "Secure email";
+      return tr("channelSecureEmail");
     default:
-      return "Secure channel";
+      return tr("channelSecureChannel");
   }
 }
 
@@ -50,6 +53,7 @@ export function AgencyAlertCard({
   targets: DispatchTarget[];
   caseRef?: string;
 }) {
+  const t = useTranslations("actions.agencyAlertCard");
   const meta = DOC_META.alert;
   const ref = `ALT-${(caseRef?.match(/\d+/)?.[0] ?? "0417").slice(-4)}/${new Date().getFullYear()}`;
 
@@ -63,34 +67,37 @@ export function AgencyAlertCard({
         <div className="min-w-0">
           <b className="block truncate text-[12.5px]">{meta.title}</b>
           <small className="font-mono text-[10px] text-muted">
-            {ref} · {targets.length} agenc{targets.length === 1 ? "y" : "ies"}
+            {ref} ·{" "}
+            {targets.length === 1
+              ? t("agencyCountOne")
+              : t("agencyCountOther", { count: targets.length })}
           </small>
         </div>
         <span className="ml-auto flex-none rounded-md border border-risk-high/40 bg-risk-high/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-risk-high">
-          ⚠ Urgent
+          ⚠ {t("urgent")}
         </span>
       </div>
 
       {/* target rows */}
       <div className="min-h-[180px] flex-1">
         {targets.length ? (
-          targets.map((t) => {
-            const type = typeOf(t);
+          targets.map((target) => {
+            const type = typeOf(target);
             const color = TYPE_COLOR[type] ?? "rgba(255,255,255,.5)";
             return (
               <div
-                key={t.id}
+                key={target.id}
                 className="flex items-start gap-2.5 border-b border-line px-3.5 py-2.5 last:border-b-0"
               >
                 <div
                   className="grid h-[32px] w-[32px] flex-none place-items-center rounded-lg border text-[10px] font-extrabold"
                   style={{ color, borderColor: `${color}55`, background: `${color}12` }}
                 >
-                  {t.code}
+                  {target.code}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <b className="truncate text-xs">{t.name}</b>
+                    <b className="truncate text-xs">{target.name}</b>
                     {type && (
                       <span
                         className="flex-none rounded px-1 py-px text-[8.5px] font-semibold uppercase tracking-wide"
@@ -101,32 +108,33 @@ export function AgencyAlertCard({
                     )}
                   </div>
                   <small className="mt-0.5 block truncate text-[10px] text-muted">
-                    {t.action}
+                    {target.action}
                   </small>
                   <span className="mt-1 inline-flex items-center gap-1 rounded border border-line bg-elevated px-1.5 py-px font-mono text-[9px] text-white/55">
-                    <span aria-hidden>↗</span> via {channelOf(t)}
+                    <span aria-hidden>↗</span> {t("viaChannel", { channel: channelOf(target, t) })}
                   </span>
                 </div>
                 <span
                   className="flex-none text-[10.5px] font-bold uppercase tracking-[.05em]"
-                  style={{ color: STATUS_COLORS[t.status] }}
+                  style={{ color: STATUS_COLORS[target.status] }}
                 >
-                  {STATUS_LABELS[t.status]}
+                  {STATUS_LABELS[target.status]}
                 </span>
               </div>
             );
           })
         ) : (
           <div className="px-3.5 py-6 text-center text-[11px] text-muted">
-            No dispatch targets — generate documents first.
+            {t("noTargets")}
           </div>
         )}
       </div>
 
       {/* footer — dispatch posture */}
       <div className="border-t border-line px-3.5 py-2 text-[9.5px] leading-relaxed text-muted">
-        Coordinated alert · dispatch is <b className="text-white/60">human-gated</b>;
-        POC routes to a mock sink, LIVE to each agency&apos;s live channel.
+        {t.rich("footerNote", {
+          b: (chunks) => <b className="text-white/60">{chunks}</b>,
+        })}
       </div>
     </div>
   );

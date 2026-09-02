@@ -14,6 +14,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { ChatTranscript } from "@/components/honeypot/chat-transcript";
 import { CustodyCard } from "@/components/honeypot/custody-card";
 import { EntityPanel } from "@/components/honeypot/entity-panel";
@@ -28,6 +29,7 @@ export function HoneypotPanel({
   /** In-case: trace a surfaced wallet in the case's Takedown tab. */
   onTraceWallet?: (addr: string) => void;
 }) {
+  const t = useTranslations("honeypot.panel");
   const [data, setData] = useState<HoneypotData | null>(null);
   const [loading, setLoading] = useState(true);
   const loadSeq = useRef(0);
@@ -49,20 +51,17 @@ export function HoneypotPanel({
     <div className={embedded ? "" : "mx-auto max-w-[1200px]"}>
       {/* ── header ─────────────────────────────────────────────────── */}
       <div
-        className={`mb-4 flex items-end gap-4 ${embedded ? "justify-end" : "justify-between"}`}
+        className={`mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:gap-4 ${embedded ? "sm:justify-end" : "sm:justify-between"}`}
       >
         {!embedded && (
           <div>
             <h1 className="text-xl font-bold tracking-tight">
-              Honeypot <span className="font-semibold text-muted">· INFILTRATE</span>
+              {t("title")} <span className="font-semibold text-muted">· {t("titleModule")}</span>
             </h1>
-            <p className="mt-1 text-xs text-muted">
-              An AI persona baits the scammer and silently extracts intel —
-              strictly reactive, chain-of-custody logged.
-            </p>
+            <p className="mt-1 text-xs text-muted">{t("subtitle")}</p>
           </div>
         )}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {data && (
             <span
               className={`rounded-md border px-2 py-0.5 font-mono text-[10.5px] font-semibold ${
@@ -72,11 +71,11 @@ export function HoneypotPanel({
               }`}
               title={
                 data.source === "api"
-                  ? "Live backend API"
-                  : "Backend unreachable — rendering local demo dataset"
+                  ? t("liveApiTitle")
+                  : t("offlineMockTitle")
               }
             >
-              {data.source === "api" ? "● live api" : "● offline · mock"}
+              {data.source === "api" ? t("liveApi") : t("offlineMock")}
             </span>
           )}
           <button
@@ -85,7 +84,7 @@ export function HoneypotPanel({
             onClick={() => void load()}
             className="h-8 rounded-lg border border-white/10 bg-elevated px-3.5 text-xs font-semibold text-fg transition-colors hover:bg-white/[.07] disabled:opacity-50"
           >
-            {loading ? "Refreshing…" : "Refresh session"}
+            {loading ? t("refreshing") : t("refreshSession")}
           </button>
           {/* P4b — dedicated voice-call view (repurposes the old indicator slot) */}
           <Link
@@ -104,7 +103,7 @@ export function HoneypotPanel({
             >
               <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
             </svg>
-            Start voice call →
+            {t("startVoiceCall")}
           </Link>
         </div>
       </div>
@@ -123,16 +122,15 @@ export function HoneypotPanel({
         </div>
       ) : (
         <div className="grid h-[452px] animate-pulse place-items-center rounded-card border border-line bg-card text-[11px] text-muted">
-          Attaching to scam session…
+          {t("loadingState")}
         </div>
       )}
 
       {!embedded && (
         <div className="mt-5 border-t border-line pt-3.5 text-[10.5px] leading-relaxed text-muted">
-          Agent stays <b className="text-white/60">strictly reactive &amp; victim-framed</b>{" "}
-          — never initiates fraud, accesses systems, or redistributes data (clear
-          of entrapment + UU ITE Arts. 30/32/33). Extracted wallet flows straight
-          into the Investigation graph.
+          {t.rich("footerNote", {
+            b: (chunks) => <b className="text-white/60">{chunks}</b>,
+          })}
         </div>
       )}
     </div>

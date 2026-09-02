@@ -12,6 +12,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useAuth } from "./auth-provider";
 
 const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
@@ -43,6 +44,7 @@ function GoogleG({ className }: { className?: string }) {
 }
 
 export function GoogleSignInButton() {
+  const t = useTranslations("auth.googleSignInButton");
   const { loginWithGoogle } = useAuth();
   const overlayRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
@@ -59,7 +61,7 @@ export function GoogleSignInButton() {
         client_id: CLIENT_ID,
         callback: async (resp: { credential?: string }) => {
           if (!resp.credential) {
-            setError("Google sign-in was cancelled.");
+            setError(t("cancelled"));
             return;
           }
           setBusy(true);
@@ -67,7 +69,7 @@ export function GoogleSignInButton() {
           try {
             await loginWithGoogle(resp.credential);
           } catch (e) {
-            setError(e instanceof Error ? e.message : "Google sign-in failed.");
+            setError(e instanceof Error ? e.message : t("signInFailed"));
             setBusy(false);
           }
         },
@@ -94,7 +96,7 @@ export function GoogleSignInButton() {
       s.async = true;
       s.defer = true;
       s.onload = render;
-      s.onerror = () => setError("Couldn't load Google sign-in.");
+      s.onerror = () => setError(t("loadFailed"));
       document.head.appendChild(s);
     }
     return () => {
@@ -123,12 +125,12 @@ export function GoogleSignInButton() {
                 className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/25 border-t-white/80"
                 aria-hidden
               />
-              Signing you in…
+              {t("signingYouIn")}
             </>
           ) : (
             <>
               <GoogleG className="h-4 w-4" />
-              Continue with Google
+              {t("continueWithGoogle")}
             </>
           )}
         </div>
@@ -151,7 +153,7 @@ export function GoogleSignInButton() {
       {/* divider before the demo agency/role picker */}
       <div className="mt-3 flex items-center gap-2.5">
         <span className="h-px flex-1 bg-line" />
-        <span className="text-[10px] uppercase tracking-wide text-muted">or demo sign-in</span>
+        <span className="text-[10px] uppercase tracking-wide text-muted">{t("orDemoSignIn")}</span>
         <span className="h-px flex-1 bg-line" />
       </div>
     </div>

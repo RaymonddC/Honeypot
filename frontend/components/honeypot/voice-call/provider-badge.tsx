@@ -1,9 +1,13 @@
+"use client";
+
 /**
  * Per-line TTS provider badge — shows which voice ACTUALLY played a line:
  * a real provider (ElevenLabs / Gemini / Google) or the browser fallback
  * (which means the chosen provider failed or has no key). Fed by
  * `VoiceProvider.lastProvider`.
  */
+
+import { useTranslations } from "next-intl";
 
 const PROVIDER_COLOR: Record<string, string> = {
   elevenlabs: "#34d399", // emerald — real natural voice
@@ -13,6 +17,7 @@ const PROVIDER_COLOR: Record<string, string> = {
 };
 
 export function ProviderBadge({ provider }: { provider: string }) {
+  const t = useTranslations("honeypot.voiceCall.providerBadge");
   const color = PROVIDER_COLOR[provider] ?? "rgba(255,255,255,.5)";
   return (
     <span
@@ -20,8 +25,8 @@ export function ProviderBadge({ provider }: { provider: string }) {
       style={{ color, borderColor: `${color}44`, background: `${color}14` }}
       title={
         provider === "browser"
-          ? "Spoken by the browser voice (the selected provider failed or has no key)"
-          : `Voiced by ${provider}`
+          ? t("browserTitle")
+          : t("voicedByTitle", { provider })
       }
     >
       🔊 {provider}

@@ -7,12 +7,15 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useAuth } from "./auth-provider";
 import { takeLogoutReason } from "@/lib/http";
 import { GoogleSignInButton } from "./google-signin-button";
 import { AGENCIES, canDispatch, roleLabel } from "@/lib/auth/types";
 
 export function LoginForm() {
+  const t = useTranslations("login");
+  const tRoles = useTranslations("roles");
   const { login, loginOffline } = useAuth();
   const [agencyId, setAgencyId] = useState(AGENCIES[0].id);
   const [role, setRole] = useState(AGENCIES[0].roles[0]);
@@ -53,8 +56,8 @@ export function LoginForm() {
         /abort|network|fetch/i.test(e.name + e.message);
       setError(
         unreachable
-          ? "Login failed — backend unreachable (is the API running on :8000?)"
-          : `Login failed — ${e.message}`,
+          ? t("errorUnreachable")
+          : t("errorGeneric", { message: e.message }),
       );
       setOfflineOffer(unreachable);
       setBusy(false);
@@ -70,8 +73,8 @@ export function LoginForm() {
           role="status"
           className="mb-3 rounded-md border border-risk-med/30 bg-risk-med/10 px-3 py-2 text-xs leading-relaxed text-fg"
         >
-          <span className="font-medium">Your session expired.</span> Sign in again
-          to pick up where you left off.
+          <span className="font-medium">{t("sessionExpiredTitle")}</span>{" "}
+          {t("sessionExpiredBody")}
         </p>
       )}
       {/* LIVE Google sign-in (hidden if no client id) — real auth; the picker
@@ -80,8 +83,8 @@ export function LoginForm() {
 
       {/* Agency picker — compact 2-col tile grid */}
       <fieldset>
-        <legend className="eyebrow pb-1.5">Agency</legend>
-        <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Agency">
+        <legend className="eyebrow pb-1.5">{t("agencyLegend")}</legend>
+        <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label={t("agencyLegend")}>
           {AGENCIES.map((a) => {
             const active = a.id === agencyId;
             return (
@@ -121,8 +124,8 @@ export function LoginForm() {
 
       {/* Role picker */}
       <fieldset className="pt-3">
-        <legend className="eyebrow pb-1.5">Role</legend>
-        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Role">
+        <legend className="eyebrow pb-1.5">{t("roleLegend")}</legend>
+        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={t("roleLegend")}>
           {agency.roles.map((r) => {
             const active = r === role;
             return (
@@ -138,7 +141,7 @@ export function LoginForm() {
                     : "border-line bg-elevated text-muted hover:border-white/10 hover:text-fg"
                 }`}
               >
-                {roleLabel(r)}
+                {roleLabel(r, tRoles)}
               </button>
             );
           })}
@@ -148,7 +151,7 @@ export function LoginForm() {
       {/* Capability — fixed two lines, so switching role never resizes the form */}
       <div className="mt-3 rounded-lg border border-line bg-elevated px-2.5 py-2 text-[10.5px] leading-snug">
         <div className="truncate text-muted">
-          <b className="text-fg/80">{agency.name}</b> · own data (RLS)
+          <b className="text-fg/80">{agency.name}</b> · {t("ownData")}
         </div>
         <div className="mt-1 flex items-center gap-1.5 whitespace-nowrap">
           <span
@@ -156,7 +159,7 @@ export function LoginForm() {
             aria-hidden
           />
           <span className={dispatch ? "text-accent-bright" : "text-risk-med"}>
-            {dispatch ? "Can dispatch freeze / STR" : "Receives requests · no dispatch"}
+            {dispatch ? t("canDispatch") : t("receiveOnly")}
           </span>
         </div>
       </div>
@@ -172,7 +175,7 @@ export function LoginForm() {
           onClick={() => loginOffline(agencyId, role)}
           className="mt-2 w-full cursor-pointer rounded-md border border-dashed border-line bg-elevated px-3 py-1.5 text-xs text-muted transition-colors hover:border-white/15 hover:text-fg"
         >
-          Continue offline — demo session with mock data
+          {t("continueOffline")}
         </button>
       )}
 
@@ -189,14 +192,14 @@ export function LoginForm() {
               className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-black/30 border-t-black"
               aria-hidden
             />
-            Signing in…
+            {t("signingIn")}
           </>
         ) : (
-          "Enter console"
+          t("enterConsole")
         )}
       </button>
       <p className="pt-2 text-center text-[11px] text-muted">
-        Demo sign-in · POC data mode · no credentials required
+        {t("footer")}
       </p>
     </div>
   );

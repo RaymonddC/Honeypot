@@ -1,3 +1,6 @@
+"use client";
+
+import { useTranslations } from "next-intl";
 import type { RiskLevel } from "@/lib/investigation/types";
 import { RISK_LABELS } from "@/lib/investigation/types";
 
@@ -15,6 +18,7 @@ export function RiskPill({
   risk: RiskLevel;
   score?: number;
 }) {
+  const t = useTranslations("investigation.riskPill");
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-[.05em] ${STYLES[risk]}`}
@@ -23,7 +27,7 @@ export function RiskPill({
         className="h-1.5 w-1.5 rounded-full bg-current shadow-[0_0_7px_currentColor]"
         aria-hidden
       />
-      {risk === "exchange" ? "Exchange" : RISK_LABELS[risk]}
+      {risk === "exchange" ? t("exchange") : RISK_LABELS[risk]}
       {risk !== "exchange" && score != null && (
         <span className="tnum">{score.toFixed(2)}</span>
       )}

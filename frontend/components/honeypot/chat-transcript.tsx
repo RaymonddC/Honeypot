@@ -1,13 +1,17 @@
+"use client";
+
 /**
  * Honeypot chat transcript — scammer vs persona bubbles with inline
  * `◇ extracted · <type> · conf 0.xx` badges (mockup .chat / .msg / .extract),
  * session header eyebrow + mode tag, composer status line.
  */
 
+import { useTranslations } from "next-intl";
 import type { HpMessage, HpSession } from "@/lib/honeypot/types";
 import { formatConf } from "@/lib/honeypot/types";
 
 function Bubble({ msg }: { msg: HpMessage }) {
+  const t = useTranslations("honeypot.chatTranscript");
   const isPersona = msg.sender === "persona";
   return (
     <div
@@ -30,7 +34,7 @@ function Bubble({ msg }: { msg: HpMessage }) {
           key={`${msg.id}-${ex.label}-${i}`}
           className="mt-[7px] flex items-center gap-1.5 border-t border-dashed border-accent/[.22] pt-[7px] font-mono text-[10px] text-accent-bright"
         >
-          ◇ extracted · {ex.label} · conf {formatConf(ex.confidence)}
+          {t("extractedBadge", { label: ex.label, confidence: formatConf(ex.confidence) })}
         </div>
       ))}
     </div>
@@ -51,12 +55,13 @@ export function ChatTranscript({
   /** Height override so the transcript can embed in a tighter panel. */
   heightClass?: string;
 }) {
+  const t = useTranslations("honeypot.chatTranscript");
   return (
     <div className={`flex ${heightClass} flex-col rounded-card border border-line bg-card`}>
       {/* header */}
       <div className="flex items-center justify-between border-b border-line px-3.5 py-[11px]">
         <span className="eyebrow">
-          Session · {session.channel} · persona &ldquo;{session.persona}&rdquo;
+          {t("sessionEyebrow", { channel: session.channel, persona: session.persona })}
         </span>
         <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] text-white/60">
           {session.modeTag}
@@ -66,7 +71,7 @@ export function ChatTranscript({
       {/* stream */}
       <div
         role="log"
-        aria-label={`Scam session transcript · ${session.channel}`}
+        aria-label={t("transcriptLogLabel", { channel: session.channel })}
         className="flex flex-1 flex-col gap-3 overflow-y-auto p-4"
       >
         {messages.map((m) => (

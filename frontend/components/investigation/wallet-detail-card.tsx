@@ -6,26 +6,32 @@
  */
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import type { WalletDetail } from "@/lib/investigation/types";
 import { RISK_COLORS, RISK_LABELS } from "@/lib/investigation/types";
 import { RiskPill } from "./risk-pill";
 
 type Tab = "overview" | "transactions";
 
-// Plain-language meaning of each of the 12 features (hover tooltip).
-const FACTOR_HELP: Record<string, string> = {
-  "Rapid-relay rate": "Share of incoming funds forwarded out within ~5 minutes — pass-through/relay behaviour.",
-  "In/out ratio": "Value out vs in (~1.0 = pure pass-through, typical of a mule).",
-  "Tx velocity": "Transactions per active day — higher = busier / more automated.",
-  "Unique counterparties": "Number of distinct wallets it transacts with.",
-  "Round-number %": "Share of round-number amounts — a structuring / smurfing signature.",
-  "Account age (inv.)": "How new the wallet is (inverted) — fresh wallets score higher.",
-  "Fan-in/out ratio": "Senders vs receivers — high fan-out means dispersal to many wallets.",
-  "Time-dist. entropy": "How spread the timing is across the day — low = bursty / automated.",
-  "Chain depth": "Hops from the wallet you traced — deeper = further down the laundering chain.",
-  "Volume (total)": "Total USDT moved through the wallet.",
-  "Max tx size": "Largest single transfer.",
-  "Self-loop count": "Transfers back to itself — an obfuscation tactic.",
+// Feature names whose plain-language meaning (hover tooltip) is looked up
+// under investigation.walletDetailCard.factorHelp — the names themselves are
+// data-driven (come from the backend's `features` list) and rendered as-is.
+// Two names contain a literal "." (e.g. "Account age (inv.)"), which
+// next-intl rejects as a JSON key (it reserves "." for namespace nesting) —
+// so the i18n lookup goes through this slug map instead of the raw name.
+const FACTOR_SLUGS: Record<string, string> = {
+  "Rapid-relay rate": "rapidRelayRate",
+  "In/out ratio": "inOutRatio",
+  "Tx velocity": "txVelocity",
+  "Unique counterparties": "uniqueCounterparties",
+  "Round-number %": "roundNumberPct",
+  "Account age (inv.)": "accountAgeInv",
+  "Fan-in/out ratio": "fanInOutRatio",
+  "Time-dist. entropy": "timeDistEntropy",
+  "Chain depth": "chainDepth",
+  "Volume (total)": "volumeTotal",
+  "Max tx size": "maxTxSize",
+  "Self-loop count": "selfLoopCount",
 };
 
 /** Animate a 0..1 value up from 0 (respects reduced-motion). */
@@ -55,6 +61,7 @@ function useCountUp(target: number, ms = 650): number {
 
 // Radial risk gauge — the headline "calculated risk" figure.
 function RiskGauge({ detail }: { detail: WalletDetail }) {
+  const t = useTranslations("investigation.walletDetailCard");
   const exchange = detail.risk === "exchange";
   const color = RISK_COLORS[detail.risk];
   const target = exchange ? 1 : Math.max(0, Math.min(1, detail.score));
@@ -83,7 +90,7 @@ function RiskGauge({ detail }: { detail: WalletDetail }) {
           {exchange ? "—" : pct.toFixed(2)}
         </div>
         <div className="mt-1 text-[9.5px] font-bold uppercase tracking-[.08em]" style={{ color }}>
-          {exchange ? "Exchange" : `${RISK_LABELS[detail.risk]} risk`}
+          {exchange ? t("attributedExchange") : t("riskSuffix", { risk: RISK_LABELS[detail.risk] })}
         </div>
       </div>
     </div>
@@ -108,6 +115,7 @@ export function WalletDetailCard({
   detail: WalletDetail | null;
   loading?: boolean;
 }) {
+  const t = useTranslations("investigation.walletDetailCard");
   const [tab, setTab] = useState<Tab>("overview");
   const [hoverFactor, setHoverFactor] = useState<string | null>(null);
 
@@ -115,10 +123,10 @@ export function WalletDetailCard({
     return (
       <div className="rounded-card border border-line bg-card">
         <div className="flex items-center justify-between border-b border-line px-3.5 py-3">
-          <span className="eyebrow">Selected wallet</span>
+          <span className="eyebrow">{t("selectedWallet")}</span>
         </div>
         <div className={`px-3.5 py-8 text-center text-[11px] text-muted ${loading ? "animate-pulse" : ""}`}>
-          {loading ? "Scoring wallet…" : "Click a node in the graph to inspect it."}
+          {loading ? t("scoringWallet") : t("clickToInspect")}
         </div>
       </div>
     );
@@ -128,7 +136,7 @@ export function WalletDetailCard({
     <div className={`rounded-card border border-line bg-card ${loading ? "opacity-60" : ""}`}>
       {/* header */}
       <div className="flex items-center justify-between border-b border-line px-3.5 py-3">
-        <span className="eyebrow">Calculated risk</span>
+        <span className="eyebrow">{t("calculatedRisk")}</span>
         <RiskPill risk={detail.risk} score={detail.score} />
       </div>
 
@@ -140,7 +148,7 @@ export function WalletDetailCard({
         </div>
         {detail.risk !== "exchange" && (
           <div className="mt-2.5 flex w-full items-center gap-2">
-            <span className="text-[9.5px] uppercase tracking-wide text-muted">Confidence</span>
+            <span className="text-[9.5px] uppercase tracking-wide text-muted">{t("confidence")}</span>
             <span className="h-1 flex-1 overflow-hidden rounded-full bg-elevated">
               <i
                 className="block h-full rounded-full bg-accent transition-all duration-300"
@@ -155,12 +163,12 @@ export function WalletDetailCard({
       </div>
 
       {/* key/value rows */}
-      <KV label="Address" value={detail.shortAddress} />
-      <KV label="USDT volume" value={detail.volume} />
-      <KV label="Counterparties" value={detail.counterparties} />
-      <KV label="First seen" value={detail.firstSeen} />
+      <KV label={t("address")} value={detail.shortAddress} />
+      <KV label={t("usdtVolume")} value={detail.volume} />
+      <KV label={t("counterparties")} value={detail.counterparties} />
+      <KV label={t("firstSeen")} value={detail.firstSeen} />
       <KV
-        label="Tags"
+        label={t("tags")}
         value={detail.tags}
         color={detail.tags !== "—" ? RISK_COLORS[detail.tagRisk] : undefined}
       />
@@ -169,8 +177,8 @@ export function WalletDetailCard({
       <div className="flex gap-0.5 border-b border-line px-2.5 pt-2" role="tablist">
         {(
           [
-            ["overview", "Overview"],
-            ["transactions", "Transactions"],
+            ["overview", t("tabOverview")],
+            ["transactions", t("tabTransactions")],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -193,10 +201,10 @@ export function WalletDetailCard({
       {tab === "overview" ? (
         <div>
           <div className="eyebrow px-3.5 pb-0.5 pt-3">
-            Flagged typologies
+            {t("flaggedTypologies")}
             {detail.patterns && detail.patterns.length > 0 && (
               <span className="ml-1.5 rounded bg-risk-high/15 px-1.5 py-px text-[9px] font-bold text-risk-high">
-                {detail.patterns.length} fired
+                {t("fired", { count: detail.patterns.length })}
               </span>
             )}
           </div>
@@ -225,16 +233,16 @@ export function WalletDetailCard({
           ) : (
             <div className="px-3.5 py-5 text-center text-[11px] text-muted">
               {detail.patterns === null
-                ? "Not applicable — attributed exchange."
-                : "No typology patterns fired."}
+                ? t("notApplicableExchange")
+                : t("noPatternsFired")}
             </div>
           )}
 
           {detail.features && (
             <>
               <div className="flex items-baseline justify-between px-3.5 pb-1 pt-2">
-                <span className="eyebrow">Risk factors · 12 indicators</span>
-                <span className="text-[9px] text-muted/70">percentile · highest first</span>
+                <span className="eyebrow">{t("riskFactors")}</span>
+                <span className="text-[9px] text-muted/70">{t("percentileHint")}</span>
               </div>
               <div className="space-y-1.5 px-3.5 py-2.5">
                 {[...detail.features]
@@ -274,10 +282,13 @@ export function WalletDetailCard({
               <div className="mx-3.5 mb-3 min-h-[34px] rounded-lg border border-line bg-elevated px-2.5 py-1.5 text-[10.5px] leading-snug text-muted">
                 {hoverFactor ? (
                   <>
-                    <b className="text-fg/80">{hoverFactor}</b> — {FACTOR_HELP[hoverFactor] ?? "—"}
+                    <b className="text-fg/80">{hoverFactor}</b> —{" "}
+                    {FACTOR_SLUGS[hoverFactor]
+                      ? t(`factorHelp.${FACTOR_SLUGS[hoverFactor]}`)
+                      : "—"}
                   </>
                 ) : (
-                  <span className="text-muted/70">Hover a factor for its meaning.</span>
+                  <span className="text-muted/70">{t("hoverFactorHint")}</span>
                 )}
               </div>
             </>
@@ -311,7 +322,7 @@ export function WalletDetailCard({
             ))
           ) : (
             <div className="px-3.5 py-5 text-center text-[11px] text-muted">
-              No transactions loaded.
+              {t("noTransactions")}
             </div>
           )}
         </div>

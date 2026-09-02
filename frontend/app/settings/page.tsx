@@ -9,6 +9,9 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
+import { useLocale } from "@/components/i18n/locale-provider";
+import type { Locale } from "@/i18n/config";
 import {
   CALL_MODE_SETTINGS,
   STT_SOURCE_SETTINGS,
@@ -34,44 +37,56 @@ import {
   type VoicesResult,
 } from "@/lib/honeypot/voices";
 
-const VOICE_PROVIDER_COPY: Record<
-  VoiceProviderSetting,
-  { label: string; sub: string }
-> = {
-  browser: { label: "Browser", sub: "Web Speech API · free, offline" },
-  elevenlabs: {
-    label: "ElevenLabs",
-    sub: "Backend audio · GET /sessions/{id}/audio/{seq}",
-  },
-  gemini: {
-    label: "Gemini TTS",
-    sub: "Backend audio · style-controlled persona (AI Studio)",
-  },
-  google: {
-    label: "Google TTS",
-    sub: "Backend audio · GET /sessions/{id}/audio/{seq}",
-  },
-};
+type SettingsT = ReturnType<typeof useTranslations>;
 
-const CALL_MODE_COPY: Record<CallModeSetting, { label: string; sub: string }> =
-  {
+function voiceProviderCopy(
+  t: SettingsT,
+): Record<VoiceProviderSetting, { label: string; sub: string }> {
+  return {
+    browser: {
+      label: t("voiceCall.voiceProvider.browser.label"),
+      sub: t("voiceCall.voiceProvider.browser.sub"),
+    },
+    elevenlabs: {
+      label: t("voiceCall.voiceProvider.elevenlabs.label"),
+      sub: t("voiceCall.voiceProvider.elevenlabs.sub"),
+    },
+    gemini: {
+      label: t("voiceCall.voiceProvider.gemini.label"),
+      sub: t("voiceCall.voiceProvider.gemini.sub"),
+    },
+    google: {
+      label: t("voiceCall.voiceProvider.google.label"),
+      sub: t("voiceCall.voiceProvider.google.sub"),
+    },
+  };
+}
+
+function callModeCopy(
+  t: SettingsT,
+): Record<CallModeSetting, { label: string; sub: string }> {
+  return {
     scripted: {
-      label: "Scripted replay",
-      sub: "Agent loop pre-run server-side · faithful simulation",
+      label: t("voiceCall.callMode.scripted.label"),
+      sub: t("voiceCall.callMode.scripted.sub"),
     },
     "live-mic": {
-      label: "Live mic (interactive)",
-      sub: "You play the scammer on the mic · Tier-B, docs/Live-Voice-Calls.md",
+      label: t("voiceCall.callMode.liveMic.label"),
+      sub: t("voiceCall.callMode.liveMic.sub"),
     },
   };
+}
 
-const STT_SOURCE_COPY: Record<SttSourceSetting, { label: string; sub: string }> =
-  {
+function sttSourceCopy(
+  t: SettingsT,
+): Record<SttSourceSetting, { label: string; sub: string }> {
+  return {
     "web-speech": {
-      label: "Browser Web Speech API",
-      sub: "Chrome/Edge only · id-ID · free (Safari/Firefox fall back to text input)",
+      label: t("voiceCall.sttSource.webSpeech.label"),
+      sub: t("voiceCall.sttSource.webSpeech.sub"),
     },
   };
+}
 
 /* ── Shared card shell (mirrors EntityPanel/CustodyCard) ────────────────── */
 
@@ -162,20 +177,23 @@ function SegmentedControl<T extends string>({
 const VOICE_INPUT_CLS =
   "h-8 rounded-lg border border-line bg-elevated px-3 font-mono text-[11px] text-fg outline-none transition-colors focus:border-accent/40";
 
-function describeVoiceCheck(res: VoiceCheckResult): { ok: boolean; label: string } {
-  if (res.ok) return { ok: true, label: "✓ playing sample…" };
+function describeVoiceCheck(
+  res: VoiceCheckResult,
+  t: SettingsT,
+): { ok: boolean; label: string } {
+  if (res.ok) return { ok: true, label: t("voiceCheck.elevenlabs.playing") };
   if (res.error === "no_key")
-    return { ok: false, label: "no ElevenLabs key set on the server" };
+    return { ok: false, label: t("voiceCheck.elevenlabs.noKey") };
   const s = res.status;
   if (s === 401 || res.error === "http_401")
-    return { ok: false, label: "✗ key rejected — check API key" };
+    return { ok: false, label: t("voiceCheck.elevenlabs.keyRejected") };
   if (s === 402 || res.error === "http_402")
-    return { ok: false, label: "✗ out of credits — upgrade or wait for reset" };
+    return { ok: false, label: t("voiceCheck.elevenlabs.outOfCredits") };
   if (s === 404 || s === 422 || res.error === "http_404" || res.error === "http_422")
-    return { ok: false, label: "✗ not a usable voice ID (not in your library)" };
+    return { ok: false, label: t("voiceCheck.elevenlabs.badVoiceId") };
   if (res.error?.startsWith("http_"))
-    return { ok: false, label: `✗ ElevenLabs error (${s ?? res.error})` };
-  return { ok: false, label: "✗ couldn't reach ElevenLabs / backend" };
+    return { ok: false, label: t("voiceCheck.elevenlabs.httpError", { code: String(s ?? res.error) }) };
+  return { ok: false, label: t("voiceCheck.elevenlabs.unreachable") };
 }
 
 function AdvancedVoice({
@@ -185,6 +203,7 @@ function AdvancedVoice({
   settings: ClientSettings;
   update: (patch: Partial<ClientSettings>) => void;
 }) {
+  const t = useTranslations("settings");
   type Role = "persona" | "scammer";
   const [results, setResults] = useState<Record<Role, VoiceCheckResult | null>>({
     persona: null,
@@ -222,7 +241,7 @@ function AdvancedVoice({
   const testVoice = async (role: Role, rawId: string, onChange: (v: string) => void) => {
     const voiceId = rawId.trim();
     if (!voiceId) return;
-    setTesting((t) => ({ ...t, [role]: true }));
+    setTesting((prev) => ({ ...prev, [role]: true }));
     try {
       const r = await checkElevenLabsVoice(voiceId, role);
       if (r.audioBlob) {
@@ -241,7 +260,7 @@ function AdvancedVoice({
         onChange(lastGood.current[role] ?? "");
       }
     } finally {
-      setTesting((t) => ({ ...t, [role]: false }));
+      setTesting((prev) => ({ ...prev, [role]: false }));
     }
   };
 
@@ -259,7 +278,7 @@ function AdvancedVoice({
     const res = results[role];
     // Always show a Test result (even after reverting to the blank default) so
     // the reason for a failure/revert stays visible until the user edits again.
-    const st = res ? describeVoiceCheck(res) : null;
+    const st = res ? describeVoiceCheck(res, t) : null;
     const busy = testing[role];
     return (
       <label key={role} className="grid gap-1">
@@ -269,7 +288,7 @@ function AdvancedVoice({
             type="text"
             list={voices.length > 0 ? listId : undefined}
             value={value}
-            placeholder="server default"
+            placeholder={t("advancedVoice.serverDefaultPlaceholder")}
             spellCheck={false}
             onChange={(e) => {
               onChange(e.target.value);
@@ -281,10 +300,10 @@ function AdvancedVoice({
             type="button"
             onClick={() => void testVoice(role, value, onChange)}
             disabled={!value.trim() || busy}
-            title="Play a short sample in this voice"
+            title={t("advancedVoice.testTitle")}
             className="h-8 shrink-0 rounded-lg border border-line bg-elevated px-2.5 text-[11px] font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-50"
           >
-            {busy ? "…" : "▶ Test"}
+            {busy ? t("advancedVoice.testBusy") : t("advancedVoice.testButton")}
           </button>
         </div>
         {st && (
@@ -299,7 +318,7 @@ function AdvancedVoice({
   return (
     <div className="border-t border-line pt-3.5">
       <div className="mb-1 flex items-center justify-between gap-2">
-        <div className="eyebrow">Advanced voice · ElevenLabs</div>
+        <div className="eyebrow">{t("advancedVoice.elevenlabsEyebrow")}</div>
         <div className="flex gap-3">
           <a
             href="https://elevenlabs.io/app/voices"
@@ -307,7 +326,7 @@ function AdvancedVoice({
             rel="noopener noreferrer"
             className="text-[10px] text-accent-bright hover:underline"
           >
-            Open Voices ↗
+            {t("advancedVoice.openVoices")}
           </a>
           <a
             href="https://elevenlabs.io/app/settings/api-keys"
@@ -315,14 +334,12 @@ function AdvancedVoice({
             rel="noopener noreferrer"
             className="text-[10px] text-muted hover:underline"
           >
-            Get API key ↗
+            {t("advancedVoice.getApiKey")}
           </a>
         </div>
       </div>
       <p className="mb-2.5 text-[10.5px] text-muted">
-        Per-request overrides — no restart. Blank = the server default. ▶ Test plays a
-        short sample (uses a few credits). Any failed Test reverts to your last working
-        voice and says why — out of credits, key rejected, or a bad voice ID.
+        {t("advancedVoice.elevenlabsHelp")}
       </p>
 
       {voices.length > 0 && (
@@ -337,11 +354,11 @@ function AdvancedVoice({
 
       <div className="grid gap-2.5">
         <label className="grid gap-1">
-          <span className="text-[11px] font-medium text-fg">Model</span>
+          <span className="text-[11px] font-medium text-fg">{t("advancedVoice.modelLabel")}</span>
           <input
             type="text"
             value={settings.ttsModel}
-            placeholder="eleven_flash_v2_5"
+            placeholder={t("advancedVoice.modelPlaceholder")}
             spellCheck={false}
             onChange={(e) => update({ ttsModel: e.target.value })}
             className={VOICE_INPUT_CLS}
@@ -349,13 +366,13 @@ function AdvancedVoice({
         </label>
         {renderVoiceField(
           "persona",
-          "Persona voice ID",
+          t("advancedVoice.personaVoiceIdLabel"),
           settings.ttsVoicePersona,
           (v) => update({ ttsVoicePersona: v }),
         )}
         {renderVoiceField(
           "scammer",
-          "Scammer voice ID",
+          t("advancedVoice.scammerVoiceIdLabel"),
           settings.ttsVoiceScammer,
           (v) => update({ ttsVoiceScammer: v }),
         )}
@@ -394,6 +411,7 @@ function VoiceComboField({
   describe: (r: VoiceCheckResult) => { ok: boolean; label: string };
   datalistId: string;
 }) {
+  const t = useTranslations("settings");
   const [draft, setDraft] = useState(value);
   const [res, setRes] = useState<VoiceCheckResult | null>(null);
   const [busy, setBusy] = useState(false);
@@ -435,7 +453,7 @@ function VoiceComboField({
   };
 
   const st = red
-    ? { ok: false, label: "✗ not an available voice — reverts when you click away" }
+    ? { ok: false, label: t("advancedVoice.revertHint") }
     : res
       ? describe(res)
       : null;
@@ -448,7 +466,7 @@ function VoiceComboField({
           type="text"
           list={datalistId}
           value={draft}
-          placeholder={`server default (${fallback})`}
+          placeholder={t("advancedVoice.serverDefaultWithFallback", { fallback })}
           spellCheck={false}
           onChange={(e) => onChange(e.target.value)}
           onBlur={onBlur}
@@ -458,10 +476,10 @@ function VoiceComboField({
           type="button"
           onClick={() => void test()}
           disabled={busy}
-          title="Play a short sample in this voice (checks key + quota)"
+          title={t("advancedVoice.testTitleWithCheck")}
           className="h-8 shrink-0 rounded-lg border border-line bg-elevated px-2.5 text-[11px] font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-50"
         >
-          {busy ? "…" : "▶ Test"}
+          {busy ? t("advancedVoice.testBusy") : t("advancedVoice.testButton")}
         </button>
       </div>
       <datalist id={datalistId}>
@@ -482,24 +500,27 @@ function VoiceComboField({
 
 /* ── Advanced voice (Gemini) — per-role voice picker + "Test Gemini" ──────── */
 
-function describeGeminiCheck(res: VoiceCheckResult): { ok: boolean; label: string } {
-  if (res.ok) return { ok: true, label: "✓ ready — playing sample…" };
+function describeGeminiCheck(
+  res: VoiceCheckResult,
+  t: SettingsT,
+): { ok: boolean; label: string } {
+  if (res.ok) return { ok: true, label: t("voiceCheck.gemini.ready") };
   if (res.error === "no_key")
-    return { ok: false, label: "no Gemini key set on the server" };
+    return { ok: false, label: t("voiceCheck.gemini.noKey") };
   const s = res.status;
   if (s === 429 || res.error === "http_429")
-    return { ok: false, label: "✗ quota exceeded — enable billing (free tier = 10/day)" };
+    return { ok: false, label: t("voiceCheck.gemini.quotaExceeded") };
   if (s === 403 || res.error === "http_403")
-    return { ok: false, label: "✗ key rejected — check the AI Studio key" };
+    return { ok: false, label: t("voiceCheck.gemini.keyRejected") };
   if (s === 400 || res.error === "http_400")
-    return { ok: false, label: "✗ not a valid voice name (check spelling)" };
+    return { ok: false, label: t("voiceCheck.gemini.badVoiceName") };
   if (s === 404 || res.error === "http_404")
-    return { ok: false, label: "✗ model not available in your region" };
+    return { ok: false, label: t("voiceCheck.gemini.modelUnavailable") };
   if (res.error?.startsWith("config:"))
-    return { ok: false, label: `✗ ${res.error.slice(7).trim()}` };
+    return { ok: false, label: t("voiceCheck.gemini.configError", { message: res.error.slice(7).trim() }) };
   if (res.error?.startsWith("http_"))
-    return { ok: false, label: `✗ Gemini error (${s ?? res.error})` };
-  return { ok: false, label: "✗ couldn't reach Gemini / backend" };
+    return { ok: false, label: t("voiceCheck.gemini.httpError", { code: String(s ?? res.error) }) };
+  return { ok: false, label: t("voiceCheck.gemini.unreachable") };
 }
 
 function AdvancedGemini({
@@ -509,46 +530,45 @@ function AdvancedGemini({
   settings: ClientSettings;
   update: (patch: Partial<ClientSettings>) => void;
 }) {
+  const t = useTranslations("settings");
   return (
     <div className="border-t border-line pt-3.5">
       <div className="mb-1 flex items-center justify-between gap-2">
-        <div className="eyebrow">Advanced voice · Gemini</div>
+        <div className="eyebrow">{t("advancedVoice.geminiEyebrow")}</div>
         <a
           href="https://ai.google.dev/gemini-api/docs/speech-generation"
           target="_blank"
           rel="noopener noreferrer"
           className="text-[10px] text-accent-bright hover:underline"
         >
-          Voice docs ↗
+          {t("advancedVoice.voiceDocs")}
         </a>
       </div>
       <p className="mb-2.5 text-[10.5px] text-muted">
-        Per-request overrides — no restart. Type or pick a prebuilt voice (the tone
-        is its character); the style directive does the emotional shaping. ▶ Test
-        plays a sample and spends one Gemini request (free tier = 10/day).
+        {t("advancedVoice.geminiHelp")}
       </p>
 
       <div className="grid gap-2.5">
         <VoiceComboField
-          label="Persona voice"
+          label={t("advancedVoice.personaVoiceLabel")}
           fallback="Sulafat"
           value={settings.geminiVoicePersona}
           onCommit={(v) => update({ geminiVoicePersona: v })}
           voices={GEMINI_VOICES}
           isKnown={isKnownGeminiVoice}
           onTest={(name) => checkGemini("persona", name)}
-          describe={describeGeminiCheck}
+          describe={(r) => describeGeminiCheck(r, t)}
           datalistId="gemini-voices-persona"
         />
         <VoiceComboField
-          label="Scammer voice"
+          label={t("advancedVoice.scammerVoiceLabel")}
           fallback="Charon"
           value={settings.geminiVoiceScammer}
           onCommit={(v) => update({ geminiVoiceScammer: v })}
           voices={GEMINI_VOICES}
           isKnown={isKnownGeminiVoice}
           onTest={(name) => checkGemini("scammer", name)}
-          describe={describeGeminiCheck}
+          describe={(r) => describeGeminiCheck(r, t)}
           datalistId="gemini-voices-scammer"
         />
       </div>
@@ -558,20 +578,23 @@ function AdvancedGemini({
 
 /* ── Advanced voice (Google) — per-role voice picker + "Test" ────────────── */
 
-function describeGoogleCheck(res: VoiceCheckResult): { ok: boolean; label: string } {
-  if (res.ok) return { ok: true, label: "✓ ready — playing sample…" };
+function describeGoogleCheck(
+  res: VoiceCheckResult,
+  t: SettingsT,
+): { ok: boolean; label: string } {
+  if (res.ok) return { ok: true, label: t("voiceCheck.google.ready") };
   if (res.error === "no_key")
-    return { ok: false, label: "no Google TTS key set on the server" };
+    return { ok: false, label: t("voiceCheck.google.noKey") };
   const s = res.status;
   if (s === 403 || res.error === "http_403")
-    return { ok: false, label: "✗ key rejected / Text-to-Speech API not enabled" };
+    return { ok: false, label: t("voiceCheck.google.keyRejected") };
   if (s === 429 || res.error === "http_429")
-    return { ok: false, label: "✗ quota exceeded" };
+    return { ok: false, label: t("voiceCheck.google.quotaExceeded") };
   if (s === 400 || res.error === "http_400")
-    return { ok: false, label: "✗ bad request (voice not available for id-ID)" };
+    return { ok: false, label: t("voiceCheck.google.badRequest") };
   if (res.error?.startsWith("http_"))
-    return { ok: false, label: `✗ Google error (${s ?? res.error})` };
-  return { ok: false, label: "✗ couldn't reach Google / backend" };
+    return { ok: false, label: t("voiceCheck.google.httpError", { code: String(s ?? res.error) }) };
+  return { ok: false, label: t("voiceCheck.google.unreachable") };
 }
 
 function AdvancedGoogle({
@@ -581,46 +604,45 @@ function AdvancedGoogle({
   settings: ClientSettings;
   update: (patch: Partial<ClientSettings>) => void;
 }) {
+  const t = useTranslations("settings");
   return (
     <div className="border-t border-line pt-3.5">
       <div className="mb-1 flex items-center justify-between gap-2">
-        <div className="eyebrow">Advanced voice · Google</div>
+        <div className="eyebrow">{t("advancedVoice.googleEyebrow")}</div>
         <a
           href="https://cloud.google.com/text-to-speech/docs/voices"
           target="_blank"
           rel="noopener noreferrer"
           className="text-[10px] text-accent-bright hover:underline"
         >
-          Voice list ↗
+          {t("advancedVoice.voiceList")}
         </a>
       </div>
       <p className="mb-2.5 text-[10.5px] text-muted">
-        Per-request overrides — no restart. Type or pick a flat id-ID WaveNet /
-        Standard voice (no style control). ▶ Test plays a sample; ~1M chars/month
-        free.
+        {t("advancedVoice.googleHelp")}
       </p>
 
       <div className="grid gap-2.5">
         <VoiceComboField
-          label="Persona voice"
+          label={t("advancedVoice.personaVoiceLabel")}
           fallback="id-ID-Wavenet-A"
           value={settings.googleVoicePersona}
           onCommit={(v) => update({ googleVoicePersona: v })}
           voices={GOOGLE_VOICES}
           isKnown={isKnownGoogleVoice}
           onTest={(name) => checkGoogle("persona", name)}
-          describe={describeGoogleCheck}
+          describe={(r) => describeGoogleCheck(r, t)}
           datalistId="google-voices-persona"
         />
         <VoiceComboField
-          label="Scammer voice"
+          label={t("advancedVoice.scammerVoiceLabel")}
           fallback="id-ID-Wavenet-B"
           value={settings.googleVoiceScammer}
           onCommit={(v) => update({ googleVoiceScammer: v })}
           voices={GOOGLE_VOICES}
           isKnown={isKnownGoogleVoice}
           onTest={(name) => checkGoogle("scammer", name)}
-          describe={describeGoogleCheck}
+          describe={(r) => describeGoogleCheck(r, t)}
           datalistId="google-voices-scammer"
         />
       </div>
@@ -651,10 +673,11 @@ function BackendStatus({
   status: BackendConfigStatus | null;
   loading: boolean;
 }) {
+  const t = useTranslations("settings");
   if (loading && !status) {
     return (
       <div className="grid h-24 animate-pulse place-items-center text-[11px] text-muted">
-        Reading GET /api/config…
+        {t("backendStatus.loadingLine")}
       </div>
     );
   }
@@ -663,21 +686,21 @@ function BackendStatus({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[11px] text-muted">Global mode</span>
+        <span className="text-[11px] text-muted">{t("backendStatus.globalMode")}</span>
         <ModeChip mode={status.mode} />
         {status.source === "env" && (
           <span
             className="rounded-md border border-risk-med/30 bg-risk-med/10 px-1.5 py-0.5 text-[10px] text-risk-med"
-            title="GET /api/config was unreachable — showing the NEXT_PUBLIC_ITTU_MODE build fallback"
+            title={t("backendStatus.envFallbackTitle")}
           >
-            env fallback · backend unreachable
+            {t("backendStatus.envFallback")}
           </span>
         )}
       </div>
 
       {status.modules.length > 0 && (
         <div>
-          <div className="text-[11px] text-muted">Per-module mode</div>
+          <div className="text-[11px] text-muted">{t("backendStatus.perModuleMode")}</div>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {status.modules.map((m) => (
               <span
@@ -693,12 +716,11 @@ function BackendStatus({
       )}
 
       <div>
-        <div className="text-[11px] text-muted">Server TTS provider</div>
+        <div className="text-[11px] text-muted">{t("backendStatus.ttsProvider")}</div>
         <div className="mt-1.5 font-mono text-xs text-fg">
           {status.ttsProvider ?? (
             <span className="text-muted">
-              not reported by this backend build — Control Panel choice below
-              still governs playback path (browser vs. backend audio)
+              {t("backendStatus.ttsProviderUnreported")}
             </span>
           )}
         </div>
@@ -706,8 +728,8 @@ function BackendStatus({
 
       <div>
         <div className="text-[11px] text-muted">
-          Live-voice key presence{" "}
-          <span className="text-muted/70">(booleans only — never a value)</span>
+          {t("backendStatus.keyPresence")}{" "}
+          <span className="text-muted/70">{t("backendStatus.keyPresenceHint")}</span>
         </div>
         {status.keys.length > 0 ? (
           <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -720,13 +742,13 @@ function BackendStatus({
                     : "border-line bg-elevated text-muted"
                 }`}
               >
-                {k.provider} · {k.present ? "configured" : "not set"}
+                {k.provider} · {k.present ? t("backendStatus.keyConfigured") : t("backendStatus.keyNotSet")}
               </span>
             ))}
           </div>
         ) : (
           <p className="mt-1 text-[11px] text-muted">
-            not reported by this backend build yet.
+            {t("backendStatus.keysUnreported")}
           </p>
         )}
       </div>
@@ -734,9 +756,35 @@ function BackendStatus({
   );
 }
 
+/* ── Language / locale switcher ──────────────────────────────────────────── */
+
+function LanguageCard() {
+  const t = useTranslations("settings.language");
+  const { locale, setLocale } = useLocale();
+  const options: readonly Locale[] = ["id", "en"];
+  const copy: Record<Locale, { label: string; sub: string }> = {
+    id: { label: t("id.label"), sub: t("id.sub") },
+    en: { label: t("en.label"), sub: t("en.sub") },
+  };
+  return (
+    <Card title={t("cardTitle")}>
+      <SegmentedControl
+        legend={t("legend")}
+        hint={t("hint")}
+        name="locale"
+        options={options}
+        copy={copy}
+        value={locale}
+        onChange={setLocale}
+      />
+    </Card>
+  );
+}
+
 /* ── Page ─────────────────────────────────────────────────────────────────── */
 
 export default function SettingsPage() {
+  const t = useTranslations("settings");
   const { settings, update, reset } = useSettings();
   const [status, setStatus] = useState<BackendConfigStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -758,13 +806,11 @@ export default function SettingsPage() {
   return (
     <div className="mx-auto max-w-[760px]">
       {/* ── header ─────────────────────────────────────────────────── */}
-      <div className="mb-4 flex items-end justify-between gap-4">
+      <div className="mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Control Panel</h1>
+          <h1 className="text-xl font-bold tracking-tight">{t("title")}</h1>
           <p className="mt-1 text-xs text-muted">
-            Analyst-local voice &amp; call preferences — saved to this browser,
-            applied on your next honeypot call. No API keys or secrets ever
-            live here.
+            {t("subtitle")}
           </p>
         </div>
         <button
@@ -773,35 +819,37 @@ export default function SettingsPage() {
           disabled={loading}
           className="h-8 flex-none rounded-lg border border-white/10 bg-elevated px-3.5 text-xs font-semibold text-fg transition-colors hover:bg-white/[.07] disabled:opacity-50"
         >
-          {loading ? "Refreshing…" : "Refresh status"}
+          {loading ? t("refreshing") : t("refresh")}
         </button>
       </div>
 
-      <Card title="Voice & call">
+      <LanguageCard />
+
+      <Card title={t("voiceCall.cardTitle")}>
         <SegmentedControl
-          legend="Voice provider"
-          hint="Which engine speaks the honeypot persona's lines."
+          legend={t("voiceCall.voiceProvider.legend")}
+          hint={t("voiceCall.voiceProvider.hint")}
           name="voiceProvider"
           options={VOICE_PROVIDER_SETTINGS}
-          copy={VOICE_PROVIDER_COPY}
+          copy={voiceProviderCopy(t)}
           value={settings.voiceProvider}
           onChange={(v) => update({ voiceProvider: v })}
         />
         <SegmentedControl
-          legend="Call mode"
-          hint="How /honeypot/call runs the conversation."
+          legend={t("voiceCall.callMode.legend")}
+          hint={t("voiceCall.callMode.hint")}
           name="callMode"
           options={CALL_MODE_SETTINGS}
-          copy={CALL_MODE_COPY}
+          copy={callModeCopy(t)}
           value={settings.callMode}
           onChange={(v) => update({ callMode: v })}
         />
         <SegmentedControl
-          legend="Speech-to-text source"
-          hint="Used to transcribe the operator's mic in live-mic mode."
+          legend={t("voiceCall.sttSource.legend")}
+          hint={t("voiceCall.sttSource.hint")}
           name="sttSource"
           options={STT_SOURCE_SETTINGS}
-          copy={STT_SOURCE_COPY}
+          copy={sttSourceCopy(t)}
           value={settings.sttSource}
           onChange={(v) => update({ sttSource: v })}
         />
@@ -818,20 +866,19 @@ export default function SettingsPage() {
 
         <div className="flex items-center justify-between border-t border-line pt-3.5">
           <p className="text-[10.5px] text-muted">
-            Overrides this browser&apos;s build defaults (NEXT_PUBLIC_*). Clear
-            to fall back to the deployment&apos;s configured defaults.
+            {t("voiceCall.overridesNote")}
           </p>
           <button
             type="button"
             onClick={reset}
             className="h-8 flex-none rounded-lg border border-line bg-elevated px-3 text-[11px] font-semibold text-muted transition-colors hover:bg-white/[.07] hover:text-fg"
           >
-            Reset to defaults
+            {t("voiceCall.resetToDefaults")}
           </button>
         </div>
       </Card>
 
-      <Card title="Backend status · GET /api/config (read-only)">
+      <Card title={t("backendStatus.cardTitle")}>
         <BackendStatus status={status} loading={loading} />
       </Card>
     </div>

@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Time-to-freeze trend sparkline — hand-rolled SVG ported from the mockup's
  * #trendsvg renderer: faint gridlines, emerald gradient area fill, 2px line,
@@ -5,6 +7,7 @@
  */
 
 import type { ReactElement } from "react";
+import { useTranslations } from "next-intl";
 
 const W = 640;
 const H = 180;
@@ -19,10 +22,11 @@ export function TrendSparkline({
   /** Label at the last point, e.g. "27 min". */
   nowLabel: string;
 }) {
+  const t = useTranslations("response.trendSparkline");
   if (data.length < 2) {
     return (
       <div className="grid h-[180px] place-items-center text-[11px] text-muted">
-        Not enough freeze events yet — trend appears after the first cases.
+        {t("empty")}
       </div>
     );
   }
@@ -56,7 +60,7 @@ export function TrendSparkline({
       viewBox={`0 0 ${W} ${H}`}
       preserveAspectRatio="none"
       role="img"
-      aria-label={`Time-to-freeze trend, latest ${nowLabel}`}
+      aria-label={t("ariaLabel", { nowLabel })}
     >
       <defs>
         <linearGradient id="ttf-area" x1="0" x2="0" y1="0" y2="1">
