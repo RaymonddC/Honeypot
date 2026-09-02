@@ -24,7 +24,7 @@ from app.fiat.schemas import FiatGenParams
 from app.takedown.service import investigate
 from app.trace.service import build_bridge
 from app.uncover import documents as docs
-from app.uncover.custody import AuditEntry, audit_log
+from app.uncover.custody import sha256_hex
 from app.core.config import get_settings
 from app.uncover.notifications import (
     NotificationOut,
@@ -110,6 +110,31 @@ class BundleTotals(BaseModel):
     idr_per_usdt: float = IDR_PER_USDT
 
 
+class BundleAuditEntry(BaseModel):
+    """One core-trail entry about this bundle, shaped for the bundle view.
+
+    Projected from ``app.core.audit.AuditEntry``. It replaces the per-process
+    in-memory custody chain that used to fill this field and did not survive a
+    restart (docs/Backlog.md).
+
+    ``seq`` is the entry's position in the **agency's** chain, NOT this bundle's.
+    A bundle will show something like 47 then 103, and those are correct: the
+    numbers between them are that agency's other actions, not missing entries.
+    Do not render this as if the bundle had its own gapless chain — that is the
+    same over-claim the /audit banner was corrected for.
+    """
+
+    seq: int
+    action: str
+    actor: str = ""          # snapshotted name, not a uuid
+    target_type: str | None = None
+    target_id: str | None = None
+    detail: dict = Field(default_factory=dict)
+    ts: datetime
+    sha256: str
+    prev_sha256: str
+
+
 class ActionBundle(BaseModel):
     """The action_bundle the API returns (draft → dispatched)."""
 
@@ -127,7 +152,15 @@ class ActionBundle(BaseModel):
     totals: BundleTotals
     created_at: datetime
     dispatched_at: datetime | None = None
-    audit: list[AuditEntry] = Field(default_factory=list)
+    # Fingerprint of the EVIDENCE (the document set), not of an audit position.
+    # Derived from the document hashes, so it is identical every time the same
+    # bundle is read — see ``evidence_hash``. The Action Panel used to display
+    # the audit chain's head here, which changed on every restart.
+    evidence_hash: str = ""
+    # Filled by the ROUTER from ``core.audit_log`` (agency-scoped, durable), not
+    # by the service: reading it needs a session, and see BundleAuditEntry for
+    # what ``seq`` means now.
+    audit: list[BundleAuditEntry] = Field(default_factory=list)
 
 
 class AlreadyDispatchedError(Exception):
@@ -146,8 +179,9 @@ async def get_bundle(action_id: str, *, repo: UncoverRepository) -> ActionBundle
     bundle = await repo.get_bundle(action_id)
     if bundle is None:
         return None
-    # Refresh the audit view (dispatch appends entries after generation).
-    bundle.audit = _bundle_audit(bundle)
+    # ``audit`` is filled by the router from the durable core trail — it needs
+    # an agency-scoped session, which the service layer has no business holding.
+    bundle.evidence_hash = evidence_hash(bundle.documents)
     return bundle
 
 
@@ -159,9 +193,23 @@ async def all_bundles(*, repo: UncoverRepository) -> list[ActionBundle]:
     return await repo.list_bundles()
 
 
-def _bundle_audit(bundle: ActionBundle) -> list[AuditEntry]:
-    ids = {bundle.id} | {d.id for d in bundle.documents}
-    return [e for e in audit_log.entries() if e.target_id in ids]
+def evidence_hash(documents) -> str:
+    """A stable fingerprint of a bundle's document set.
+
+    SHA-256 over the documents' own sha256s, sorted so the value does not depend
+    on generation order. Deterministic and derived only from the evidence, so it
+    is the same on every read and after any restart — which is the whole point:
+    the Action Panel previously displayed the in-memory custody chain's head,
+    so the SAME bundle showed one "evidence hash" before a restart and another
+    after. For a product whose pitch is chain of custody, a hash that silently
+    changes is worse than none.
+
+    It changes if and only if the documents change, which is the behaviour a
+    reader already assumes a hash has.
+    """
+    if not documents:
+        return ""
+    return sha256_hex("".join(sorted(d.sha256 for d in documents)).encode())
 
 
 # --------------------------------------------------------------------------- #
@@ -297,7 +345,15 @@ async def assemble_context(
     return docs.DocumentContext(
         case_id=req.case_id,
         crime_type=req.crime_type,
-        data_mode="poc" if getattr(chain_adapter, "data_mode", "poc") == "poc" else "live",
+        # The REQUEST's mode, not the adapter's — the one canonical convention
+        # (migration 20260823_18). An adapter's ``data_mode`` says where a VALUE
+        # came from; a row's says which evidentiary universe the RECORD belongs
+        # to, and that is what the RLS predicate compares against. This used to
+        # derive from ``chain_adapter.data_mode`` while every repository stamped
+        # ``settings.mode`` — two conventions that agreed only by luck. Under
+        # Postgres they can no longer disagree at all (mixed module modes are
+        # refused at boot), so this is now the same value by construction.
+        data_mode=get_settings().mode,
         generated_at=generated_at or datetime.now(timezone.utc),
         # requesting_agency keeps its model default unless a real agency is passed.
         **({"requesting_agency": agency} if agency else {}),
@@ -386,19 +442,11 @@ async def generate_bundle(
     for d in generated:
         await repo.save_document(bundle.id, d)
 
-    audit_log.record(
-        action="action.bundle.generated",
-        target_type="action_bundle",
-        target_id=bundle.id,
-        detail={
-            "case_id": bundle.case_id,
-            "outputs": outputs,
-            "documents": {d.id: d.sha256 for d in generated},
-            "routing_targets": len(routing_plan),
-            "data_mode": bundle.data_mode,
-        },
-    )
-    bundle.audit = _bundle_audit(bundle)
+    # The durable record of this generation is written by the ROUTER into
+    # core.audit_log (action.bundle.generated, with every document sha256).
+    # There used to be a second, in-memory custody entry here; it recorded less,
+    # duplicated what the core trail already had, and vanished on restart.
+    bundle.evidence_hash = evidence_hash(bundle.documents)
     return bundle
 
 
@@ -548,18 +596,8 @@ async def dispatch_bundle(
         for n in notifications:
             dispatch_notifications.send(n.id)
 
-    audit_log.record(
-        action="action.bundle.dispatched",
-        target_type="action_bundle",
-        target_id=bundle.id,
-        detail={
-            "case_id": bundle.case_id,
-            "notifications": [
-                {"id": n.id, "agency": n.target_agency, "status": n.status}
-                for n in notifications
-            ],
-            "data_mode": bundle.data_mode,
-        },
-    )
-    bundle.audit = _bundle_audit(bundle)
+    # Durable record written by the router (dispatch.sent), which now also
+    # carries the per-notification {id, agency, status} this in-memory entry
+    # used to be the only place holding.
+    bundle.evidence_hash = evidence_hash(bundle.documents)
     return bundle

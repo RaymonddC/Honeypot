@@ -109,9 +109,50 @@ def get_chain_adapter(module: str) -> ChainDataAdapter:
 ---
 
 ## `data_mode` enforcement (evidentiary integrity)
-- Produced rows carry `data_mode`; repositories filter by the request's active mode.
-- **LIVE evidence views never read POC rows.** In production, **separate DB instances** per mode
-  (distinct creds) so demo data physically cannot enter a real case. (See `docs/Data-Model.md`.)
+
+> **BUILT 2026-08-23 (migration `20260823_18`) — as ROW-LEVEL SECURITY, not separate databases.**
+> The earlier text here described separate DB instances per mode; that is not what shipped, and
+> the difference matters. Mode is now a per-transaction RLS predicate, the same mechanism that
+> already enforces tenant isolation. Two named exceptions are listed below — they are deliberate,
+> not gaps waiting to be filled.
+
+**How it works.** `_tenant_scoped_session` sets `app.data_mode` alongside `app.current_agency`;
+`core.current_mode()` reads it; every agency-scoped policy compares it to the row's `data_mode`.
+A query that forgets to filter *cannot* leak, because the database refuses — rather than every
+future query having to remember.
+
+- **Fail-closed.** `current_setting(..., true)` is NULL when unset and `data_mode = NULL` is never
+  true, so a session that never sets the variable sees nothing. A garbage value also sees nothing.
+  Verified against a real Postgres, not assumed (`test_mode_isolation_pg.py`).
+- **The write side is guarded too.** Postgres applies `USING` as the implicit `WITH CHECK` for
+  INSERT, so a mode-mismatched write is REFUSED rather than written-and-hidden. That behaviour is
+  load-bearing and is pinned by a test: an explicit permissive `WITH CHECK` on a future policy
+  would silently remove it.
+- **19 tables** carry the predicate. `intel.syndicate_members` has no `data_mode` of its own and
+  inherits its parent syndicate's.
+
+**Exception 1 — `core.audit_log` is deliberately NOT mode-filtered.** `verify_chain` walks every
+entry's `prev_sha256` in `seq` order, so hiding any entry breaks the chain: a LIVE session would
+see a FALSE TAMPER ALARM, and a POC session would see SILENT TRUNCATION (the trail verifies clean
+while records are missing — the exact gap `ittu_audit_entries_dropped_total` exists to close). It
+is also arguably wrong on the merits: the trail answers "everything that happened in this tenant",
+and the POC→LIVE transition is the most interesting entry in it. Mode is recorded as
+`detail['_data_mode']` — inside `entry_hash`, so tamper-evident, and still filterable via
+`detail->>'_data_mode'`. Provenance belongs *in* the record; it does not decide who may read it.
+
+**Exception 2 — background workers bypass this entirely.** A Dramatiq actor connects as the
+OWNING role (`worker_session`), which bypasses RLS by design, so actor code must check `data_mode`
+explicitly exactly as it must scope by `agency_id`. Both actors refuse a mismatched row.
+
+**Not applicable — `chain.*` / `fiat.*` raw ledger tables.** Deliberately not agency-scoped
+(public-ledger reference facts), and as of this migration they have zero read sites and zero write
+sites — the data flows through adapters, never through Postgres. Whoever first persists them must
+add a mode-only policy then; recorded in `docs/Data-Model.md`.
+
+**Config constraint this introduces:** under `ITTU_PERSISTENCE=postgres`, per-module modes that
+disagree with the global `ITTU_MODE` are **refused at boot**. `app.data_mode` is one value per
+transaction and a request spans modules, so a per-module mode cannot be honestly stamped on a row.
+Mixed module modes remain fully supported under `ITTU_PERSISTENCE=memory`.
 
 ## Mode granularity (MVP decision)
 - **Module-level, deployment-resolved** for the MVP (simple, predictable).

@@ -201,6 +201,14 @@ class Settings(BaseSettings):
         return self.persistence == "postgres"
 
     @property
+    def conflicting_module_modes(self) -> dict[str, Mode]:
+        """Module overrides that DISAGREE with the global mode. Empty = coherent.
+
+        Only meaningful under Postgres — see ``assert_modes_are_coherent``.
+        """
+        return {m: v for m, v in self.module_modes.items() if v != self.mode}
+
+    @property
     def effective_llm_api_key(self) -> str:
         """Live-LLM key: ITTU_LLM_API_KEY, falling back to ANTHROPIC_API_KEY."""
         return self.llm_api_key or os.environ.get("ANTHROPIC_API_KEY", "")
@@ -272,3 +280,51 @@ def get_settings() -> Settings:
 @lru_cache
 def get_mode_resolver() -> ModeResolver:
     return ModeResolver()
+
+
+def assert_modes_are_coherent() -> None:
+    """Refuse to run Postgres with per-module modes that disagree with the global.
+
+    **Why this is a hard error and not a warning.** Under Postgres, mode is
+    enforced by RLS: ``_tenant_scoped_session`` sets ``app.data_mode`` and the
+    policies compare each row's ``data_mode`` against it (migration 20260823_18).
+    That variable is ``SET LOCAL`` — ONE value for the whole transaction — and
+    ``_tenant_scoped_session`` opens one transaction per REQUEST. A request is
+    not module-scoped: UNCOVER reads chain data in the same transaction it
+    writes a bundle. So when modules disagree there is no value for
+    ``app.data_mode`` that is honest for the whole request, and every choice
+    silently mis-stamps or hides someone's rows.
+
+    Memory mode has no RLS and no row stamping, so mixed module modes stay fully
+    supported there — which is where they are actually used (a LIVE takedown
+    adapter against replayed INFILTRATE transcripts).
+
+    Raises ``RuntimeError`` naming both offending values and both ways out; a
+    rule the reader cannot act on is a rule they will work around.
+    """
+    settings = get_settings()
+    if settings.persistence != "postgres":
+        return
+    conflicts = settings.conflicting_module_modes
+    if not conflicts:
+        return
+
+    listed = ", ".join(f"{module}={mode!r}" for module, mode in sorted(conflicts.items()))
+    raise RuntimeError(
+        f"INCOHERENT MODE CONFIG: ITTU_MODE={settings.mode!r} but ITTU_MODULE_MODES "
+        f"overrides {listed}, and ITTU_PERSISTENCE=postgres.\n"
+        "\n"
+        "Why this cannot work: under Postgres, POC/LIVE isolation is enforced by "
+        "row-level security. The database is told the request's mode ONCE per "
+        "transaction (app.data_mode), and one request spans several modules — so a "
+        "per-module mode cannot be honestly represented in the row stamp. Rather "
+        "than write rows tagged with a mode that is not theirs, this refuses to start.\n"
+        "\n"
+        "Two ways out:\n"
+        f"  1. Set ITTU_PERSISTENCE=memory — mixed module modes are fully supported "
+        f"there ({listed} keeps working).\n"
+        f"  2. Align the override(s) with the global mode, or drop them from "
+        f"ITTU_MODULE_MODES so everything runs as ITTU_MODE={settings.mode!r}.\n"
+        "\n"
+        "See docs/Adapter-MODE-Framework.md '`data_mode` enforcement'."
+    )

@@ -36,8 +36,16 @@ async def lifespan(app: FastAPI):
     # Later phases: warm caches, verify LIVE credentials, contract checks.
     # Seed one POC honeypot replay so the Honeypot console shows the live
     # demo narrative on first load (no manual POST needed). POC-only, idempotent.
+    from app.core.config import assert_modes_are_coherent
     from app.core.migration_guard import assert_schema_at_head
     from app.infiltrate.service import seed_demo_session
+
+    # Refuse to start with per-module modes that disagree with the global mode
+    # under Postgres: `app.data_mode` is one value per transaction and a request
+    # spans modules, so there is no honest per-module row stamp. Checked BEFORE
+    # the schema guard because it needs no database — a misconfiguration should
+    # not first present as a connection error.
+    assert_modes_are_coherent()
 
     # Fail loud at boot if the Postgres schema is behind the code's migration
     # head — a drifted schema 500s on the first write (e.g. the missing
@@ -53,6 +61,18 @@ async def lifespan(app: FastAPI):
         s.llm_model,
         s.llm_api_base or "(provider default)",
     )
+    if s.mode == "live" and s.persistence == "postgres":
+        # A LIVE deployment reads ONLY live-stamped rows (migration 20260823_18),
+        # and every row written before mode isolation existed is 'poc' by column
+        # default. So the first LIVE boot against an existing database shows an
+        # EMPTY case list — correct, and alarming enough that someone will file
+        # it as an outage and "fix" it by loosening the policy. Say so out loud,
+        # once, so the blank screen arrives with its explanation attached.
+        logging.getLogger("uvicorn.error").warning(
+            "ITTU mode: LIVE + postgres — RLS returns ONLY data_mode='live' rows. "
+            "Pre-existing POC data is intentionally invisible, not lost (it is still "
+            "in the tables, readable in POC mode). See docs/Deploy.md §4a."
+        )
     if not s.metrics_token:
         # /metrics 404s without a token, which is indistinguishable from "this
         # build has no metrics". Say so once at boot so a failing scrape is
@@ -161,7 +181,18 @@ def create_app() -> FastAPI:
                 "mode": result.mode,
                 "persistence": result.persistence,
                 "checks": [
-                    {"name": c.name, "ok": c.ok, "detail": c.detail, "critical": c.critical}
+                    # `status` is the one to read: "pass" | "fail" | "unknown".
+                    # `ok` is null when a check could not determine an answer —
+                    # NOT the same as passing, and reporting it as true is how
+                    # this endpoint once said a service was fine while it had no
+                    # idea whether its schema matched its code.
+                    {
+                        "name": c.name,
+                        "status": c.status,
+                        "ok": c.ok,
+                        "detail": c.detail,
+                        "critical": c.critical,
+                    }
                     for c in result.checks
                 ],
             },

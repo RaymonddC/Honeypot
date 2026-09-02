@@ -44,6 +44,16 @@
   separately (`ittu_audit_entries_dropped_total`, `Deploy.md` §8) instead of being inferred from the
   chain. Recorded here because "verified" invites the stronger reading, and anyone relying on this
   trail as evidence is entitled to know which of the two claims they are being handed.
+- **One chain per agency, not one per artifact (2026-08-23).** An evidence bundle's custody view
+  (`ActionBundle.audit`) is a filtered, agency-scoped slice of `core.audit_log`, not a chain of its
+  own. It used to come from a second, per-process, **in-memory** chain in `app/uncover/custody.py`,
+  which recorded strictly less than the core trail already did and was empty after every restart —
+  and because the Action Panel derived the displayed **evidence hash** from that chain's head, the
+  same bundle showed one evidence hash before a restart and another after. The evidence hash is now
+  a deterministic digest of the bundle's document hashes: it moves if and only if the documents do.
+  One consequence to read correctly: a bundle's entries carry their `seq` in the **agency's** chain,
+  so they are deliberately non-contiguous — the numbers in between are that agency's other actions,
+  not missing entries.
 - **Preserved originals** stored separately from enriched/derived data.
 - **`core.evidence_manifest`** per session/case records model + prompt + pipeline versions →
   reproducible & explainable in court.
@@ -74,9 +84,31 @@
 - **Human-in-the-loop** at high-value/bot-probe turns.
 
 ## 6. POC/LIVE evidentiary integrity
-- `data_mode` on every produced row; **LIVE evidence views never read POC rows.**
-- Production runs **separate DB instances** per mode (distinct creds) — demo data physically cannot
-  enter a real case. Custody hashing applies in both modes; only LIVE is legal evidence.
+
+> **BUILT 2026-08-23 (migration `20260823_18`) — by row-level security, NOT separate databases.**
+> This section previously claimed separate DB instances per mode. That was never true and is not
+> what shipped. State the mechanism accurately if this is shown to a reviewer: isolation is a
+> Postgres RLS predicate within ONE database, with two deliberate exceptions named below.
+
+- `data_mode` on every produced row, and **LIVE queries cannot return POC rows** — enforced by RLS
+  on 19 agency-scoped tables (`app.data_mode` + `core.current_mode()`), not by application
+  filtering. Fails closed: a session that does not set the mode sees nothing. A mode-mismatched
+  INSERT is refused, not silently hidden. Proven against a real Postgres in
+  `backend/tests/test_mode_isolation_pg.py`, through the non-owning `ittu_app` role.
+- **An owner-role connection still sees both modes**, exactly as it already bypasses agency
+  isolation (§2). Physical separation would not have this property; RLS does. The deployment
+  invariant that the app connects as `ittu_app` is what makes both boundaries real.
+- **`core.audit_log` is deliberately outside the mode boundary.** A mode predicate there breaks
+  hash-chain verification: entries hidden mid-chain produce a false tamper alarm, and entries
+  hidden at the tail produce SILENT TRUNCATION — a trail that verifies clean while records are
+  missing. The trail is per-agency and spans both modes by design, because "everything that
+  happened in this tenant" is the question it exists to answer and the POC→LIVE transition is the
+  most interesting entry in it. Mode is recorded inside the hashed `detail` blob for provenance.
+- **Background workers connect as the owning role** and so are not covered by the predicate; they
+  check `data_mode` in application code and refuse cross-mode rows.
+- Custody hashing applies in both modes; only LIVE is legal evidence. Generated POC documents also
+  carry a "POC DEMONSTRATION OUTPUT — not a legal instrument" banner, and responses carry an
+  `X-Data-Mode` header the UI badges.
 
 ## 7. Data protection & deployment security
 - **PDP Law (UU 27/2022)** + **PP 71/2019** → local/on-prem hosting likely mandatory for PPATK/OJK/

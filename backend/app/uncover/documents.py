@@ -36,7 +36,7 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-from app.uncover.custody import audit_log, sha256_hex
+from app.uncover.custody import sha256_hex
 
 TEMPLATE_VERSION = "uncover-templates-0.1.0"
 GOAML_SCHEMA_VERSION = "goAML-4.0-draft"
@@ -404,19 +404,12 @@ def _finalize(
         data_mode=ctx.data_mode,
         meta=meta or {},
     )
-    audit_log.record(
-        action="action.document.generated",
-        target_type="action_document",
-        target_id=doc.id,
-        detail={
-            "case_id": ctx.case_id,
-            "type": doc.type,
-            "format": doc.format,
-            "sha256": doc.sha256,
-            "template_version": doc.template_version,
-            "data_mode": doc.data_mode,
-        },
-    )
+    # No per-document audit entry is written here any more. It used to go to the
+    # in-memory custody chain, which did not survive a restart; the durable
+    # record is the ONE core-trail `action.bundle.generated` entry the router
+    # writes, whose `documents` array carries each document's id, type, format,
+    # sha256 and template_version. Same facts, one entry instead of N, and it
+    # is still there tomorrow.
     return doc
 
 

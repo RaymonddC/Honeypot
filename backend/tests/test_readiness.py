@@ -344,3 +344,135 @@ def test_non_critical_failures_do_not_block_ready(monkeypatch):
     result = _run(readiness())
     assert result.ready is True
     assert any(c.ok is False for c in result.checks)
+
+
+# --------------------------------------------------------------------------- #
+# "Could not verify" is not "passed"
+# --------------------------------------------------------------------------- #
+
+
+def test_an_unverifiable_check_is_unknown_not_ok():
+    """The distinction this endpoint exists to make.
+
+    `schema_at_head` cannot read `alembic_version` without the migration URL.
+    For several releases it answered `ok: True` in that case, so /ready returned
+    a green `ready: true` for a service that had no idea whether its schema
+    matched its code — while deploys were, in fact, skipping migrations
+    entirely. A check that cannot answer must say so.
+    """
+    unknown = Check("schema_at_head", None, "cannot read alembic_version", critical=False)
+
+    assert unknown.status == "unknown", (
+        "a check that could not determine an answer must not be reported as a pass"
+    )
+    assert unknown.ok is not True, "ok must never be True for an unverified check"
+    assert Check("x", True).status == "pass"
+    assert Check("x", False).status == "fail"
+
+
+def test_a_critical_check_that_cannot_verify_itself_blocks_ready(monkeypatch):
+    """Fail CLOSED. If we cannot confirm something the service depends on, the
+    safe answer is to stay out of the load balancer — not to assume the best.
+    A non-critical unknown (today's schema_at_head) must still not block."""
+    monkeypatch.setattr(
+        health, "_check_redis", lambda: Check("redis", None, "could not determine", critical=True)
+    )
+    assert _run(readiness()).ready is False, (
+        "a CRITICAL check that could not verify itself was treated as passing"
+    )
+
+    monkeypatch.setattr(
+        health, "_check_redis", lambda: Check("redis", None, "could not determine", critical=False)
+    )
+    assert _run(readiness()).ready is True, (
+        "a NON-critical unknown must not take the service out of rotation"
+    )
+
+
+def test_the_real_schema_check_reports_unknown_when_it_cannot_read_the_version(monkeypatch):
+    """Drives the ACTUAL code path in `_check_database`, not a hand-built Check.
+
+    Two earlier attempts at this test were worthless and are worth recording,
+    because both LOOKED fine:
+
+    1. It asserted on `Check` objects built inside the test, so reverting the
+       production behaviour left it green — it proved the dataclass worked and
+       nothing about the endpoint.
+    2. It then SKIPPED, because with no database reachable `_check_database`
+       returns early and never produces a `schema_at_head` check at all.
+
+    So both engines are faked here: the app-role engine SUCCEEDS (so the
+    function gets as far as the schema section) and the owner engine raises the
+    way `ittu_app` does when it cannot read `alembic_version`.
+    """
+    from app.core import health as health_module
+
+    class _Result:
+        def scalar(self):
+            return "ittu_app"
+
+    class _Conn:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def execute(self, *a, **k):
+            return _Result()
+
+    class _WorkingEngine:
+        def connect(self):
+            return _Conn()
+
+        async def dispose(self):
+            return None
+
+    class _FailingEngine:
+        """connect() raises — what ittu_app hitting alembic_version does."""
+
+        def connect(self):
+            raise RuntimeError("permission denied for table alembic_version")
+
+        async def dispose(self):
+            return None
+
+    # `_check_database` imports create_async_engine INSIDE the function, so the
+    # patch has to land on sqlalchemy itself, not on the health module.
+    import sqlalchemy.ext.asyncio as sa_asyncio
+
+    calls = {"n": 0}
+
+    def _create(url, *a, **k):
+        calls["n"] += 1
+        return _WorkingEngine() if calls["n"] == 1 else _FailingEngine()
+
+    monkeypatch.setattr(sa_asyncio, "create_async_engine", _create)
+
+    checks = _run(health_module._check_database())
+    names = [c.name for c in checks]
+    assert "schema_at_head" in names, (
+        f"the test never reached the schema check — it proves nothing. Got {names}"
+    )
+
+    schema = next(c for c in checks if c.name == "schema_at_head")
+    assert schema.status == "unknown", (
+        "the schema check must report UNKNOWN when it cannot read alembic_version — "
+        "reporting a PASS is how /ready once called a service healthy while it had "
+        f"no idea whether its schema matched its code. Got status={schema.status!r} "
+        f"ok={schema.ok!r} detail={schema.detail!r}"
+    )
+
+
+def test_the_ready_payload_exposes_status_for_each_check():
+    """`status` is what an operator reads; `ok: null` alone is easy to misread."""
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    with TestClient(app) as client:
+        body = client.get("/ready").json()
+
+    for check in body["checks"]:
+        assert check["status"] in {"pass", "fail", "unknown"}, check
+        assert (check["ok"] is None) == (check["status"] == "unknown"), check

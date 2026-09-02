@@ -147,6 +147,11 @@ async def test_rls_isolates_by_agency(app_role_uri, seeded_sessions):
                 sa.text("SELECT set_config('app.current_agency', :v, true)"),
                 {"v": AGENCY_A},
             )
+            # Mode is an RLS predicate too since migration 20260823_18, and these
+            # fixtures seed at the 'poc' column default. Without it the policy
+            # fails CLOSED and this reads an empty table — which would look like
+            # agency isolation working perfectly while proving nothing.
+            await conn.execute(sa.text("SELECT set_config('app.data_mode', 'poc', true)"))
             result = await conn.execute(sa.text("SELECT agency_id FROM intel.scam_sessions"))
             seen = {str(row[0]) for row in result.fetchall()}
     finally:
@@ -251,6 +256,7 @@ async def test_rls_isolates_dial_attempts_by_agency(app_role_uri, seeded_attempt
                 sa.text("SELECT set_config('app.current_agency', :v, true)"),
                 {"v": AGENCY_A},
             )
+            await conn.execute(sa.text("SELECT set_config('app.data_mode', 'poc', true)"))
             seen = (
                 await conn.execute(
                     sa.text(
@@ -336,6 +342,9 @@ async def test_triage_repository_isolates_by_agency(app_role_uri, seeded_triage)
                 sa.text("SELECT set_config('app.current_agency', :v, true)"),
                 {"v": AGENCY_A},
             )
+            await session.execute(
+                sa.text("SELECT set_config('app.data_mode', 'poc', true)")
+            )
             rows = await PostgresTriageRepository(
                 session, agency_id=uuid.UUID(AGENCY_A)
             ).list_triage()
@@ -409,6 +418,7 @@ async def test_rls_isolates_syndicate_members_through_their_syndicate(
                 sa.text("SELECT set_config('app.current_agency', :a, false)"),
                 {"a": AGENCY_A},
             )
+            await conn.execute(sa.text("SELECT set_config('app.data_mode', 'poc', false)"))
             own = (
                 await conn.execute(
                     sa.text(
@@ -484,6 +494,7 @@ async def test_fiat_correlations_are_policed_through_their_case(app_role_uri):
                 sa.text("SELECT set_config('app.current_agency', :a, false)"),
                 {"a": AGENCY_A},
             )
+            await conn.execute(sa.text("SELECT set_config('app.data_mode', 'poc', false)"))
             seen = (
                 await conn.execute(
                     sa.text("SELECT count(*) FROM fiat.correlations WHERE case_id = :c"),

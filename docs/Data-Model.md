@@ -18,9 +18,12 @@
    correlation carries method, confidence, model/prompt version, and review status.
 5. **Tamper-evident custody.** Honeypot messages and evidence are hash-chained (SHA-256, `prev_hash`)
    so any alteration is detectable — meets UU ITE Pasal 5 electronic-evidence standard.
-6. **POC and LIVE data are physically separable and never mixed.** A `data_mode` enum tags every
-   data-producing row; LIVE evidence views never read POC rows. In production, real-evidence stores
-   run as separate DB instances (POC ≠ LIVE credentials) so demo data can never contaminate a case.
+6. **POC and LIVE data are never mixed** — enforced by row-level security, in ONE database
+   (built 2026-08-23, migration `20260823_18`). A `data_mode` enum tags every data-producing row,
+   and the RLS policies compare it to the request's `app.data_mode`, so a LIVE query cannot return
+   POC rows even if it forgets to filter. *Earlier revisions of this doc said separate DB instances
+   per mode; that is not what shipped — see `Adapter-MODE-Framework.md` for the mechanism and its
+   two deliberate exceptions (`core.audit_log`, and background workers on the owning role).*
 7. **UUID primary keys** (v7 preferred — time-sortable), `created_at`/`updated_at` on all tables,
    soft-delete (`deleted_at`) where retention matters. `JSONB` for semi-structured payloads.
 
@@ -317,10 +320,19 @@ Neo4j holds the persistent cross-case graph.
 
 ## POC ↔ LIVE data isolation (evidentiary integrity)
 
-- Every data-producing row carries `data_mode ∈ {poc, live}`. API/session context pins the mode;
-  queries filter by it. **LIVE evidence views never read POC rows.**
-- Production runs **separate DB instances** for real evidence (distinct credentials/hosts) so POC/demo
-  data is physically incapable of entering a real case. Neo4j likewise separated per mode.
+- Every data-producing row carries `data_mode ∈ {poc, live}`. The request's mode is pinned into the
+  transaction (`app.data_mode`) and **RLS filters by it** — not the application. **LIVE evidence
+  views cannot read POC rows.** Fails closed when the mode is unset; a mode-mismatched INSERT is
+  refused. Proven in `backend/tests/test_mode_isolation_pg.py`.
+- **`core.audit_log` is deliberately exempt** — a mode predicate breaks hash-chain verification
+  (false tamper alarm one way, silent truncation the other). Mode lives in its hashed `detail`
+  blob instead. See `app/core/audit.py`.
+- **`chain.*` and `fiat.*` raw ledger/reference tables have NO mode policy yet**, because they are
+  deliberately not agency-scoped (public-ledger facts shared across agencies) and currently have
+  zero read and zero write sites — chain/fiat data flows through adapters, never through Postgres.
+  ⚠ **Obligation:** whoever first persists to these tables must add a MODE-ONLY policy (no agency
+  predicate) in the same change. POC fixture wallets sitting beside real TRONSCAN wallets in one
+  unfiltered table is exactly the contamination this section exists to prevent.
 - Chain-of-custody hashing applies in both modes, but only LIVE rows are treated as legal evidence.
 
 ---

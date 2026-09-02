@@ -32,10 +32,32 @@ _log = logging.getLogger("uvicorn.error")
 
 @dataclass
 class Check:
+    """One readiness probe. ``ok`` has THREE states, not two.
+
+    ``None`` means the check could not determine an answer — distinct from
+    passing. It exists because reporting "I could not verify this" as ``ok:
+    true`` is the same over-claim we removed from the audit chain banner: a
+    green tick that means "no evidence of a problem" reads as "no problem".
+    ``schema_at_head`` is exactly that case — without the migration URL it
+    cannot read ``alembic_version``, and for several releases this endpoint
+    answered ``ok: true`` on a service that had no idea whether its schema
+    matched its code, while migrations were in fact being skipped entirely.
+
+    A CRITICAL check that cannot verify itself is treated as NOT ready
+    (``None`` is falsy, so it fails the ``all()`` below): if we cannot confirm a
+    thing the service depends on, the safe answer is to stay out of the load
+    balancer, not to assume the best.
+    """
+
     name: str
-    ok: bool
+    ok: bool | None
     detail: str = ""
     critical: bool = True  # a non-critical check can fail without blocking ready
+
+    @property
+    def status(self) -> str:
+        """``pass`` | ``fail`` | ``unknown`` — the honest word for ``ok``."""
+        return "unknown" if self.ok is None else ("pass" if self.ok else "fail")
 
 
 @dataclass
@@ -103,9 +125,12 @@ async def _check_database() -> list[Check]:
         # ittu_app cannot read alembic_version; that is expected, not a failure.
         checks.append(
             Check(
-                "schema_at_head", True,
-                f"not verifiable from this role ({type(exc).__name__}) — set "
-                "ITTU_MIGRATION_DATABASE_URL to enable",
+                "schema_at_head", None,
+                f"NOT VERIFIED — cannot read alembic_version from this role "
+                f"({type(exc).__name__}). Set ITTU_MIGRATION_DATABASE_URL to enable. "
+                "Note this is also what scripts/start.sh needs to run migrations at "
+                "all: without it, deploys skip `alembic upgrade head` and serve "
+                "against whatever schema the database happens to have.",
                 critical=False,
             )
         )

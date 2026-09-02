@@ -2,13 +2,39 @@
 # Setup: Render → New → Blueprint → connect this repo → apply.
 # autoDeploy:true → redeploys on every push to the connected branch.
 # NOTE: after the first deploy, set ITTU_CORS_ORIGINS to your Vercel frontend URL.
+#
+# ── THIS FILE IS THE TARGET STATE, NOT NECESSARILY WHAT IS RUNNING ───────────
+# The live deployment may be on a lower tier than the plans below. That is a
+# deliberate, recorded choice — upgrade when ready — but it means the tier
+# determines which FEATURES actually work, not just how fast they are:
+#
+#   free     web service only. Sleeps after ~15 min idle → 30-60s cold start on
+#            the next request. For a honeypot that is not a performance note: an
+#            inbound call or a Twilio webhook arriving cold is one the system
+#            fails to answer. Background workers are NOT offered on free, so the
+#            ittu-worker service below cannot exist, which means
+#            ITTU_NOTIFICATION_DELIVERY=worker silently queues and never
+#            delivers, and outbound dial campaigns never dial. Keep delivery on
+#            the default `sync` while on free.
+#   starter  no sleeping, and background workers become available → durable
+#            notification retries and dial campaigns work. Single instance.
+#   +Redis   required before ANY of this scales horizontally: investigation jobs
+#            are held in-process today, so a poll landing on a second instance
+#            404s a job that is running fine (docs/Backlog.md, A1-prod).
+#
+# In short: free runs the four pillars and the demo. It does not run the
+# queue-backed features, and it cannot run more than one instance.
 services:
   - type: web
     name: ittu-api
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    plan: free            # free tier sleeps after ~15 min idle → first hit cold-starts (~30-60s)
+    # NOT free: the free tier sleeps after ~15 min idle, and a honeypot that
+    # cold-starts for 30-60s misses the call it exists to answer. Also: Render
+    # background workers do not exist on free, so a free web service cannot have
+    # the worker this blueprint declares below.
+    plan: starter
     region: singapore     # closest Render region to Indonesia
     healthCheckPath: /health
     autoDeploy: true
@@ -20,6 +46,34 @@ services:
       - key: ITTU_CORS_ORIGINS
         # The deployed frontend origin(s) allowed to call the API.
         value: '["https://honeypot-brown.vercel.app"]'
+      # ── Persistence ────────────────────────────────────────────────────────
+      # These were previously set ONLY in the Render dashboard, and this file
+      # said nothing about them. The result: a blueprint re-apply, or any new
+      # environment created from it, comes up with the DEFAULT persistence
+      # (memory) while the worker below is pinned to postgres — the API writing
+      # to memory and the worker reading a database it will never find the row
+      # in. Declared here so the two services cannot silently disagree.
+      - key: ITTU_PERSISTENCE
+        value: postgres
+      # The app's RLS-subject role (ittu_app). NOT the owner — connecting as the
+      # owner silently bypasses every row-level policy (docs/Security-Evidence.md §2).
+      - key: ITTU_DATABASE_URL
+        sync: false                  # set in the dashboard (secret)
+      # The OWNING role, used only by `alembic upgrade head` in scripts/start.sh.
+      # ⚠ WITHOUT THIS, start.sh SKIPS MIGRATIONS ENTIRELY and serves app code
+      # against whatever schema the database happens to have. That is not
+      # hypothetical: it is how this deployment ran for several releases, and
+      # `/ready`'s schema_at_head check reports "not verifiable" when it is absent
+      # precisely so the gap is visible instead of silent.
+      - key: ITTU_MIGRATION_DATABASE_URL
+        sync: false                  # owner role (secret)
+      # Same broker instance as the worker, or the API enqueues into one queue
+      # while the worker drains another.
+      - key: ITTU_REDIS_URL
+        sync: false
+      # Bearer token for GET /metrics. Unset = the endpoint 404s (docs/Deploy.md §8).
+      - key: ITTU_METRICS_TOKEN
+        sync: false
 
   # ── Background worker (Dramatiq) ─────────────────────────────────────────────
   # Consumes the queues the API enqueues into. WITHOUT this service, anything

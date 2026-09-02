@@ -24,7 +24,7 @@ hub. Live blockchain tracing (async jobs, hardened, cycle-fix). Auth/RLS + Googl
 live in prod. Persistence (Postgres/Neon, dual in-memory/Postgres repositories). **C1 dispatch
 delivery** — production-ready notification layer (HMAC-signed webhooks, idempotency keys, durable
 retried delivery via the Dramatiq actor, `GET /api/notifications` outbox feed + retry, Dispatch Log
-on the Response dashboard). **508 backend tests green**, frontend build green.
+on the Response dashboard). **513 backend tests green**, frontend build green.
 
 ## 🟢 Actionable now — buildable today (no external gate)
 - [x] **B1 — TTS (ElevenLabs)** · S · **DONE (2026-08-08)** — code path complete end-to-end: the
@@ -57,9 +57,27 @@ on the Response dashboard). **508 backend tests green**, frontend build green.
       (~1 query/request) or short TTL + refresh — **not built**, and worth revisiting if a
       compromised-account drill ever needs to be measured in seconds.
 
-- [ ] **A1-prod — Dramatiq executor swap** (investigation jobs) · S–M · *deferred by choice* — async
-      already works in-process; build only when there's real concurrency (submit→poll contract is a
-      drop-in). *(Note: C1 already stood up the Dramatiq delivery actor + broker for notifications.)*
+- [ ] **Horizontal scaling — what breaks with more than one instance** · M · **TARGET CHOSEN
+      2026-08-23 (user): horizontally scalable.** ⛔ **GATED ON REDIS**, which is gated on the Render
+      tier — `/ready` currently reports `redis: unreachable`. Audited for module-level mutable state,
+      the thing that quietly breaks on a second instance. Three real hits:
+      - [ ] **A1-prod — investigation jobs → Dramatiq** · S–M · **THE CORRECTNESS BREAK.**
+            `POST /api/investigate` stores the job in a per-process dict (`takedown/jobs.py:_store`)
+            and `GET /api/investigate/jobs/{id}` 404s `job_not_found` when the poll lands on a
+            different instance. With two instances roughly **half of all polls fail on jobs that are
+            running fine**, so the Investigation screen looks randomly broken. Was "deferred by
+            choice" while single-instance; the scale decision makes it mandatory. The submit→poll
+            contract is unchanged, so this is an executor swap, not an API change. *(C1 already
+            stood up the Dramatiq actor + broker, so the machinery exists.)*
+      - [ ] **Metrics counters are per-process** · S — a scrape hits whichever instance answers and
+            reports a fraction of reality. Needs per-instance scrape targets or a multiprocess
+            collector. Already documented in `app/core/metrics.py` and `Deploy.md` §8; listed here
+            because it stops being a footnote once there IS more than one process.
+      - [ ] **`seed_demo_session` check-then-act race** · XS — it is idempotent by "does a session
+            already exist", so N instances booting together can each see none and all seed. Demo
+            data only, no correctness impact, but it makes the console look wrong on first load.
+      **Accepted as-is:** the denial rate cap becomes N×5 (already documented per-worker), and the
+      TTS audio cache is per-process, costing repeat synthesis rather than correctness.
 - [x] **Wallet risk scoring — rules specified, and the model improved** · M · **DONE (2026-08-18)**
       — spec: [`Wallet-Risk-Scoring-Rules.md`](Wallet-Risk-Scoring-Rules.md). Every constant is
       documented and honestly marked *unvalidated default*; band→action mapping proposed; validation
@@ -78,7 +96,11 @@ on the Response dashboard). **508 backend tests green**, frontend build green.
       (§5 — precision/recall *per band*, ±20% sensitivity), confirm the band→action mapping with
       investigator practice, and assign an owner for the numbers. Related: `wallet_risk_scores.wallet_id`
       nullability is a product decision to settle at the same time.
-- [ ] **Go-live hardening** · M · *partly done* — only fully needed when heading to real production.
+- [x] **Go-live hardening** · M · **ALL FOUR CHILDREN DONE (2026-08-23)** — LIVE-adapter contract
+      tests, the RLS-isolation review, `/ready` diagnostics, and metrics + alerting. The fifth,
+      *separate DB per mode*, was surveyed and REPLACED rather than built: `data_mode` turned out to
+      be a label nothing read (0 of 201 references in a WHERE clause), and the fix shipped as
+      database-enforced mode RLS instead of a second Neon compute — see the mode-isolation entry.
       - [x] **Contract tests per LIVE adapter** — `tests/test_live_adapter_contract.py` asserts the
             "fail loud, never silently degrade" invariant over the registry, so a new adapter cannot
             silently no-op.
@@ -118,8 +140,48 @@ on the Response dashboard). **508 backend tests green**, frontend build green.
             - **Known limit:** counters are per process. One uvicorn worker today, so they are
               complete; adding `--workers` would need per-worker scrape targets or a multiprocess
               collector. Called out in `Deploy.md` §8.
-      - [ ] Separate DB per mode (POC vs LIVE evidentiary isolation).
-- [ ] **Audit trail — broaden & surface** · M · **backend slice DONE (2026-08-17, `7507034`)** —
+      - [x] **POC vs LIVE evidentiary isolation** · **DONE (2026-08-23, migration `20260823_18`)** —
+            filed as "separate DB per mode"; shipped as **RLS-enforced mode** instead, reusing the
+            mechanism that already enforces tenant isolation rather than adding a second compute.
+            - **The survey came first, and the premise was worse than assumed.** `data_mode` was
+              stamped on 24 of 32 tables with CHECK constraints and **read by nothing**: 0 of 201
+              references in a WHERE clause, 0 RLS policies mentioning it. A label, not a boundary.
+            - **Now a per-transaction predicate.** `_tenant_scoped_session` sets `app.data_mode`;
+              `core.current_mode()` reads it; 19 agency-scoped policies compare it to the row.
+              A query that forgets to filter *cannot* leak. **Fails closed** when unset or garbage
+              — the mode twin of `test_rls_isolation.py`'s NULL-agency proof.
+            - **The write side came free and is now pinned.** Postgres applies `USING` as the
+              implicit `WITH CHECK`, so a mode-mismatched INSERT is REFUSED rather than
+              written-and-invisible. A future policy given an explicit permissive `WITH CHECK`
+              would silently lose that, so a test asserts it.
+            - **Why NOT a second database** (the option originally filed): a Neon *branch* is
+              copy-on-write, so a LIVE branch would begin life holding every POC row — backwards.
+              A separate schema means parameterising the whole migration chain for weak isolation.
+              And per-module databases are incoherent: `core.cases`/`audit_log`/`users` are shared
+              by all modules, so "which database does a case live in" has no answer.
+            - **⚠ `core.audit_log` is deliberately EXEMPT, and this is the interesting part.** A
+              mode predicate makes the trail report itself as tampered: measured over a
+              poc,poc,live,live chain, a LIVE session sees `(False, 3)` — a false tamper alarm —
+              and a POC session sees `(True, None)` while entries are **silently truncated** from
+              the tail, which is exactly the blind spot `ittu_audit_entries_dropped_total` exists
+              to close. It is also arguably right on the merits: the trail answers "everything
+              that happened in this tenant", and the POC→LIVE transition is its most interesting
+              entry. Mode is recorded in the hashed `detail` blob instead — tamper-evident AND
+              filterable, so the usual trade-off did not apply.
+            - **⚠ Background workers are outside the boundary too** — they connect as the owning
+              role and bypass RLS by design, so both actors now check `data_mode` explicitly and
+              refuse cross-mode rows (the notification dispatcher previously claimed rows by
+              `public_id` alone, checking neither agency nor mode).
+            - **Cost accepted:** mixed `ITTU_MODULE_MODES` are refused at boot under Postgres —
+              `app.data_mode` is one value per transaction and a request spans modules. Still
+              fully supported under `ITTU_PERSISTENCE=memory`.
+            - **Known limit:** an owner-role connection still sees both modes, exactly as it
+              already bypasses agency isolation. Physical separation would not have that
+              property; the `ittu_app` deployment invariant is what makes both boundaries real.
+            - `chain.*`/`fiat.*` raw ledger tables deferred with a recorded obligation (zero read
+              and zero write sites today — a policy there would be untestable). See
+              `docs/Data-Model.md`.
+- [x] **Audit trail — broaden & surface** · M · **COMPLETE (2026-08-23)** — every child shipped —
       roadmap step 2's "chain-of-custody end-to-end". `core.audit_log` was migrated and documented as
       hash-chained but **nothing ever wrote to it**; `app/core/audit.py` is now the writer (per-agency
       SHA-256 chain, never raises — audit must not break the action it records) and `GET /api/audit`
@@ -171,13 +233,55 @@ on the Response dashboard). **508 backend tests green**, frontend build green.
             - UI: `/audit` renders a denial with a DENIED chip, red treatment and *tried to*
               phrasing plus the reason. A refused platform-admin grant that rendered like a
               successful one would be worse than not recording it.
-      - [ ] **Decide** whether `uncover.custody` should collapse into the core trail. They are NOT
-            duplicates: custody is per-process/in-memory and only fills `ActionBundle.audit` in the
-            API response (never stored — see `uncover/repository.py`), while `core.audit_log` is the
-            durable per-agency trail. Merging changes that API contract, so it is a product decision,
-            not a cleanup. Both docstrings now say so.
-- [ ] **Two latent defects found while auditing denials** · S each · *surfaced 2026-08-22, neither
-      caused by that work* — recorded because both are the quiet kind that surface as something else.
+      - [x] **`uncover.custody` collapsed into the core trail** · **DECIDED + DONE (2026-08-23)** —
+            it was framed as a product decision about an API contract. It turned out to be a
+            **defect**: the custody chain was per-process and in-memory, so it was empty after every
+            restart (and Render restarts) — while the Action Panel derived the displayed **evidence
+            hash** from that chain's head, falling back to `documents[0].sha256` when empty. The
+            same bundle therefore showed one evidence hash before a restart and a different one
+            after. For a product whose pitch is chain of custody, a hash that silently changes is
+            worse than none. That, not tidiness, is why it was collapsed.
+            - `ActionBundle.audit` is now a filtered, agency-scoped view of `core.audit_log`
+              (`app/uncover/router.py::_attach_audit`). Filled in the ROUTER, not the service:
+              reading the trail needs an agency-scoped session, and threading one through the
+              service layer would put tenancy into functions that know nothing about it.
+            - **Evidence hash is now derived from the evidence** — a digest of the bundle's document
+              sha256s, order-independent. It moves if and only if the documents move. The chain-head
+              derivation was NOT restored: the core trail's list still grows on dispatch, so its head
+              would change while the evidence had not.
+            - **Nothing was dropped.** Custody's two unique details were carried into the core
+              entries: per-notification `{id, agency, status}` onto `dispatch.sent`, and
+              `format` + `template_version` onto each document in `action.bundle.generated`. The
+              per-document *entries* are gone (one bundle entry now carries all of them); the
+              per-document *hashes* are untouched — they were always a separate concern.
+            - `custody.py` keeps `sha256_hex` and `GENESIS` (the latter is used by
+              `app/infiltrate/custody.py`) and nothing else; its docstring argued for the split and
+              now records why the argument was wrong.
+            - **Visible contract change:** a bundle's `seq` is its position in the AGENCY chain, so
+              the numbers are non-contiguous (47, 103, …). Nothing in the UI renders `seq` today, so
+              nothing was mis-presented; the schema field carries a warning not to render it as a
+              per-bundle gapless chain, which would be the same over-claim the `/audit` banner was
+              corrected for.
+            - **Blocker found and fixed on the way:** `core.audit_log.target_id` is a uuid COLUMN,
+              and `PostgresAuditRepository.record` silently dropped anything that was not a uuid.
+              Five wired actions identify their target with a business key (`act_…`, `doc_…`,
+              `ent_…`, `sess_…`), so under Postgres those entries stored **no reference to what they
+              were about at all** — verified against a real Postgres before fixing. `_is_uuid`'s
+              docstring claimed the key was "kept in `detail` rather than dropped"; that was the
+              intent and never the implementation. Now genuinely kept, as `detail["_target_id"]`,
+              which is inside `entry_hash` and so tamper-evident for free. Entries written before
+              this stay valid but cannot be filtered by target; deliberately not backfilled.
+            - **The hoped-for bonus does NOT work, and is left alone:** a refused dispatch does not
+              appear in the bundle's custody view. `require_role` rejects during dependency
+              resolution, before the handler, so it records `access.forbidden` against
+              `target_type="endpoint"` with no `_target_id` — visible in the agency feed at `/audit`,
+              not in the bundle view. Making it work means giving the guard the route's path params
+              (they are in `request.path_params`) so the denial can name the bundle. Small, but it
+              was not asked for and touches every `require_role` site.
+- [x] **Defects found while auditing denials** · **ALL THREE CLOSED (2026-08-22)** · *surfaced by
+      that work, not caused by it* — recorded because each is the quiet kind that surfaces as
+      something else: a chain fork that reads as tampering, a MODE that ignores config, and a lost
+      entry that leaves a clean-looking chain. Two fixed, one closed as won't-do with reasoning.
       - [x] **`core.audit_log.seq` allocation race** · **DONE (2026-08-22)** — it was worse than
             duplicate numbering: `seq` AND `prev_sha256` both come from the same chain-head read, so
             concurrent writers produced entries claiming the same position *and* the same

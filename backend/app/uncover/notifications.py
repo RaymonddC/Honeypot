@@ -19,6 +19,7 @@ import asyncio
 import hashlib
 import hmac
 import json
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Literal, Protocol, runtime_checkable
@@ -35,6 +36,8 @@ import dramatiq
 from app.core import broker as _broker  # noqa: F401
 from app.core.adapters import register
 from app.core.config import Mode, Settings, get_settings
+
+_log = logging.getLogger("uvicorn.error")
 
 AgencyType = Literal["bank", "exchange", "regulator", "police"]
 
@@ -360,6 +363,27 @@ async def _deliver_one(notification_public_id: str) -> None:
             ).scalar_one_or_none()
             if row is None or row.status == "sent":
                 return  # unknown or already delivered — nothing to do
+            # Mode guard. This actor runs as the OWNING role (see worker_session),
+            # which bypasses the mode RLS predicate from migration 20260823_18 as
+            # surely as it bypasses the agency one — so nothing but this line
+            # stops a POC row being dispatched to a real agency's webhook, or a
+            # LIVE row being handled by a deployment that has since flipped to
+            # POC. Claimed by public_id alone, so the row is NOT guaranteed to
+            # belong to this deployment's evidentiary universe; check, don't
+            # assume. Settled `failed` rather than left queued: a row that can
+            # never legitimately be sent here must not be retried forever.
+            if row.data_mode != settings.mode:
+                row.status = "failed"
+                row.last_error = (
+                    f"mode mismatch: notification is data_mode={row.data_mode!r} but "
+                    f"this deployment runs ITTU_MODE={settings.mode!r} — refusing to "
+                    "dispatch across the POC/LIVE boundary"
+                )
+                _log.error(
+                    "notification %s: REFUSED, data_mode=%s but deployment mode=%s",
+                    notification_public_id, row.data_mode, settings.mode,
+                )
+                return
             row.status = "sending"
             row.attempt_count = (row.attempt_count or 0) + 1
             attempt = row.attempt_count
