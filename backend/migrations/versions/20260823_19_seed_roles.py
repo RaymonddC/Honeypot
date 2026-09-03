@@ -52,6 +52,7 @@ SEED: dict[str, list[str]] = {
         "case.write",
         "dispatch.send",
         "honeypot.operate",
+        "roles.admin",
         "users.admin",
         "users.admin.cross_agency",
     ],

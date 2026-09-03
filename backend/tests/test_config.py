@@ -160,13 +160,21 @@ def test_persisting_modules_matches_the_modules_that_have_a_postgres_repository(
 
     from app.core.config import PERSISTING_MODULES
 
+    # The property PERSISTING_MODULES actually encodes is "writes MODE-STAMPED
+    # rows", not "has a Postgres repository". They came apart when role
+    # administration landed: app/roles has a Postgres repository, but core.roles
+    # has no data_mode column at all — a role is a global platform definition,
+    # not tenant data, so it cannot be mis-stamped and does not belong in the
+    # mode-coherence guard.
     app_dir = Path(__file__).resolve().parents[1] / "app"
-    found = {
-        d.name
-        for d in app_dir.iterdir()
-        if d.is_dir() and (d / "repository.py").is_file()
-        and "class Postgres" in (d / "repository.py").read_text(encoding="utf-8")
-    }
+    found = set()
+    for d in sorted(app_dir.iterdir()):
+        repo = d / "repository.py"
+        if not (d.is_dir() and repo.is_file()):
+            continue
+        src = repo.read_text(encoding="utf-8")
+        if "class Postgres" in src and "data_mode" in src:
+            found.add(d.name)
     assert found == set(PERSISTING_MODULES), (
         "PERSISTING_MODULES has drifted from the modules that actually own a "
         f"Postgres repository.\n  in the tree: {sorted(found)}\n  in the set:  "

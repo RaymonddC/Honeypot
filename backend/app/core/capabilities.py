@@ -43,6 +43,7 @@ CASE_WRITE = "case.write"
 DISPATCH_SEND = "dispatch.send"
 USERS_ADMIN = "users.admin"
 USERS_ADMIN_CROSS_AGENCY = "users.admin.cross_agency"
+ROLES_ADMIN = "roles.admin"
 
 
 @dataclass(frozen=True)
@@ -82,6 +83,14 @@ CAPABILITIES: tuple[Capability, ...] = (
         "Manage users",
         "Invite people, change their role, and deactivate them — within this "
         "agency only.",
+    ),
+    Capability(
+        ROLES_ADMIN,
+        "Define roles and what they can do",
+        "Create roles, and choose which capabilities each one grants. This is "
+        "the most powerful permission in the system: it edits the permission "
+        "system itself, and roles are GLOBAL — a change here applies to every "
+        "agency, not just yours. Platform operators only.",
     ),
     Capability(
         USERS_ADMIN_CROSS_AGENCY,
@@ -133,6 +142,7 @@ DEFAULT_ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
             DISPATCH_SEND,
             USERS_ADMIN,
             USERS_ADMIN_CROSS_AGENCY,
+            ROLES_ADMIN,
         }
     ),
 }
@@ -141,4 +151,4 @@ DEFAULT_ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
 #: role admin API refuses any edit that would leave zero roles holding one of
 #: these — the role-level twin of UAM's `last_admin` guard, and the reason a
 #: configurable permission system cannot lock everyone out of itself.
-UNREMOVABLE_CAPABILITIES: frozenset[str] = frozenset({USERS_ADMIN})
+UNREMOVABLE_CAPABILITIES: frozenset[str] = frozenset({USERS_ADMIN, ROLES_ADMIN})

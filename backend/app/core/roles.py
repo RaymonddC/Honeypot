@@ -51,10 +51,36 @@ def invalidate() -> None:
     _cache_expires_at = 0.0
 
 
-def _from_defaults() -> dict[str, frozenset[str]]:
-    """The seeded policy — used ONLY under memory persistence, where there is no
-    table to read. Never a fallback for a failed query (see 'Fail closed')."""
-    return dict(DEFAULT_ROLE_CAPABILITIES)
+#: The memory-mode policy. Lives HERE, not in ``app/roles/repository.py``, so the
+#: resolver and the admin API share one source of truth — an earlier version had
+#: the repository keep its own dict while this module returned the static
+#: defaults, so editing a role in memory mode changed nothing about what anyone
+#: could actually do. The admin screen would have looked like it worked.
+_memory_policy: dict[str, frozenset[str]] = {}
+
+
+def memory_policy() -> dict[str, frozenset[str]]:
+    """The in-memory role→capability map, seeded on first use."""
+    if not _memory_policy:
+        reset_memory_policy()
+    return _memory_policy
+
+
+def reset_memory_policy() -> None:
+    """Back to the seeded defaults (fresh process, or a test)."""
+    _memory_policy.clear()
+    _memory_policy.update({k: frozenset(v) for k, v in DEFAULT_ROLE_CAPABILITIES.items()})
+    invalidate()
+
+
+def set_memory_role(name: str, capabilities: frozenset[str]) -> None:
+    _memory_policy[name] = frozenset(capabilities)
+    invalidate()
+
+
+def delete_memory_role(name: str) -> None:
+    _memory_policy.pop(name, None)
+    invalidate()
 
 
 async def _load_from_db() -> dict[str, frozenset[str]] | None:
@@ -112,7 +138,7 @@ async def all_role_capabilities() -> dict[str, frozenset[str]]:
         return _cache
 
     if get_settings().persistence != "postgres":
-        loaded: dict[str, frozenset[str]] | None = _from_defaults()
+        loaded: dict[str, frozenset[str]] | None = dict(memory_policy())
     else:
         loaded = await _load_from_db()
 

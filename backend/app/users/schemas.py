@@ -2,20 +2,27 @@
 no oauth_sub, no password material (there is none: auth is OAuth/JWT)."""
 
 import uuid
-from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from typing import Annotated
+
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from app.core.auth import ROLES
 
-RoleName = Literal[
-    "regulator-analyst",
-    "police-investigator",
-    "bank-compliance",
-    "exchange-compliance",
-    "agency-admin",
-    "platform-admin",
-]
+# A plain constrained string, NOT a Literal of the six built-in names.
+#
+# Roles are DATA now (core.roles), so a `Literal` here would make a role created
+# in the admin UI unassignable: POST /users would reject it as invalid before
+# any of our own checks ran, and the error would blame the caller for using a
+# role the product just told them to create. Existence is checked against the
+# roles table in `app/users/router.py`, where a refusal can say which role is
+# unknown and is audited like every other denial.
+#
+# The shape rule stays, because a role name reaches SQL, the JWT, and the audit
+# trail: lowercase letters, digits and hyphens.
+RoleName = Annotated[str, StringConstraints(
+    min_length=2, max_length=64, pattern=r"^[a-z][a-z0-9-]*$"
+)]
 
 
 class UserAdminOut(BaseModel):
