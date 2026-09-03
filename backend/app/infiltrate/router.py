@@ -26,7 +26,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from app.core.audit import ENTITY_REVIEWED, record_action
-from app.core.auth import AuthContext, get_current_user
+from app.core.auth import AuthContext, get_current_user, require_capability
+from app.core.capabilities import HONEYPOT_OPERATE
 from app.core.db import get_optional_tenant_session
 from app.core.config import get_settings
 from app.infiltrate import service
@@ -108,7 +109,7 @@ class TtsVoicesOut(BaseModel):
 
 @router.get("/tts/voices", response_model=TtsVoicesOut)
 async def get_tts_voices(
-    _auth: AuthContext = Depends(get_current_user),  # Control Panel is post-login
+    _auth: AuthContext = Depends(require_capability(HONEYPOT_OPERATE)),  # honeypot voice configuration
 ) -> TtsVoicesOut:
     """List the voices the server's ElevenLabs key can synthesize (id + name),
     so the Control Panel can flag a bad voice ID before a call. The key never
@@ -143,7 +144,7 @@ _VOICE_SAMPLE = {
 async def get_tts_voice_check(
     voice_id: str = Query(..., min_length=1),
     voice: str = Query("persona", description="persona|scammer — picks the sample line"),
-    _auth: AuthContext = Depends(get_current_user),  # Control Panel is post-login
+    _auth: AuthContext = Depends(require_capability(HONEYPOT_OPERATE)),  # honeypot voice configuration
 ) -> Response:
     """Test one ElevenLabs voice ID by a short **test synthesis** and return the
     audio so the Control Panel PLAYS a sample (not just validates). Uses the
@@ -173,7 +174,7 @@ async def get_tts_voice_check(
 async def get_tts_gemini_check(
     voice: str = Query("persona", description="persona|scammer — picks the sample line"),
     voice_name: str = Query("", description="prebuilt voice to test; blank = configured default"),
-    _auth: AuthContext = Depends(get_current_user),  # Control Panel is post-login
+    _auth: AuthContext = Depends(require_capability(HONEYPOT_OPERATE)),  # honeypot voice configuration
 ) -> Response:
     """Readiness check for Gemini TTS: run a short **test synthesis** (the exact
     ``generateContent`` path a call uses) in the given voice and, on success,
@@ -207,7 +208,7 @@ async def get_tts_gemini_check(
 async def get_tts_google_check(
     voice: str = Query("persona", description="persona|scammer — picks the sample line"),
     voice_name: str = Query("", description="id-ID voice to test; blank = configured default"),
-    _auth: AuthContext = Depends(get_current_user),  # Control Panel is post-login
+    _auth: AuthContext = Depends(require_capability(HONEYPOT_OPERATE)),  # honeypot voice configuration
 ) -> Response:
     """Readiness check for Google Cloud TTS: run a short **test synthesis** in the
     given voice and, on success, return the MP3 so the Control Panel PLAYS a
@@ -250,7 +251,7 @@ async def get_scenarios() -> list[ScenarioOut]:
 @router.get("/sessions", response_model=list[SessionOut])
 async def get_sessions(
     repo: InfiltrateRepository = RepoDep,
-    _auth: AuthContext = Depends(get_current_user),  # P-4a: read routes need identity
+    _auth: AuthContext = Depends(require_capability(HONEYPOT_OPERATE)),  # raw deception transcript
 ) -> list[SessionOut]:
     """All engaged honeypot sessions (RLS-scoped in LIVE)."""
     return await service.list_sessions(repo=repo)
@@ -262,7 +263,7 @@ async def post_session(
     channel: ChannelAdapter = ChannelDep,
     gateway: LLMGateway = GatewayDep,
     repo: InfiltrateRepository = RepoDep,
-    _auth: AuthContext = Depends(get_current_user),  # honeypot ops need identity
+    _auth: AuthContext = Depends(require_capability(HONEYPOT_OPERATE)),  # starts a deception session
 ) -> SessionOut:
     """Start a session: POC replays the scripted scam convo through the agent
     loop, hash-chains every message, extracts + reconciles entities, classifies
@@ -275,7 +276,7 @@ async def post_session_turn(
     session_id: str,
     body: TurnRequest,
     repo: InfiltrateRepository = RepoDep,
-    _auth: AuthContext = Depends(get_current_user),  # live engagement needs identity
+    _auth: AuthContext = Depends(require_capability(HONEYPOT_OPERATE)),  # live engagement with a suspect
 ) -> TurnOut:
     """One live inbound utterance (Tier-B interactive session, mic or typed)
     → one agent turn: persona reply + Layer-A/B extraction + custody append +
@@ -292,7 +293,7 @@ async def post_session_turn(
 async def get_session(
     session_id: str,
     repo: InfiltrateRepository = RepoDep,
-    _auth: AuthContext = Depends(get_current_user),  # P-4a: read routes need identity
+    _auth: AuthContext = Depends(require_capability(HONEYPOT_OPERATE)),  # raw deception transcript
 ) -> SessionOut:
     session = await service.get_session(session_id, repo=repo)
     if session is None:
@@ -304,7 +305,7 @@ async def get_session(
 async def get_session_messages(
     session_id: str,
     repo: InfiltrateRepository = RepoDep,
-    _auth: AuthContext = Depends(get_current_user),  # P-4a: read routes need identity
+    _auth: AuthContext = Depends(require_capability(HONEYPOT_OPERATE)),  # raw deception transcript
 ) -> list[MessageOut]:
     """The hash-chained transcript; each message carries its inline extracted entities."""
     messages = await service.get_messages(session_id, repo=repo)
@@ -330,7 +331,7 @@ async def get_session_audio(
     voice_scammer: str | None = Query(default=None, description="voice ID for the scammer speaker"),
     tts: TTSAdapter = TTSDep,
     repo: InfiltrateRepository = RepoDep,
-    _auth: AuthContext = Depends(get_current_user),  # P-4a: read routes need identity
+    _auth: AuthContext = Depends(require_capability(HONEYPOT_OPERATE)),  # raw deception transcript
 ) -> VoiceMarkOut | Response:
     """Audio for one voice-session line.
 
@@ -421,7 +422,10 @@ async def get_entities(
     session: str | None = Query(default=None, description="filter by session id"),
     status: str | None = Query(default=None, description="filter by review_status"),
     repo: InfiltrateRepository = RepoDep,
-    _auth: AuthContext = Depends(get_current_user),  # P-4a: read routes need identity
+    _auth: AuthContext = Depends(get_current_user),  # SHARED intelligence:
+    # the honeypot's OUTPUT, not the operation. An institution that may not
+    # run a deception session still needs the wallets and accounts it
+    # surfaced — that is the whole point of sharing a case picture.
 ) -> list[EntityOut]:
     """Extracted, confidence-scored entities (Layer-A validated + Layer-B reconciled)."""
     return await service.list_entities(session_id=session, status=status, repo=repo)
@@ -461,7 +465,10 @@ async def post_entity_review(
 @router.get("/syndicates", response_model=list[SyndicateOut])
 async def get_syndicates(
     repo: InfiltrateRepository = RepoDep,
-    _auth: AuthContext = Depends(get_current_user),  # P-4a: read routes need identity
+    _auth: AuthContext = Depends(get_current_user),  # SHARED intelligence:
+    # the honeypot's OUTPUT, not the operation. An institution that may not
+    # run a deception session still needs the wallets and accounts it
+    # surfaced — that is the whole point of sharing a case picture.
 ) -> list[SyndicateOut]:
     """Syndicate profiles clustered from extracted entities."""
     return await service.list_syndicates(repo=repo)

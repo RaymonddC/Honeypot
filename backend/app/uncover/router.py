@@ -23,7 +23,8 @@ from app.core.audit import (
     _memory_repository,
     record_action,
 )
-from app.core.auth import DISPATCH_ROLES, AuthContext, get_current_user, require_role
+from app.core.auth import AuthContext, get_current_user, require_capability
+from app.core.capabilities import DISPATCH_SEND
 from app.core.db import get_optional_tenant_session
 from app.uncover import service
 from app.uncover.metrics import RangeKey, ResponseMetrics, compute_metrics
@@ -181,7 +182,7 @@ async def post_dispatch(
     action_id: str,
     sink: NotificationSink = SinkDep,
     repo: UncoverRepository = RepoDep,
-    auth: AuthContext = Depends(require_role(DISPATCH_ROLES)),
+    auth: AuthContext = Depends(require_capability(DISPATCH_SEND)),
     audit_session=Depends(get_optional_tenant_session),
     request: Request = None,  # audit origin (ip/user-agent)
 ) -> ActionBundle:
@@ -256,7 +257,7 @@ async def post_notification_retry(
     notification_id: str,
     sink: NotificationSink = SinkDep,
     repo: UncoverRepository = RepoDep,
-    _auth: AuthContext = Depends(require_role(DISPATCH_ROLES)),
+    _auth: AuthContext = Depends(require_capability(DISPATCH_SEND)),
 ) -> NotificationOut:
     """Re-dispatch a failed notification (idempotent — the recipient dedupes on
     the reused key; an already-``sent`` one no-ops). Role-gated like dispatch:

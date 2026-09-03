@@ -32,7 +32,8 @@ from app.core.audit import (
     _memory_repository,
     record_action,
 )
-from app.core.auth import AuthContext, get_current_user
+from app.core.auth import AuthContext, get_current_user, require_capability
+from app.core.capabilities import CASE_WRITE
 from app.core.db import get_optional_tenant_session
 from app.infiltrate import service as infiltrate_service
 from app.infiltrate.repository import InfiltrateRepository, get_infiltrate_repository
@@ -142,7 +143,10 @@ async def get_audit_feed(
 async def create_case(
     body: CreateCaseRequest,
     repo: CaseRepository = RepoDep,
-    auth: AuthContext = Depends(get_current_user),
+    # WRITE needs `case.write`; reading a case deliberately does not. The shared
+    # case picture is the point of the platform — an institution that cannot
+    # open a case must still see the one an investigator opened about them.
+    auth: AuthContext = Depends(require_capability(CASE_WRITE)),
     session=Depends(get_optional_tenant_session),
     request: Request = None,  # audit origin (ip/user-agent)
 ) -> CaseOut:
@@ -190,7 +194,7 @@ async def update_case(
     case_id: str,
     body: UpdateCaseRequest,
     repo: CaseRepository = RepoDep,
-    auth: AuthContext = Depends(get_current_user),
+    auth: AuthContext = Depends(require_capability(CASE_WRITE)),
     session=Depends(get_optional_tenant_session),
     request: Request = None,  # audit origin (ip/user-agent)
 ) -> CaseOut:

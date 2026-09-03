@@ -41,7 +41,14 @@ from app.core.audit import (
     record_action,
     record_denial,
 )
-from app.core.auth import ADMIN_ROLES, PLATFORM_ADMIN, AuthContext, require_role
+from app.core.auth import (
+    ADMIN_ROLES,
+    PLATFORM_ADMIN,
+    AuthContext,
+    require_capability,
+)
+from app.core.capabilities import USERS_ADMIN, USERS_ADMIN_CROSS_AGENCY
+from app.core.roles import has_capability
 from app.core.db import get_optional_tenant_session
 from app.core.user_repository import (
     UserRepository,
@@ -53,7 +60,9 @@ from app.users.schemas import CreateUserRequest, UpdateUserRequest, UserAdminOut
 router = APIRouter(tags=["users"])
 
 RepoDep = Depends(get_user_admin_repository)
-AdminDep = Depends(require_role(ADMIN_ROLES))
+# Capability, not a role list: which roles may administer users is DATA now
+# (core.roles), so an agency can define its own without a redeploy.
+AdminDep = Depends(require_capability(USERS_ADMIN))
 
 
 def _out(user) -> UserAdminOut:
@@ -129,12 +138,15 @@ async def _resolve_agency(
     own = auth.agency.id
     if requested is None or requested == own:
         return own
-    if auth.role != PLATFORM_ADMIN:
+    if not await has_capability(auth.role, USERS_ADMIN_CROSS_AGENCY):
         raise await _deny(
             auth,
             status=403,
             code="cross_agency_forbidden",
-            message="Only a platform-admin can administer another agency's users.",
+            message=(
+                "Administering another agency's users needs the "
+                "'users.admin.cross_agency' capability."
+            ),
             action=action,
             request=request,
             # The agency they reached for. Naming it leaks nothing: the caller

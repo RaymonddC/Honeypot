@@ -134,7 +134,13 @@ def test_uncover_get_document_requires_auth():
 def test_dispatch_403_for_compliance_roles(role, agency):
     r = client.post("/api/actions/act_x/dispatch", headers=bearer(role, agency))
     assert r.status_code == 403
-    assert r.json()["error"]["code"] == "forbidden"
+    # `missing_capability`, not `forbidden`: dispatch is gated on the
+    # `dispatch.send` CAPABILITY now, so which roles hold it is data in
+    # core.roles rather than a hardcoded list. The body names the capability so
+    # an admin can see exactly what to grant.
+    body = r.json()["error"]
+    assert body["code"] == "missing_capability"
+    assert body["capability"] == "dispatch.send"
 
 
 @pytest.mark.parametrize("role,agency", [
