@@ -230,14 +230,22 @@ def test_the_seed_migration_matches_the_default_policy():
     change. Duplication is only safe while something checks it."""
     import importlib.util
 
-    path = BACKEND_DIR / "migrations" / "versions" / "20260823_19_seed_roles.py"
-    spec = importlib.util.spec_from_file_location("seed_roles_migration", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    # BOTH seed migrations must agree with the policy: 19 (insert-if-absent) and
+    # 21 (backfill-if-empty). 19 is a no-op on any database that ran 05, which
+    # is every one of them — 21 is the one that actually populates the column,
+    # and a drift there is the one that would silently 403 everybody.
+    for filename in (
+        "20260823_19_seed_roles.py",
+        "20260904_21_backfill_role_permissions.py",
+    ):
+        path = BACKEND_DIR / "migrations" / "versions" / filename
+        spec = importlib.util.spec_from_file_location(f"seed_{filename}", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
 
-    seeded = {name: frozenset(caps) for name, caps in module.SEED.items()}
-    assert seeded == dict(DEFAULT_ROLE_CAPABILITIES), (
-        "the seed migration and DEFAULT_ROLE_CAPABILITIES disagree.\n"
-        f"  migration: { {k: sorted(v) for k, v in seeded.items()} }\n"
-        f"  defaults:  { {k: sorted(v) for k, v in DEFAULT_ROLE_CAPABILITIES.items()} }"
-    )
+        seeded = {name: frozenset(caps) for name, caps in module.SEED.items()}
+        assert seeded == dict(DEFAULT_ROLE_CAPABILITIES), (
+            f"{filename} disagrees with DEFAULT_ROLE_CAPABILITIES.\n"
+            f"  migration: { {k: sorted(v) for k, v in seeded.items()} }\n"
+            f"  defaults:  { {k: sorted(v) for k, v in DEFAULT_ROLE_CAPABILITIES.items()} }"
+        )
