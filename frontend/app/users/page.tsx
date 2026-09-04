@@ -165,6 +165,12 @@ export default function UsersPage() {
       <div className="mb-3.5">
         <h1 className="text-xl font-bold tracking-tight">{t("title")}</h1>
         <p className="mt-1 text-xs text-muted">
+          {/* `auditLink` is a TAG in the message (<auditLink>…</auditLink>),
+              so it takes a function receiving the tag's chunks. It was written
+              as a value placeholder ({auditLink}) with a function passed here,
+              and React then tried to render the function itself: "Functions are
+              not valid as a React child". The link text lives inside the tag in
+              each locale, so it stays translatable. */}
           {t.rich("subtitle", {
             agency: me?.agency?.name ?? t("agencyFallback"),
             auditLink: (chunks) => (

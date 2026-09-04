@@ -37,6 +37,7 @@ from app.core.audit import record_action, record_denial
 from app.core.auth import AuthContext, get_current_user, require_capability
 from app.core.capabilities import (
     CAPABILITIES,
+    GROUPS,
     DEFAULT_ROLE_CAPABILITIES,
     ROLES_ADMIN,
     UNREMOVABLE_CAPABILITIES,
@@ -71,6 +72,16 @@ class CapabilityOut(BaseModel):
     key: str
     label: str
     description: str
+    #: Presentation only — which section of the admin screen this is drawn in.
+    #: Served from the backend so the grouping cannot drift from the
+    #: capabilities it groups.
+    group: str
+
+
+class CapabilityGroupOut(BaseModel):
+    key: str
+    label: str
+    capabilities: list[CapabilityOut]
 
 
 class CreateRoleRequest(BaseModel):
@@ -154,11 +165,48 @@ async def _user_counts(session) -> dict[str, int]:
     return {role: n for role, n in rows.all()}
 
 
-@router.get("/capabilities", response_model=list[CapabilityOut])
+@router.get("/capabilities", response_model=list[CapabilityGroupOut])
 async def list_capabilities(_auth: AuthContext = Depends(get_current_user)):
-    """The closed set the UI may offer. Readable by any authenticated user: it
-    is a description of the product, not of anyone's access."""
-    return [CapabilityOut(key=c.key, label=c.label, description=c.description) for c in CAPABILITIES]
+    """The closed set the UI may offer, in display groups.
+
+    Readable by any authenticated user: it describes the PRODUCT, not anyone's
+    access. Returned already grouped and ordered so the frontend renders what
+    the backend decided — a second ordering in the client is a second thing to
+    keep in step.
+
+    A capability whose group is unknown is still returned, in a trailing
+    "Other" section: dropping it would hide a real permission because someone
+    forgot a label, and an ungrouped switch is far better than a missing one.
+    """
+    grouped: list[CapabilityGroupOut] = []
+    for key, label in GROUPS:
+        members = [c for c in CAPABILITIES if c.group == key]
+        if members:
+            grouped.append(
+                CapabilityGroupOut(
+                    key=key,
+                    label=label,
+                    capabilities=[
+                        CapabilityOut(key=c.key, label=c.label,
+                                      description=c.description, group=c.group)
+                        for c in members
+                    ],
+                )
+            )
+    known = {k for k, _ in GROUPS}
+    orphans = [c for c in CAPABILITIES if c.group not in known]
+    if orphans:
+        grouped.append(
+            CapabilityGroupOut(
+                key="other", label="Other",
+                capabilities=[
+                    CapabilityOut(key=c.key, label=c.label,
+                                  description=c.description, group=c.group)
+                    for c in orphans
+                ],
+            )
+        )
+    return grouped
 
 
 @router.get("/roles", response_model=list[RoleOut])

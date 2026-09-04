@@ -1,0 +1,51 @@
+# Line endings, normalised once so they stop being noise.
+#
+# This repo had no .gitattributes, and it cost real time. Files were stored with
+# a mix of LF and CRLF, and a Windows editor rewriting one on save produced a
+# diff touching every line — 53 files showed as modified while only 6 had any
+# content change, and one scripted edit produced a 490-line whitespace diff that
+# had to be spotted and undone before it was committed. Worse, a genuine change
+# hides inside that noise: nobody reviews a file where every line is marked.
+#
+# `text=auto` makes git decide per file: anything it detects as text is stored
+# LF in the repository and checked out with the platform's native ending. Nobody
+# has to configure core.autocrlf, and it cannot drift between machines.
+* text=auto
+
+# Explicit for the sources here, so detection is never the deciding factor.
+*.py      text
+*.ts      text
+*.tsx     text
+*.js      text
+*.jsx     text
+*.json    text
+*.md      text
+*.yml     text
+*.yaml    text
+*.sql     text
+*.css     text
+*.html    text
+*.toml    text
+*.cfg     text
+*.ini     text
+*.txt     text
+
+# Shell scripts and the container entrypoint MUST be LF regardless of platform:
+# a CRLF shebang line makes the kernel look for an interpreter named "sh\r",
+# which fails with a "no such file or directory" naming a file that plainly
+# exists. scripts/start.sh is the Docker entrypoint, so that failure would be a
+# broken deploy, not a local annoyance.
+*.sh      text eol=lf
+Dockerfile text eol=lf
+
+# Binary — never touched.
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.ico     binary
+*.pdf     binary
+*.woff    binary
+*.woff2   binary
+*.mp3     binary
+*.wav     binary

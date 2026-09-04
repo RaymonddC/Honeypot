@@ -7,13 +7,40 @@ import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/auth/auth-provider";
 import { CaseSwitcher } from "@/components/cases/case-switcher";
 import { CaseContextBar } from "@/components/cases/case-context-bar";
-import { initialsOf, roleLabel } from "@/lib/auth/types";
+import { CAP, can, initialsOf, roleLabel } from "@/lib/auth/types";
 
-// Shown only to agency-admin / platform-admin. Hiding it is UX, not security —
-// /api/users is role-gated server-side, and the page renders whatever 403 comes
-// back rather than trusting that a hidden link kept anyone out.
-const ADMIN_NAV = { href: "/users", labelKey: "users", glyph: "◫" };
-const ADMIN_ROLES = ["agency-admin", "platform-admin"];
+// Admin destinations, each shown only to someone who holds the CAPABILITY it
+// needs. Gated on capabilities rather than role NAMES on purpose: a role created
+// in Roles administration would be invisible to a hardcoded name list forever,
+// which is the coupling capabilities exist to remove.
+//
+// Hiding a link is UX, not security. Both endpoints are guarded server-side and
+// each page renders whatever 403 comes back, rather than trusting that a missing
+// menu item kept anyone out.
+// Its OWN group, not an appendix to the case flow. Administering people and
+// permissions is not a step in working a case, and filing it under "Case
+// workflow" said it was — someone looking for it would search the case screens,
+// and someone reading the menu would infer that access is decided per case,
+// which is exactly backwards.
+const ADMIN_NAV: {
+  href: string;
+  labelKey: string;
+  glyph: string;
+  /** Omitted = visible to everyone signed in. */
+  capability?: string;
+}[] = [
+  // Agency-wide, not case-scoped — its own subtitle says "every recorded action
+  // by your agency". It sat under the case flow for the same bad reason Users
+  // did, and a trail filed under one case implies it only covers that case.
+  //
+  // Deliberately NOT capability-gated: everyone in the agency may read it. A
+  // tamper-evident log that only administrators can see is a weaker control —
+  // the people best placed to notice something wrong in the record are the ones
+  // who did the work it describes.
+  { href: "/audit", labelKey: "auditTrail", glyph: "⛓" },
+  { href: "/users", labelKey: "users", glyph: "◫", capability: CAP.usersAdmin },
+  { href: "/roles", labelKey: "roles", glyph: "⛊", capability: CAP.rolesAdmin },
+];
 
 // Two clear groups: the guided case flow vs standalone tools. Labels are
 // i18n keys under appShell.nav.*, resolved at render time (SidebarNav).
@@ -23,11 +50,7 @@ const NAV_GROUPS: {
 }[] = [
   {
     groupKey: "caseWorkflow",
-    items: [
-      { href: "/case", labelKey: "caseFile", glyph: "▤" },
-      { href: "/audit", labelKey: "auditTrail", glyph: "⛓" },
-      // "/users" is appended below, for admins only — see ADMIN_NAV.
-    ],
+    items: [{ href: "/case", labelKey: "caseFile", glyph: "▤" }],
   },
   {
     groupKey: "operations",
@@ -175,6 +198,9 @@ function SidebarNav({
 }) {
   const t = useTranslations("appShell.nav");
   const tCommon = useTranslations("common");
+  const adminItems = ADMIN_NAV.filter(
+    (item) => !item.capability || can(me, item.capability),
+  );
 
   return (
     <>
@@ -201,14 +227,18 @@ function SidebarNav({
           {t("home")}
         </Link>
 
-        {NAV_GROUPS.map((group) => (
+        {[
+          ...NAV_GROUPS,
+          // Appended rather than declared inline so the whole group disappears
+          // — heading included — for anyone holding neither capability.
+          ...(adminItems.length
+            ? [{ groupKey: "administration", items: adminItems }]
+            : []),
+        ].map((group) => (
           <div key={group.groupKey} className="mt-2">
             <div className="eyebrow px-3 pb-1.5">{t(group.groupKey)}</div>
             <ul className="space-y-0.5">
-              {(group.groupKey === "caseWorkflow" && me && ADMIN_ROLES.includes(me.role)
-                ? [...group.items, ADMIN_NAV]
-                : group.items
-              ).map((item) => {
+              {group.items.map((item) => {
                 const active = pathname.startsWith(item.href);
                 return (
                   <li key={item.href}>
@@ -360,8 +390,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <UserMenu />
         </header>
 
-        {/* Case context — the connective thread across module screens */}
-        <CaseContextBar />
+        {/* Case context — the connective thread across MODULE screens. Hidden on
+            administration, where it is actively misleading: a case banner over
+            "Users" suggests access is granted per case, when roles and accounts
+            are agency- and platform-wide. */}
+        {!ADMIN_NAV.some((item) => pathname.startsWith(item.href)) && <CaseContextBar />}
 
         {/* Screen canvas */}
         <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-6">{children}</main>

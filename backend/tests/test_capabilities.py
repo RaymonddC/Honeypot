@@ -155,13 +155,35 @@ def test_only_the_platform_role_crosses_agencies():
 def test_institutional_roles_cannot_operate_the_honeypot():
     """The judgement the default policy encodes, pinned so a careless edit to
     the seed has to argue with it: a bank or exchange compliance officer must
-    not run a tool that engages a live suspect."""
-    from app.core.capabilities import HONEYPOT_OPERATE
+    not run a tool that engages a live suspect.
+
+    Checks all three honeypot capabilities, not just one — the split means a
+    future edit could hand over dialling while leaving reading alone, and
+    dialling is the MORE consequential half.
+    """
+    from app.core.capabilities import HONEYPOT_DIAL, HONEYPOT_ENGAGE, HONEYPOT_READ
 
     for role in ("bank-compliance", "exchange-compliance"):
-        assert HONEYPOT_OPERATE not in DEFAULT_ROLE_CAPABILITIES[role], (
-            f"{role} was granted honeypot operation — that is a law-enforcement act"
-        )
+        for cap in (HONEYPOT_READ, HONEYPOT_ENGAGE, HONEYPOT_DIAL):
+            assert cap not in DEFAULT_ROLE_CAPABILITIES[role], (
+                f"{role} was granted {cap} — the honeypot is a law-enforcement act"
+            )
+
+
+def test_dialling_is_never_granted_without_engagement_by_default():
+    """Not a rule the system enforces — a sanity check on the SEEDED policy.
+
+    A role that can cold-call a list but cannot talk to whoever answers is
+    incoherent, and would mean the default policy shipped a hole rather than a
+    decision. An administrator may still configure it that way deliberately.
+    """
+    from app.core.capabilities import HONEYPOT_DIAL, HONEYPOT_ENGAGE
+
+    for role, caps in DEFAULT_ROLE_CAPABILITIES.items():
+        if HONEYPOT_DIAL in caps:
+            assert HONEYPOT_ENGAGE in caps, (
+                f"{role} is seeded able to place calls but not to conduct one"
+            )
 
 
 # --------------------------------------------------------------------------- #
@@ -249,3 +271,36 @@ def test_the_seed_migration_matches_the_default_policy():
             f"  migration: { {k: sorted(v) for k, v in seeded.items()} }\n"
             f"  defaults:  { {k: sorted(v) for k, v in DEFAULT_ROLE_CAPABILITIES.items()} }"
         )
+
+
+# --------------------------------------------------------------------------- #
+# Grouping is presentation — but it still has to be complete
+# --------------------------------------------------------------------------- #
+
+
+def test_every_capability_is_placed_in_a_known_group():
+    """A capability with no valid group would fall into the trailing "Other"
+    section of the admin screen — a switch that works but looks like a mistake,
+    and reads to an administrator as something half-built.
+
+    The group affects only where it is DRAWN. It is checked here rather than
+    left to the UI because an unplaced capability is invisible until someone
+    opens the page and squints at the last section.
+    """
+    from app.core.capabilities import GROUP_KEYS
+
+    unplaced = {c.key: c.group for c in CAPABILITIES if c.group not in GROUP_KEYS}
+    assert not unplaced, (
+        f"these capabilities name a group that does not exist: {unplaced}. "
+        f"Known groups: {sorted(GROUP_KEYS)}"
+    )
+
+
+def test_no_group_is_declared_without_members():
+    """An empty section renders as a heading with nothing under it, which reads
+    as a loading failure rather than an intentionally empty area."""
+    from app.core.capabilities import GROUPS
+
+    used = {c.group for c in CAPABILITIES}
+    empty = [k for k, _ in GROUPS if k not in used]
+    assert not empty, f"declared but empty capability groups: {empty}"

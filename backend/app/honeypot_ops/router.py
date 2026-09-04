@@ -37,7 +37,7 @@ from app.cases.repository import CaseRepository, get_case_repository
 from app.cases.schemas import CreateCaseRequest
 from app.core.audit import TRIAGE_ATTACHED, TRIAGE_PROMOTED, record_action
 from app.core.auth import AuthContext, require_capability
-from app.core.capabilities import HONEYPOT_OPERATE
+from app.core.capabilities import HONEYPOT_DIAL
 from app.core.db import get_optional_tenant_session
 from app.core.config import get_settings
 from app.honeypot_ops.repository import (
@@ -101,7 +101,7 @@ def _split_pasted(text: str) -> list[str]:
 async def add_number(
     body: AddNumberRequest,
     repo: HoneypotOpsRepository = RepoDep,
-    _auth: AuthContext = Depends(require_capability(HONEYPOT_OPERATE)),
+    _auth: AuthContext = Depends(require_capability(HONEYPOT_DIAL)),
 ) -> HoneypotNumberOut:
     """Register a Twilio number bought/configured in the Twilio console.
 
@@ -123,7 +123,7 @@ async def add_number(
 @router.get("/honeypot/numbers", response_model=list[HoneypotNumberOut])
 async def list_numbers(
     repo: HoneypotOpsRepository = RepoDep,
-    _auth: AuthContext = Depends(require_capability(HONEYPOT_OPERATE)),
+    _auth: AuthContext = Depends(require_capability(HONEYPOT_DIAL)),
 ) -> list[HoneypotNumberOut]:
     return await repo.list_numbers()
 
@@ -133,7 +133,7 @@ async def update_number(
     number_id: str,
     body: UpdateNumberRequest,
     repo: HoneypotOpsRepository = RepoDep,
-    _auth: AuthContext = Depends(require_capability(HONEYPOT_OPERATE)),
+    _auth: AuthContext = Depends(require_capability(HONEYPOT_DIAL)),
 ) -> HoneypotNumberOut:
     """Retire or relabel a pool number. Retired numbers are kept for provenance
     (past calls reference them) but are never dialed from again."""
@@ -150,7 +150,7 @@ async def update_number(
 async def create_campaign(
     body: CreateCampaignRequest,
     repo: HoneypotOpsRepository = RepoDep,
-    _auth: AuthContext = Depends(require_capability(HONEYPOT_OPERATE)),
+    _auth: AuthContext = Depends(require_capability(HONEYPOT_DIAL)),
 ) -> DialCampaignOut:
     """Open a new dial campaign (draft — upload targets, then start it)."""
     return await repo.create_campaign(body)
@@ -159,7 +159,7 @@ async def create_campaign(
 @router.get("/honeypot/campaigns", response_model=list[DialCampaignOut])
 async def list_campaigns(
     repo: HoneypotOpsRepository = RepoDep,
-    _auth: AuthContext = Depends(require_capability(HONEYPOT_OPERATE)),
+    _auth: AuthContext = Depends(require_capability(HONEYPOT_DIAL)),
 ) -> list[DialCampaignOut]:
     return await repo.list_campaigns()
 
@@ -168,7 +168,7 @@ async def list_campaigns(
 async def get_campaign(
     campaign_id: str,
     repo: HoneypotOpsRepository = RepoDep,
-    _auth: AuthContext = Depends(require_capability(HONEYPOT_OPERATE)),
+    _auth: AuthContext = Depends(require_capability(HONEYPOT_DIAL)),
 ) -> DialCampaignOut:
     """One campaign + its per-status target counts (the progress rollup)."""
     camp = await repo.get_campaign(campaign_id)
@@ -184,7 +184,7 @@ async def upload_targets(
     campaign_id: str,
     body: UploadTargetsRequest,
     repo: HoneypotOpsRepository = RepoDep,
-    _auth: AuthContext = Depends(require_capability(HONEYPOT_OPERATE)),
+    _auth: AuthContext = Depends(require_capability(HONEYPOT_DIAL)),
 ) -> UploadTargetsResult:
     """Bulk-add numbers to a campaign from a JSON array and/or pasted CSV text.
 
@@ -207,7 +207,7 @@ async def upload_targets(
 async def list_targets(
     campaign_id: str,
     repo: HoneypotOpsRepository = RepoDep,
-    _auth: AuthContext = Depends(require_capability(HONEYPOT_OPERATE)),
+    _auth: AuthContext = Depends(require_capability(HONEYPOT_DIAL)),
 ) -> list[DialTargetOut]:
     targets = await repo.list_targets(campaign_id)
     if targets is None:
@@ -221,7 +221,7 @@ async def list_targets(
 async def list_attempts(
     target_id: str,
     repo: HoneypotOpsRepository = RepoDep,
-    _auth: AuthContext = Depends(require_capability(HONEYPOT_OPERATE)),
+    _auth: AuthContext = Depends(require_capability(HONEYPOT_DIAL)),
 ) -> list[DialAttemptOut]:
     """The call log for one target — every attempt, oldest first.
 
@@ -240,7 +240,7 @@ async def list_attempts(
 async def start_campaign(
     campaign_id: str,
     repo: HoneypotOpsRepository = RepoDep,
-    _auth: AuthContext = Depends(require_capability(HONEYPOT_OPERATE)),
+    _auth: AuthContext = Depends(require_capability(HONEYPOT_DIAL)),
 ) -> DialCampaignOut:
     """Mark a campaign running. **Does not dial yet** — the ``dial_target``
     actor lands in phase 4; this is the status transition + its guards."""
@@ -311,7 +311,7 @@ async def requeue_targets(
     campaign_id: str,
     body: RequeueRequest | None = None,
     repo: HoneypotOpsRepository = RepoDep,
-    _auth: AuthContext = Depends(require_capability(HONEYPOT_OPERATE)),
+    _auth: AuthContext = Depends(require_capability(HONEYPOT_DIAL)),
 ) -> RequeueResult:
     """Send finished targets back to ``queued`` so they are dialed again (§3.6).
 
@@ -336,7 +336,7 @@ async def requeue_targets(
 async def pause_campaign(
     campaign_id: str,
     repo: HoneypotOpsRepository = RepoDep,
-    _auth: AuthContext = Depends(require_capability(HONEYPOT_OPERATE)),
+    _auth: AuthContext = Depends(require_capability(HONEYPOT_DIAL)),
 ) -> DialCampaignOut:
     """Pause a running campaign (resume with /start)."""
     camp = await repo.get_campaign(campaign_id)
@@ -386,7 +386,7 @@ def _prefill(sess: TriageSessionOut) -> CreateCaseRequest:
 @router.get("/honeypot/triage", response_model=list[TriageSessionOut])
 async def list_triage(
     repo: TriageRepository = TriageDep,
-    _auth: AuthContext = Depends(require_capability(HONEYPOT_OPERATE)),
+    _auth: AuthContext = Depends(require_capability(HONEYPOT_DIAL)),
 ) -> list[TriageSessionOut]:
     """Connected calls with no case yet — newest first.
 
@@ -406,7 +406,7 @@ async def attach_triage_session(
     body: AttachSessionRequest,
     repo: TriageRepository = TriageDep,
     case_repo: CaseRepository = CaseDep,
-    auth: AuthContext = Depends(require_capability(HONEYPOT_OPERATE)),
+    auth: AuthContext = Depends(require_capability(HONEYPOT_DIAL)),
     audit_session=Depends(get_optional_tenant_session),
     request: Request = None,  # audit origin (ip/user-agent)
 ) -> TriageSessionOut:
@@ -443,7 +443,7 @@ async def promote_triage_session(
     body: PromoteSessionRequest | None = None,
     repo: TriageRepository = TriageDep,
     case_repo: CaseRepository = CaseDep,
-    auth: AuthContext = Depends(require_capability(HONEYPOT_OPERATE)),
+    auth: AuthContext = Depends(require_capability(HONEYPOT_DIAL)),
     audit_session=Depends(get_optional_tenant_session),
     request: Request = None,  # audit origin (ip/user-agent)
 ) -> PromoteSessionResult:

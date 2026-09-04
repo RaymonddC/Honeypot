@@ -87,7 +87,10 @@ const DENIAL_CODES = new Set([
   "last_admin",
   "cross_agency_forbidden",
   "user_not_found",
+  // Kept alongside `missing_capability`: entries recorded before capabilities
+  // existed carry the old code, and they must still render as words.
   "forbidden",
+  "missing_capability",
 ]);
 
 /** An entry records something that was REFUSED, not something that happened.
