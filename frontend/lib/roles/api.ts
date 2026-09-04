@@ -32,6 +32,18 @@ export interface Capability {
   label: string;
   /** Written for the person deciding whether to grant it. Shown in full. */
   description: string;
+  /** Presentation only — which section it is drawn in. */
+  group: string;
+}
+
+/** Capabilities already grouped and ordered BY THE SERVER.
+ *
+ *  Ordering here too would be a second thing to keep in step with the backend,
+ *  and the two would diverge the first time a capability is added. */
+export interface CapabilityGroup {
+  key: string;
+  label: string;
+  capabilities: Capability[];
 }
 
 /** An API failure that kept the server's machine-readable `code`. */
@@ -67,8 +79,31 @@ async function json<T>(path: string, init?: RequestInit): Promise<T | null> {
 
 export const listRoles = () => json<Role[]>("/roles") as Promise<Role[]>;
 
-export const listCapabilities = () =>
-  json<Capability[]>("/capabilities") as Promise<Capability[]>;
+/** Capabilities, grouped.
+ *
+ *  Tolerates an OLDER backend that returns a flat `Capability[]` — the frontend
+ *  and backend deploy independently, and a shape mismatch previously took the
+ *  whole page down with "Cannot read properties of undefined". A permissions
+ *  screen that white-screens during a rolling deploy is worse than one that
+ *  renders every switch under a single heading, so an unrecognised shape is
+ *  normalised into one group rather than thrown away. */
+export async function listCapabilities(): Promise<CapabilityGroup[]> {
+  const body = (await json<unknown>("/capabilities")) as unknown;
+  if (!Array.isArray(body)) return [];
+
+  const grouped = body.filter(
+    (g): g is CapabilityGroup =>
+      !!g && typeof g === "object" && Array.isArray((g as CapabilityGroup).capabilities),
+  );
+  if (grouped.length === body.length) return grouped;
+
+  const flat = body.filter(
+    (c): c is Capability => !!c && typeof c === "object" && typeof (c as Capability).key === "string",
+  );
+  return flat.length
+    ? [{ key: "all", label: "Capabilities", capabilities: flat }]
+    : [];
+}
 
 export const createRole = (name: string, capabilities: string[]) =>
   json<Role>("/roles", {

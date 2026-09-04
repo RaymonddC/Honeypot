@@ -56,14 +56,36 @@ USERS_ADMIN_CROSS_AGENCY = "users.admin.cross_agency"
 ROLES_ADMIN = "roles.admin"
 
 
+#: Presentation grouping for the admin screen, in display order. Deliberately
+#: NOT part of the permission model: a capability is defined by the consequence
+#: it authorises, not by the screen it happens to appear on. Screens move — Users
+#: and Audit Trail changed menus in one afternoon — and a model keyed on where
+#: something appears turns every nav tidy-up into a permission migration.
+#:
+#: It lives here rather than in the frontend so the grouping cannot drift from
+#: the capabilities it groups: adding a capability without placing it is caught
+#: by a test, not discovered as an empty section in the UI.
+GROUPS: tuple[tuple[str, str], ...] = (
+    ("honeypot", "Honeypot"),
+    ("cases", "Cases"),
+    ("actions", "Freeze requests & filings"),
+    ("admin", "Administration"),
+)
+
+GROUP_KEYS: frozenset[str] = frozenset(k for k, _ in GROUPS)
+
+
 @dataclass(frozen=True)
 class Capability:
     """One thing the system can permit. ``description`` is shown in the admin UI,
-    so it is written for the person deciding whether to grant it — not for us."""
+    so it is written for the person deciding whether to grant it — not for us.
+
+    ``group`` affects only where it is drawn."""
 
     key: str
     label: str
     description: str
+    group: str
 
 
 CAPABILITIES: tuple[Capability, ...] = (
@@ -75,6 +97,7 @@ CAPABILITIES: tuple[Capability, ...] = (
         "supervisor or an analyst writing up a case needs this and usually "
         "nothing more. The intelligence it produced (entities, syndicates) "
         "stays readable without even this.",
+        group="honeypot",
     ),
     Capability(
         HONEYPOT_ENGAGE,
@@ -82,6 +105,7 @@ CAPABILITIES: tuple[Capability, ...] = (
         "Start a deception session and send turns in it, and set the voice the "
         "persona speaks with. This is live contact with a person under "
         "investigation — grant it only to roles authorised to conduct one.",
+        group="honeypot",
     ),
     Capability(
         HONEYPOT_DIAL,
@@ -90,12 +114,14 @@ CAPABILITIES: tuple[Capability, ...] = (
         "a list of numbers. The most consequential honeypot permission: it "
         "initiates contact with people who have not contacted us, which is a "
         "decision with legal weight and should sit with whoever carries it.",
+        group="honeypot",
     ),
     Capability(
         CASE_WRITE,
         "Create and edit cases",
         "Open a case and change its details or stage. Reading cases does not "
         "need this — everyone in the agency shares the same case picture.",
+        group="cases",
     ),
     Capability(
         ACTION_GENERATE,
@@ -103,6 +129,7 @@ CAPABILITIES: tuple[Capability, ...] = (
         "Produce the documents for a case — freeze request, STR/LTKM draft, "
         "agency alert — hashed as evidence. Nothing leaves the building yet, so "
         "this is reversible, but the documents carry the agency's name.",
+        group="actions",
     ),
     Capability(
         DISPATCH_SEND,
@@ -111,12 +138,14 @@ CAPABILITIES: tuple[Capability, ...] = (
         "Irreversible and outward-facing: what leaves cannot be recalled. "
         "Separate from generating, so drafting and sending can be different "
         "people.",
+        group="actions",
     ),
     Capability(
         USERS_ADMIN,
         "Manage users",
         "Invite people, change their role, and deactivate them — within this "
         "agency only.",
+        group="admin",
     ),
     Capability(
         ROLES_ADMIN,
@@ -125,12 +154,14 @@ CAPABILITIES: tuple[Capability, ...] = (
         "the most powerful permission in the system: it edits the permission "
         "system itself, and roles are GLOBAL — a change here applies to every "
         "agency, not just yours. Platform operators only.",
+        group="admin",
     ),
     Capability(
         USERS_ADMIN_CROSS_AGENCY,
         "Manage users in any agency",
         "Administer accounts belonging to OTHER agencies. Platform operators "
         "only; an agency administrator must never hold this.",
+        group="admin",
     ),
 )
 

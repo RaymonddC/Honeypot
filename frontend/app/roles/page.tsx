@@ -25,6 +25,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { CAP, can } from "@/lib/auth/types";
 import {
   type Capability,
+  type CapabilityGroup,
   type Role,
   RolesApiError,
   createRole,
@@ -63,7 +64,7 @@ export default function RolesPage() {
   const isAdmin = can(me, CAP.rolesAdmin);
 
   const [roles, setRoles] = useState<Role[]>([]);
-  const [caps, setCaps] = useState<Capability[]>([]);
+  const [groups, setGroups] = useState<CapabilityGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -71,9 +72,9 @@ export default function RolesPage() {
   const [newName, setNewName] = useState("");
 
   const load = useCallback(async () => {
-    const [r, c] = await Promise.all([listRoles(), listCapabilities()]);
+    const [r, g] = await Promise.all([listRoles(), listCapabilities()]);
     setRoles(r);
-    setCaps(c);
+    setGroups(g);
   }, []);
 
   useEffect(() => {
@@ -145,6 +146,12 @@ export default function RolesPage() {
     }
   };
 
+  // Flattened once for the summary chips and label lookup — the GROUPS drive
+  // the expanded form, this drives the closed one.
+  const caps = useMemo<Capability[]>(
+    () => groups.flatMap((g) => g?.capabilities ?? []),
+    [groups],
+  );
   const byKey = useMemo(
     () => Object.fromEntries(caps.map((c) => [c.key, c])),
     [caps],
@@ -263,37 +270,51 @@ export default function RolesPage() {
                 </span>
               </summary>
 
-              <div className="divide-y divide-line border-t border-line">
-                {caps.map((cap) => {
-                  const on = role.capabilities.includes(cap.key);
-                  return (
-                    <label
-                      key={cap.key}
-                      className="flex cursor-pointer items-start gap-2.5 px-3.5 py-2.5 transition-colors hover:bg-elevated/40"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={on}
-                        disabled={busy === role.name}
-                        onChange={(e) => toggle(role, cap.key, e.target.checked)}
-                        className="mt-0.5 h-3.5 w-3.5 flex-none accent-[var(--accent)]"
-                      />
-                      <span className="min-w-0">
-                        <span className="block text-xs text-fg">
-                          {byKey[cap.key]?.label ?? cap.key}
-                        </span>
-                        {/* The description is the whole point of the row: it is
-                            written for the person deciding whether to grant
-                            this, so it is never truncated behind a tooltip. */}
-                        <span className="mt-0.5 block text-[10.5px] leading-relaxed text-muted">
-                          {cap.description}
-                        </span>
-                      </span>
-                    </label>
-                  );
-                })}
+              <div className="border-t border-line">
+                {/* Sections, in the server's order. Grouping is presentation
+                    only — a capability is defined by the consequence it
+                    authorises, not by the screen it appears on — but nine
+                    switches in one flat list is already hard to scan. */}
+                {groups.map((group) => (
+                  <div key={group.key}>
+                    <div className="border-b border-line bg-elevated/30 px-3.5 py-1.5">
+                      <span className="eyebrow">{group.label}</span>
+                    </div>
+                    <div className="divide-y divide-line">
+                      {group.capabilities.map((cap) => {
+                        const on = role.capabilities.includes(cap.key);
+                        return (
+                          <label
+                            key={cap.key}
+                            className="flex cursor-pointer items-start gap-2.5 px-3.5 py-2.5 transition-colors hover:bg-elevated/40"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={on}
+                              disabled={busy === role.name}
+                              onChange={(e) => toggle(role, cap.key, e.target.checked)}
+                              className="mt-0.5 h-3.5 w-3.5 flex-none accent-[var(--accent)]"
+                            />
+                            <span className="min-w-0">
+                              <span className="block text-xs text-fg">
+                                {cap.label}
+                              </span>
+                              {/* The description is the whole point of the row:
+                                  it is written for the person deciding whether
+                                  to grant this, so it is never truncated behind
+                                  a tooltip. */}
+                              <span className="mt-0.5 block text-[10.5px] leading-relaxed text-muted">
+                                {cap.description}
+                              </span>
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
                 {!role.builtin && (
-                  <div className="px-3.5 py-2.5">
+                  <div className="border-t border-line px-3.5 py-2.5">
                     <button
                       type="button"
                       onClick={() => remove(role)}

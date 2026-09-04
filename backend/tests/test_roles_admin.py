@@ -72,12 +72,26 @@ def test_a_platform_admin_can():
 
 def test_capabilities_are_readable_by_anyone_signed_in():
     """The capability list describes the PRODUCT, not anyone's access, and the
-    UI needs it to render. Nothing sensitive is in it."""
+    UI needs it to render. Nothing sensitive is in it.
+
+    Served already GROUPED and ordered — the frontend renders the backend's
+    decision rather than keeping a second ordering of its own in step.
+    """
     r = client.get("/api/capabilities", headers=bearer("bank-compliance", "bank-bca"))
     assert r.status_code == 200
-    keys = {c["key"] for c in r.json()}
+    groups = r.json()
+
+    assert [g["key"] for g in groups] == ["honeypot", "cases", "actions", "admin"], (
+        f"groups came back in an unexpected shape or order: {[g['key'] for g in groups]}"
+    )
+    flat = [c for g in groups for c in g["capabilities"]]
+    keys = {c["key"] for c in flat}
     assert "honeypot.read" in keys
-    assert all(c["description"] for c in r.json())
+    assert all(c["description"] for c in flat)
+    assert not any(g["key"] == "other" for g in groups), (
+        "a capability fell into the trailing 'Other' section — it names a group "
+        "that does not exist"
+    )
 
 
 # --------------------------------------------------------------------------- #

@@ -271,3 +271,36 @@ def test_the_seed_migration_matches_the_default_policy():
             f"  migration: { {k: sorted(v) for k, v in seeded.items()} }\n"
             f"  defaults:  { {k: sorted(v) for k, v in DEFAULT_ROLE_CAPABILITIES.items()} }"
         )
+
+
+# --------------------------------------------------------------------------- #
+# Grouping is presentation — but it still has to be complete
+# --------------------------------------------------------------------------- #
+
+
+def test_every_capability_is_placed_in_a_known_group():
+    """A capability with no valid group would fall into the trailing "Other"
+    section of the admin screen — a switch that works but looks like a mistake,
+    and reads to an administrator as something half-built.
+
+    The group affects only where it is DRAWN. It is checked here rather than
+    left to the UI because an unplaced capability is invisible until someone
+    opens the page and squints at the last section.
+    """
+    from app.core.capabilities import GROUP_KEYS
+
+    unplaced = {c.key: c.group for c in CAPABILITIES if c.group not in GROUP_KEYS}
+    assert not unplaced, (
+        f"these capabilities name a group that does not exist: {unplaced}. "
+        f"Known groups: {sorted(GROUP_KEYS)}"
+    )
+
+
+def test_no_group_is_declared_without_members():
+    """An empty section renders as a heading with nothing under it, which reads
+    as a loading failure rather than an intentionally empty area."""
+    from app.core.capabilities import GROUPS
+
+    used = {c.group for c in CAPABILITIES}
+    empty = [k for k, _ in GROUPS if k not in used]
+    assert not empty, f"declared but empty capability groups: {empty}"
