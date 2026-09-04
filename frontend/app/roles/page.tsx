@@ -205,12 +205,33 @@ export default function RolesPage() {
 
       {loading && <p className="text-xs text-muted">{t("loading")}</p>}
 
-      {/* One card per role */}
-      <div className="space-y-2.5">
-        {roles.map((role) => (
-          <div key={role.name} className="rounded-card border border-line bg-card">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-3.5 py-2.5">
-              <div className="flex items-center gap-2">
+      {/* One collapsible card per role.
+       *
+       *  Native <details>, not React state: nine capabilities across six roles
+       *  is far too much to render open, but the SUMMARY has to stay useful on
+       *  its own — an administrator asking "what can a bank compliance officer
+       *  do" should get the answer without opening anything. So the closed row
+       *  lists the granted capabilities by name, and expanding is for CHANGING
+       *  them, not for reading them.
+       *
+       *  <details> also gets keyboard operation and open-state announcement for
+       *  free, which a div-and-useState version has to reimplement and usually
+       *  doesn't. */}
+      <div className="space-y-2">
+        {roles.map((role) => {
+          const granted = caps.filter((c) => role.capabilities.includes(c.key));
+          return (
+            <details
+              key={role.name}
+              className="group overflow-hidden rounded-card border border-line bg-card"
+            >
+              <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-elevated/40 [&::-webkit-details-marker]:hidden">
+                <span
+                  className="w-3 flex-none text-[10px] text-muted transition-transform group-open:rotate-90"
+                  aria-hidden
+                >
+                  ▸
+                </span>
                 <span className="text-sm font-medium text-fg">{role.name}</span>
                 {role.builtin && (
                   <span className="rounded border border-line px-1.5 py-0.5 text-[10px] text-muted">
@@ -220,51 +241,73 @@ export default function RolesPage() {
                 <span className="text-[10.5px] text-muted">
                   {t("userCount", { count: role.user_count })}
                 </span>
-              </div>
-              {!role.builtin && (
-                <button
-                  type="button"
-                  onClick={() => remove(role)}
-                  disabled={busy === role.name}
-                  className="cursor-pointer rounded-md border border-line px-2.5 py-1 text-[11px] text-muted transition-colors hover:border-risk-high/40 hover:text-risk-high disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {t("delete")}
-                </button>
-              )}
-            </div>
 
-            <div className="divide-y divide-line">
-              {caps.map((cap) => {
-                const on = role.capabilities.includes(cap.key);
-                return (
-                  <label
-                    key={cap.key}
-                    className="flex cursor-pointer items-start gap-2.5 px-3.5 py-2.5 transition-colors hover:bg-elevated/40"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={on}
-                      disabled={busy === role.name}
-                      onChange={(e) => toggle(role, cap.key, e.target.checked)}
-                      className="mt-0.5 h-3.5 w-3.5 flex-none accent-[var(--accent)]"
-                    />
-                    <span className="min-w-0">
-                      <span className="block text-xs text-fg">
-                        {byKey[cap.key]?.label ?? cap.key}
-                      </span>
-                      {/* The description is the whole point of the row: it is
-                          written for the person deciding whether to grant this,
-                          so it is never truncated behind a tooltip. */}
-                      <span className="mt-0.5 block text-[10.5px] leading-relaxed text-muted">
-                        {cap.description}
-                      </span>
+                {/* The policy at a glance. `no access` is a real, common state
+                    (a role someone just created) and must read as deliberate
+                    rather than as a rendering failure. */}
+                <span className="ml-auto flex flex-wrap items-center justify-end gap-1">
+                  {granted.length === 0 ? (
+                    <span className="text-[10.5px] italic text-muted">
+                      {t("noAccess")}
                     </span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+                  ) : (
+                    granted.map((c) => (
+                      <span
+                        key={c.key}
+                        className="rounded border border-accent/25 bg-accent/[.07] px-1.5 py-0.5 text-[10px] text-accent-bright"
+                      >
+                        {c.label}
+                      </span>
+                    ))
+                  )}
+                </span>
+              </summary>
+
+              <div className="divide-y divide-line border-t border-line">
+                {caps.map((cap) => {
+                  const on = role.capabilities.includes(cap.key);
+                  return (
+                    <label
+                      key={cap.key}
+                      className="flex cursor-pointer items-start gap-2.5 px-3.5 py-2.5 transition-colors hover:bg-elevated/40"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        disabled={busy === role.name}
+                        onChange={(e) => toggle(role, cap.key, e.target.checked)}
+                        className="mt-0.5 h-3.5 w-3.5 flex-none accent-[var(--accent)]"
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-xs text-fg">
+                          {byKey[cap.key]?.label ?? cap.key}
+                        </span>
+                        {/* The description is the whole point of the row: it is
+                            written for the person deciding whether to grant
+                            this, so it is never truncated behind a tooltip. */}
+                        <span className="mt-0.5 block text-[10.5px] leading-relaxed text-muted">
+                          {cap.description}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+                {!role.builtin && (
+                  <div className="px-3.5 py-2.5">
+                    <button
+                      type="button"
+                      onClick={() => remove(role)}
+                      disabled={busy === role.name}
+                      className="cursor-pointer rounded-md border border-line px-2.5 py-1 text-[11px] text-muted transition-colors hover:border-risk-high/40 hover:text-risk-high disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {t("delete")}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </details>
+          );
+        })}
       </div>
 
       <p className="mt-3.5 text-[10.5px] leading-relaxed text-muted">

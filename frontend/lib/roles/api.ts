@@ -14,6 +14,10 @@
 
 import { apiFetch } from "@/lib/http";
 
+// Paths below are RELATIVE to apiFetch's `${API_BASE}/api` prefix — passing
+// "/api/roles" here produces "/api/api/roles" and a 404 that looks like a
+// missing route rather than a doubled prefix.
+
 export interface Role {
   name: string;
   capabilities: string[];
@@ -61,24 +65,24 @@ async function json<T>(path: string, init?: RequestInit): Promise<T | null> {
   return (await res.json()) as T;
 }
 
-export const listRoles = () => json<Role[]>("/api/roles") as Promise<Role[]>;
+export const listRoles = () => json<Role[]>("/roles") as Promise<Role[]>;
 
 export const listCapabilities = () =>
-  json<Capability[]>("/api/capabilities") as Promise<Capability[]>;
+  json<Capability[]>("/capabilities") as Promise<Capability[]>;
 
 export const createRole = (name: string, capabilities: string[]) =>
-  json<Role>("/api/roles", {
+  json<Role>("/roles", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, capabilities }),
   }) as Promise<Role>;
 
 export const setRoleCapabilities = (name: string, capabilities: string[]) =>
-  json<Role>(`/api/roles/${encodeURIComponent(name)}`, {
+  json<Role>(`/roles/${encodeURIComponent(name)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ capabilities }),
   }) as Promise<Role>;
 
 export const deleteRole = (name: string) =>
-  json<null>(`/api/roles/${encodeURIComponent(name)}`, { method: "DELETE" });
+  json<null>(`/roles/${encodeURIComponent(name)}`, { method: "DELETE" });
