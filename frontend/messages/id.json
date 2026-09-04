@@ -21,7 +21,9 @@
       "commandCenter": "Command Center",
       "guide": "Panduan",
       "controlPanel": "Panel Kontrol",
-      "authBadge": "P5 · auth"
+      "authBadge": "P5 · auth",
+      "roles": "Peran & akses",
+      "administration": "Administrasi"
     },
     "modeBadge": {
       "dataModeTitle": "Mode data: {mode}",
@@ -630,7 +632,8 @@
         "last_admin": "akan membuat instansi tanpa admin aktif",
         "cross_agency_forbidden": "pengguna itu berasal dari instansi lain",
         "user_not_found": "tidak ada pengguna seperti itu yang terlihat olehnya",
-        "forbidden": "perannya tidak mengizinkan hal itu"
+        "forbidden": "perannya tidak mengizinkan hal itu",
+        "missing_capability": "perannya tidak memiliki kapabilitas yang dibutuhkan"
       },
       "loginMethod": {
         "google": "Google",
@@ -1106,9 +1109,8 @@
   "users": {
     "title": "Pengguna",
     "gateBody": "Mengelola akun memerlukan peran admin. Hubungi admin instansi Anda jika perlu perubahan akses.",
-    "subtitle": "Siapa yang dapat masuk ke {agency}, dan apa yang boleh mereka lakukan. Setiap perubahan di sini tercatat di {auditLink}. Tidak ada kata sandi yang perlu dikelola — orang masuk dengan Google, dan akses ditentukan oleh apakah mereka muncul di daftar ini.",
+    "subtitle": "Siapa yang dapat masuk ke {agency}, dan apa yang boleh mereka lakukan. Setiap perubahan di sini tercatat di <auditLink>jejak audit</auditLink>. Tidak ada kata sandi yang perlu dikelola — orang masuk dengan Google, dan akses ditentukan oleh apakah mereka muncul di daftar ini.",
     "agencyFallback": "instansi Anda",
-    "auditLinkText": "jejak audit",
     "giveAccessEyebrow": "Berikan akses kepada seseorang",
     "emailPlaceholder": "nama@instansi.go.id",
     "emailAriaLabel": "Alamat email",
@@ -1421,5 +1423,31 @@
       "newCase": "Kasus baru",
       "newCaseTitle": "Buka kasus baru yang terisi otomatis dari panggilan ini"
     }
+  },
+  "rolesAdmin": {
+    "title": "Peran & akses",
+    "subtitle": "Apa yang boleh dilakukan setiap peran. Peran berlaku untuk semua instansi, jadi perubahan di sini berdampak ke semuanya — bukan hanya instansi Anda.",
+    "gateBody": "Peran ditetapkan untuk seluruh platform, sehingga hanya operator platform yang dapat mengubahnya. Hubungi mereka jika sebuah peran memerlukan akses berbeda.",
+    "createEyebrow": "Tambah peran",
+    "namePlaceholder": "mis. fraud-analyst",
+    "create": "Buat peran",
+    "creating": "Membuat…",
+    "createHint": "Huruf kecil, angka, dan tanda hubung. Peran baru dimulai tanpa akses — berikan aksesnya di bawah, lalu tetapkan orang ke peran itu di layar Pengguna.",
+    "loading": "Memuat peran…",
+    "builtin": "bawaan",
+    "delete": "Hapus",
+    "userCount": "{count, plural, =0 {belum ada yang memakai peran ini} other {# orang}}",
+    "footerNote": "Perubahan berlaku dalam sekitar setengah menit. Peran bawaan tidak dapat dihapus karena sistem merujuknya berdasarkan nama, tetapi aksesnya tetap bisa diubah.",
+    "notices": {
+      "granted": "{role} kini dapat: {capability}",
+      "revoked": "{role} tidak lagi dapat: {capability}",
+      "created": "Peran {role} dibuat. Belum memiliki akses.",
+      "deleted": "Peran {role} dihapus."
+    },
+    "errors": {
+      "generic": "Terjadi kesalahan. Tidak ada yang diubah.",
+      "missingCapability": "Peran Anda tidak dapat mengelola peran."
+    },
+    "noAccess": "tanpa akses"
   }
 }

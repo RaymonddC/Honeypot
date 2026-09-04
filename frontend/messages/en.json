@@ -21,7 +21,9 @@
       "commandCenter": "Command Center",
       "guide": "Guide",
       "controlPanel": "Control Panel",
-      "authBadge": "P5 · auth"
+      "authBadge": "P5 · auth",
+      "roles": "Roles & access",
+      "administration": "Administration"
     },
     "modeBadge": {
       "dataModeTitle": "Data mode: {mode}",
@@ -630,7 +632,8 @@
         "last_admin": "would have left the agency with no active admin",
         "cross_agency_forbidden": "that user belongs to another agency",
         "user_not_found": "no such user is visible to them",
-        "forbidden": "their role does not allow it"
+        "forbidden": "their role does not allow it",
+        "missing_capability": "their role lacks the capability this needs"
       },
       "loginMethod": {
         "google": "Google",
@@ -1106,9 +1109,8 @@
   "users": {
     "title": "Users",
     "gateBody": "Managing accounts needs an admin role. Ask your agency admin if you need access changed.",
-    "subtitle": "Who can sign in to {agency}, and what they may do. Every change here is recorded in the {auditLink}. There are no passwords to manage — people sign in with Google, and access is decided by whether they appear on this list.",
+    "subtitle": "Who can sign in to {agency}, and what they may do. Every change here is recorded in the <auditLink>audit trail</auditLink>. There are no passwords to manage — people sign in with Google, and access is decided by whether they appear on this list.",
     "agencyFallback": "your agency",
-    "auditLinkText": "audit trail",
     "giveAccessEyebrow": "Give someone access",
     "emailPlaceholder": "name@agency.go.id",
     "emailAriaLabel": "Email address",
@@ -1421,5 +1423,31 @@
       "newCase": "New case",
       "newCaseTitle": "Open a new case prefilled from this call"
     }
+  },
+  "rolesAdmin": {
+    "title": "Roles & access",
+    "subtitle": "What each role is allowed to do. Roles are shared across every agency, so a change here applies everywhere — not just to yours.",
+    "gateBody": "Roles are defined platform-wide, so only a platform operator can change them. Ask one if a role needs different access.",
+    "createEyebrow": "Add a role",
+    "namePlaceholder": "e.g. fraud-analyst",
+    "create": "Create role",
+    "creating": "Creating…",
+    "createHint": "Lowercase letters, numbers and hyphens. A new role starts with no access — grant it below, then assign people to it on the Users screen.",
+    "loading": "Loading roles…",
+    "builtin": "built-in",
+    "delete": "Delete",
+    "userCount": "{count, plural, =0 {no one has this role} one {# person} other {# people}}",
+    "footerNote": "Changes take effect within about half a minute. Built-in roles cannot be deleted because the system refers to them by name, but their access can be changed freely.",
+    "notices": {
+      "granted": "{role} can now: {capability}",
+      "revoked": "{role} can no longer: {capability}",
+      "created": "Created the role {role}. It has no access yet.",
+      "deleted": "Deleted the role {role}."
+    },
+    "errors": {
+      "generic": "Something went wrong. Nothing was changed.",
+      "missingCapability": "Your role cannot administer roles."
+    },
+    "noAccess": "no access"
   }
 }

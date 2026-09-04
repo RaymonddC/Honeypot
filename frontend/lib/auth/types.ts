@@ -17,7 +17,87 @@ export interface AuthMe {
   user: AuthUser;
   agency: AuthAgency;
   role: string;
+  /** What this role may DO, from GET /api/auth/me.
+   *
+   *  Used to decide what the UI offers — never as the authorisation decision,
+   *  which the server makes on every request. Gating a menu on a hardcoded list
+   *  of role NAMES is the coupling capabilities exist to remove: a role created
+   *  in Roles administration would be invisible to the menu forever.
+   *
+   *  Empty when derived from JWT claims alone (offline/optimistic boot), so a
+   *  check must treat "absent" as "not permitted" rather than "unknown". */
+  capabilities?: string[];
 }
+
+/** Capability keys, mirroring app/core/capabilities.py. */
+export const CAP = {
+  honeypotRead: "honeypot.read",
+  honeypotEngage: "honeypot.engage",
+  honeypotDial: "honeypot.dial",
+  caseWrite: "case.write",
+  actionGenerate: "action.generate",
+  dispatchSend: "dispatch.send",
+  usersAdmin: "users.admin",
+  rolesAdmin: "roles.admin",
+} as const;
+
+/** Roles that held each capability BEFORE capabilities existed.
+ *
+ *  A compatibility shim, and it earns its keep: the frontend and backend deploy
+ *  independently (Vercel / Render), so a frontend that ships first would ask an
+ *  older `/api/auth/me` for a field it does not return. Failing closed on that
+ *  would silently remove Users and Roles from every administrator's menu — an
+ *  outage caused purely by deploy ORDER, with nothing in the logs.
+ *
+ *  Delete this once the backend carrying `capabilities` is everywhere. */
+const LEGACY_ROLE_CAPABILITIES: Record<string, string[]> = {
+  "police-investigator": [
+    "honeypot.read",
+    "honeypot.engage",
+    "honeypot.dial",
+    "case.write",
+    "action.generate",
+    "dispatch.send",
+  ],
+  "regulator-analyst": ["case.write", "action.generate", "dispatch.send"],
+  "bank-compliance": ["action.generate"],
+  "exchange-compliance": ["action.generate"],
+  "agency-admin": [
+    "honeypot.read",
+    "honeypot.engage",
+    "honeypot.dial",
+    "case.write",
+    "action.generate",
+    "dispatch.send",
+    "users.admin",
+  ],
+  "platform-admin": [
+    "honeypot.read",
+    "honeypot.engage",
+    "honeypot.dial",
+    "case.write",
+    "action.generate",
+    "dispatch.send",
+    "users.admin",
+    "roles.admin",
+  ],
+};
+
+/** Whether `me` may do `capability`.
+ *
+ *  NEVER the authorisation decision — the server re-checks on every request and
+ *  each page renders whatever 403 comes back. This only decides whether to
+ *  offer a door.
+ *
+ *  Absent `capabilities` means the server did not send them: either an older
+ *  backend, or the optimistic boot from JWT claims alone. Both fall back to the
+ *  legacy role map rather than to "no", because a wrongly-shown link costs a
+ *  403, while a wrongly-hidden one costs an administrator their way in. */
+export const can = (me: AuthMe | null, capability: string): boolean => {
+  if (!me) return false;
+  if (me.capabilities) return me.capabilities.includes(capability);
+  return (LEGACY_ROLE_CAPABILITIES[me.role] ?? []).includes(capability);
+};
 
 export type Mode = "POC" | "LIVE";
 
