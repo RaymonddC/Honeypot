@@ -88,6 +88,18 @@ class MeResponse(BaseModel):
     user: UserOut
     agency: AgencyOut
     role: str
+    # What this role may actually DO, resolved from core.roles.
+    #
+    # The UI needs this to decide what to show, and the alternative is worse:
+    # hiding a nav item behind a hardcoded list of role names is exactly the
+    # coupling capabilities exist to remove — a role created in the admin screen
+    # would be invisible to the menu forever. Safe to expose: it describes the
+    # caller's own access, which they discover anyway the moment they click.
+    #
+    # It is NOT the authorisation decision. Guards resolve capabilities
+    # server-side on every request; this only stops the UI offering a door that
+    # will not open.
+    capabilities: list[str] = []
 
 
 class AdapterInfo(BaseModel):
@@ -404,7 +416,9 @@ async def post_google_login(
 
 @router.get("/auth/me", response_model=MeResponse)
 async def get_me(auth: CurrentUser) -> MeResponse:
-    """The verified identity behind the Bearer token."""
+    """The verified identity behind the Bearer token, and what it may do."""
+    from app.core.roles import capabilities_for
+
     return MeResponse(
         user=UserOut(
             id=str(auth.user.id),
@@ -420,6 +434,7 @@ async def get_me(auth: CurrentUser) -> MeResponse:
             type=auth.agency.type,
         ),
         role=auth.role,
+        capabilities=sorted(await capabilities_for(auth.role)),
     )
 
 
