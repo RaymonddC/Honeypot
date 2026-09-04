@@ -100,7 +100,7 @@ def test_mixed_module_modes_are_refused_under_postgres():
     """The boot refusal. `app.data_mode` is ONE value per transaction and a
     request spans modules, so a per-module mode cannot be honestly stamped —
     better to refuse than to write rows tagged with a mode that is not theirs."""
-    error = _coherence_check_with("poc", {"takedown": "live"}, "postgres")
+    error = _coherence_check_with("poc", {"uncover": "live"}, "postgres")
     assert error is not None, "a mixed-mode postgres config was allowed to boot"
 
 
@@ -111,9 +111,9 @@ def test_the_refusal_names_the_offenders_and_both_ways_out():
     ITTU_MODULE_MODES and ITTU_PERSISTENCE=postgres, mid-task, with no idea why
     the app stopped starting. The message has to do the explaining.
     """
-    error = _coherence_check_with("poc", {"takedown": "live"}, "postgres")
+    error = _coherence_check_with("poc", {"uncover": "live"}, "postgres")
 
-    assert "takedown" in error and "'live'" in error, "the offending override is not named"
+    assert "uncover" in error and "'live'" in error, "the offending override is not named"
     assert "ITTU_MODE='poc'" in error, "the global mode it conflicts with is not named"
     assert "ITTU_PERSISTENCE=memory" in error, "way out #1 (memory mode) is not offered"
     assert "ITTU_MODULE_MODES" in error, "way out #2 (align the override) is not offered"
@@ -125,6 +125,61 @@ def test_mixed_module_modes_stay_supported_in_memory_mode():
     usable there — which is where they are actually used (a LIVE takedown
     adapter against replayed INFILTRATE transcripts)."""
     assert _coherence_check_with("poc", {"takedown": "live"}, "memory") is None
+
+
+def test_an_override_on_a_module_that_persists_nothing_is_allowed():
+    """The narrowing that keeps this guard honest.
+
+    The incoherence is about the row STAMP. `takedown` and `trace` have no
+    Postgres repository — their data flows through adapters (TRONSCAN, fixtures)
+    and is never persisted — so they cannot mis-stamp anything, and refusing
+    them buys no safety.
+
+    This matters because `ITTU_MODULE_MODES={"takedown":"live"}` with a POC
+    database is the configuration a developer actually uses: real blockchain
+    data, replayed everything else. The first version of this guard refused it,
+    and a guard that blocks a provably safe setup does not make anyone safer —
+    it teaches them to switch guards off.
+    """
+    assert _coherence_check_with("poc", {"takedown": "live"}, "postgres") is None
+    assert _coherence_check_with("poc", {"trace": "live"}, "postgres") is None
+
+
+def test_a_persisting_module_is_still_refused_even_beside_a_safe_one():
+    """The narrowing must not become a loophole: one safe override alongside a
+    persisting one must still refuse, naming the persisting one."""
+    error = _coherence_check_with("poc", {"takedown": "live", "cases": "live"}, "postgres")
+    assert error is not None, "a persisting module's conflict was masked by a safe override"
+    assert "cases" in error, f"the refusal must name the module that can actually mis-stamp: {error}"
+
+
+def test_persisting_modules_matches_the_modules_that_have_a_postgres_repository():
+    """Pins the set against the tree, so a module gaining persistence without
+    being added here cannot silently fall out of the guard's coverage."""
+    from pathlib import Path
+
+    from app.core.config import PERSISTING_MODULES
+
+    # The property PERSISTING_MODULES actually encodes is "writes MODE-STAMPED
+    # rows", not "has a Postgres repository". They came apart when role
+    # administration landed: app/roles has a Postgres repository, but core.roles
+    # has no data_mode column at all — a role is a global platform definition,
+    # not tenant data, so it cannot be mis-stamped and does not belong in the
+    # mode-coherence guard.
+    app_dir = Path(__file__).resolve().parents[1] / "app"
+    found = set()
+    for d in sorted(app_dir.iterdir()):
+        repo = d / "repository.py"
+        if not (d.is_dir() and repo.is_file()):
+            continue
+        src = repo.read_text(encoding="utf-8")
+        if "class Postgres" in src and "data_mode" in src:
+            found.add(d.name)
+    assert found == set(PERSISTING_MODULES), (
+        "PERSISTING_MODULES has drifted from the modules that actually own a "
+        f"Postgres repository.\n  in the tree: {sorted(found)}\n  in the set:  "
+        f"{sorted(PERSISTING_MODULES)}"
+    )
 
 
 def test_agreeing_overrides_are_not_a_conflict():

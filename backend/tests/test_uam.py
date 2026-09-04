@@ -429,10 +429,13 @@ def test_a_non_admin_probing_the_admin_api_leaves_a_trace():
         f"{[e['detail'] for e in forbidden]}"
     )
     d = forbidden[0]["detail"]
-    assert d["_outcome"] == "denied" and d["_denial_code"] == "forbidden"
+    assert d["_outcome"] == "denied" and d["_denial_code"] == "missing_capability"
     assert d["path"] == "/api/users" and d["method"] == "GET"
     assert d["_actor_role"] == "police-investigator"
-    assert "agency-admin" in d["requires"]
+    # `requires` names the CAPABILITY, not a list of role names. That is what
+    # the reader needs: "this role lacks users.admin" is actionable, whereas a
+    # list of four role names still has to be decoded into "what do I grant".
+    assert d["requires"] == "users.admin"
 
 
 def test_denials_do_not_leak_across_agencies():

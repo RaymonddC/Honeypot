@@ -22,6 +22,7 @@ import jwt
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from app.core.capabilities import is_capability
 from app.core.config import get_settings
 
 # --- RBAC roles (docs/Data-Model.md) ----------------------------------------
@@ -280,6 +281,74 @@ async def get_optional_current_user(
     if credentials is None:
         return None
     return await get_current_user(credentials)
+
+
+def require_capability(capability: str):
+    """Dependency factory: 403 unless the caller's ROLE holds ``capability``.
+
+    The capability-based twin of ``require_role``, and the one to prefer.
+    ``require_role`` hardcodes WHICH roles may act, so every new role means
+    editing and redeploying every guard; this names WHAT is being done and lets
+    the role↔capability mapping live in ``core.roles`` as data
+    (``app/core/capabilities.py`` explains the split).
+
+    Refusals are audited identically — ``access.forbidden``, outcome ``denied``,
+    recorded here because the handler never runs and this is the only place that
+    knows the refusal happened. ``detail.requires`` names the CAPABILITY rather
+    than a role list, which is also what the reader needs: "this account's role
+    lacks honeypot.operate" is actionable, "requires one of [4 role names]" is
+    something they then have to decode.
+
+    Fails closed by construction: an unreadable ``core.roles`` yields no
+    capabilities for anyone (see ``app/core/roles.py``), so protected endpoints
+    refuse rather than admit during a database outage.
+    """
+    if not is_capability(capability):
+        # A typo here would create a guard nothing can ever satisfy — every
+        # request 403s and the cause is invisible. Caught at import, not at the
+        # first unlucky request.
+        raise ValueError(
+            f"unknown capability {capability!r} — it must be declared in "
+            "app/core/capabilities.py, which is the closed set of things this "
+            "system actually enforces"
+        )
+
+    async def dependency(auth: CurrentUser, request: Request) -> AuthContext:
+        from app.core.roles import has_capability
+
+        if not await has_capability(auth.role, capability):
+            from app.core.audit import ACCESS_FORBIDDEN, record_denial
+
+            await record_denial(
+                agency_id=str(auth.agency.id),
+                action=ACCESS_FORBIDDEN,
+                denial_code="missing_capability",
+                actor_user_id=str(auth.user.id),
+                actor_name=auth.user.name,
+                actor_role=auth.role,
+                target_type="endpoint",
+                target_label=f"{request.method} {request.url.path}",
+                request=request,
+                detail={
+                    "method": request.method,
+                    "path": request.url.path,
+                    "requires": capability,
+                },
+            )
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "code": "missing_capability",
+                    "message": (
+                        f"Your role ({auth.role}) does not have the "
+                        f"'{capability}' capability."
+                    ),
+                    "capability": capability,
+                },
+            )
+        return auth
+
+    return dependency
 
 
 def require_role(roles: Sequence[str]):

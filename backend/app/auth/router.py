@@ -34,6 +34,7 @@ from app.core.auth import (
 from app.core.config import MODULES, get_mode_resolver, get_settings
 from app.core.db import get_optional_session
 from app.core.user_repository import UserRepository, get_user_repository, resolve_demo_user
+from app.users.schemas import RoleName
 
 router = APIRouter(tags=["auth"])
 
@@ -61,14 +62,13 @@ class LoginRequest(BaseModel):
 
     agency_id: str | None = None  # uuid or slug (bareskrim|ppatk|ojk|bank-bca|indodax)
     agency_type: Literal["regulator", "police", "bank", "exchange"] | None = None
-    role: Literal[
-        "regulator-analyst",
-        "police-investigator",
-        "bank-compliance",
-        "exchange-compliance",
-        "agency-admin",
-        "platform-admin",
-    ] | None = None
+    # A constrained string, not a Literal of the six built-ins. Roles are DATA
+    # (core.roles) and can be created in the admin UI — pinning the list here
+    # would let an operator create a role that nobody can then sign in with,
+    # rejected by a schema before any of our own checks ran. Existence is
+    # checked against the roles table below, where the refusal can name the
+    # role and say what to do.
+    role: RoleName | None = None
 
 
 class GoogleLoginRequest(BaseModel):
@@ -186,7 +186,17 @@ def _token_response(user: SeedUser, agency: SeedAgency) -> TokenResponse:
     )
 
 
-def _provisioned_from_allowlist(email: str, settings) -> SeedUser | None:
+async def _role_exists(name: str) -> bool:
+    """Whether a role is defined. Reads the roles table rather than the frozen
+    ROLES tuple, so a role created in the admin UI is immediately usable for
+    provisioning — otherwise the product would offer a button that makes
+    something it then refuses to accept."""
+    from app.core.roles import all_role_capabilities
+
+    return name in await all_role_capabilities()
+
+
+async def _provisioned_from_allowlist(email: str, settings) -> SeedUser | None:
     """Resolve an operator-allowlisted email → an unpersisted ``SeedUser``, or
     ``None`` if it isn't listed. Raises 500 (fail loud) on a malformed allowlist
     entry — a typo in agency/role must not silently degrade to "not provisioned".
@@ -205,12 +215,14 @@ def _provisioned_from_allowlist(email: str, settings) -> SeedUser | None:
                 "message": f"ITTU_OAUTH_PROVISION lists unknown agency {spec['agency']!r}",
             },
         )
-    if spec["role"] not in ROLES:
+    if not await _role_exists(spec["role"]):
         raise HTTPException(
             status_code=500,
             detail={
                 "code": "provision_role_unknown",
-                "message": f"ITTU_OAUTH_PROVISION lists unknown role {spec['role']!r}",
+                "message": f"ITTU_OAUTH_PROVISION lists role {spec['role']!r}, which does not exist "
+                "in core.roles. Create it in Roles administration, or correct "
+                "the allowlist.",
             },
         )
     return SeedUser(
@@ -268,6 +280,23 @@ async def post_login(
         agency = find_agency("bareskrim")
 
     role = body.role or DEFAULT_ROLE_BY_AGENCY_TYPE[agency.type]
+    # `role` is a constrained STRING, not a Literal — roles are data and a role
+    # created in the admin UI must be usable here. Existence is therefore checked
+    # against the roles table rather than a frozen tuple. Without this, any
+    # well-formed name minted a session for a role that grants nothing: the
+    # holder would fail closed on every guard, then quietly reach everything not
+    # yet guarded, as a member of whichever agency they named.
+    if not await _role_exists(role):
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "role_not_found",
+                "message": (
+                    f"No role named {role!r}. Roles are managed in Roles "
+                    "administration (GET /api/roles)."
+                ),
+            },
+        )
     user = await resolve_demo_user(repo, agency, role)
     _reject_if_deactivated(user)
     await _record_login(session, user, agency, method="demo")
@@ -334,7 +363,7 @@ async def post_google_login(
     if user is None:
         # Operator-allowlisted email (ITTU_OAUTH_PROVISION) → that agency/role;
         # honored in both modes. First login materializes the row below.
-        user = _provisioned_from_allowlist(email, settings)
+        user = await _provisioned_from_allowlist(email, settings)
     if user is None:
         if _auth_mode() == "poc":
             # POC demo: any Google-verified account gets a default demo identity
