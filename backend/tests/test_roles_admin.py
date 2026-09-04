@@ -76,7 +76,7 @@ def test_capabilities_are_readable_by_anyone_signed_in():
     r = client.get("/api/capabilities", headers=bearer("bank-compliance", "bank-bca"))
     assert r.status_code == 200
     keys = {c["key"] for c in r.json()}
-    assert "honeypot.operate" in keys
+    assert "honeypot.read" in keys
     assert all(c["description"] for c in r.json())
 
 
@@ -176,14 +176,20 @@ def test_a_new_role_actually_grants_what_it_says():
         "a role with no capabilities could still read honeypot transcripts"
     )
 
+    # honeypot.read alone: enough to review transcripts, deliberately NOT enough
+    # to start a session — the split is only real if it draws that line.
     client.patch(
         "/api/roles/field-officer",
-        json={"capabilities": ["honeypot.operate"]},
+        json={"capabilities": ["honeypot.read"]},
         headers=admin,
     )
     assert client.get("/api/sessions", headers=holder).status_code == 200, (
-        "granting honeypot.operate did not take effect — the resolver cache was "
+        "granting honeypot.read did not take effect — the resolver cache was "
         "not invalidated, or the guard is not reading the roles table"
+    )
+    assert client.post("/api/sessions", json={}, headers=holder).status_code == 403, (
+        "honeypot.read alone allowed STARTING a session — the split is cosmetic "
+        "if reading the record also authorises contacting a suspect"
     )
 
 

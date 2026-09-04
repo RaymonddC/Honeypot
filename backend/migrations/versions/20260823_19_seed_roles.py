@@ -38,24 +38,45 @@ depends_on = None
 
 # name -> capabilities. Mirrors DEFAULT_ROLE_CAPABILITIES at this revision.
 SEED: dict[str, list[str]] = {
-    "police-investigator": ["case.write", "dispatch.send", "honeypot.operate"],
-    "regulator-analyst": ["case.write", "dispatch.send"],
-    "bank-compliance": [],
-    "exchange-compliance": [],
-    "agency-admin": [
+    "police-investigator": [
+        "action.generate",
         "case.write",
         "dispatch.send",
-        "honeypot.operate",
-        "users.admin",
+        "honeypot.dial",
+        "honeypot.engage",
+        "honeypot.read"
+    ],
+    "regulator-analyst": [
+        "action.generate",
+        "case.write",
+        "dispatch.send"
+    ],
+    "bank-compliance": [
+        "action.generate"
+    ],
+    "exchange-compliance": [
+        "action.generate"
+    ],
+    "agency-admin": [
+        "action.generate",
+        "case.write",
+        "dispatch.send",
+        "honeypot.dial",
+        "honeypot.engage",
+        "honeypot.read",
+        "users.admin"
     ],
     "platform-admin": [
+        "action.generate",
         "case.write",
         "dispatch.send",
-        "honeypot.operate",
+        "honeypot.dial",
+        "honeypot.engage",
+        "honeypot.read",
         "roles.admin",
         "users.admin",
-        "users.admin.cross_agency",
-    ],
+        "users.admin.cross_agency"
+    ]
 }
 
 

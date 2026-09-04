@@ -155,13 +155,35 @@ def test_only_the_platform_role_crosses_agencies():
 def test_institutional_roles_cannot_operate_the_honeypot():
     """The judgement the default policy encodes, pinned so a careless edit to
     the seed has to argue with it: a bank or exchange compliance officer must
-    not run a tool that engages a live suspect."""
-    from app.core.capabilities import HONEYPOT_OPERATE
+    not run a tool that engages a live suspect.
+
+    Checks all three honeypot capabilities, not just one — the split means a
+    future edit could hand over dialling while leaving reading alone, and
+    dialling is the MORE consequential half.
+    """
+    from app.core.capabilities import HONEYPOT_DIAL, HONEYPOT_ENGAGE, HONEYPOT_READ
 
     for role in ("bank-compliance", "exchange-compliance"):
-        assert HONEYPOT_OPERATE not in DEFAULT_ROLE_CAPABILITIES[role], (
-            f"{role} was granted honeypot operation — that is a law-enforcement act"
-        )
+        for cap in (HONEYPOT_READ, HONEYPOT_ENGAGE, HONEYPOT_DIAL):
+            assert cap not in DEFAULT_ROLE_CAPABILITIES[role], (
+                f"{role} was granted {cap} — the honeypot is a law-enforcement act"
+            )
+
+
+def test_dialling_is_never_granted_without_engagement_by_default():
+    """Not a rule the system enforces — a sanity check on the SEEDED policy.
+
+    A role that can cold-call a list but cannot talk to whoever answers is
+    incoherent, and would mean the default policy shipped a hole rather than a
+    decision. An administrator may still configure it that way deliberately.
+    """
+    from app.core.capabilities import HONEYPOT_DIAL, HONEYPOT_ENGAGE
+
+    for role, caps in DEFAULT_ROLE_CAPABILITIES.items():
+        if HONEYPOT_DIAL in caps:
+            assert HONEYPOT_ENGAGE in caps, (
+                f"{role} is seeded able to place calls but not to conduct one"
+            )
 
 
 # --------------------------------------------------------------------------- #

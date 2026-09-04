@@ -24,7 +24,7 @@ from app.core.audit import (
     record_action,
 )
 from app.core.auth import AuthContext, get_current_user, require_capability
-from app.core.capabilities import DISPATCH_SEND
+from app.core.capabilities import ACTION_GENERATE, DISPATCH_SEND
 from app.core.db import get_optional_tenant_session
 from app.uncover import service
 from app.uncover.metrics import RangeKey, ResponseMetrics, compute_metrics
@@ -111,7 +111,10 @@ async def post_generate(
     chain: ChainDataAdapter = ChainAdapterDep,
     fiat: FiatDataAdapter = FiatAdapterDep,
     repo: UncoverRepository = RepoDep,
-    auth: AuthContext = Depends(get_current_user),  # any authenticated role
+    # Was ANY authenticated role. Generating a bundle produces a freeze
+    # request and an STR/LTKM draft carrying the agency's name — drafting
+    # those is not something every login should be able to do.
+    auth: AuthContext = Depends(require_capability(ACTION_GENERATE)),
     audit_session=Depends(get_optional_tenant_session),
     request: Request = None,  # audit origin (ip/user-agent)
 ) -> ActionBundle:
