@@ -112,6 +112,18 @@ class Settings(BaseSettings):
     # match and every genuine webhook would be rejected as forged.
     public_base_url: str = ""             # ITTU_PUBLIC_BASE_URL
 
+    # Shared secret carried in the media-stream URL. Twilio cannot present our
+    # JWT on a WebSocket, and it does NOT sign stream frames the way it signs
+    # webhooks — the answer TwiML is the only place we control, so the token
+    # goes in the URL we put there.
+    #
+    # EMPTY DISABLES THE STREAM ENDPOINT ENTIRELY. Without a token anyone who
+    # learns the URL could open a socket and drive a persona, which is both an
+    # LLM bill and a fabricated "call" in an evidentiary record — so an
+    # unconfigured deployment refuses rather than accepting all comers.
+    telephony_stream_token: str = ""      # ITTU_TELEPHONY_STREAM_TOKEN
+
+
     # CORS: origins allowed to call the API. Kept as a STRING (not list[str]) so
     # pydantic-settings never tries to JSON-decode the env var and crash on deploy.
     # ITTU_CORS_ORIGINS accepts any of:
