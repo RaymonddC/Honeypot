@@ -175,6 +175,29 @@ class Settings(BaseSettings):
     # ITTU_LLM_API_BASE to force any custom endpoint.
     llm_api_base: str = ""                # ITTU_LLM_API_BASE
 
+    # --- Crypto surface (product decision, 2026-09-05) --------------------------
+    # Whether the crypto-facing product is exposed at all: TAKEDOWN in full
+    # (wallet graph, risk scoring, investigations) and the crypto half of TRACE.
+    #
+    # OFF by default, deliberately. This hides a CAPABILITY, not a permission —
+    # a role holding every capability still gets 404 from these routes while it
+    # is off, because the honest answer is "this product does not offer that
+    # here" rather than "you may not". 404 also avoids advertising that a crypto
+    # feature exists but is withheld.
+    #
+    # ⚠️ Turning this off has a STRATEGY consequence recorded in
+    # docs/Ecosystem-Strategy.md §5.1: crypto checking was the lower-risk way to
+    # launch the public layer, because a wallet address is not a person and
+    # publishing a score for one accuses nobody. With it hidden, the public
+    # layer falls back to named bank accounts, which is the higher-exposure
+    # path under UU ITE 27A / UU PDP. Hiding crypto is a decision about the
+    # product, not a way to reduce legal risk.
+    #
+    # Nothing here stops the honeypot EXTRACTING wallet addresses — that
+    # intelligence keeps accruing, so switching this on later has data behind it
+    # rather than starting cold.
+    crypto_enabled: bool = False          # ITTU_CRYPTO_ENABLED
+
     # --- Auth (P5) — we always mint OUR OWN JWT {sub, agency_id, role, exp} ---
     # Dev-only default (≥32 bytes for HS256); override via ITTU_JWT_SECRET in prod.
     jwt_secret: str = "ittu-dev-only-secret-change-me-in-prod-0123"

@@ -20,6 +20,7 @@ from app.casedata.repository import CaseDataRepository, get_casedata_repository
 from app.casedata.schemas import BankAccountOut
 from app.chain.schemas import Transfer
 from app.core.adapters import ChainDataAdapter, FiatDataAdapter
+from app.core.auth import require_crypto_enabled
 from app.fiat.generator import IDR_PER_USDT
 from app.fiat.schemas import FiatGenParams
 from app.trace.correlation import METHOD, CorrelationOut
@@ -96,6 +97,10 @@ async def post_simulate(
     body: SimulateRequest | None = None,
     fiat: FiatDataAdapter = FiatAdapterDep,
     chain: ChainDataAdapter = ChainAdapterDep,
+    # The FIAT side of TRACE stays available — a mule ACCOUNT is a bank
+    # account. What is gated is the crossing into crypto, which is the
+    # part this deployment does not offer yet.
+    _crypto: None = Depends(require_crypto_enabled),
 ) -> SimulateResponse:
     """Generate (or re-generate) the synthetic PT A2Z scenario and warm the cache."""
     params = (body.params if body else None) or FiatGenParams()
@@ -123,6 +128,10 @@ async def get_sankey(
     seed: int = SeedQuery,
     fiat: FiatDataAdapter = FiatAdapterDep,
     chain: ChainDataAdapter = ChainAdapterDep,
+    # The FIAT side of TRACE stays available — a mule ACCOUNT is a bank
+    # account. What is gated is the crossing into crypto, which is the
+    # part this deployment does not offer yet.
+    _crypto: None = Depends(require_crypto_enabled),
 ) -> SankeyResponse:
     """Aggregated flows: QRIS merchants → mules → exchange → USDT → offshore."""
     bridge = await build_bridge(fiat, chain, FiatGenParams(seed=seed))
@@ -143,6 +152,10 @@ async def get_correlations(
     min_confidence: float = Query(default=0.0, ge=0.0, le=1.0),
     fiat: FiatDataAdapter = FiatAdapterDep,
     chain: ChainDataAdapter = ChainAdapterDep,
+    # The FIAT side of TRACE stays available — a mule ACCOUNT is a bank
+    # account. What is gated is the crossing into crypto, which is the
+    # part this deployment does not offer yet.
+    _crypto: None = Depends(require_crypto_enabled),
 ) -> CorrelationsResponse:
     """Confidence-ranked fiat↔crypto on-ramp matches (amount + 30-min window)."""
     bridge = await build_bridge(fiat, chain, FiatGenParams(seed=seed))

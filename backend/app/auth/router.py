@@ -115,6 +115,12 @@ class ConfigResponse(BaseModel):
     modules: dict[str, str]  # effective MODE per module (override or global)
     adapters: list[AdapterInfo]
     # --- Voice (#15) — read-only, no secrets: presence booleans only ---------
+    # Whether the crypto surface exists in this deployment (TAKEDOWN in full,
+    # the crypto half of TRACE). The frontend hides those screens when false —
+    # a menu item leading to a 404 is worse than no menu item. Not a secret and
+    # not a permission: it describes the PRODUCT, which is why it rides on the
+    # unauthenticated config endpoint alongside the MODE badge.
+    crypto_enabled: bool = False
     tts_provider: str = "browser"  # effective ITTU_TTS_PROVIDER
     tts_providers: list[str] = []  # known live providers (voice.LIVE_TTS_PROVIDERS)
     live_keys: dict[str, bool] = {}  # provider slug -> is a LIVE key configured
@@ -476,6 +482,7 @@ async def get_config() -> ConfigResponse:
         mode=settings.mode,
         modules=modules,
         adapters=adapters,
+        crypto_enabled=settings.crypto_enabled,
         tts_provider=settings.tts_provider,
         tts_providers=sorted(LIVE_TTS_PROVIDERS),
         live_keys=live_keys,

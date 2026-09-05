@@ -22,13 +22,19 @@ import { CAP, can, initialsOf, roleLabel } from "@/lib/auth/types";
 // workflow" said it was — someone looking for it would search the case screens,
 // and someone reading the menu would infer that access is decided per case,
 // which is exactly backwards.
-const ADMIN_NAV: {
+/** One nav item. Both nav tables use this shape so they can be concatenated —
+ *  `capability` gates on who you are, `crypto` on what this deployment offers. */
+type NavItem = {
   href: string;
   labelKey: string;
   glyph: string;
   /** Omitted = visible to everyone signed in. */
   capability?: string;
-}[] = [
+  /** Hidden when the deployment does not offer the crypto surface. */
+  crypto?: boolean;
+};
+
+const ADMIN_NAV: NavItem[] = [
   // Agency-wide, not case-scoped — its own subtitle says "every recorded action
   // by your agency". It sat under the case flow for the same bad reason Users
   // did, and a trail filed under one case implies it only covers that case.
@@ -44,10 +50,11 @@ const ADMIN_NAV: {
 
 // Two clear groups: the guided case flow vs standalone tools. Labels are
 // i18n keys under appShell.nav.*, resolved at render time (SidebarNav).
-const NAV_GROUPS: {
-  groupKey: string;
-  items: { href: string; labelKey: string; glyph: string }[];
-}[] = [
+// `crypto` items disappear when the deployment does not offer the crypto
+// surface. Hiding is not the protection — the server answers 404 for those
+// routes either way — it just stops a menu item leading somewhere that cannot
+// load.
+const NAV_GROUPS: { groupKey: string; items: NavItem[] }[] = [
   {
     groupKey: "caseWorkflow",
     items: [{ href: "/case", labelKey: "caseFile", glyph: "▤" }],
@@ -57,8 +64,10 @@ const NAV_GROUPS: {
     items: [
       { href: "/honeypot", labelKey: "infiltrate", glyph: "⬡" },
       { href: "/honeypot-ops", labelKey: "honeypotOps", glyph: "☎" },
+      // TRACE keeps its FIAT half (mule bank accounts) when crypto is off,
+      // so it is NOT hidden. TAKEDOWN is crypto in its entirety.
       { href: "/bridge", labelKey: "trace", glyph: "⇌" },
-      { href: "/investigation", labelKey: "takedown", glyph: "◉" },
+      { href: "/investigation", labelKey: "takedown", glyph: "◉", crypto: true },
       { href: "/actions", labelKey: "uncover", glyph: "⚑" },
       { href: "/response", labelKey: "commandCenter", glyph: "▦" },
     ],
@@ -190,10 +199,12 @@ function UserMenu() {
 function SidebarNav({
   pathname,
   me,
+  cryptoEnabled,
   onNavigate,
 }: {
   pathname: string;
   me: ReturnType<typeof useAuth>["me"];
+  cryptoEnabled: boolean;
   onNavigate?: () => void;
 }) {
   const t = useTranslations("appShell.nav");
@@ -201,6 +212,8 @@ function SidebarNav({
   const adminItems = ADMIN_NAV.filter(
     (item) => !item.capability || can(me, item.capability),
   );
+  const visible = (items: NavItem[]): NavItem[] =>
+    items.filter((item) => !item.crypto || cryptoEnabled);
 
   return (
     <>
@@ -238,7 +251,7 @@ function SidebarNav({
           <div key={group.groupKey} className="mt-2">
             <div className="eyebrow px-3 pb-1.5">{t(group.groupKey)}</div>
             <ul className="space-y-0.5">
-              {group.items.map((item) => {
+              {visible(group.items).map((item) => {
                 const active = pathname.startsWith(item.href);
                 return (
                   <li key={item.href}>
@@ -306,7 +319,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const t = useTranslations("common");
   const tShell = useTranslations("appShell.agencyChip");
   const pathname = usePathname();
-  const { me } = useAuth();
+  const { me, config } = useAuth();
+  const cryptoEnabled = config?.cryptoEnabled ?? false;
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // Close the mobile drawer whenever the route changes (covers back/forward
@@ -329,7 +343,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen overflow-hidden">
       {/* ── Left module rail — desktop/tablet only ───────────────────── */}
       <aside className="hidden w-56 shrink-0 flex-col border-r border-line bg-sidebar md:flex">
-        <SidebarNav pathname={pathname} me={me} />
+        <SidebarNav pathname={pathname} me={me} cryptoEnabled={cryptoEnabled} />
       </aside>
 
       {/* ── Mobile drawer — hidden nav, slides in over the page ──────── */}
@@ -344,6 +358,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <SidebarNav
               pathname={pathname}
               me={me}
+              cryptoEnabled={cryptoEnabled}
               onNavigate={() => setMobileNavOpen(false)}
             />
           </aside>

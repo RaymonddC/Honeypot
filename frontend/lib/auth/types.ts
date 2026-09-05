@@ -112,6 +112,17 @@ export interface AppConfig {
   mode: Mode;
   modules: ModuleMode[];
   source: "api" | "env";
+  /** Whether this deployment offers the crypto surface at all — TAKEDOWN in
+   *  full, and the crypto half of TRACE.
+   *
+   *  A PRODUCT flag, not a permission: the server answers 404 `feature_disabled`
+   *  for those routes while it is off, regardless of who is asking. The UI
+   *  hides the screens so nobody follows a menu item into a 404.
+   *
+   *  Defaults to FALSE when the config call fails, matching the server default.
+   *  Guessing true would show an investigator a Takedown screen that cannot
+   *  load — the wrong way to be wrong. */
+  cryptoEnabled: boolean;
 }
 
 /* ── Demo login catalogue (POC) ────────────────────────────────────────── */

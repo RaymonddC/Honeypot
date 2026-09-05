@@ -25,6 +25,15 @@ Settings.model_config["env_file"] = None
 _get_settings.cache_clear()  # rebuild the singleton now that .env is disabled
 _get_settings().persistence = "memory"
 
+# The crypto surface (TAKEDOWN, and the crypto half of TRACE) ships DISABLED —
+# a product decision, not a code one (docs/Ecosystem-Strategy.md). The suite
+# tests the feature, so it opts in: without this, every crypto test 404s with
+# `feature_disabled` and reads as broken rather than switched off.
+#
+# `test_crypto_flag.py` sets it explicitly in both directions, so the switch
+# itself is still covered rather than assumed.
+_get_settings().crypto_enabled = True
+
 SOURCE = "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6"
 RELAY1 = "TLa8NqPv5RkXm3WdJc7YtB2sFhE9gUn6Kz"
 RELAY2 = "TKe2WmXr9NpQv4LdYc6JtB8sFhA3gUn5Mz"
@@ -52,7 +61,7 @@ def _hermetic_provider_keys(monkeypatch):
     s = get_settings()
     saved = (
         s.llm_api_key, s.elevenlabs_api_key, s.google_tts_api_key,
-        s.persistence, s.mode, s.module_modes,
+        s.persistence, s.mode, s.module_modes, s.crypto_enabled,
     )
     s.llm_api_key = s.elevenlabs_api_key = s.google_tts_api_key = ""
     # POC is the default posture. A developer .env that flips modes/persistence
@@ -62,10 +71,16 @@ def _hermetic_provider_keys(monkeypatch):
     s.persistence = "memory"
     s.mode = "poc"
     s.module_modes = {}
+    # Re-asserted PER TEST, not just at import: any test that calls
+    # get_settings.cache_clear() rebuilds the singleton from env, where the
+    # crypto flag defaults OFF — every later crypto test would then 404 and read
+    # as broken rather than switched off. Same reason persistence is re-asserted
+    # here rather than trusted from module scope.
+    s.crypto_enabled = True
     yield
     (
         s.llm_api_key, s.elevenlabs_api_key, s.google_tts_api_key,
-        s.persistence, s.mode, s.module_modes,
+        s.persistence, s.mode, s.module_modes, s.crypto_enabled,
     ) = saved
 
 

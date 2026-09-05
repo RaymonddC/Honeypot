@@ -283,6 +283,36 @@ async def get_optional_current_user(
     return await get_current_user(credentials)
 
 
+async def require_crypto_enabled() -> None:
+    """404 unless the crypto surface is switched on (``ITTU_CRYPTO_ENABLED``).
+
+    **A feature gate, not a permission gate**, and the distinction is the whole
+    point. ``require_capability`` answers "may THIS CALLER do it" and returns
+    403; this answers "does this product offer it here at all" and returns 404.
+    A role holding every capability still gets 404 while the flag is off.
+
+    404 rather than 403 for a second reason: 403 advertises that a crypto
+    feature exists and is being withheld, which invites the question we are
+    choosing not to answer yet. A disabled feature should look absent.
+
+    Not audited as a denial either — nobody was refused. Recording these as
+    ``access.forbidden`` would fill the trail with entries about a product
+    decision and bury the refusals that describe someone's behaviour.
+    """
+    if not get_settings().crypto_enabled:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "feature_disabled",
+                "message": (
+                    "Crypto tracing is not enabled in this deployment. "
+                    "Set ITTU_CRYPTO_ENABLED=true to turn it on."
+                ),
+                "feature": "crypto",
+            },
+        )
+
+
 def require_capability(capability: str):
     """Dependency factory: 403 unless the caller's ROLE holds ``capability``.
 
