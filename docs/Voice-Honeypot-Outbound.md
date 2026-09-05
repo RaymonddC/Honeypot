@@ -20,6 +20,16 @@ lands in triage for an investigator to assign.
 
 ---
 
+> ⚠️ **This describes the OUTBOUND half, which is gated on Polri authorisation and
+> is not the path currently being taken.** Dialing a reported number is contact
+> with someone who has not contacted us. **Inbound** — a scammer calling a number
+> we published, and the agent answering — is a different and much weaker
+> permission problem, and it is where the product is heading:
+> [`Voice-Honeypot-Inbound.md`](Voice-Honeypot-Inbound.md).
+>
+> Everything below stays accurate and built. The dialer refuses in LIVE and says
+> why, so if authorisation ever arrives this is a flag rather than a project.
+
 ## 0. Why outbound, and the legal line (read this first)
 
 Two engagement directions exist; **outbound is the MVP** because it's controllable —
