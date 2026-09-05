@@ -188,17 +188,98 @@ one for a named bank account does.
 
 ---
 
-## 7. Open questions for the product owner
+## 7. Decisions needed — with a recommendation for each
 
-- What is CekScam's month-one value proposition, stated without reference to data it does not
-  yet have?
-- Who is the accountable human authorising each honeypot engagement, and what is the record
-  that they did? (The audit trail can carry this — it is not currently modelled.)
-- Is there an existing relationship with Polri, OJK or PPATK, or is that cold? The sequencing
-  in §5.1 depends entirely on the answer.
-- Does the premium notification feature survive a PDP review? If not, what is the paid tier?
+Each of these is the product owner's call. A recommendation is given anyway: an
+open question with no proposed answer moves nothing, and disagreeing with a
+concrete proposal is faster than composing one from scratch.
 
----
+### 7.1 What does CekScam offer in month one?
+
+**Recommendation: do not launch consumer checking first.** With crypto now hidden
+(`ITTU_CRYPTO_ENABLED=false`), the cold-start problem is unavoidable — a checking
+service is only as good as its database, and on day one there is no database.
+CekRekening has years of reports; matching it from zero, without Kominfo's legal
+cover, is the weakest possible opening.
+
+Invert it: **B2B API first**, sold on honeypot-derived intelligence the platform
+generates itself, then open the consumer layer once there is something worth
+checking against. Same network effect, started from the end that does not depend
+on strangers arriving first.
+
+> **Question that would change this:** is there a data source that seeds the
+> database on day one — a bank partner's fraud list, an existing report corpus,
+> a scraped public dataset with a lawful basis? If yes, consumer-first works and
+> this recommendation is wrong.
+
+### 7.2 Who authorises each honeypot engagement, and where is that recorded?
+
+**Recommendation: model authorisation as an audited action, and make it a
+precondition for a LIVE session.** Concretely: a `honeypot.engagement_authorised`
+entry naming the officer, the target, and the stated basis (which report or
+case), written to the same hash-chained trail as everything else — then a LIVE
+session refuses to start without one.
+
+This is a small build on top of what exists, and it is the **single strongest
+evidentiary improvement available**. Today the system can prove what the persona
+said and that the record was not altered; it cannot prove that anyone authorised
+the engagement, which is the first thing a defence lawyer will ask. It also
+resolves §3.2 properly: auto-detection can raise the request, and a human grants
+it.
+
+> **Question that would change the shape:** does Polri authorisation come
+> per-target, per-campaign, or as a standing authority for a unit? Per-target
+> means one record per session; standing authority means one record referenced by
+> many, with an expiry — a different data model, same principle.
+
+### 7.3 Is there a relationship with Polri, OJK or PPATK today?
+
+**Recommendation: assume cold, and sequence accordingly** — B2B API to fintechs
+first. It needs no procurement, no authorisation, and no institutional trust, and
+it produces both revenue and a usage story to bring to the first regulator
+meeting. "We screen 40,000 transactions a month for three fintechs" opens a door
+that a deck does not.
+
+If a relationship already exists, that inverts: run a Layer 2 pilot with the
+named unit immediately, because a live pilot with a real agency is worth more
+than any amount of B2C traction.
+
+> **Question:** is there a named contact at any of the three, today, who would
+> take a meeting? The entire sequencing in §5.1 turns on this one answer.
+
+### 7.4 Does the premium tier survive a PDP review?
+
+**Recommendation: drop the contact-list feature and re-price the tier.** "Notify
+me if a saved number enters the database" requires ingesting the user's address
+book — third-party personal data, from people who are not users and have not
+consented. It is the highest-exposure feature in the plan and it is attached to
+the lowest-revenue line, which is a poor trade.
+
+Replace it with paid features that touch only the user's own data: higher check
+volume, a personal check history, saved watchlists **the user types in
+themselves**, and an API key for small businesses. Same buyer, similar price,
+none of the exposure.
+
+> **Question that would change this:** is the notification actually what people
+> would pay for, or is it a guess? If user research says the address-book feature
+> is the whole value, the tier needs a lawful basis designed in from the start —
+> not a retrofit.
+
+### 7.5 Now that crypto is hidden, is §5.1 still the plan?
+
+Hiding crypto (`ITTU_CRYPTO_ENABLED=false`, 2026-09-05) **overrides the
+recommendation in §5.1**, which argued for leading with crypto because a wallet
+address is not a person.
+
+**Recommendation: keep crypto hidden for the public layer, but keep building it
+behind the flag.** The honeypot continues extracting wallet addresses either way,
+so the data accrues while the surface stays closed — and TAKEDOWN can be switched
+on for a B2G or B2B audience, where the defamation exposure does not apply,
+without waiting for a consumer decision.
+
+> **Question:** is crypto hidden because of regulatory uncertainty, because the
+> demo audience does not care, or because the data is not ready? Each implies a
+> different re-enable trigger, and without one the flag stays off by inertia.
 
 ## 8. What this changes in the codebase
 
