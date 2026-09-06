@@ -180,7 +180,7 @@ function stageAction(
 }
 
 const fieldCls =
-  "h-[32px] w-full rounded-lg border border-white/10 bg-card px-2.5 font-mono text-[11.5px] text-fg outline-none placeholder:text-muted focus:border-accent/40";
+  "h-[32px] w-full rounded-lg border border-line bg-card px-2.5 font-mono text-[11.5px] text-fg outline-none placeholder:text-muted focus:border-accent/40";
 
 // The one navigation control: a linear case-workflow stepper that IS the tab
 // bar. Each step opens its stage's tool below. Two visual dimensions on one row:
@@ -382,7 +382,7 @@ function StageNav({
         {nextStage === "closed" ? (
           <span className="text-[11px] text-muted">
             {t.rich("stageNav.closeViaRecovery", {
-              b: (chunks) => <b className="text-white/70">{chunks}</b>,
+              b: (chunks) => <b className="text-fg">{chunks}</b>,
             })}
           </span>
         ) : nextStage ? (
@@ -648,7 +648,7 @@ function CaseSessions({
                     type="button"
                     onClick={() => toggle(s.id)}
                     aria-expanded={open}
-                    className="flex w-full items-start gap-2 px-2.5 py-1.5 text-left text-[11.5px] transition-colors hover:bg-white/[.04]"
+                    className="flex w-full items-start gap-2 px-2.5 py-1.5 text-left text-[11.5px] transition-colors hover:bg-fg/[.04]"
                   >
                     <span className="mt-[1px] flex-none text-[10px] text-muted">
                       {open ? "▾" : "▸"}
@@ -804,7 +804,7 @@ function IntakeStage({
       className={`flex-1 rounded-lg border px-3 py-2.5 text-left transition-colors ${
         mode === id
           ? "border-accent bg-accent/10"
-          : "border-line bg-elevated hover:border-white/20"
+          : "border-line bg-elevated hover:border-fg/20"
       }`}
     >
       <div className={`text-[12.5px] font-semibold ${mode === id ? "text-accent-bright" : "text-fg"}`}>
@@ -931,7 +931,7 @@ function IntakeStage({
                 {t("intake.whatHappened")} <span className="text-muted">{t("intake.whatHappenedHint")}</span>
               </label>
               <textarea
-                className="min-h-[64px] w-full rounded-lg border border-white/10 bg-card px-3 py-2 text-[13px] leading-relaxed text-fg outline-none placeholder:text-muted focus:border-accent/40"
+                className="min-h-[64px] w-full rounded-lg border border-line bg-card px-3 py-2 text-[13px] leading-relaxed text-fg outline-none placeholder:text-muted focus:border-accent/40"
                 placeholder={t("intake.whatHappenedPlaceholder")}
                 value={description} onChange={(e) => setDescription(e.target.value)} />
             </div>
@@ -1114,7 +1114,7 @@ function RecoveryStage({
               <button
                 type="button"
                 onClick={() => void onUpdate({ status: "open", stage: "recovery" })}
-                className="mt-2.5 h-8 rounded-lg border border-white/10 bg-elevated px-3 text-[11.5px] font-semibold text-muted transition-colors hover:text-fg"
+                className="mt-2.5 h-8 rounded-lg border border-line bg-elevated px-3 text-[11.5px] font-semibold text-muted transition-colors hover:text-fg"
               >
                 {t("recovery.reopenCase")}
               </button>
@@ -1294,7 +1294,7 @@ export default function CaseFilePage() {
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             placeholder={t("noCase.titlePlaceholder")}
-            className="h-9 flex-1 rounded-lg border border-white/10 bg-card px-3 text-[13px] text-fg outline-none focus:border-accent/40"
+            className="h-9 flex-1 rounded-lg border border-line bg-card px-3 text-[13px] text-fg outline-none focus:border-accent/40"
           />
           <button
             type="submit"
@@ -1305,7 +1305,7 @@ export default function CaseFilePage() {
         </form>
         <div className="mt-3 text-[11.5px] text-muted">
           {t.rich("noCase.hint", {
-            b: (chunks) => <b className="text-white/60">{chunks}</b>,
+            b: (chunks) => <b className="text-fg">{chunks}</b>,
           })}
         </div>
       </div>
@@ -1355,7 +1355,7 @@ export default function CaseFilePage() {
                   });
                   setEditing(true);
                 }}
-                className="h-7 rounded-lg border border-white/10 bg-elevated px-2.5 text-[11px] font-semibold text-muted transition-colors hover:text-fg"
+                className="h-7 rounded-lg border border-line bg-elevated px-2.5 text-[11px] font-semibold text-muted transition-colors hover:text-fg"
               >
                 {t("header.edit")}
               </button>
@@ -1371,7 +1371,7 @@ export default function CaseFilePage() {
               className={`h-7 rounded-lg border px-2.5 text-[11px] font-semibold transition-colors ${
                 activeCase.status === "closed"
                   ? "border-accent/40 bg-accent/10 text-accent-bright hover:bg-accent/20"
-                  : "border-white/10 bg-elevated text-muted hover:text-fg"
+                  : "border-line bg-elevated text-muted hover:text-fg"
               }`}
             >
               {activeCase.status === "closed" ? t("header.reopenCase") : t("header.closeCase")}
@@ -1382,19 +1382,19 @@ export default function CaseFilePage() {
         {editing ? (
           <div className="rounded-card border border-line bg-card p-3.5">
             <input
-              className="mb-2 h-9 w-full rounded-lg border border-white/10 bg-elevated px-3 text-[15px] font-semibold text-fg outline-none focus:border-accent/40"
+              className="mb-2 h-9 w-full rounded-lg border border-line bg-elevated px-3 text-[15px] font-semibold text-fg outline-none focus:border-accent/40"
               value={draft.title}
               onChange={(e) => setDraft({ ...draft, title: e.target.value })}
               placeholder={t("header.titlePlaceholder")}
             />
             <input
-              className="mb-2 h-8 w-full rounded-lg border border-white/10 bg-elevated px-3 text-[12px] text-fg outline-none focus:border-accent/40"
+              className="mb-2 h-8 w-full rounded-lg border border-line bg-elevated px-3 text-[12px] text-fg outline-none focus:border-accent/40"
               value={draft.crime_type}
               onChange={(e) => setDraft({ ...draft, crime_type: e.target.value })}
               placeholder={t("header.crimeTypePlaceholder")}
             />
             <textarea
-              className="mb-2.5 min-h-[64px] w-full rounded-lg border border-white/10 bg-elevated px-3 py-2 text-[12px] text-fg outline-none focus:border-accent/40"
+              className="mb-2.5 min-h-[64px] w-full rounded-lg border border-line bg-elevated px-3 py-2 text-[12px] text-fg outline-none focus:border-accent/40"
               value={draft.summary}
               onChange={(e) => setDraft({ ...draft, summary: e.target.value })}
               placeholder={t("header.summaryPlaceholder")}
@@ -1465,7 +1465,7 @@ export default function CaseFilePage() {
         <div className="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-1.5 rounded-lg border border-accent/20 bg-accent/[.05] px-3 py-2">
           <p className="min-w-0 flex-1 text-[11.5px] leading-relaxed text-muted">
             <b className="text-accent-bright">{t(`stageLabel.${view}`)}</b>{" "}
-            <span className="text-white/45">· {viewToolLabel}</span> —{" "}
+            <span className="text-muted/70">· {viewToolLabel}</span> —{" "}
             {t(`viewGuide.${view}`)}
           </p>
           <div className="flex flex-none items-center gap-3 pt-0.5 text-[11px]">
@@ -1796,7 +1796,7 @@ export default function CaseFilePage() {
       <p className="mt-5 border-t border-line pt-3.5 text-[10.5px] leading-relaxed text-muted">
         {t.rich("overview.footerNote", {
           title: activeCase.title,
-          b: (chunks) => <b className="text-white/70">{chunks}</b>,
+          b: (chunks) => <b className="text-fg">{chunks}</b>,
         })}
       </p>
         </>

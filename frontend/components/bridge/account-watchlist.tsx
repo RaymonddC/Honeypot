@@ -57,7 +57,7 @@ export function AccountWatchlist() {
       <div className="p-2">
         {items.length === 0 ? (
           <p className="px-1.5 py-2 text-[11px] leading-relaxed text-muted">
-            {t.rich("empty", { b: (chunks) => <b className="text-white/60">{chunks}</b> })}
+            {t.rich("empty", { b: (chunks) => <b className="text-fg">{chunks}</b> })}
           </p>
         ) : (
           <ul className="space-y-1">

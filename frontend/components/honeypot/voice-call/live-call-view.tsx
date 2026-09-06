@@ -601,7 +601,7 @@ export function LiveCallView({
                   className={`${BASE_BTN} ${
                     micStatus === "on"
                       ? "border border-risk-high/40 bg-risk-high/10 text-risk-high hover:bg-risk-high/20"
-                      : "border border-line bg-elevated text-fg hover:bg-white/[.07]"
+                      : "border border-line bg-elevated text-fg hover:bg-fg/[.07]"
                   }`}
                 >
                   {micStatus === "on" ? <MicIcon /> : <MicOffIcon />}
@@ -678,7 +678,7 @@ export function LiveCallView({
         <p className="mt-3 px-1 text-[10.5px] leading-relaxed text-muted">
           {t.rich("entitiesNote", {
             count: entities.length,
-            b: (chunks) => <b className="text-white/60">{chunks}</b>,
+            b: (chunks) => <b className="text-fg">{chunks}</b>,
           })}
         </p>
       </div>

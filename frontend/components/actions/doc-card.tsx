@@ -92,7 +92,7 @@ export function DocCard({
               onClick={() => void download()}
               disabled={downloading}
               title={t("downloadPdfTitle")}
-              className="cursor-pointer rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10px] text-white/60 transition-colors hover:border-accent/30 hover:text-accent-bright disabled:cursor-default disabled:opacity-50"
+              className="cursor-pointer rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10px] text-muted transition-colors hover:border-accent/30 hover:text-accent-bright disabled:cursor-default disabled:opacity-50"
             >
               {downloading ? "…" : t("pdfShort")}
             </button>
@@ -107,8 +107,8 @@ export function DocCard({
       )}
 
       {/* paper preview */}
-      <div className="min-h-[200px] flex-1 p-3.5 text-[11.5px] text-white/60">
-        <div className="rounded-lg border border-line bg-[#0c0d0f] p-[13px] font-mono text-[10.5px] leading-[1.7] text-white/60">
+      <div className="min-h-[200px] flex-1 p-3.5 text-[11.5px] text-muted">
+        <div className="rounded-lg border border-line bg-elevated p-[13px] font-mono text-[10.5px] leading-[1.7] text-muted">
           <h5 className="mb-2 font-sans text-[11px] font-bold uppercase tracking-[.04em] text-fg">
             {doc.paperTitle}
           </h5>
@@ -117,7 +117,7 @@ export function DocCard({
               key={`${f.label}-${i}`}
               className={`flex justify-between gap-3 py-1 ${
                 i < doc.fields.length - 1
-                  ? "border-b border-dashed border-white/5"
+                  ? "border-b border-dashed border-line"
                   : ""
               }`}
             >

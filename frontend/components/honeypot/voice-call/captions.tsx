@@ -33,7 +33,7 @@ function CaptionLine({
         isPersona
           ? "self-end rounded-br-[4px] border-accent/[.22] bg-accent/10 text-fg"
           : "self-start rounded-bl-[4px] border-line bg-elevated"
-      } ${speaking ? (isPersona ? "border-accent/50" : "border-white/20") : ""}`}
+      } ${speaking ? (isPersona ? "border-accent/50" : "border-fg/20") : ""}`}
     >
       <div
         className={`mb-[3px] flex items-center gap-2 text-[9.5px] uppercase tracking-[.06em] ${
@@ -119,7 +119,7 @@ export function Captions({
         ))
       )}
       {interim && interim.text && (
-        <div className="max-w-[78%] self-start rounded-xl rounded-bl-[4px] border border-dashed border-white/15 bg-elevated/60 px-3 py-[9px] text-xs leading-relaxed text-fg/70">
+        <div className="max-w-[78%] self-start rounded-xl rounded-bl-[4px] border border-dashed border-fg/15 bg-elevated/60 px-3 py-[9px] text-xs leading-relaxed text-fg/70">
           <div className="mb-[3px] flex items-center gap-2 text-[9.5px] uppercase tracking-[.06em] opacity-60">
             {interim.who} · {t("hearing")}
             <Waveform active bars={5} tone="neutral" className="!h-3" />

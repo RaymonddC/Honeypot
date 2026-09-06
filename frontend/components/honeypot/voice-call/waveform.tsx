@@ -8,7 +8,7 @@
 const TONE_CLASS: Record<string, string> = {
   accent: "bg-accent-bright",
   danger: "bg-risk-high",
-  neutral: "bg-white/40",
+  neutral: "bg-fg/40",
 };
 
 export function Waveform({

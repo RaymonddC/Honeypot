@@ -50,7 +50,7 @@ export function DispatchBar({
             <button
               type="button"
               onClick={() => setArmed(false)}
-              className="h-7 rounded-lg border border-line bg-elevated px-3 text-[11px] font-semibold text-white/60 transition-colors hover:bg-white/[.07]"
+              className="h-7 rounded-lg border border-line bg-elevated px-3 text-[11px] font-semibold text-muted transition-colors hover:bg-fg/[.07]"
             >
               {t("cancel")}
             </button>
@@ -86,7 +86,7 @@ export function DispatchBar({
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3.5 py-3 text-[11px] text-muted">
         <span>
           {t.rich("pocModeExplainer", {
-            b: (chunks) => <b className="text-white/60">{chunks}</b>,
+            b: (chunks) => <b className="text-fg">{chunks}</b>,
           })}
         </span>
         <span className="ml-auto flex-none font-mono text-[10.5px]">

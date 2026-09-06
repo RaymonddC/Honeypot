@@ -40,7 +40,7 @@ export function DispatchReceipt({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-card/90 p-4 backdrop-blur-sm"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -68,14 +68,14 @@ export function DispatchReceipt({
             <button
               type="button"
               onClick={() => downloadHtml(html, receiptFilename())}
-              className="h-8 rounded-lg border border-white/10 bg-elevated px-3 text-xs font-semibold text-muted transition-colors hover:text-fg"
+              className="h-8 rounded-lg border border-line bg-elevated px-3 text-xs font-semibold text-muted transition-colors hover:text-fg"
             >
               ⬇ {t("html")}
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="h-8 rounded-lg border border-white/10 bg-elevated px-3 text-xs font-semibold text-muted transition-colors hover:text-fg"
+              className="h-8 rounded-lg border border-line bg-elevated px-3 text-xs font-semibold text-muted transition-colors hover:text-fg"
             >
               {t("close")}
             </button>

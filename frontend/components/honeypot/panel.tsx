@@ -82,7 +82,7 @@ export function HoneypotPanel({
             type="button"
             disabled={loading}
             onClick={() => void load()}
-            className="h-8 rounded-lg border border-white/10 bg-elevated px-3.5 text-xs font-semibold text-fg transition-colors hover:bg-white/[.07] disabled:opacity-50"
+            className="h-8 rounded-lg border border-line bg-elevated px-3.5 text-xs font-semibold text-fg transition-colors hover:bg-fg/[.07] disabled:opacity-50"
           >
             {loading ? t("refreshing") : t("refreshSession")}
           </button>
@@ -129,7 +129,7 @@ export function HoneypotPanel({
       {!embedded && (
         <div className="mt-5 border-t border-line pt-3.5 text-[10.5px] leading-relaxed text-muted">
           {t.rich("footerNote", {
-            b: (chunks) => <b className="text-white/60">{chunks}</b>,
+            b: (chunks) => <b className="text-fg">{chunks}</b>,
           })}
         </div>
       )}

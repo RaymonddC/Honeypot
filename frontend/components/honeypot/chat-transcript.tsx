@@ -63,7 +63,7 @@ export function ChatTranscript({
         <span className="eyebrow">
           {t("sessionEyebrow", { channel: session.channel, persona: session.persona })}
         </span>
-        <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] text-white/60">
+        <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] text-muted">
           {session.modeTag}
         </span>
       </div>

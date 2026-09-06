@@ -13,7 +13,7 @@ export function VoiceIndicator({ voice }: { voice: VoiceStatus }) {
     </span>
   ) : (
     <span className="inline-flex items-center gap-2 rounded-full border border-line bg-elevated px-2.5 py-[5px] text-[10.5px] font-semibold text-muted">
-      <span className="h-[7px] w-[7px] rounded-full bg-white/20" />
+      <span className="h-[7px] w-[7px] rounded-full bg-fg/20" />
       {voice.label}
     </span>
   );

@@ -110,7 +110,7 @@ export function AgencyAlertCard({
                   <small className="mt-0.5 block truncate text-[10px] text-muted">
                     {target.action}
                   </small>
-                  <span className="mt-1 inline-flex items-center gap-1 rounded border border-line bg-elevated px-1.5 py-px font-mono text-[9px] text-white/55">
+                  <span className="mt-1 inline-flex items-center gap-1 rounded border border-line bg-elevated px-1.5 py-px font-mono text-[9px] text-muted">
                     <span aria-hidden>↗</span> {t("viaChannel", { channel: channelOf(target, t) })}
                   </span>
                 </div>
@@ -133,7 +133,7 @@ export function AgencyAlertCard({
       {/* footer — dispatch posture */}
       <div className="border-t border-line px-3.5 py-2 text-[9.5px] leading-relaxed text-muted">
         {t.rich("footerNote", {
-          b: (chunks) => <b className="text-white/60">{chunks}</b>,
+          b: (chunks) => <b className="text-fg">{chunks}</b>,
         })}
       </div>
     </div>

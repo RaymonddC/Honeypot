@@ -141,7 +141,7 @@ export function EntityPanel({
     <div className="mb-3.5 rounded-card border border-line bg-card">
       <div className="flex items-center justify-between border-b border-line px-3.5 py-3">
         <span className="eyebrow">{t("title")}</span>
-        <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] text-white/60">
+        <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] text-muted">
           {t("validatedCount", { count: entities.length })}
         </span>
       </div>

@@ -246,7 +246,7 @@ export function CallView({ data }: { data: VoiceCallSession }) {
           {t.rich("entitiesNote", {
             heard: heardEntities.length,
             total: data.entities.length,
-            b: (chunks) => <b className="text-white/60">{chunks}</b>,
+            b: (chunks) => <b className="text-fg">{chunks}</b>,
           })}
         </p>
       </div>

@@ -36,7 +36,7 @@ const STATUS_BADGE_CLS: Record<TraceStatus, string> = {
   idle: "border-accent/30 bg-accent/10 text-accent-bright",
   ok: "border-accent/30 bg-accent/10 text-accent-bright",
   mock: "border-risk-med/30 bg-risk-med/10 text-risk-med",
-  empty: "border-white/15 bg-white/[.05] text-muted",
+  empty: "border-line bg-fg/[.05] text-muted",
   rate_limited: "border-risk-med/30 bg-risk-med/10 text-risk-med",
   error: "border-risk-high/30 bg-risk-high/10 text-risk-high",
 };
@@ -210,7 +210,7 @@ export function InvestigationPanel({
           if (!tracing && address.trim()) void trace(address.trim());
         }}
       >
-        <div className="flex h-[38px] flex-1 items-center gap-2 rounded-lg border border-white/10 bg-card px-3">
+        <div className="flex h-[38px] flex-1 items-center gap-2 rounded-lg border border-line bg-card px-3">
           <span className="text-muted" aria-hidden>
             ⌕
           </span>
@@ -222,7 +222,7 @@ export function InvestigationPanel({
             placeholder={t("walletAddressPlaceholder")}
             className="min-w-0 flex-1 bg-transparent font-mono text-[12.5px] text-fg outline-none placeholder:text-muted"
           />
-          <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] text-white/60">
+          <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] text-muted">
             USDT-TRC20
           </span>
           {status && (
@@ -385,7 +385,7 @@ export function InvestigationPanel({
       {!embedded && (
         <div className="mt-5 border-t border-line pt-3.5 text-[10.5px] leading-relaxed text-muted">
           {t.rich("footerNote", {
-            b: (chunks) => <b className="text-white/60">{chunks}</b>,
+            b: (chunks) => <b className="text-fg">{chunks}</b>,
           })}
         </div>
       )}

@@ -151,7 +151,7 @@ function SegmentedControl<T extends string>({
               className={`cursor-pointer rounded-lg border px-3 py-2.5 text-left transition-colors ${
                 active
                   ? "border-accent/40 bg-accent/[.08]"
-                  : "border-line bg-elevated hover:border-white/15"
+                  : "border-line bg-elevated hover:border-fg/15"
               }`}
             >
               <div
@@ -817,7 +817,7 @@ export default function SettingsPage() {
           type="button"
           onClick={() => void load()}
           disabled={loading}
-          className="h-8 flex-none rounded-lg border border-white/10 bg-elevated px-3.5 text-xs font-semibold text-fg transition-colors hover:bg-white/[.07] disabled:opacity-50"
+          className="h-8 flex-none rounded-lg border border-line bg-elevated px-3.5 text-xs font-semibold text-fg transition-colors hover:bg-fg/[.07] disabled:opacity-50"
         >
           {loading ? t("refreshing") : t("refresh")}
         </button>
@@ -871,7 +871,7 @@ export default function SettingsPage() {
           <button
             type="button"
             onClick={reset}
-            className="h-8 flex-none rounded-lg border border-line bg-elevated px-3 text-[11px] font-semibold text-muted transition-colors hover:bg-white/[.07] hover:text-fg"
+            className="h-8 flex-none rounded-lg border border-line bg-elevated px-3 text-[11px] font-semibold text-muted transition-colors hover:bg-fg/[.07] hover:text-fg"
           >
             {t("voiceCall.resetToDefaults")}
           </button>

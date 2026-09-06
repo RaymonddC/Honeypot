@@ -70,7 +70,7 @@ export function CaseSwitcher() {
         aria-haspopup="menu"
         aria-expanded={open}
         title={activeCase ? t("activeCaseTitle", { stage: activeCase.stage }) : t("pickOrOpenCase")}
-        className="flex min-w-0 max-w-[10rem] cursor-pointer items-center gap-2 rounded-md border border-line bg-elevated px-2.5 py-1 font-mono text-xs text-fg hover:border-white/10 sm:max-w-[18rem]"
+        className="flex min-w-0 max-w-[10rem] cursor-pointer items-center gap-2 rounded-md border border-line bg-elevated px-2.5 py-1 font-mono text-xs text-fg hover:border-fg/10 sm:max-w-[18rem]"
       >
         <span
           className={`h-1.5 w-1.5 rounded-full ${activeCase ? "bg-accent" : "bg-muted"}`}
@@ -111,7 +111,7 @@ export function CaseSwitcher() {
                     className={`flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-[12.5px] transition-colors ${
                       active
                         ? "bg-accent/10 text-accent-bright"
-                        : "text-muted hover:bg-white/[.04] hover:text-fg"
+                        : "text-muted hover:bg-fg/[.04] hover:text-fg"
                     }`}
                   >
                     <span className="min-w-0 truncate">{c.title}</span>
@@ -157,7 +157,7 @@ export function CaseSwitcher() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder={t("newCaseTitlePlaceholder")}
-                className="h-8 w-full rounded-md border border-white/10 bg-elevated px-2.5 text-[12px] text-fg outline-none focus:border-accent/40"
+                className="h-8 w-full rounded-md border border-line bg-elevated px-2.5 text-[12px] text-fg outline-none focus:border-accent/40"
               />
               <div className="mt-2 flex gap-2">
                 <button
@@ -180,7 +180,7 @@ export function CaseSwitcher() {
             <button
               type="button"
               onClick={() => setCreating(true)}
-              className="mb-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-[12.5px] text-accent-bright transition-colors hover:bg-white/[.04]"
+              className="mb-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-[12.5px] text-accent-bright transition-colors hover:bg-fg/[.04]"
             >
               <span aria-hidden>＋</span> {t("newCase")}
             </button>

@@ -194,7 +194,7 @@ export default function RolesPage() {
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder={t("namePlaceholder")}
-            className="min-w-[220px] flex-1 rounded-md border border-line bg-elevated px-2.5 py-1.5 text-xs text-fg outline-none placeholder:text-muted focus:border-white/20"
+            className="min-w-[220px] flex-1 rounded-md border border-line bg-elevated px-2.5 py-1.5 text-xs text-fg outline-none placeholder:text-muted focus:border-fg/20"
           />
           <button
             type="button"

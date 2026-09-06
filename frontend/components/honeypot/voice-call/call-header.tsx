@@ -85,7 +85,7 @@ export function CallHeader({
 
       {/* state + timer */}
       <div className="flex flex-none items-center gap-2">
-        <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] text-white/60">
+        <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] text-muted">
           {modeTag}
         </span>
         <VoiceIndicator voice={{ active: onAir, label: STATE_LABEL[state] }} />

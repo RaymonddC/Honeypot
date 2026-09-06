@@ -85,7 +85,7 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
                 className={`h-[26px] px-3 text-[11px] font-semibold transition-colors disabled:opacity-60 ${
                   r === range
                     ? "bg-accent/10 text-accent-bright"
-                    : "text-white/60 hover:bg-white/[.03] hover:text-fg"
+                    : "text-muted hover:bg-fg/[.03] hover:text-fg"
                 }`}
                 aria-pressed={r === range}
               >
@@ -174,7 +174,7 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
       {!embedded && (
         <div className="mt-5 border-t border-line pt-3.5 text-[10.5px] leading-relaxed text-muted">
           {t.rich("footerNote", {
-            b: (chunks) => <b className="text-white/60">{chunks}</b>,
+            b: (chunks) => <b className="text-fg">{chunks}</b>,
           })}
         </div>
       )}

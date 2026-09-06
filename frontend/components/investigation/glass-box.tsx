@@ -27,7 +27,7 @@ function Step({ s }: { s: ReasoningStep }) {
       <span className="flex-none font-mono text-[11px] text-accent-bright">
         {s.tool}
       </span>
-      <span className="min-w-0 text-white/60">
+      <span className="min-w-0 text-muted">
         ·{" "}
         {s.verdict && (
           <b
@@ -56,7 +56,7 @@ export function GlassBox({ detail }: { detail: WalletDetail | null }) {
           {t("eyebrow")}
         </span>
         {detail && (
-          <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] tnum text-white/60">
+          <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] tnum text-muted">
             {t("confidence", { confidence: detail.confidence.toFixed(2) })}
           </span>
         )}

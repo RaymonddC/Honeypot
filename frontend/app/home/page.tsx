@@ -107,7 +107,7 @@ export default function HomePage() {
                   type="button"
                   onClick={startReport}
                   disabled={creating}
-                  className="h-9 rounded-lg border border-white/10 bg-elevated px-4 text-xs font-semibold text-fg transition-colors hover:bg-white/[.07] disabled:opacity-60"
+                  className="h-9 rounded-lg border border-line bg-elevated px-4 text-xs font-semibold text-fg transition-colors hover:bg-fg/[.07] disabled:opacity-60"
                 >
                   {creating ? t("opening") : t("newReport")}
                 </button>
@@ -148,7 +148,7 @@ export default function HomePage() {
                       setActiveCase(c.id);
                       router.push("/case");
                     }}
-                    className="flex items-center gap-2 rounded-lg border border-line bg-card px-2.5 py-1.5 text-left text-[12px] transition-colors hover:border-white/15"
+                    className="flex items-center gap-2 rounded-lg border border-line bg-card px-2.5 py-1.5 text-left text-[12px] transition-colors hover:border-fg/15"
                   >
                     <span className="max-w-[14rem] truncate text-fg">{c.title}</span>
                     <span className="text-[9.5px] uppercase text-muted">{c.stage}</span>
@@ -176,7 +176,7 @@ export default function HomePage() {
           }}
           className="mb-3 flex gap-2"
         >
-          <div className="flex h-[38px] flex-1 items-center gap-2 rounded-lg border border-white/10 bg-card px-3">
+          <div className="flex h-[38px] flex-1 items-center gap-2 rounded-lg border border-line bg-card px-3">
             <span className="text-muted" aria-hidden>⌕</span>
             <input
               value={wallet}
@@ -199,7 +199,7 @@ export default function HomePage() {
             <Link
               key={tool.href}
               href={tool.href}
-              className="group flex gap-3 rounded-card border border-line bg-card p-3.5 transition-colors hover:border-white/15"
+              className="group flex gap-3 rounded-card border border-line bg-card p-3.5 transition-colors hover:border-fg/15"
             >
               <Glyph>{tool.glyph}</Glyph>
               <div className="min-w-0">

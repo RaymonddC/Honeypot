@@ -972,7 +972,7 @@ export default function HoneypotOpsPage() {
             className={`border-b-2 px-3 py-2 text-[11px] font-semibold transition-colors ${
               tab === key
                 ? "border-accent text-accent-bright"
-                : "border-transparent text-muted hover:text-white/60"
+                : "border-transparent text-muted hover:text-fg"
             }`}
           >
             {label}

@@ -44,16 +44,16 @@ export function CasesTable({ cases }: { cases: ActiveCase[] }) {
                 key={`${c.ref}-${i}`}
                 className="group border-b border-line last:border-b-0"
               >
-                <td className="px-3.5 py-[11px] font-mono text-white/60 group-hover:bg-white/[.015]">
+                <td className="px-3.5 py-[11px] font-mono text-muted group-hover:bg-fg/[.015]">
                   {c.ref}
                 </td>
-                <td className="px-3.5 py-[11px] text-white/60 group-hover:bg-white/[.015]">
+                <td className="px-3.5 py-[11px] text-muted group-hover:bg-fg/[.015]">
                   {c.type}
                 </td>
-                <td className="px-3.5 py-[11px] font-mono tnum text-white/60 group-hover:bg-white/[.015]">
+                <td className="px-3.5 py-[11px] font-mono tnum text-muted group-hover:bg-fg/[.015]">
                   {c.atRisk}
                 </td>
-                <td className="px-3.5 py-[11px] group-hover:bg-white/[.015]">
+                <td className="px-3.5 py-[11px] group-hover:bg-fg/[.015]">
                   <span
                     className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-[.05em] ${PILL_STYLES[c.risk]}`}
                   >

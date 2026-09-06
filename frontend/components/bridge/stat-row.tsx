@@ -12,7 +12,7 @@ type MetricMeta = { key: keyof BridgeStats; label: string; sub: string; dot: str
 
 function Metric({ meta, stat }: { meta: MetricMeta; stat: StatValue }) {
   return (
-    <div className="group relative overflow-hidden rounded-card border border-line bg-card p-4 transition-colors hover:border-white/15">
+    <div className="group relative overflow-hidden rounded-card border border-line bg-card p-4 transition-colors hover:border-fg/15">
       {/* left accent rail */}
       <span
         className="absolute inset-y-0 left-0 w-[3px]"

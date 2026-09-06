@@ -190,7 +190,7 @@ export function WalletDetailCard({
             className={`flex-1 border-b-2 px-2 py-2 text-center text-[11px] font-semibold transition-colors ${
               tab === key
                 ? "border-accent text-accent-bright"
-                : "border-transparent text-muted hover:text-white/60"
+                : "border-transparent text-muted hover:text-fg"
             }`}
           >
             {label}
@@ -258,7 +258,7 @@ export function WalletDetailCard({
                     return (
                       <div
                         key={f.name}
-                        className={`flex cursor-help items-center gap-2 rounded transition-colors ${on ? "bg-white/[.04]" : ""}`}
+                        className={`flex cursor-help items-center gap-2 rounded transition-colors ${on ? "bg-fg/[.04]" : ""}`}
                         onMouseEnter={() => setHoverFactor(f.name)}
                         onMouseLeave={() => setHoverFactor(null)}
                       >

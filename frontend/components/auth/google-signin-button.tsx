@@ -115,14 +115,14 @@ export function GoogleSignInButton() {
         {/* Our ELSA-styled button (visual only; the overlay handles the click) */}
         <div
           aria-hidden
-          className={`flex h-10 w-full items-center justify-center gap-2.5 rounded-full border border-white/10 bg-elevated text-[13px] font-semibold text-fg transition-colors ${
-            busy ? "opacity-60" : "hover:border-white/20 hover:bg-white/[.05]"
+          className={`flex h-10 w-full items-center justify-center gap-2.5 rounded-full border border-line bg-elevated text-[13px] font-semibold text-fg transition-colors ${
+            busy ? "opacity-60" : "hover:border-fg/20 hover:bg-fg/[.05]"
           }`}
         >
           {busy ? (
             <>
               <span
-                className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/25 border-t-white/80"
+                className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-fg/25 border-t-fg/80"
                 aria-hidden
               />
               {t("signingYouIn")}

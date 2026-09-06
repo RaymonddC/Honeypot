@@ -165,7 +165,7 @@ function UserMenu() {
                 className={`inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 text-[10px] ${
                   liveVerified
                     ? "bg-accent/10 text-accent-bright"
-                    : "bg-white/[.05] text-muted"
+                    : "bg-fg/[.05] text-muted"
                 }`}
               >
                 <span
@@ -181,7 +181,7 @@ function UserMenu() {
             type="button"
             role="menuitem"
             onClick={logout}
-            className="mt-1 flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-[13px] text-muted transition-colors hover:bg-white/[.04] hover:text-fg"
+            className="mt-1 flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-[13px] text-muted transition-colors hover:bg-fg/[.04] hover:text-fg"
           >
             <span aria-hidden className="text-xs">
               ⏻
@@ -233,7 +233,7 @@ function SidebarNav({
           className={`mb-1 flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
             pathname === "/home"
               ? "bg-accent/10 font-medium text-accent-bright"
-              : "text-muted hover:bg-white/[.04] hover:text-fg"
+              : "text-muted hover:bg-fg/[.04] hover:text-fg"
           }`}
         >
           <span className="w-4 text-center text-xs" aria-hidden>⌂</span>
@@ -262,7 +262,7 @@ function SidebarNav({
                       className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
                         active
                           ? "bg-accent/10 font-medium text-accent-bright"
-                          : "text-muted hover:bg-white/[.04] hover:text-fg"
+                          : "text-muted hover:bg-fg/[.04] hover:text-fg"
                       }`}
                     >
                       <span className="w-4 text-center text-xs" aria-hidden>
@@ -286,7 +286,7 @@ function SidebarNav({
           className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
             pathname.startsWith("/guide")
               ? "bg-accent/10 font-medium text-accent-bright"
-              : "text-muted hover:bg-white/[.04] hover:text-fg"
+              : "text-muted hover:bg-fg/[.04] hover:text-fg"
           }`}
         >
           <span className="w-4 text-center text-xs" aria-hidden>
@@ -301,7 +301,7 @@ function SidebarNav({
           className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
             pathname.startsWith("/settings")
               ? "bg-accent/10 font-medium text-accent-bright"
-              : "text-muted hover:bg-white/[.04] hover:text-fg"
+              : "text-muted hover:bg-fg/[.04] hover:text-fg"
           }`}
         >
           <span className="w-4 text-center text-xs" aria-hidden>
@@ -350,7 +350,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {mobileNavOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden">
           <div
-            className="fixed inset-0 bg-black/60"
+            className="fixed inset-0 bg-card/90"
             aria-hidden
             onClick={() => setMobileNavOpen(false)}
           />

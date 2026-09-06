@@ -98,12 +98,12 @@ export function LoginForm() {
                 className={`flex cursor-pointer items-center gap-2 rounded-lg border px-2 py-1.5 text-left transition-colors ${
                   active
                     ? "border-accent/40 bg-accent/10"
-                    : "border-line bg-elevated hover:border-white/10 hover:bg-white/[.04]"
+                    : "border-line bg-elevated hover:border-fg/10 hover:bg-fg/[.04]"
                 }`}
               >
                 <span
                   className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md font-mono text-[10px] font-bold ${
-                    active ? "bg-accent/20 text-accent-bright" : "bg-white/[.05] text-muted"
+                    active ? "bg-accent/20 text-accent-bright" : "bg-fg/[.05] text-muted"
                   }`}
                   aria-hidden
                 >
@@ -138,7 +138,7 @@ export function LoginForm() {
                 className={`cursor-pointer rounded-md border px-2.5 py-1 text-xs transition-colors ${
                   active
                     ? "border-accent/40 bg-accent/10 font-medium text-accent-bright"
-                    : "border-line bg-elevated text-muted hover:border-white/10 hover:text-fg"
+                    : "border-line bg-elevated text-muted hover:border-fg/10 hover:text-fg"
                 }`}
               >
                 {roleLabel(r, tRoles)}
@@ -173,7 +173,7 @@ export function LoginForm() {
         <button
           type="button"
           onClick={() => loginOffline(agencyId, role)}
-          className="mt-2 w-full cursor-pointer rounded-md border border-dashed border-line bg-elevated px-3 py-1.5 text-xs text-muted transition-colors hover:border-white/15 hover:text-fg"
+          className="mt-2 w-full cursor-pointer rounded-md border border-dashed border-line bg-elevated px-3 py-1.5 text-xs text-muted transition-colors hover:border-fg/15 hover:text-fg"
         >
           {t("continueOffline")}
         </button>

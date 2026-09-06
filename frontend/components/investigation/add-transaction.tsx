@@ -68,7 +68,7 @@ export function AddTransaction({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="h-8 rounded-lg border border-white/10 bg-elevated px-3.5 text-xs font-semibold text-fg transition-colors hover:bg-white/[.07]"
+        className="h-8 rounded-lg border border-line bg-elevated px-3.5 text-xs font-semibold text-fg transition-colors hover:bg-fg/[.07]"
       >
         {t("addTransaction")}
       </button>
@@ -76,7 +76,7 @@ export function AddTransaction({
   }
 
   const field =
-    "h-[34px] w-full rounded-lg border border-white/10 bg-card px-2.5 font-mono text-[12px] text-fg outline-none placeholder:text-muted focus:border-accent/40";
+    "h-[34px] w-full rounded-lg border border-line bg-card px-2.5 font-mono text-[12px] text-fg outline-none placeholder:text-muted focus:border-accent/40";
 
   return (
     <form
