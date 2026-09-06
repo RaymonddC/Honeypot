@@ -31,80 +31,6 @@ interface Tooltip {
 // Thin edges like the mockup (≈1, up to ~1.8 for the biggest flows); peel = 2.
 const edgeWidth = (amount: number) => 1 + Math.min(0.8, amount / 90000);
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-const STYLE: any[] = [
-  {
-    selector: "node",
-    style: {
-      width: "data(size)",
-      height: "data(size)",
-      // Translucent risk-colored disc + crisp ring (the mockup's node look).
-      // Cytoscape ignores alpha in gradient stops, so translucency comes from
-      // background-opacity; no underlay (it renders as a rounded box).
-      "background-color": "data(color)",
-      "background-opacity": 0.2,
-      "border-width": 2,
-      "border-color": "data(color)",
-      "transition-property": "border-width, border-color",
-      "transition-duration": "0.2s",
-      label: "data(label)",
-      "font-size": 10,
-      "font-family": "ui-monospace, SFMono-Regular, Menlo, monospace",
-      color: "rgba(255,255,255,.55)",
-      "text-valign": "bottom",
-      "text-halign": "center",
-      "text-margin-y": 6,
-      "overlay-opacity": 0,
-    },
-  },
-  {
-    selector: "node[risk='exchange']",
-    style: { color: RISK_COLORS.exchange, "background-opacity": 0.3 },
-  },
-  {
-    selector: "node[?isMain]",
-    style: { "border-width": 2 },
-  },
-  {
-    selector: "node.sel",
-    style: {
-      "border-width": 2,
-      "border-style": "dashed",
-      "border-color": "#34d399",
-    },
-  },
-  {
-    selector: "edge",
-    style: {
-      "curve-style": "bezier",
-      width: "data(width)",
-      "line-color": "rgba(255,255,255,.07)",
-      "target-arrow-shape": "triangle",
-      "target-arrow-color": "rgba(255,255,255,.28)",
-      "arrow-scale": 0.75,
-    },
-  },
-  {
-    selector: "edge.adj",
-    style: {
-      "line-color": "rgba(255,255,255,.28)",
-      "target-arrow-color": "rgba(255,255,255,.5)",
-    },
-  },
-  {
-    selector: "edge.peel",
-    style: {
-      width: 2,
-      "line-color": "rgba(239,68,68,.85)",
-      "target-arrow-color": "#ef4444",
-    },
-  },
-  {
-    selector: "edge.peel.adj",
-    style: { "line-color": "rgba(239,68,68,.95)" },
-  },
-];
-
 function withAlpha(hex: string, alpha: number): string {
   // Cytoscape's style parser rejects 8-digit hex (#rrggbbaa) and throws at init.
   // Emit spaceless rgba() so each stays a single token inside the
@@ -114,6 +40,103 @@ function withAlpha(hex: string, alpha: number): string {
   const g = parseInt(h.slice(2, 4), 16);
   const b = parseInt(h.slice(4, 6), 16);
   return `rgba(${r},${g},${b},${alpha})`;
+}
+
+/** Reads the current theme's --x-rgb custom property (see globals.css) and
+ *  returns it as `r,g,b` for use inside an rgba(...) string below. Cytoscape's
+ *  style array is built once per mount, not reactive to CSS — so it must read
+ *  actual values at build time rather than emit var(--x), which Cytoscape's
+ *  parser doesn't resolve at all. Falls back to a mid-grey if run before
+ *  paint (SSR/very first tick), which only ever shows for a frame. */
+function themeChannel(name: string, fallback = "107,114,128"): string {
+  if (typeof window === "undefined") return fallback;
+  const raw = getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim();
+  return raw ? raw.replace(/\s+/g, ",") : fallback;
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/** Cytoscape style array, rebuilt fresh per graph mount so it always reflects
+ *  the theme active right now (light/dark, or a future user toggle) — see
+ *  themeChannel() above. Node/edge geometry is fixed; only the greys and the
+ *  canvas backdrop are theme-derived. */
+function buildStyle(): any[] {
+  const border = themeChannel("--border-rgb", "228,230,233");
+  const muted = themeChannel("--fg-muted-rgb", "107,114,128");
+  const accent = themeChannel("--accent-rgb", "36,84,230");
+  return [
+    {
+      selector: "node",
+      style: {
+        width: "data(size)",
+        height: "data(size)",
+        // Translucent risk-colored disc + crisp ring (the mockup's node look).
+        // Cytoscape ignores alpha in gradient stops, so translucency comes from
+        // background-opacity; no underlay (it renders as a rounded box).
+        "background-color": "data(color)",
+        "background-opacity": 0.16,
+        "border-width": 2,
+        "border-color": "data(color)",
+        "transition-property": "border-width, border-color",
+        "transition-duration": "0.2s",
+        label: "data(label)",
+        "font-size": 10,
+        "font-family": "var(--font-mono), ui-monospace, monospace",
+        color: `rgba(${muted},.9)`,
+        "text-valign": "bottom",
+        "text-halign": "center",
+        "text-margin-y": 6,
+        "overlay-opacity": 0,
+      },
+    },
+    {
+      selector: "node[risk='exchange']",
+      style: { color: RISK_COLORS.exchange, "background-opacity": 0.22 },
+    },
+    {
+      selector: "node[?isMain]",
+      style: { "border-width": 2 },
+    },
+    {
+      selector: "node.sel",
+      style: {
+        "border-width": 2,
+        "border-style": "dashed",
+        "border-color": `rgba(${accent},1)`,
+      },
+    },
+    {
+      selector: "edge",
+      style: {
+        "curve-style": "bezier",
+        width: "data(width)",
+        "line-color": `rgba(${border},1)`,
+        "target-arrow-shape": "triangle",
+        "target-arrow-color": `rgba(${muted},.45)`,
+        "arrow-scale": 0.75,
+      },
+    },
+    {
+      selector: "edge.adj",
+      style: {
+        "line-color": `rgba(${muted},.55)`,
+        "target-arrow-color": `rgba(${muted},.85)`,
+      },
+    },
+    {
+      selector: "edge.peel",
+      style: {
+        width: 2,
+        "line-color": "rgba(185,28,28,.75)",
+        "target-arrow-color": "#b91c1c",
+      },
+    },
+    {
+      selector: "edge.peel.adj",
+      style: { "line-color": "rgba(185,28,28,.9)" },
+    },
+  ];
 }
 
 export function WalletGraph({
@@ -174,7 +197,7 @@ export function WalletGraph({
     const cy = cytoscape({
       container,
       elements,
-      style: STYLE,
+      style: buildStyle(),
       // Preset when the API sends coords; otherwise a left→right directed (dagre)
       // layout so the money-flow reads like the mockup, not a blob.
       layout: hasPositions
@@ -249,16 +272,11 @@ export function WalletGraph({
   };
 
   return (
-    <div
-      className="relative h-[540px] overflow-hidden rounded-card border border-line"
-      style={{
-        background: "radial-gradient(120% 120% at 30% 20%, #0e1013, #0a0a0b)",
-      }}
-    >
+    <div className="relative h-[540px] overflow-hidden rounded-card border border-line bg-elevated">
       <div ref={containerRef} className="absolute inset-0" />
 
       {/* hint */}
-      <div className="pointer-events-none absolute left-3 top-3 rounded-lg border border-line bg-black/55 px-2.5 py-1.5 text-[10.5px] text-muted">
+      <div className="pointer-events-none absolute left-3 top-3 rounded-lg border border-line bg-card/90 px-2.5 py-1.5 text-[10.5px] text-muted backdrop-blur-sm">
         {t("hint")}
       </div>
 
@@ -284,7 +302,7 @@ export function WalletGraph({
             title={label}
             aria-label={label}
             onClick={fn}
-            className="grid h-[30px] w-[30px] place-items-center rounded-lg border border-line bg-black/70 text-sm text-white/60 backdrop-blur-sm transition-colors hover:border-accent/30 hover:text-accent-bright"
+            className="grid h-[30px] w-[30px] place-items-center rounded-lg border border-line bg-card/90 text-sm text-muted backdrop-blur-sm transition-colors hover:border-accent/30 hover:text-accent-bright"
           >
             {glyph}
           </button>
@@ -292,7 +310,7 @@ export function WalletGraph({
       </div>
 
       {/* legend */}
-      <div className="pointer-events-none absolute bottom-3 left-3 flex gap-3 rounded-lg border border-line bg-black/70 px-2.5 py-1.5 text-[10.5px] text-muted backdrop-blur-sm">
+      <div className="pointer-events-none absolute bottom-3 left-3 flex gap-3 rounded-lg border border-line bg-card/90 px-2.5 py-1.5 text-[10.5px] text-muted backdrop-blur-sm">
         {(["high", "medium", "low", "exchange"] as const).map((r) => (
           <span key={r} className="flex items-center gap-1.5">
             <i
@@ -305,7 +323,7 @@ export function WalletGraph({
       </div>
 
       {/* peeling-chain callout */}
-      <div className="pointer-events-none absolute bottom-3 right-3 rounded-lg border border-risk-high/20 bg-black/70 px-2.5 py-1.5 font-mono text-[10px] font-bold text-risk-high backdrop-blur-sm">
+      <div className="pointer-events-none absolute bottom-3 right-3 rounded-lg border border-risk-high/20 bg-card/90 px-2.5 py-1.5 font-mono text-[10px] font-bold text-risk-high backdrop-blur-sm">
         {t("peelingChain")}
       </div>
 

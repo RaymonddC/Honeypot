@@ -2,24 +2,70 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── ITTU design tokens (ELSA-anchored — docs/Frontend-Design.md) ────────── */
+/* ── ITTU design tokens — corporate/neutral (2026-09 redesign) ───────────────
+ * Replaces the near-black/neon-emerald "security tool" look with a clean,
+ * institutional palette: light ground by default, a restrained corporate
+ * blue accent, and a genuinely neutral (not near-black) dark mode.
+ *
+ * Every color is stored TWICE:
+ *   --x       a normal CSS color, for plain `color: var(--x)` usage (SVG
+ *             `stroke`/`fill`, inline styles, non-Tailwind CSS).
+ *   --x-rgb   the same color as "R G B" channel numbers, consumed by
+ *             tailwind.config.ts via rgb(var(--x-rgb) / <alpha-value>) so
+ *             Tailwind's opacity modifiers (bg-accent/15, border-line/60...)
+ *             keep working. Keep both in sync when changing a color.
+ */
 :root {
-  --bg: #090909;               /* app ground (near-black) */
-  --sidebar: #0c0c0c;          /* left rail */
-  --card: #111214;             /* cards / panels */
-  --elevated: #141414;         /* inputs, chips, elevated fills */
-  --border: rgba(255, 255, 255, 0.06); /* hairline borders */
-  --fg: rgba(255, 255, 255, 0.88);     /* text */
-  --fg-muted: rgba(255, 255, 255, 0.34);
-  --accent: #10b981;           /* emerald — primary accent, active nav */
-  --accent-bright: #34d399;
-  --risk-low: #10b981;
-  --risk-med: #f5a524;
-  --risk-high: #ef4444;
-  --radius: 0.75rem;
-  /* Inter / JetBrains Mono in prod (vendored later); system stand-ins for now */
-  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --bg: #fafafa;                 --bg-rgb: 250 250 250;             /* app ground */
+  --sidebar: #ffffff;            --sidebar-rgb: 255 255 255;        /* left rail */
+  --card: #ffffff;               --card-rgb: 255 255 255;           /* cards / panels */
+  --elevated: #f4f5f6;           --elevated-rgb: 244 245 246;       /* inputs, chips */
+  --border: #e4e6e9;             --border-rgb: 228 230 233;         /* hairline borders */
+  --fg: #1c2128;                 --fg-rgb: 28 33 40;                /* text */
+  --fg-muted: #6b7280;           --fg-muted-rgb: 107 114 128;
+  --accent: #2454e6;             --accent-rgb: 36 84 230;           /* corporate blue */
+  --accent-bright: #1d4ed8;      --accent-bright-rgb: 29 78 216;
+  --risk-low: #15803d;           --risk-low-rgb: 21 128 61;
+  --risk-med: #b45309;           --risk-med-rgb: 180 83 9;
+  --risk-high: #b91c1c;          --risk-high-rgb: 185 28 28;
+  --radius: 0.625rem;
+  --font-ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* System dark (no explicit choice) — a neutral slate, never near-black. */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --bg: #14171c;                --bg-rgb: 20 23 28;
+    --sidebar: #191d23;           --sidebar-rgb: 25 29 35;
+    --card: #1c2027;              --card-rgb: 28 32 39;
+    --elevated: #23282f;          --elevated-rgb: 35 40 47;
+    --border: #323844;            --border-rgb: 50 56 68;
+    --fg: #e8eaed;                --fg-rgb: 232 234 237;
+    --fg-muted: #8b93a1;          --fg-muted-rgb: 139 147 161;
+    --accent: #5b8dfb;            --accent-rgb: 91 141 251;
+    --accent-bright: #7ba3ff;     --accent-bright-rgb: 123 163 255;
+    --risk-low: #4ade80;          --risk-low-rgb: 74 222 128;
+    --risk-med: #f0a94e;          --risk-med-rgb: 240 169 78;
+    --risk-high: #f87171;         --risk-high-rgb: 248 113 113;
+  }
+}
+
+/* Explicit dark mode (.dark on <html>, e.g. from a theme toggle) — wins over
+ * system preference in both directions since it's a plain class selector. */
+:root.dark {
+  --bg: #14171c;                --bg-rgb: 20 23 28;
+  --sidebar: #191d23;           --sidebar-rgb: 25 29 35;
+  --card: #1c2027;              --card-rgb: 28 32 39;
+  --elevated: #23282f;          --elevated-rgb: 35 40 47;
+  --border: #323844;            --border-rgb: 50 56 68;
+  --fg: #e8eaed;                --fg-rgb: 232 234 237;
+  --fg-muted: #8b93a1;          --fg-muted-rgb: 139 147 161;
+  --accent: #5b8dfb;            --accent-rgb: 91 141 251;
+  --accent-bright: #7ba3ff;     --accent-bright-rgb: 123 163 255;
+  --risk-low: #4ade80;          --risk-low-rgb: 74 222 128;
+  --risk-med: #f0a94e;          --risk-med-rgb: 240 169 78;
+  --risk-high: #f87171;         --risk-high-rgb: 248 113 113;
 }
 
 html,
