@@ -29,14 +29,14 @@ function CaptionLine({
   const isPersona = line.speaker === "persona";
   return (
     <div
-      className={`hp-fade-up max-w-[78%] rounded-xl border px-3 py-[9px] text-xs leading-relaxed ${
+      className={`hp-fade-up max-w-[78%] rounded-xl border px-3 py-[9px] text-[12px] leading-relaxed ${
         isPersona
           ? "self-end rounded-br-[4px] border-accent/[.22] bg-accent/10 text-fg"
           : "self-start rounded-bl-[4px] border-line bg-elevated"
       } ${speaking ? (isPersona ? "border-accent/50" : "border-fg/20") : ""}`}
     >
       <div
-        className={`mb-[3px] flex items-center gap-2 text-[9.5px] uppercase tracking-[.06em] ${
+        className={`mb-[3px] flex items-center gap-2 text-[12px] uppercase tracking-[.06em] ${
           isPersona ? "text-accent-bright opacity-90" : "opacity-60"
         }`}
       >
@@ -59,7 +59,7 @@ function CaptionLine({
       {line.extractions.map((ex) => (
         <div
           key={`${line.id}-${ex.label}`}
-          className="mt-[7px] flex items-center gap-1.5 border-t border-dashed border-accent/[.22] pt-[7px] font-mono text-[10px] text-accent-bright"
+          className="mt-[7px] flex items-center gap-1.5 border-t border-dashed border-accent/[.22] pt-[7px] font-mono text-[12px] text-accent-bright"
         >
           {t("extractedBadge", { label: ex.label, confidence: formatConf(ex.confidence) })}
         </div>
@@ -103,7 +103,7 @@ export function Captions({
       className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4"
     >
       {visible.length === 0 && !interim ? (
-        <div className="grid flex-1 place-items-center text-center text-[11px] text-muted">
+        <div className="grid flex-1 place-items-center text-center text-[12px] text-muted">
           {state === "idle"
             ? (emptyNote ?? t("idleEmpty"))
             : t("connecting")}
@@ -119,8 +119,8 @@ export function Captions({
         ))
       )}
       {interim && interim.text && (
-        <div className="max-w-[78%] self-start rounded-xl rounded-bl-[4px] border border-dashed border-fg/15 bg-elevated/60 px-3 py-[9px] text-xs leading-relaxed text-fg/70">
-          <div className="mb-[3px] flex items-center gap-2 text-[9.5px] uppercase tracking-[.06em] opacity-60">
+        <div className="max-w-[78%] self-start rounded-xl rounded-bl-[4px] border border-dashed border-fg/15 bg-elevated/60 px-3 py-[9px] text-[12px] leading-relaxed text-fg/70">
+          <div className="mb-[3px] flex items-center gap-2 text-[12px] uppercase tracking-[.06em] opacity-60">
             {interim.who} · {t("hearing")}
             <Waveform active bars={5} tone="neutral" className="!h-3" />
           </div>

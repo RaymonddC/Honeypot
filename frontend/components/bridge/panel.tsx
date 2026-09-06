@@ -111,7 +111,7 @@ export function BridgePanel({
               with the stat tiles and Sankey below */}
           {data && (
             <span
-              className={`rounded-md border px-1.5 py-0.5 font-mono text-[9.5px] ${
+              className={`rounded-md border px-1.5 py-0.5 font-mono text-[12px] ${
                 data.source === "api"
                   ? "border-line bg-elevated text-muted"
                   : "border-risk-med/30 bg-risk-med/10 text-risk-med"
@@ -130,7 +130,7 @@ export function BridgePanel({
             disabled={!data}
             onClick={() => setShowReport(true)}
             title={t("viewReportTitle")}
-            className="h-8 rounded-lg border border-line bg-elevated px-3.5 text-xs font-semibold text-fg transition-colors hover:bg-fg/[.07] disabled:opacity-50"
+            className="h-8 rounded-lg border border-line bg-elevated px-3.5 text-[12px] font-semibold text-fg transition-colors hover:bg-fg/[.07] disabled:opacity-50"
           >
             {t("viewReport")}
           </button>
@@ -138,7 +138,7 @@ export function BridgePanel({
             type="button"
             disabled={loading}
             onClick={() => void load(true)}
-            className="h-8 rounded-lg border border-line bg-elevated px-3.5 text-xs font-semibold text-fg transition-colors hover:bg-fg/[.07] disabled:opacity-50"
+            className="h-8 rounded-lg border border-line bg-elevated px-3.5 text-[12px] font-semibold text-fg transition-colors hover:bg-fg/[.07] disabled:opacity-50"
           >
             {loading ? t("generating") : t("regenerateFeed")}
           </button>
@@ -150,7 +150,7 @@ export function BridgePanel({
                 ? t("scoreTopOnRampTitle")
                 : t("scoreWalletsTitle")
             }
-            className="h-8 rounded-full bg-accent px-3.5 text-xs font-semibold text-[#090909] shadow-[0_0_16px_rgba(255, 255, 255,.28)] transition-colors hover:bg-accent-bright"
+            className="h-8 rounded-full bg-accent px-3.5 text-[12px] font-semibold text-[#090909] transition-colors hover:bg-accent-bright"
           >
             {t("scoreWallets")}
           </button>
@@ -168,12 +168,12 @@ export function BridgePanel({
               {/* card header — what the diagram shows + how to read it */}
               <div className="mb-2.5 flex items-baseline justify-between gap-3 border-b border-line px-1.5 pb-2.5">
                 <span className="eyebrow">{t("moneyFlowEyebrow")}</span>
-                <span className="hidden text-[10px] text-muted sm:block">
+                <span className="hidden text-[12px] text-muted sm:block">
                   {t("ribbonHint")}
                 </span>
               </div>
               {/* split-screen labels: fiat │ bridge │ crypto */}
-              <div className="grid grid-cols-3 px-1.5 pb-1 text-[10px] font-bold uppercase tracking-[.08em]">
+              <div className="grid grid-cols-3 px-1.5 pb-1 text-[12px] font-bold uppercase tracking-[.08em]">
                 <span className="text-muted">{t("fiatSimulated")}</span>
                 <span className="text-center text-risk-med">{t("bridgeLabel")}</span>
                 <span className="text-right text-[#0099ff]">
@@ -182,7 +182,7 @@ export function BridgePanel({
               </div>
               <SankeyChart data={data.sankey} />
               {/* legend + interaction hint */}
-              <div className="mt-1 flex flex-wrap items-center gap-x-3.5 gap-y-1 border-t border-line px-1 pt-2.5 text-[10px] text-muted">
+              <div className="mt-1 flex flex-wrap items-center gap-x-3.5 gap-y-1 border-t border-line px-1 pt-2.5 text-[12px] text-muted">
                 {legend.map(([c, l]) => (
                   <span key={l} className="flex items-center gap-1.5">
                     <span className="h-2.5 w-2.5 rounded-sm" style={{ background: c }} aria-hidden />
@@ -198,26 +198,26 @@ export function BridgePanel({
                 <div className="mb-3.5 rounded-card border border-accent/30 bg-accent/[.06]">
                   <div className="flex items-center justify-between border-b border-accent/20 px-3.5 py-2.5">
                     <span className="eyebrow text-accent-bright">{t("caseOnRamp")}</span>
-                    <span className="rounded-full border border-accent/30 bg-accent/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-accent-bright">
+                    <span className="rounded-full border border-accent/30 bg-accent/10 px-1.5 py-0.5 font-mono text-[12px] font-semibold text-accent-bright">
                       conf {caseBridge.confidence.toFixed(2)}
                     </span>
                   </div>
                   <div className="px-3.5 py-3">
                     {/* fiat account → crypto wallet, the bridge the honeypot surfaced */}
-                    <div className="flex items-center gap-2 text-[11px]">
-                      <span className="rounded-md bg-[#8b93a1]/15 px-1.5 py-0.5 font-mono text-[10.5px] text-[#8b93a1]">
+                    <div className="flex items-center gap-2 text-[12px]">
+                      <span className="rounded-md bg-[#8b93a1]/15 px-1.5 py-0.5 font-mono text-[12px] text-[#8b93a1]">
                         {caseBridge.bankLabel}
                       </span>
                       <span className="text-muted" aria-hidden>→</span>
-                      <span className="min-w-0 flex-1 truncate rounded-md bg-[#0099ff]/15 px-1.5 py-0.5 font-mono text-[10.5px] text-[#33adff]">
+                      <span className="min-w-0 flex-1 truncate rounded-md bg-[#0099ff]/15 px-1.5 py-0.5 font-mono text-[12px] text-[#33adff]">
                         {caseBridge.wallet}
                       </span>
                     </div>
                     {caseBridge.bankHolder && (
-                      <div className="mt-1 text-[10px] text-muted">{t("bankHolderPrefix", { holder: caseBridge.bankHolder })}</div>
+                      <div className="mt-1 text-[12px] text-muted">{t("bankHolderPrefix", { holder: caseBridge.bankHolder })}</div>
                     )}
                     {caseBridge.amountUsdt > 0 && (
-                      <div className="mt-2 font-mono text-[11px] text-fg">
+                      <div className="mt-2 font-mono text-[12px] text-fg">
                         {idrShort(caseBridge.amountIdr)}{" "}
                         <span className="text-muted">≈</span>{" "}
                         <b className="text-accent-bright">{usdtShort(caseBridge.amountUsdt)}</b>
@@ -226,7 +226,7 @@ export function BridgePanel({
                     <button
                       type="button"
                       onClick={() => goTakedown(caseBridge.wallet)}
-                      className="mt-2.5 h-7 w-full rounded-full bg-accent px-3 text-[11px] font-semibold text-[#090909] transition-colors hover:bg-accent-bright"
+                      className="mt-2.5 h-7 w-full rounded-full bg-accent px-3 text-[12px] font-semibold text-[#090909] transition-colors hover:bg-accent-bright"
                     >
                       {t("traceThisWallet")}
                     </button>
@@ -239,13 +239,13 @@ export function BridgePanel({
           </div>
         </>
       ) : (
-        <div className="grid h-[520px] animate-pulse place-items-center rounded-card border border-line bg-card text-[11px] text-muted">
+        <div className="grid h-[520px] animate-pulse place-items-center rounded-card border border-line bg-card text-[12px] text-muted">
           {t("loadingState")}
         </div>
       )}
 
       {!embedded && (
-        <div className="mt-5 border-t border-line pt-3.5 text-[10.5px] leading-relaxed text-muted">
+        <div className="mt-5 border-t border-line pt-3.5 text-[12px] leading-relaxed text-muted">
           {t.rich("footerNote", {
             b: (chunks) => <b className="text-fg">{chunks}</b>,
           })}

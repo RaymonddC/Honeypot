@@ -76,15 +76,15 @@ function buildTiles(m: any, frozenCount: number | null): MetricTile[] {
   const baselineHours = num(first(ttfObj?.baseline_hours, 12));
   const atRisk = num(first(funds?.at_risk_idr, m?.funds_at_risk_idr));
   const frozen = num(first(funds?.frozen_idr, m?.funds_frozen_idr));
-  const recovery = asPct(
+  // Wire name is `recovery_rate`, but the backend computes frozen / at_risk —
+  // that is a FREEZE rate. Funds frozen are not funds returned to the victim,
+  // and nothing in this pipeline records a return, so it is labelled for what
+  // it measures. It is deliberately NOT shown against the IASC 4.76% figure:
+  // that baseline is a recovery rate, and beating it with a freeze rate would
+  // be comparing two different quantities.
+  const freezeRate = asPct(
     num(first(funds?.recovery_rate, m?.recovery_rate_pct)),
   );
-  const baseline =
-    asPct(
-      num(
-        first(funds?.baseline_recovery_rate, m?.baseline_recovery_rate_pct),
-      ),
-    ) ?? BASELINE_RECOVERY_PCT;
   const casesTotal = num(first(m?.cases_total));
 
   const ttf = freezeMin != null ? splitMinutes(freezeMin) : null;
@@ -126,12 +126,11 @@ function buildTiles(m: any, frozenCount: number | null): MetricTile[] {
       deltaUp: frozenCount != null && frozenCount > 0,
     },
     {
-      label: "Recovery rate",
-      value: recovery != null ? recovery.toFixed(1) : "—",
+      label: "Freeze rate",
+      value: freezeRate != null ? freezeRate.toFixed(1) : "—",
       suffix: "%",
       color: EMERALD,
-      delta: `▲ vs ${baseline.toFixed(2)}% baseline`,
-      deltaUp: true,
+      delta: "of funds at risk, freeze dispatched",
     },
   ];
 }
@@ -223,6 +222,10 @@ function normalizeCases(m: any): ActiveCase[] {
       atRisk: atRisk != null ? formatIDRShort(atRisk) : "—",
       risk,
       statusLabel: label,
+      // Unknown provenance is treated as seeded, not real: over-marking a row
+      // as demo data is a far cheaper mistake than passing one off as a case
+      // this deployment actually worked.
+      source: c?.source === "action" ? "action" : "baseline",
     };
   });
 }

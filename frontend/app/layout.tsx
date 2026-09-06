@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { THEME_INIT_SCRIPT } from "./theme-init";
 import { AuthProvider } from "@/components/auth/auth-provider";
@@ -11,9 +11,9 @@ import { ThemeProvider } from "@/components/theme/theme-provider";
 // Corporate/neutral redesign: Inter for UI text, JetBrains Mono reserved for
 // technical data (wallet addresses, hashes, account numbers) — see
 // app/globals.css's --font-ui / --font-mono, which these variables feed.
-const inter = Inter({
+const sans = Hanken_Grotesk({
   subsets: ["latin"],
-  variable: "--font-ui",
+  variable: "--font-ui-next",
   display: "swap",
 });
 const jetbrainsMono = JetBrains_Mono({
@@ -39,7 +39,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${jetbrainsMono.variable}`}
+      className={`${sans.variable} ${jetbrainsMono.variable}`}
       // The pre-hydration script above adds/removes .dark on this element
       // BEFORE React hydrates, based on a value (localStorage) the server
       // can't see — so client/server className will legitimately differ on

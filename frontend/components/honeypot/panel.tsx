@@ -24,10 +24,17 @@ import type { HoneypotData } from "@/lib/honeypot/types";
 export function HoneypotPanel({
   embedded = false,
   onTraceWallet,
+  trackedAccounts,
+  onPromoted,
 }: {
   embedded?: boolean;
   /** In-case: trace a surfaced wallet in the case's Takedown tab. */
   onTraceWallet?: (addr: string) => void;
+  /** Account numbers already on the active case — so promoted entities read
+   *  "in case" on every visit, not just the one where they were promoted. */
+  trackedAccounts?: Set<string>;
+  /** An entity was attached to the case — the case should reload its rollup. */
+  onPromoted?: () => void;
 }) {
   const t = useTranslations("honeypot.panel");
   const [data, setData] = useState<HoneypotData | null>(null);
@@ -66,7 +73,7 @@ export function HoneypotPanel({
               and muted so the transcript/entities keep the visual weight. */}
           {data && (
             <span
-              className={`rounded-md border px-1.5 py-0.5 font-mono text-[9.5px] ${
+              className={`rounded-md border px-1.5 py-0.5 font-mono text-[12px] ${
                 data.source === "api"
                   ? "border-line bg-elevated text-muted"
                   : "border-risk-med/30 bg-risk-med/10 text-risk-med"
@@ -80,14 +87,14 @@ export function HoneypotPanel({
             type="button"
             disabled={loading}
             onClick={() => void load()}
-            className="h-8 rounded-lg border border-line bg-elevated px-3.5 text-xs font-semibold text-fg transition-colors hover:bg-fg/[.07] disabled:opacity-50"
+            className="h-8 rounded-lg border border-line bg-elevated px-3.5 text-[12px] font-semibold text-fg transition-colors hover:bg-fg/[.07] disabled:opacity-50"
           >
             {loading ? t("refreshing") : t("refreshSession")}
           </button>
           {/* P4b — dedicated voice-call view (repurposes the old indicator slot) */}
           <Link
             href="/honeypot/call"
-            className="inline-flex h-8 items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-3.5 text-xs font-semibold text-accent-bright transition-colors hover:bg-accent/20"
+            className="inline-flex h-8 items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-3.5 text-[12px] font-semibold text-accent-bright transition-colors hover:bg-accent/20"
           >
             <svg
               aria-hidden
@@ -114,18 +121,23 @@ export function HoneypotPanel({
             composerNote={data.composerNote}
           />
           <div>
-            <EntityPanel entities={data.entities} onTraceWallet={onTraceWallet} />
+            <EntityPanel
+              entities={data.entities}
+              onTraceWallet={onTraceWallet}
+              trackedAccounts={trackedAccounts}
+              onPromoted={onPromoted}
+            />
             <CustodyCard custody={data.custody} />
           </div>
         </div>
       ) : (
-        <div className="grid h-[452px] animate-pulse place-items-center rounded-card border border-line bg-card text-[11px] text-muted">
+        <div className="grid h-[452px] animate-pulse place-items-center rounded-card border border-line bg-card text-[12px] text-muted">
           {t("loadingState")}
         </div>
       )}
 
       {!embedded && (
-        <div className="mt-5 border-t border-line pt-3.5 text-[10.5px] leading-relaxed text-muted">
+        <div className="mt-5 border-t border-line pt-3.5 text-[12px] leading-relaxed text-muted">
           {t.rich("footerNote", {
             b: (chunks) => <b className="text-fg">{chunks}</b>,
           })}

@@ -12,6 +12,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCases } from "@/components/cases/case-provider";
+import { isNavActive } from "@/lib/nav";
 
 // Routes that are NOT part of a case workflow → no bar.
 const HIDDEN = ["/home", "/case", "/settings", "/guide", "/login"];
@@ -21,11 +22,11 @@ export function CaseContextBar() {
   const pathname = usePathname();
   const { activeCase } = useCases();
 
-  if (HIDDEN.some((p) => pathname.startsWith(p))) return null;
+  if (HIDDEN.some((p) => isNavActive(pathname, p))) return null;
 
   if (!activeCase) {
     return (
-      <div className="flex items-center gap-2 border-b border-line bg-sidebar px-4 py-1.5 text-[11.5px]">
+      <div className="flex items-center gap-2 border-b border-line bg-sidebar px-4 py-1.5 text-[12px]">
         <span className="text-muted">{t("noActiveCase")}</span>
         <Link href="/case" className="font-semibold text-accent-bright hover:underline">
           {t("openACase")}
@@ -36,7 +37,7 @@ export function CaseContextBar() {
   }
 
   return (
-    <div className="flex items-center gap-2.5 border-b border-line bg-sidebar px-4 py-1.5 text-[11.5px]">
+    <div className="flex items-center gap-2.5 border-b border-line bg-sidebar px-4 py-1.5 text-[12px]">
       <Link
         href="/case"
         className="flex items-center gap-1.5 font-medium text-fg hover:text-accent-bright"
@@ -46,7 +47,7 @@ export function CaseContextBar() {
         <span className="max-w-[16rem] truncate">{activeCase.title}</span>
       </Link>
       <span
-        className="rounded border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-accent-bright"
+        className="rounded border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[12px] font-bold uppercase tracking-wide text-accent-bright"
         title={t("currentStageTitle")}
       >
         {activeCase.stage}

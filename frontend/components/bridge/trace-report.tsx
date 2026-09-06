@@ -53,7 +53,7 @@ export function TraceReport({
         <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5">
           <div>
             <div className="eyebrow text-accent-bright">{t("eyebrow")}</div>
-            <div className="text-[10.5px] text-muted">
+            <div className="text-[12px] text-muted">
               {t("previewNote")}
             </div>
           </div>
@@ -61,14 +61,14 @@ export function TraceReport({
             <button
               type="button"
               onClick={() => downloadHtml(html, traceReportFilename())}
-              className="h-8 rounded-full bg-accent px-3.5 text-xs font-semibold text-[#090909] transition-colors hover:bg-accent-bright"
+              className="h-8 rounded-full bg-accent px-3.5 text-[12px] font-semibold text-[#090909] transition-colors hover:bg-accent-bright"
             >
               {t("downloadReport")}
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="h-8 rounded-lg border border-line bg-elevated px-3 text-xs font-semibold text-muted transition-colors hover:text-fg"
+              className="h-8 rounded-lg border border-line bg-elevated px-3 text-[12px] font-semibold text-muted transition-colors hover:text-fg"
             >
               {t("close")}
             </button>

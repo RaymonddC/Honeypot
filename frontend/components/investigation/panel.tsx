@@ -194,7 +194,7 @@ export function InvestigationPanel({
           {!onSendToActions && (
             <Link
               href="/actions"
-              className="flex h-8 items-center rounded-full bg-accent px-3.5 text-xs font-semibold text-[#090909] shadow-[0_0_16px_rgba(255, 255, 255,.28)] transition-colors hover:bg-accent-bright"
+              className="flex h-8 items-center rounded-full bg-accent px-3.5 text-[12px] font-semibold text-[#090909] transition-colors hover:bg-accent-bright"
             >
               {t("sendToActions")}
             </Link>
@@ -224,14 +224,14 @@ export function InvestigationPanel({
             className="min-w-0 flex-1 bg-transparent font-mono text-[12px] text-fg outline-none placeholder:text-muted"
           />
           <span
-            className="rounded border border-line bg-card px-1.5 py-0.5 font-mono text-[9.5px] text-muted"
+            className="rounded border border-line bg-card px-1.5 py-0.5 font-mono text-[12px] text-muted"
             title={t("walletInputHint")}
           >
             USDT-TRC20
           </span>
           {status && (
             <span
-              className={`rounded border px-1.5 py-0.5 font-mono text-[9.5px] ${STATUS_BADGE_CLS[status]}`}
+              className={`rounded border px-1.5 py-0.5 font-mono text-[12px] ${STATUS_BADGE_CLS[status]}`}
               title={t(`statusBadge.${status}.title`)}
             >
               {t(`statusBadge.${status}.label`)}
@@ -241,7 +241,7 @@ export function InvestigationPanel({
         <button
           type="submit"
           disabled={tracing || !address.trim()}
-          className="h-9 rounded-full bg-accent px-4 text-xs font-semibold text-[#090909] shadow-[0_0_16px_rgba(255, 255, 255,.28)] transition-colors hover:bg-accent-bright disabled:opacity-50"
+          className="h-9 rounded-full bg-accent px-4 text-[12px] font-semibold text-[#090909] transition-colors hover:bg-accent-bright disabled:opacity-50"
         >
           {tracing ? t("tracing") : t("traceWallet")}
         </button>
@@ -250,7 +250,7 @@ export function InvestigationPanel({
       {/* the case's own wallets — one-click trace chips (no copy-paste) */}
       {caseWallets && caseWallets.length > 0 && (
         <div className="mb-3.5 flex flex-wrap items-center gap-1.5">
-          <span className="text-[10px] uppercase tracking-wide text-muted">
+          <span className="text-[12px] uppercase tracking-wide text-muted">
             {t("caseWalletsLabel")}
           </span>
           {caseWallets.map((w) => (
@@ -262,7 +262,7 @@ export function InvestigationPanel({
                 void trace(w);
               }}
               title={t("traceWalletTitle", { address: w })}
-              className={`rounded-lg border px-2 py-1 font-mono text-[10.5px] transition-colors ${
+              className={`rounded-lg border px-2 py-1 font-mono text-[12px] transition-colors ${
                 address === w
                   ? "border-accent/50 bg-accent/15 text-accent-bright"
                   : "border-line bg-card text-muted hover:text-fg"
@@ -306,7 +306,7 @@ export function InvestigationPanel({
               >
                 {detail.risk === "exchange" ? t("attributedExchange") : t("riskSuffix", { risk: RISK_LABELS[detail.risk] })}
               </div>
-              <div className="font-mono text-[10px] text-muted">
+              <div className="font-mono text-[12px] text-muted">
                 {detail.shortAddress} · conf {detail.confidence.toFixed(2)}
               </div>
             </div>
@@ -319,7 +319,7 @@ export function InvestigationPanel({
               type="button"
               onClick={() => onSendToActions(detail.address)}
               title={t("packageForActionTitle")}
-              className={`h-8 flex-none rounded-lg px-3 text-xs font-semibold transition-colors ${
+              className={`h-8 flex-none rounded-lg px-3 text-[12px] font-semibold transition-colors ${
                 detail.risk === "high" || detail.risk === "exchange"
                   ? "bg-accent text-[#090909] hover:bg-accent-bright"
                   : "border border-accent/40 bg-accent/10 text-accent-bright hover:bg-accent/20"
@@ -348,7 +348,7 @@ export function InvestigationPanel({
                 />
                 <div>
                   <p className="text-[13px] font-medium text-fg">{t("tracingOnChain")}</p>
-                  <p className="mt-1 text-[11px] text-muted">
+                  <p className="mt-1 text-[12px] text-muted">
                     {t("tracingHint")}
                   </p>
                 </div>
@@ -372,7 +372,7 @@ export function InvestigationPanel({
                 <p className="text-[13px] font-medium text-fg">
                   {t(`statePanel.${status}.title`)}
                 </p>
-                <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+                <p className="mt-1.5 text-[12px] leading-relaxed text-muted">
                   {t(`statePanel.${status}.sub`)}
                 </p>
               </div>
@@ -388,7 +388,7 @@ export function InvestigationPanel({
       </div>
 
       {!embedded && (
-        <div className="mt-5 border-t border-line pt-3.5 text-[10.5px] leading-relaxed text-muted">
+        <div className="mt-5 border-t border-line pt-3.5 text-[12px] leading-relaxed text-muted">
           {t.rich("footerNote", {
             b: (chunks) => <b className="text-fg">{chunks}</b>,
           })}

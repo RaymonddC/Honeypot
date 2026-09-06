@@ -65,7 +65,7 @@ const HeadsetIcon = () => (
 /* ── Buttons ───────────────────────────────────────────────────────────── */
 
 const BASE_BTN =
-  "inline-flex h-11 cursor-pointer items-center gap-2 rounded-full px-5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40";
+  "inline-flex h-11 cursor-pointer items-center gap-2 rounded-full px-5 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40";
 
 function PrimaryButton(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
@@ -175,7 +175,7 @@ export function CallControls({
         )}
       </div>
 
-      <div className="mt-2.5 flex items-center justify-center gap-2 text-[11px] text-muted">
+      <div className="mt-2.5 flex items-center justify-center gap-2 text-[12px] text-muted">
         <span className="text-accent-bright" aria-hidden>
           ◇
         </span>

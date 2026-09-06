@@ -76,7 +76,13 @@ class Funds(BaseModel):
     frozen_idr: float
     at_risk_usdt: float
     frozen_usdt: float
-    recovery_rate: float                    # frozen / at_risk
+    # frozen / at_risk — a FREEZE rate, despite the field name (kept for wire
+    # compatibility). Funds frozen are not funds returned to a victim, and
+    # nothing in this pipeline records a return, so the UI labels it "Freeze
+    # rate" and does NOT plot it against baseline_recovery_rate below: that is
+    # a recovery figure, and the two measure different things.
+    recovery_rate: float
+    # IASC reference: share of scammed funds actually recovered. Context only.
     baseline_recovery_rate: float = BASELINE_RECOVERY_RATE
 
 

@@ -39,6 +39,20 @@ export const GOLDEN = {
 
 export const GOLDEN_AMOUNT_IDR = GOLDEN.amountUsdt * IDR_PER_USDT; // Rp 815,000,000
 
+/**
+ * Category stamped on the fiat→crypto on-ramp edge when a honeypot lead is
+ * promoted into a case.
+ *
+ * MUST be one of the backend's `Category` literals — see
+ * backend/app/casedata/schemas.py (`scam | mule | victim | suspect | exchange |
+ * unknown`). "onramp" describes the EDGE, not the counterparty, and posting it
+ * fails Pydantic validation with a 422; the wallet then never reaches Trace,
+ * Takedown or Uncover. The collection wallet on the receiving end of an on-ramp
+ * is a mule wallet, so that is what it is recorded as. Defined once here so the
+ * three call sites cannot drift apart again.
+ */
+export const ONRAMP_CATEGORY = "mule";
+
 /** Compact IDR, e.g. "Rp 815M". */
 export function idrShort(v: number): string {
   if (!Number.isFinite(v) || v <= 0) return "—";

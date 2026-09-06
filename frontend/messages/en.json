@@ -869,7 +869,9 @@
       "colType": "Type",
       "colAtRisk": "At risk",
       "colStatus": "Status",
-      "empty": "No active cases in this range."
+      "empty": "No active cases in this range.",
+      "seededBadge": "demo",
+      "seededTitle": "Seeded demo case shipped with the deployment — not a case this agency worked."
     },
     "dispatchLog": {
       "eyebrow": "Dispatch log · agency outbox",
@@ -1057,7 +1059,9 @@
         "logReport": "Log report →",
         "reportedAccountsEyebrow": "Reported accounts · {count}",
         "noneLoggedYet": "None logged yet — add the receiving account from the report.",
-        "errorFallback": "Failed to log the report"
+        "errorFallback": "Failed to log the report",
+        "honeypotDoneReady": "Captured from the infiltration: {count, plural, =0 {a wallet, no accounts yet} one {# account} other {# accounts}}. Intake is complete — move the case on to Freeze.",
+        "honeypotDoneEmpty": "Nothing captured yet. Promote an extracted account or wallet with \"+ Case\" above, then finish intake."
       },
       "recovery": {
         "cryptoExposure": "Crypto exposure",
@@ -1139,7 +1143,9 @@
         "activityCaseOpenedSub": "investigation",
         "activityHoneypotEngaged": "Honeypot session engaged",
         "activityDocumentsGenerated": "{count} document(s) generated",
-        "footerNote": "Everything you touch while this case is active attaches to <b>{title}</b>: bank accounts feed the TRACE Bridge, crypto transfers merge into the TAKEDOWN graph, honeypot sessions and action documents roll up here. Switch cases from the top-bar selector."
+        "footerNote": "Everything you touch while this case is active attaches to <b>{title}</b>: bank accounts feed the TRACE Bridge, crypto transfers merge into the TAKEDOWN graph, honeypot sessions and action documents roll up here. Switch cases from the top-bar selector.",
+        "attachErrorPrefix": "Could not attach that wallet to the case, so nothing was packaged:",
+        "attachErrorFallback": "the request was rejected."
       }
     }
   },

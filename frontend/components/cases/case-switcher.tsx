@@ -70,7 +70,7 @@ export function CaseSwitcher() {
         aria-haspopup="menu"
         aria-expanded={open}
         title={activeCase ? t("activeCaseTitle", { stage: activeCase.stage }) : t("pickOrOpenCase")}
-        className="flex min-w-0 max-w-[10rem] cursor-pointer items-center gap-2 rounded-md border border-line bg-elevated px-2.5 py-1 font-mono text-xs text-fg hover:border-fg/10 sm:max-w-[18rem]"
+        className="flex min-w-0 max-w-[10rem] cursor-pointer items-center gap-2 rounded-md border border-line bg-elevated px-2.5 py-1 font-mono text-[12px] text-fg hover:border-fg/10 sm:max-w-[18rem]"
       >
         <span
           className={`h-1.5 w-1.5 rounded-full ${activeCase ? "bg-accent" : "bg-muted"}`}
@@ -78,7 +78,7 @@ export function CaseSwitcher() {
         />
         <span className="truncate">{label}</span>
         {activeCase && (
-          <span className={`text-[10px] uppercase ${stageColor(activeCase.stage)}`}>
+          <span className={`text-[12px] uppercase ${stageColor(activeCase.stage)}`}>
             {activeCase.stage}
           </span>
         )}
@@ -95,7 +95,7 @@ export function CaseSwitcher() {
           <div className="eyebrow px-3 pb-1 pt-2">{t("cases")}</div>
           <ul className="max-h-64 overflow-y-auto">
             {cases.length === 0 && (
-              <li className="px-3 py-2 text-[11px] text-muted">{t("noCasesYet")}</li>
+              <li className="px-3 py-2 text-[12px] text-muted">{t("noCasesYet")}</li>
             )}
             {cases.map((c) => {
               const active = c.id === activeCase?.id;
@@ -115,7 +115,7 @@ export function CaseSwitcher() {
                     }`}
                   >
                     <span className="min-w-0 truncate">{c.title}</span>
-                    <span className={`flex-none text-[9.5px] uppercase ${stageColor(c.stage)}`}>
+                    <span className={`flex-none text-[12px] uppercase ${stageColor(c.stage)}`}>
                       {c.stage}
                     </span>
                   </button>
@@ -127,7 +127,7 @@ export function CaseSwitcher() {
           {/* advance-stage strip for the active case */}
           {activeCase && activeCase.stage !== "closed" && (
             <div className="mx-2 mt-1 border-t border-line pt-2">
-              <div className="px-1 pb-1 text-[10px] text-muted">
+              <div className="px-1 pb-1 text-[12px] text-muted">
                 {t("advanceStage")}
               </div>
               <div className="flex flex-wrap gap-1 px-1 pb-1">
@@ -136,7 +136,7 @@ export function CaseSwitcher() {
                     key={s}
                     type="button"
                     onClick={() => void advanceStage(activeCase.id, s)}
-                    className={`rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+                    className={`rounded px-1.5 py-0.5 text-[12px] transition-colors ${
                       s === activeCase.stage
                         ? "bg-accent/15 text-accent-bright"
                         : "bg-elevated text-muted hover:text-fg"
@@ -157,20 +157,20 @@ export function CaseSwitcher() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder={t("newCaseTitlePlaceholder")}
-                className="h-8 w-full rounded-md border border-line bg-elevated px-2.5 text-[12px] text-fg outline-none focus:border-accent/40"
+                className="h-8 w-full rounded-md border border-line bg-elevated px-2.5 text-[12px] text-fg outline-none focus:border-[#0099ff]/60"
               />
               <div className="mt-2 flex gap-2">
                 <button
                   type="submit"
                   disabled={busy}
-                  className="h-7 flex-1 rounded-full bg-accent text-[11px] font-semibold text-[#090909] hover:bg-accent-bright disabled:opacity-50"
+                  className="h-7 flex-1 rounded-full bg-accent text-[12px] font-semibold text-[#090909] hover:bg-accent-bright disabled:opacity-50"
                 >
                   {busy ? t("opening") : t("openCase")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setCreating(false)}
-                  className="h-7 rounded-md border border-line px-2 text-[11px] text-muted hover:text-fg"
+                  className="h-7 rounded-md border border-line px-2 text-[12px] text-muted hover:text-fg"
                 >
                   {t("cancel")}
                 </button>

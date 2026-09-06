@@ -869,7 +869,9 @@
       "colType": "Jenis",
       "colAtRisk": "Dalam risiko",
       "colStatus": "Status",
-      "empty": "Tidak ada kasus aktif pada rentang ini."
+      "empty": "Tidak ada kasus aktif pada rentang ini.",
+      "seededBadge": "demo",
+      "seededTitle": "Kasus demo bawaan deployment — bukan kasus yang ditangani instansi ini."
     },
     "dispatchLog": {
       "eyebrow": "Log pengiriman · outbox instansi",
@@ -1057,7 +1059,9 @@
         "logReport": "Catat laporan →",
         "reportedAccountsEyebrow": "Rekening yang dilaporkan · {count}",
         "noneLoggedYet": "Belum ada yang dicatat — tambahkan rekening penerima dari laporan.",
-        "errorFallback": "Gagal mencatat laporan"
+        "errorFallback": "Gagal mencatat laporan",
+        "honeypotDoneReady": "Hasil infiltrasi: {count, plural, =0 {satu dompet, belum ada rekening} other {# rekening}}. Intake selesai — lanjutkan kasus ke Pembekuan.",
+        "honeypotDoneEmpty": "Belum ada yang tertangkap. Tambahkan rekening atau dompet hasil ekstraksi lewat \"+ Case\" di atas, lalu selesaikan intake."
       },
       "recovery": {
         "cryptoExposure": "Eksposur crypto",
@@ -1139,7 +1143,9 @@
         "activityCaseOpenedSub": "investigasi",
         "activityHoneypotEngaged": "Sesi honeypot terlibat",
         "activityDocumentsGenerated": "{count} dokumen dibuat",
-        "footerNote": "Semua yang Anda sentuh selagi kasus ini aktif melekat pada <b>{title}</b>: rekening bank mengalir ke Bridge TRACE, transfer crypto menyatu ke grafik TAKEDOWN, sesi honeypot dan dokumen tindakan terkumpul di sini. Beralih kasus dari pemilih di bilah atas."
+        "footerNote": "Semua yang Anda sentuh selagi kasus ini aktif melekat pada <b>{title}</b>: rekening bank mengalir ke Bridge TRACE, transfer crypto menyatu ke grafik TAKEDOWN, sesi honeypot dan dokumen tindakan terkumpul di sini. Beralih kasus dari pemilih di bilah atas.",
+        "attachErrorPrefix": "Dompet tersebut gagal dilampirkan ke kasus, sehingga tidak ada yang dipaketkan:",
+        "attachErrorFallback": "permintaan ditolak."
       }
     }
   },

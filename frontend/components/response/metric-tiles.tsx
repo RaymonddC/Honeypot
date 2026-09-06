@@ -21,7 +21,7 @@ function Tile({ tile }: { tile: MetricTile }) {
       </div>
       {tile.delta && (
         <div
-          className={`mt-[5px] text-[10.5px] ${
+          className={`mt-[5px] text-[12px] ${
             tile.deltaUp ? "text-accent-bright" : "text-muted"
           }`}
         >

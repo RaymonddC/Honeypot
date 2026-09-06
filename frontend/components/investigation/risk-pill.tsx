@@ -21,7 +21,7 @@ export function RiskPill({
   const t = useTranslations("investigation.riskPill");
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-[.05em] ${STYLES[risk]}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[12px] font-bold uppercase tracking-[.05em] ${STYLES[risk]}`}
     >
       <span
         className="h-1.5 w-1.5 rounded-full bg-current shadow-[0_0_7px_currentColor]"

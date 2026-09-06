@@ -133,7 +133,7 @@ function SegmentedControl<T extends string>({
   return (
     <fieldset>
       <legend className="text-[13px] font-medium text-fg">{legend}</legend>
-      {hint && <p className="mt-0.5 text-[11px] text-muted">{hint}</p>}
+      {hint && <p className="mt-0.5 text-[12px] text-muted">{hint}</p>}
       <div
         role="radiogroup"
         aria-label={legend}
@@ -156,13 +156,13 @@ function SegmentedControl<T extends string>({
               }`}
             >
               <div
-                className={`text-xs font-semibold ${
+                className={`text-[12px] font-semibold ${
                   active ? "text-accent-bright" : "text-fg"
                 }`}
               >
                 {copy[opt].label}
               </div>
-              <div className="mt-0.5 text-[10.5px] leading-snug text-muted">
+              <div className="mt-0.5 text-[12px] leading-snug text-muted">
                 {copy[opt].sub}
               </div>
             </button>
@@ -176,7 +176,7 @@ function SegmentedControl<T extends string>({
 /* ── Advanced voice (ElevenLabs) — overrides + "Check voices" ─────────────── */
 
 const VOICE_INPUT_CLS =
-  "h-8 rounded-lg border border-line bg-elevated px-3 font-mono text-[11px] text-fg outline-none transition-colors focus:border-accent/40";
+  "h-8 rounded-lg border border-line bg-elevated px-3 font-mono text-[12px] text-fg outline-none transition-colors focus:border-[#0099ff]/60";
 
 function describeVoiceCheck(
   res: VoiceCheckResult,
@@ -283,7 +283,7 @@ function AdvancedVoice({
     const busy = testing[role];
     return (
       <label key={role} className="grid gap-1">
-        <span className="text-[11px] font-medium text-fg">{label}</span>
+        <span className="text-[12px] font-medium text-fg">{label}</span>
         <div className="flex gap-2">
           <input
             type="text"
@@ -302,13 +302,13 @@ function AdvancedVoice({
             onClick={() => void testVoice(role, value, onChange)}
             disabled={!value.trim() || busy}
             title={t("advancedVoice.testTitle")}
-            className="h-8 shrink-0 rounded-lg border border-line bg-elevated px-2.5 text-[11px] font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-50"
+            className="h-8 shrink-0 rounded-lg border border-line bg-elevated px-2.5 text-[12px] font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-50"
           >
             {busy ? t("advancedVoice.testBusy") : t("advancedVoice.testButton")}
           </button>
         </div>
         {st && (
-          <span className={`text-[10px] ${st.ok ? "text-accent-bright" : "text-risk-high"}`}>
+          <span className={`text-[12px] ${st.ok ? "text-accent-bright" : "text-risk-high"}`}>
             {st.label}
           </span>
         )}
@@ -325,7 +325,7 @@ function AdvancedVoice({
             href="https://elevenlabs.io/app/voices"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[10px] text-accent-bright hover:underline"
+            className="text-[12px] text-accent-bright hover:underline"
           >
             {t("advancedVoice.openVoices")}
           </a>
@@ -333,13 +333,13 @@ function AdvancedVoice({
             href="https://elevenlabs.io/app/settings/api-keys"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[10px] text-muted hover:underline"
+            className="text-[12px] text-muted hover:underline"
           >
             {t("advancedVoice.getApiKey")}
           </a>
         </div>
       </div>
-      <p className="mb-2.5 text-[10.5px] text-muted">
+      <p className="mb-2.5 text-[12px] text-muted">
         {t("advancedVoice.elevenlabsHelp")}
       </p>
 
@@ -355,7 +355,7 @@ function AdvancedVoice({
 
       <div className="grid gap-2.5">
         <label className="grid gap-1">
-          <span className="text-[11px] font-medium text-fg">{t("advancedVoice.modelLabel")}</span>
+          <span className="text-[12px] font-medium text-fg">{t("advancedVoice.modelLabel")}</span>
           <input
             type="text"
             value={settings.ttsModel}
@@ -461,7 +461,7 @@ function VoiceComboField({
 
   return (
     <label className="grid gap-1">
-      <span className="text-[11px] font-medium text-fg">{label}</span>
+      <span className="text-[12px] font-medium text-fg">{label}</span>
       <div className="flex gap-2">
         <input
           type="text"
@@ -478,7 +478,7 @@ function VoiceComboField({
           onClick={() => void test()}
           disabled={busy}
           title={t("advancedVoice.testTitleWithCheck")}
-          className="h-8 shrink-0 rounded-lg border border-line bg-elevated px-2.5 text-[11px] font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-50"
+          className="h-8 shrink-0 rounded-lg border border-line bg-elevated px-2.5 text-[12px] font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-50"
         >
           {busy ? t("advancedVoice.testBusy") : t("advancedVoice.testButton")}
         </button>
@@ -491,7 +491,7 @@ function VoiceComboField({
         ))}
       </datalist>
       {st && (
-        <span className={`text-[10px] ${st.ok ? "text-accent-bright" : "text-risk-high"}`}>
+        <span className={`text-[12px] ${st.ok ? "text-accent-bright" : "text-risk-high"}`}>
           {st.label}
         </span>
       )}
@@ -540,12 +540,12 @@ function AdvancedGemini({
           href="https://ai.google.dev/gemini-api/docs/speech-generation"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[10px] text-accent-bright hover:underline"
+          className="text-[12px] text-accent-bright hover:underline"
         >
           {t("advancedVoice.voiceDocs")}
         </a>
       </div>
-      <p className="mb-2.5 text-[10.5px] text-muted">
+      <p className="mb-2.5 text-[12px] text-muted">
         {t("advancedVoice.geminiHelp")}
       </p>
 
@@ -614,12 +614,12 @@ function AdvancedGoogle({
           href="https://cloud.google.com/text-to-speech/docs/voices"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[10px] text-accent-bright hover:underline"
+          className="text-[12px] text-accent-bright hover:underline"
         >
           {t("advancedVoice.voiceList")}
         </a>
       </div>
-      <p className="mb-2.5 text-[10.5px] text-muted">
+      <p className="mb-2.5 text-[12px] text-muted">
         {t("advancedVoice.googleHelp")}
       </p>
 
@@ -656,7 +656,7 @@ function AdvancedGoogle({
 function ModeChip({ mode }: { mode: "POC" | "LIVE" }) {
   return (
     <span
-      className={`rounded-md border px-2 py-0.5 font-mono text-[10.5px] font-bold tracking-widest ${
+      className={`rounded-md border px-2 py-0.5 font-mono text-[12px] font-bold tracking-widest ${
         mode === "LIVE"
           ? "border-accent/40 bg-accent/10 text-accent-bright"
           : "border-risk-med/40 bg-risk-med/10 text-risk-med"
@@ -677,7 +677,7 @@ function BackendStatus({
   const t = useTranslations("settings");
   if (loading && !status) {
     return (
-      <div className="grid h-24 animate-pulse place-items-center text-[11px] text-muted">
+      <div className="grid h-24 animate-pulse place-items-center text-[12px] text-muted">
         {t("backendStatus.loadingLine")}
       </div>
     );
@@ -687,11 +687,11 @@ function BackendStatus({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[11px] text-muted">{t("backendStatus.globalMode")}</span>
+        <span className="text-[12px] text-muted">{t("backendStatus.globalMode")}</span>
         <ModeChip mode={status.mode} />
         {status.source === "env" && (
           <span
-            className="rounded-md border border-risk-med/30 bg-risk-med/10 px-1.5 py-0.5 text-[10px] text-risk-med"
+            className="rounded-md border border-risk-med/30 bg-risk-med/10 px-1.5 py-0.5 text-[12px] text-risk-med"
             title={t("backendStatus.envFallbackTitle")}
           >
             {t("backendStatus.envFallback")}
@@ -701,12 +701,12 @@ function BackendStatus({
 
       {status.modules.length > 0 && (
         <div>
-          <div className="text-[11px] text-muted">{t("backendStatus.perModuleMode")}</div>
+          <div className="text-[12px] text-muted">{t("backendStatus.perModuleMode")}</div>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {status.modules.map((m) => (
               <span
                 key={m.module}
-                className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] text-fg/80"
+                className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[12px] text-fg/80"
                 title={m.adapters ? JSON.stringify(m.adapters) : undefined}
               >
                 {m.module} · <ModeChip mode={m.mode} />
@@ -717,8 +717,8 @@ function BackendStatus({
       )}
 
       <div>
-        <div className="text-[11px] text-muted">{t("backendStatus.ttsProvider")}</div>
-        <div className="mt-1.5 font-mono text-xs text-fg">
+        <div className="text-[12px] text-muted">{t("backendStatus.ttsProvider")}</div>
+        <div className="mt-1.5 font-mono text-[12px] text-fg">
           {status.ttsProvider ?? (
             <span className="text-muted">
               {t("backendStatus.ttsProviderUnreported")}
@@ -728,7 +728,7 @@ function BackendStatus({
       </div>
 
       <div>
-        <div className="text-[11px] text-muted">
+        <div className="text-[12px] text-muted">
           {t("backendStatus.keyPresence")}{" "}
           <span className="text-muted/70">{t("backendStatus.keyPresenceHint")}</span>
         </div>
@@ -737,7 +737,7 @@ function BackendStatus({
             {status.keys.map((k) => (
               <span
                 key={k.provider}
-                className={`rounded-md border px-2 py-0.5 font-mono text-[10.5px] ${
+                className={`rounded-md border px-2 py-0.5 font-mono text-[12px] ${
                   k.present
                     ? "border-accent/30 bg-accent/10 text-accent-bright"
                     : "border-line bg-elevated text-muted"
@@ -748,7 +748,7 @@ function BackendStatus({
             ))}
           </div>
         ) : (
-          <p className="mt-1 text-[11px] text-muted">
+          <p className="mt-1 text-[12px] text-muted">
             {t("backendStatus.keysUnreported")}
           </p>
         )}
@@ -839,7 +839,7 @@ export default function SettingsPage() {
           <p className="mt-2 max-w-[60ch] text-[13px] leading-relaxed text-muted">
             {t("pageLead")}
           </p>
-          <p className="mt-1 max-w-[60ch] text-xs leading-relaxed text-muted">
+          <p className="mt-1 max-w-[60ch] text-[12px] leading-relaxed text-muted">
             {t("subtitle")}
           </p>
         </div>
@@ -847,7 +847,7 @@ export default function SettingsPage() {
           type="button"
           onClick={() => void load()}
           disabled={loading}
-          className="h-8 flex-none rounded-lg border border-line bg-elevated px-3.5 text-xs font-semibold text-fg transition-colors hover:bg-fg/[.07] disabled:opacity-50"
+          className="h-8 flex-none rounded-lg border border-line bg-elevated px-3.5 text-[12px] font-semibold text-fg transition-colors hover:bg-fg/[.07] disabled:opacity-50"
         >
           {loading ? t("refreshing") : t("refresh")}
         </button>
@@ -896,13 +896,13 @@ export default function SettingsPage() {
         )}
 
         <div className="flex items-center justify-between border-t border-line pt-3.5">
-          <p className="text-[10.5px] text-muted">
+          <p className="text-[12px] text-muted">
             {t("voiceCall.overridesNote")}
           </p>
           <button
             type="button"
             onClick={reset}
-            className="h-8 flex-none rounded-lg border border-line bg-elevated px-3 text-[11px] font-semibold text-muted transition-colors hover:bg-fg/[.07] hover:text-fg"
+            className="h-8 flex-none rounded-lg border border-line bg-elevated px-3 text-[12px] font-semibold text-muted transition-colors hover:bg-fg/[.07] hover:text-fg"
           >
             {t("voiceCall.resetToDefaults")}
           </button>

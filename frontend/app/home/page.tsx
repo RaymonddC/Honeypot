@@ -67,7 +67,7 @@ export default function HomePage() {
       <div className="mb-5">
         <div className="eyebrow mb-1">{t("eyebrow")}</div>
         <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
-        <p className="mt-1 text-xs text-muted">
+        <p className="mt-1 text-[12px] text-muted">
           {t("subtitle")}
         </p>
       </div>
@@ -76,19 +76,19 @@ export default function HomePage() {
       <section className="mb-6">
         <div className="eyebrow mb-2 flex items-center gap-2">
           <span className="text-accent-bright">{t("section1Label")}</span>
-          <span className="text-muted/60">{t("section1Hint")}</span>
+          <span className="normal-case text-muted/60">{t("section1Hint")}</span>
         </div>
 
         <div className="rounded-card border border-accent/25 bg-accent/[.05] p-4">
           {activeCase ? (
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="min-w-0">
-                <div className="text-[11px] text-muted">{t("activeCase")}</div>
+                <div className="text-[12px] text-muted">{t("activeCase")}</div>
                 <div className="flex items-center gap-2.5">
                   <span className="truncate text-lg font-semibold text-fg">
                     {activeCase.title}
                   </span>
-                  <span className="rounded border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-accent-bright">
+                  <span className="rounded border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[12px] font-bold uppercase tracking-wide text-accent-bright">
                     {activeCase.stage}
                   </span>
                 </div>
@@ -99,7 +99,7 @@ export default function HomePage() {
               <div className="flex gap-2">
                 <Link
                   href="/case"
-                  className="h-9 rounded-full bg-accent px-4 text-xs font-semibold leading-9 text-[#090909] transition-colors hover:bg-accent-bright"
+                  className="h-9 rounded-full bg-accent px-4 text-[12px] font-semibold leading-9 text-[#090909] transition-colors hover:bg-accent-bright"
                 >
                   {t("continueCase")}
                 </Link>
@@ -107,7 +107,7 @@ export default function HomePage() {
                   type="button"
                   onClick={startReport}
                   disabled={creating}
-                  className="h-9 rounded-lg border border-line bg-elevated px-4 text-xs font-semibold text-fg transition-colors hover:bg-fg/[.07] disabled:opacity-60"
+                  className="h-9 rounded-lg border border-line bg-elevated px-4 text-[12px] font-semibold text-fg transition-colors hover:bg-fg/[.07] disabled:opacity-60"
                 >
                   {creating ? t("opening") : t("newReport")}
                 </button>
@@ -127,7 +127,7 @@ export default function HomePage() {
                 type="button"
                 onClick={startReport}
                 disabled={creating}
-                className="h-9 rounded-full bg-accent px-4 text-xs font-semibold text-[#090909] transition-colors hover:bg-accent-bright disabled:opacity-60"
+                className="h-9 rounded-full bg-accent px-4 text-[12px] font-semibold text-[#090909] transition-colors hover:bg-accent-bright disabled:opacity-60"
               >
                 {creating ? t("opening") : t("newReportCta")}
               </button>
@@ -136,7 +136,7 @@ export default function HomePage() {
 
           {recent.length > 0 && (
             <div className="mt-3.5 border-t border-accent/15 pt-3">
-              <div className="mb-1.5 text-[10.5px] uppercase tracking-wide text-muted">
+              <div className="mb-1.5 text-[12px] uppercase tracking-wide text-muted">
                 {t("recentCases")}
               </div>
               <div className="flex flex-wrap gap-2">
@@ -151,7 +151,7 @@ export default function HomePage() {
                     className="flex items-center gap-2 rounded-lg border border-line bg-card px-2.5 py-1.5 text-left text-[12px] transition-colors hover:border-fg/15"
                   >
                     <span className="max-w-[14rem] truncate text-fg">{c.title}</span>
-                    <span className="text-[9.5px] uppercase text-muted">{c.stage}</span>
+                    <span className="text-[12px] uppercase text-muted">{c.stage}</span>
                   </button>
                 ))}
               </div>
@@ -164,7 +164,7 @@ export default function HomePage() {
       <section>
         <div className="eyebrow mb-2 flex items-center gap-2">
           <span>{t("section2Label")}</span>
-          <span className="text-muted/60">{t("section2Hint")}</span>
+          <span className="normal-case text-muted/60">{t("section2Hint")}</span>
         </div>
 
         {/* immediate task: trace a wallet */}
@@ -188,7 +188,7 @@ export default function HomePage() {
           </div>
           <button
             type="submit"
-            className="h-[38px] rounded-full bg-accent px-4 text-xs font-semibold text-[#090909] transition-colors hover:bg-accent-bright"
+            className="h-[38px] rounded-full bg-accent px-4 text-[12px] font-semibold text-[#090909] transition-colors hover:bg-accent-bright"
           >
             {t("trace")}
           </button>
@@ -206,7 +206,7 @@ export default function HomePage() {
                 <div className="text-[13px] font-semibold text-fg group-hover:text-accent-bright">
                   {t(`tools.${tool.key}.title`)}
                 </div>
-                <p className="mt-0.5 text-[11px] leading-snug text-muted">
+                <p className="mt-0.5 text-[12px] leading-snug text-muted">
                   {t(`tools.${tool.key}.desc`)}
                 </p>
               </div>
@@ -214,7 +214,7 @@ export default function HomePage() {
           ))}
         </div>
 
-        <p className="mt-4 border-t border-line pt-3.5 text-[10.5px] leading-relaxed text-muted">
+        <p className="mt-4 max-w-[72ch] border-t border-line pt-3.5 text-[12px] leading-relaxed text-muted">
           {t.rich("footerNote", {
             caseLink: (chunks) => (
               <Link href="/case" className="text-accent-bright hover:underline">

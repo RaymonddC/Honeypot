@@ -61,9 +61,9 @@ type Tab = "numbers" | "campaigns" | "triage";
 type OpsT = ReturnType<typeof useTranslations>;
 
 const INPUT_CLS =
-  "h-8 rounded-lg border border-line bg-elevated px-2.5 text-[11.5px] text-fg outline-none transition-colors placeholder:text-muted focus:border-accent/40";
+  "h-8 rounded-lg border border-line bg-elevated px-2.5 text-[12px] text-fg outline-none transition-colors placeholder:text-[#666] focus:border-[#0099ff]/60";
 const BTN_CLS =
-  "h-8 shrink-0 rounded-lg border border-line bg-elevated px-3 text-[11px] font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-50";
+  "h-8 shrink-0 rounded-lg border border-line bg-elevated px-3 text-[12px] font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-50";
 
 const NUMBER_STATUS_STYLE: Record<string, string> = {
   active: "text-accent-bright",
@@ -110,7 +110,7 @@ function Card({
 
 function ErrorLine({ msg }: { msg: string | null }) {
   if (!msg) return null;
-  return <p className="mt-2 text-[10.5px] text-risk-high">✗ {msg}</p>;
+  return <p className="mt-2 text-[12px] text-risk-high">✗ {msg}</p>;
 }
 
 /* ── Numbers tab ─────────────────────────────────────────────────────────── */
@@ -185,19 +185,19 @@ function NumbersTab() {
           href="https://console.twilio.com/us1/develop/phone-numbers/manage/incoming"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[10px] text-accent-bright hover:underline"
+          className="text-[12px] text-accent-bright hover:underline"
         >
           {t("numbersTab.twilioConsole")}
         </a>
       }
     >
-      <p className="mb-3.5 text-[11px] leading-relaxed text-muted">
+      <p className="mb-3.5 text-[12px] leading-relaxed text-muted">
         {t("numbersTab.intro")}
       </p>
 
       <div className="mb-3.5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)_auto]">
         <label className="grid gap-1">
-          <span className="text-[11px] font-medium text-muted">{t("numbersTab.phoneFieldLabel")}</span>
+          <span className="text-[12px] font-medium text-muted">{t("numbersTab.phoneFieldLabel")}</span>
           <input
             type="text"
             value={phone}
@@ -208,7 +208,7 @@ function NumbersTab() {
           />
         </label>
         <label className="grid gap-1">
-          <span className="text-[11px] font-medium text-muted">{t("numbersTab.sidFieldLabel")}</span>
+          <span className="text-[12px] font-medium text-muted">{t("numbersTab.sidFieldLabel")}</span>
           <input
             type="text"
             value={sid}
@@ -219,7 +219,7 @@ function NumbersTab() {
           />
         </label>
         <label className="grid gap-1">
-          <span className="text-[11px] font-medium text-muted">{t("numbersTab.labelFieldLabel")}</span>
+          <span className="text-[12px] font-medium text-muted">{t("numbersTab.labelFieldLabel")}</span>
           <input
             type="text"
             value={label}
@@ -229,7 +229,7 @@ function NumbersTab() {
           />
         </label>
         <div className="grid gap-1">
-          <span className="hidden text-[11px] font-medium text-transparent sm:block" aria-hidden>
+          <span className="hidden text-[12px] font-medium text-transparent sm:block" aria-hidden>
             &nbsp;
           </span>
           <button
@@ -243,15 +243,15 @@ function NumbersTab() {
         </div>
       </div>
       {phoneBad && (
-        <p className="mb-2.5 text-[10.5px] text-risk-high">
+        <p className="mb-2.5 text-[12px] text-risk-high">
           {t("numbersTab.phoneInvalidHint")}
         </p>
       )}
 
       {loading ? (
-        <p className="text-[11px] text-muted">{t("numbersTab.loading")}</p>
+        <p className="text-[12px] text-muted">{t("numbersTab.loading")}</p>
       ) : rows.length === 0 ? (
-        <p className="text-[11px] text-muted">
+        <p className="text-[12px] text-muted">
           {t("numbersTab.empty")}
         </p>
       ) : (
@@ -259,7 +259,7 @@ function NumbersTab() {
           {rows.map((n) => (
             <li
               key={n.id}
-              className="flex items-center justify-between gap-2 rounded-lg bg-elevated px-2.5 py-1.5 text-[11.5px]"
+              className="flex items-center justify-between gap-2 rounded-lg bg-elevated px-2.5 py-1.5 text-[12px]"
             >
               <div className="min-w-0">
                 <span className="font-mono text-fg">{n.phone_number}</span>
@@ -278,7 +278,7 @@ function NumbersTab() {
                     ? t("numbersTab.reactivateTitle")
                     : t("numbersTab.retireTitle")
                 }
-                className="shrink-0 text-[10.5px] text-accent-bright hover:underline"
+                className="shrink-0 text-[12px] text-accent-bright hover:underline"
               >
                 {n.status === "retired" ? t("numbersTab.reactivate") : t("numbersTab.retire")}
               </button>
@@ -446,7 +446,7 @@ function CampaignDetail({
         >
           {t("campaignDetail.callAgain")} {finished.length > 0 ? `(${finished.length})` : ""}
         </button>
-        <span className="text-[10px] text-muted">
+        <span className="text-[12px] text-muted">
           {dialingEnabled === false
             ? t("campaignDetail.dialingOffNote")
             : t("campaignDetail.simulatedNote")}
@@ -454,7 +454,7 @@ function CampaignDetail({
       </div>
 
       {requeued && (
-        <p className="mb-2 text-[10.5px]">
+        <p className="mb-2 text-[12px]">
           <span className="text-accent-bright">
             {t("campaignDetail.requeuedSummary", { count: requeued.requeued })}
           </span>
@@ -468,7 +468,7 @@ function CampaignDetail({
       )}
 
       <label className="grid gap-1">
-        <span className="text-[11px] font-medium text-fg">
+        <span className="text-[12px] font-medium text-fg">
           {t("campaignDetail.addNumbersLabel")}
         </span>
         <textarea
@@ -477,7 +477,7 @@ function CampaignDetail({
           rows={4}
           spellCheck={false}
           placeholder={t("campaignDetail.pastePlaceholder")}
-          className="rounded-lg border border-line bg-elevated px-2.5 py-2 font-mono text-[11px] text-fg outline-none transition-colors placeholder:text-muted focus:border-accent/40"
+          className="rounded-lg border border-line bg-elevated px-2.5 py-2 font-mono text-[12px] text-fg outline-none transition-colors placeholder:text-[#666] focus:border-[#0099ff]/60"
         />
       </label>
       <div className="mt-1.5 flex items-center gap-2.5">
@@ -490,7 +490,7 @@ function CampaignDetail({
           {busy ? t("campaignDetail.uploadBusy") : t("campaignDetail.upload")}
         </button>
         {parsed.length > 0 && (
-          <span className="text-[10px] text-muted">
+          <span className="text-[12px] text-muted">
             {t("campaignDetail.validCount", {
               valid: validCount,
               total: parsed.length,
@@ -501,7 +501,7 @@ function CampaignDetail({
       </div>
 
       {result && (
-        <div className="mt-2 text-[10.5px]">
+        <div className="mt-2 text-[12px]">
           <span className="text-accent-bright">{t("campaignDetail.added", { count: result.added })}</span>
           {result.rejected.length > 0 && (
             <ul className="mt-1 space-y-0.5">
@@ -521,9 +521,9 @@ function CampaignDetail({
           {t("campaignDetail.numbersToCall", { count: targets?.length ?? 0 })}
         </div>
         {targets === null ? (
-          <p className="text-[11px] text-muted">{t("campaignDetail.loading")}</p>
+          <p className="text-[12px] text-muted">{t("campaignDetail.loading")}</p>
         ) : targets.length === 0 ? (
-          <p className="text-[11px] text-muted">
+          <p className="text-[12px] text-muted">
             {t("campaignDetail.emptyTargets")}
           </p>
         ) : (
@@ -573,7 +573,7 @@ function TargetRow({ target }: { target: DialTarget }) {
   };
 
   return (
-    <li className="rounded-lg bg-elevated text-[11px]">
+    <li className="rounded-lg bg-elevated text-[12px]">
       <button
         type="button"
         onClick={() => void toggle()}
@@ -595,17 +595,17 @@ function TargetRow({ target }: { target: DialTarget }) {
       {open && (
         <div className="border-t border-line px-2.5 py-1.5">
           {error ? (
-            <p className="text-[10.5px] text-risk-high">✗ {error}</p>
+            <p className="text-[12px] text-risk-high">✗ {error}</p>
           ) : attempts === null ? (
-            <p className="text-[10.5px] text-muted">{t("targetRow.loadingCallLog")}</p>
+            <p className="text-[12px] text-muted">{t("targetRow.loadingCallLog")}</p>
           ) : attempts.length === 0 ? (
-            <p className="text-[10.5px] text-muted">
+            <p className="text-[12px] text-muted">
               {t("targetRow.noAttempts")}
             </p>
           ) : (
             <ul className="space-y-0.5">
               {attempts.map((a) => (
-                <li key={a.id} className="flex items-baseline gap-2 text-[10.5px]">
+                <li key={a.id} className="flex items-baseline gap-2 text-[12px]">
                   <span className="w-8 shrink-0 font-mono text-muted">
                     #{a.attempt_no}
                   </span>
@@ -700,13 +700,13 @@ function CampaignsTab() {
 
   return (
     <Card title={t("campaignsTab.cardTitle")}>
-      <p className="mb-3.5 text-[11px] leading-relaxed text-muted">
+      <p className="mb-3.5 text-[12px] leading-relaxed text-muted">
         {t("campaignsTab.intro")}
       </p>
 
       <div className="mb-3.5 grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto]">
         <label className="grid gap-1">
-          <span className="text-[11px] font-medium text-muted">{t("campaignsTab.nameFieldLabel")}</span>
+          <span className="text-[12px] font-medium text-muted">{t("campaignsTab.nameFieldLabel")}</span>
           <input
             type="text"
             value={name}
@@ -716,7 +716,7 @@ function CampaignsTab() {
           />
         </label>
         <label className="grid gap-1">
-          <span className="text-[11px] font-medium text-muted">{t("campaignsTab.pacingTitle")}</span>
+          <span className="text-[12px] font-medium text-muted">{t("campaignsTab.pacingTitle")}</span>
           <div className="flex min-w-0 items-center gap-1.5">
             <input
               type="number"
@@ -726,11 +726,11 @@ function CampaignsTab() {
               onChange={(e) => setPacing(e.target.value)}
               className={`${INPUT_CLS} tnum w-full min-w-0`}
             />
-            <span className="shrink-0 text-[10px] text-muted">{t("campaignsTab.pacingUnit")}</span>
+            <span className="shrink-0 text-[12px] text-muted">{t("campaignsTab.pacingUnit")}</span>
           </div>
         </label>
         <div className="grid gap-1">
-          <span className="hidden text-[11px] font-medium text-transparent sm:block" aria-hidden>
+          <span className="hidden text-[12px] font-medium text-transparent sm:block" aria-hidden>
             &nbsp;
           </span>
           <button
@@ -745,9 +745,9 @@ function CampaignsTab() {
       </div>
 
       {loading ? (
-        <p className="text-[11px] text-muted">{t("campaignsTab.loading")}</p>
+        <p className="text-[12px] text-muted">{t("campaignsTab.loading")}</p>
       ) : rows.length === 0 ? (
-        <p className="text-[11px] text-muted">
+        <p className="text-[12px] text-muted">
           {t("campaignsTab.empty")}
         </p>
       ) : (
@@ -760,7 +760,7 @@ function CampaignsTab() {
                   type="button"
                   onClick={() => setOpen(isOpen ? null : c.id)}
                   aria-expanded={isOpen}
-                  className="flex w-full items-center justify-between gap-2 text-left text-[11.5px]"
+                  className="flex w-full items-center justify-between gap-2 text-left text-[12px]"
                 >
                   <span className="min-w-0">
                     <span className="text-fg">{c.name}</span>
@@ -776,7 +776,7 @@ function CampaignsTab() {
                         : ` · ${progressSummary(c, t)}`}
                     </span>
                   </span>
-                  <span className="shrink-0 text-[10px] text-muted">
+                  <span className="shrink-0 text-[12px] text-muted">
                     {isOpen ? "▾" : "▸"}
                   </span>
                 </button>
@@ -829,7 +829,7 @@ function TriageRow({
 
   return (
     <li className="rounded-lg bg-elevated px-2.5 py-2">
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[11.5px]">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[12px]">
         <span className="font-mono text-fg">{row.channel_ref ?? t("triageRow.unknownNumber")}</span>
         <span className="text-muted">
           {fmtDate(row.started_at)}
@@ -847,7 +847,7 @@ function TriageRow({
       </div>
 
       {row.preview && (
-        <p className="mt-1 line-clamp-2 text-[10.5px] italic text-muted">
+        <p className="mt-1 line-clamp-2 text-[12px] italic text-muted">
           “{row.preview}”
         </p>
       )}
@@ -916,14 +916,14 @@ function TriageTab() {
 
   return (
     <Card title={t("triageTab.cardTitle", { count: rows.length })}>
-      <p className="mb-3.5 text-[11px] leading-relaxed text-muted">
+      <p className="mb-3.5 text-[12px] leading-relaxed text-muted">
         {t("triageTab.intro")}
       </p>
 
       {loading ? (
-        <p className="text-[11px] text-muted">{t("triageTab.loading")}</p>
+        <p className="text-[12px] text-muted">{t("triageTab.loading")}</p>
       ) : rows.length === 0 ? (
-        <p className="text-[11px] text-muted">
+        <p className="text-[12px] text-muted">
           {t("triageTab.empty")}
         </p>
       ) : (
@@ -977,7 +977,7 @@ export default function HoneypotOpsPage() {
 
       {/* The three tabs are a pipeline, not three unrelated screens — a first-
           time operator has no way to know the order without being told. */}
-      <ol className="mb-3.5 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-card border border-line bg-card px-3 py-2 text-[10.5px] text-muted">
+      <ol className="mb-3.5 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-card border border-line bg-card px-3 py-2 text-[12px] text-muted">
         {steps.map((step, i) => (
           <li key={step} className="flex items-center gap-2">
             {i > 0 && <span aria-hidden="true">→</span>}
@@ -1015,13 +1015,13 @@ export default function HoneypotOpsPage() {
               }`}
             >
               <div
-                className={`text-xs font-semibold ${
+                className={`text-[12px] font-semibold ${
                   active ? "text-accent-bright" : "text-fg"
                 }`}
               >
                 {label}
               </div>
-              <div className="mt-0.5 text-[10.5px] leading-snug text-muted">
+              <div className="mt-0.5 text-[12px] leading-snug text-muted">
                 {tabSub[key]}
               </div>
             </button>

@@ -21,7 +21,7 @@ export function ProviderBadge({ provider }: { provider: string }) {
   const color = PROVIDER_COLOR[provider] ?? "rgba(255,255,255,.5)";
   return (
     <span
-      className="inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 font-mono text-[10px] font-semibold leading-none"
+      className="inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 font-mono text-[12px] font-semibold leading-none"
       style={{ color, borderColor: `${color}44`, background: `${color}14` }}
       title={
         provider === "browser"

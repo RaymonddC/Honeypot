@@ -73,7 +73,7 @@ export function DocCard({
         </div>
         <div className="min-w-0">
           <b className="block truncate text-[12.5px]">{doc.title}</b>
-          <small className="text-[10px] text-muted">{doc.subtitle}</small>
+          <small className="text-[12px] text-muted">{doc.subtitle}</small>
         </div>
         <div className="ml-auto flex items-center gap-1.5">
           {canPreview && (
@@ -81,9 +81,9 @@ export function DocCard({
               type="button"
               onClick={() => setShowDoc(true)}
               title={t("viewTitle")}
-              className="cursor-pointer rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent-bright transition-colors hover:bg-accent/20"
+              className="cursor-pointer rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[12px] font-semibold text-accent-bright transition-colors hover:bg-accent/20"
             >
-              ⧉ {t("view")}
+              {t("view")}
             </button>
           )}
           {doc.downloadUrl && (
@@ -92,7 +92,7 @@ export function DocCard({
               onClick={() => void download()}
               disabled={downloading}
               title={t("downloadPdfTitle")}
-              className="cursor-pointer rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10px] text-muted transition-colors hover:border-accent/30 hover:text-accent-bright disabled:cursor-default disabled:opacity-50"
+              className="cursor-pointer rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[12px] text-muted transition-colors hover:border-accent/30 hover:text-accent-bright disabled:cursor-default disabled:opacity-50"
             >
               {downloading ? "…" : t("pdfShort")}
             </button>
@@ -101,15 +101,15 @@ export function DocCard({
       </div>
 
       {error && (
-        <p role="alert" className="px-3.5 pt-2 text-[10px] leading-relaxed text-risk-high">
+        <p role="alert" className="px-3.5 pt-2 text-[12px] leading-relaxed text-risk-high">
           {error}
         </p>
       )}
 
       {/* paper preview */}
-      <div className="min-h-[200px] flex-1 p-3.5 text-[11.5px] text-muted">
-        <div className="rounded-lg border border-line bg-elevated p-[13px] font-mono text-[10.5px] leading-[1.7] text-muted">
-          <h5 className="mb-2 font-sans text-[11px] font-bold uppercase tracking-[.04em] text-fg">
+      <div className="min-h-[200px] flex-1 p-3.5 text-[12px] text-muted">
+        <div className="rounded-lg border border-line bg-elevated p-[13px] font-mono text-[12px] leading-[1.7] text-muted">
+          <h5 className="mb-2 font-sans text-[12px] font-bold uppercase tracking-[.04em] text-fg">
             {doc.paperTitle}
           </h5>
           {doc.fields.map((f, i) => (

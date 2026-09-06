@@ -20,11 +20,11 @@ const VERDICT_TEXT: Record<string, string> = {
 
 function Step({ s }: { s: ReasoningStep }) {
   return (
-    <div className="flex items-baseline gap-2.5 border-b border-line px-3.5 py-[9px] text-[11.5px] last:border-b-0">
-      <span className="grid h-[18px] w-[18px] flex-none translate-y-0.5 place-items-center self-center rounded-[5px] bg-accent/10 font-mono text-[10px] font-bold text-accent-bright">
+    <div className="flex items-baseline gap-2.5 border-b border-line px-3.5 py-[9px] text-[12px] last:border-b-0">
+      <span className="grid h-[18px] w-[18px] flex-none translate-y-0.5 place-items-center self-center rounded-[5px] bg-accent/10 font-mono text-[12px] font-bold text-accent-bright">
         {s.step}
       </span>
-      <span className="flex-none font-mono text-[11px] text-accent-bright">
+      <span className="flex-none font-mono text-[12px] text-accent-bright">
         {s.tool}
       </span>
       <span className="min-w-0 text-muted">
@@ -40,7 +40,7 @@ function Step({ s }: { s: ReasoningStep }) {
         {s.verdict ? " — " : ""}
         {s.detail}
       </span>
-      <span className="ml-auto flex-none font-mono text-[10px] tnum text-muted">
+      <span className="ml-auto flex-none font-mono text-[12px] tnum text-muted">
         {s.duration ?? "—"}
       </span>
     </div>
@@ -57,17 +57,17 @@ export function GlassBox({ detail }: { detail: WalletDetail | null }) {
             {t("eyebrow")}
           </span>
           {detail && (
-            <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] tnum text-muted">
+            <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[12px] tnum text-muted">
               {t("confidence", { confidence: detail.confidence.toFixed(2) })}
             </span>
           )}
         </div>
-        <p className="mt-1 text-[10.5px] leading-snug text-muted">{t("eyebrowHint")}</p>
+        <p className="mt-1 text-[12px] leading-snug text-muted">{t("eyebrowHint")}</p>
       </div>
       {detail && detail.reasoning.length > 0 ? (
         detail.reasoning.map((s) => <Step key={s.step} s={s} />)
       ) : (
-        <div className="px-3.5 py-6 text-center text-[11px] text-muted">
+        <div className="px-3.5 py-6 text-center text-[12px] text-muted">
           {t("empty")}
         </div>
       )}

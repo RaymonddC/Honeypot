@@ -222,7 +222,7 @@ function ChainBanner({ feed }: { feed: AuditFeed }) {
         <p className="text-[13px] font-semibold text-accent-bright">
           {t("chainVerified.title")}
         </p>
-        <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted">
+        <p className="mt-1.5 text-[12px] leading-relaxed text-muted">
           {t("chainVerified.body")}
         </p>
         {/* Says what the green tick does NOT cover. "Verified" invites the
@@ -232,7 +232,7 @@ function ChainBanner({ feed }: { feed: AuditFeed }) {
             investigator meets that here than in front of a court. The last
             sentence matters as much as the caveat — without it this reads as a
             shrug, when write failures are in fact counted and alerted on. */}
-        <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted">
+        <p className="mt-1.5 text-[12px] leading-relaxed text-muted">
           {t.rich("chainVerified.caveat", {
             b: (chunks) => <span className="text-fg">{chunks}</span>,
           })}
@@ -247,7 +247,7 @@ function ChainBanner({ feed }: { feed: AuditFeed }) {
           ? t("chainFailed.titleAtEntry", { seq: feed.broken_at_seq })
           : t("chainFailed.title")}
       </p>
-      <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted">
+      <p className="mt-1.5 text-[12px] leading-relaxed text-muted">
         {t("chainFailed.body")}
       </p>
     </div>
@@ -279,14 +279,14 @@ export default function AuditPage() {
   const entries = feed?.entries ?? [];
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-5">
+    <div className="mx-auto max-w-[1000px]">
       <div className="mb-4 flex items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
           <p className="mt-2 max-w-[64ch] text-[13px] leading-relaxed text-muted">
             {t("pageLead")}
           </p>
-          <p className="mt-1 max-w-[64ch] text-[11.5px] leading-relaxed text-muted">
+          <p className="mt-1 max-w-[64ch] text-[12px] leading-relaxed text-muted">
             {t.rich("subtitle", {
               r: (chunks) => <span className="text-risk-high">{chunks}</span>,
             })}
@@ -296,14 +296,14 @@ export default function AuditPage() {
           type="button"
           onClick={() => void load()}
           disabled={loading}
-          className="h-8 shrink-0 rounded-lg border border-line bg-elevated px-3 text-[11px] font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-50"
+          className="h-8 shrink-0 rounded-lg border border-line bg-elevated px-3 text-[12px] font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-50"
         >
           {loading ? t("reverifying") : t("reverify")}
         </button>
       </div>
 
       {error && (
-        <p className="mb-3 text-[11px] text-risk-high">✗ {error}</p>
+        <p className="mb-3 text-[12px] text-risk-high">✗ {error}</p>
       )}
       {feed && <ChainBanner feed={feed} />}
 
@@ -313,9 +313,9 @@ export default function AuditPage() {
         </div>
         <div className="p-2">
           {loading && !feed ? (
-            <p className="px-1.5 py-2 text-[11px] text-muted">{t("loading")}</p>
+            <p className="px-1.5 py-2 text-[12px] text-muted">{t("loading")}</p>
           ) : entries.length === 0 ? (
-            <p className="px-1.5 py-3 text-[11px] text-muted">
+            <p className="px-1.5 py-3 text-[12px] text-muted">
               {t("emptyState")}
             </p>
           ) : (
@@ -337,14 +337,14 @@ export default function AuditPage() {
                 return (
                   <li
                     key={`${e.seq}-${e.sha256}`}
-                    className={`rounded-lg px-2.5 py-2 text-[11.5px] ${
+                    className={`rounded-lg px-2.5 py-2 text-[12px] ${
                       denied
                         ? "border border-risk-high/30 bg-risk-high/[.07]"
                         : "bg-elevated"
                     }`}
                   >
                     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                      <span className="w-8 shrink-0 font-mono text-[10px] text-muted">
+                      <span className="w-8 shrink-0 font-mono text-[12px] text-muted">
                         #{e.seq}
                       </span>
                       <span className="shrink-0 text-muted">
@@ -354,7 +354,7 @@ export default function AuditPage() {
                           skimming the column must not read half a row and
                           conclude the thing happened. */}
                       {denied && (
-                        <span className="shrink-0 rounded bg-risk-high/20 px-1.5 py-[1px] text-[9.5px] font-bold uppercase tracking-wide text-risk-high">
+                        <span className="shrink-0 rounded bg-risk-high/20 px-1.5 py-[1px] text-[12px] font-bold uppercase tracking-wide text-risk-high">
                           {t("deniedChip")}
                         </span>
                       )}
@@ -375,7 +375,7 @@ export default function AuditPage() {
                       {detail && (
                         <span className="text-muted">— {detail}</span>
                       )}
-                      <span className="ml-auto shrink-0 font-mono text-[10px] text-muted">
+                      <span className="ml-auto shrink-0 font-mono text-[12px] text-muted">
                         {fmtTs(e.ts)}
                       </span>
                     </div>
@@ -383,7 +383,7 @@ export default function AuditPage() {
                         run of refusals stops being written down. Saying so is
                         the difference between a capped chain and a quiet one. */}
                     {Boolean((e.detail as Record<string, unknown>)?._denial_cap_reached) && (
-                      <p className="mt-1 text-[10px] text-risk-high/80">
+                      <p className="mt-1 text-[12px] text-risk-high/80">
                         {t("rateCapReached", {
                           cap: String((e.detail as Record<string, unknown>)._denial_cap),
                         })}
@@ -398,7 +398,7 @@ export default function AuditPage() {
                         the backend attached), for the reviewer who needs to
                         verify rather than just skim. */}
                     <details className="group mt-1.5">
-                      <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[10px] text-muted transition-colors hover:text-fg [&::-webkit-details-marker]:hidden">
+                      <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[12px] text-muted transition-colors hover:text-fg [&::-webkit-details-marker]:hidden">
                         <span className="inline-block w-2.5 transition-transform group-open:rotate-90" aria-hidden>
                           ▸
                         </span>
@@ -409,7 +409,7 @@ export default function AuditPage() {
                         {/* The hash is what makes the entry verifiable; showing
                             a prefix lets a reviewer eyeball the chain without
                             drowning the row in 64 hex characters. */}
-                        <div className="flex flex-wrap gap-x-3 font-mono text-[9.5px] text-muted">
+                        <div className="flex flex-wrap gap-x-3 font-mono text-[12px] text-muted">
                           <span title={e.sha256}>sha {e.sha256.slice(0, 12)}…</span>
                           <span title={e.prev_sha256}>
                             prev {e.prev_sha256.slice(0, 12)}…
@@ -423,10 +423,10 @@ export default function AuditPage() {
                         </div>
                         {hasRaw && (
                           <div>
-                            <div className="text-[9.5px] uppercase tracking-wide text-muted/80">
+                            <div className="text-[12px] uppercase tracking-wide text-muted/80">
                               {t("detailsRawLabel")}
                             </div>
-                            <pre className="mt-1 overflow-x-auto rounded-md border border-line bg-card px-2.5 py-2 font-mono text-[10px] leading-relaxed text-fg/80">
+                            <pre className="mt-1 overflow-x-auto rounded-md border border-line bg-card px-2.5 py-2 font-mono text-[12px] leading-relaxed text-fg/80">
                               {JSON.stringify(raw, null, 2)}
                             </pre>
                           </div>

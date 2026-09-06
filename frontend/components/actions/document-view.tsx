@@ -61,7 +61,7 @@ export function DocumentView({
         <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5">
           <div className="min-w-0">
             <div className="eyebrow text-accent-bright">{kind}</div>
-            <div className="truncate text-[10.5px] text-muted">
+            <div className="truncate text-[12px] text-muted">
               {t("printHint")}
             </div>
           </div>
@@ -69,22 +69,22 @@ export function DocumentView({
             <button
               type="button"
               onClick={printDoc}
-              className="h-8 rounded-full bg-accent px-3.5 text-xs font-semibold text-[#090909] transition-colors hover:bg-accent-bright"
+              className="h-8 rounded-full bg-accent px-3.5 text-[12px] font-semibold text-[#090909] transition-colors hover:bg-accent-bright"
             >
-              🖶 {t("printSaveAsPdf")}
+              {t("printSaveAsPdf")}
             </button>
             <button
               type="button"
               onClick={() => downloadHtml(html, documentFilename(doc))}
               title={t("saveAsHtmlTitle")}
-              className="h-8 rounded-lg border border-line bg-elevated px-3 text-xs font-semibold text-muted transition-colors hover:text-fg"
+              className="h-8 rounded-lg border border-line bg-elevated px-3 text-[12px] font-semibold text-muted transition-colors hover:text-fg"
             >
-              ⬇ {t("html")}
+              {t("html")}
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="h-8 rounded-lg border border-line bg-elevated px-3 text-xs font-semibold text-muted transition-colors hover:text-fg"
+              className="h-8 rounded-lg border border-line bg-elevated px-3 text-[12px] font-semibold text-muted transition-colors hover:text-fg"
             >
               {t("close")}
             </button>

@@ -13,7 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useCases } from "@/components/cases/case-provider";
 import { addBankAccount, addCryptoTransfer } from "@/lib/casedata/api";
-import { GOLDEN, deriveCaseBridge } from "@/lib/demo/golden-thread";
+import { GOLDEN, ONRAMP_CATEGORY, deriveCaseBridge } from "@/lib/demo/golden-thread";
 import {
   CASE_STAGES,
   fetchRollup,
@@ -38,12 +38,12 @@ const CATEGORIES = ["unknown", "scam", "mule", "victim", "suspect", "exchange"];
 // to the backend (see `submit` in IntakeStage) — that's persisted case DATA,
 // not UI chrome, so it stays as authored English regardless of the UI locale.
 const CRIME_TYPES = [
-  { value: "investment_scam", glyph: "📈", enLabel: "Investment scam" },
-  { value: "judol_deposit", glyph: "🎰", enLabel: "Online gambling" },
-  { value: "crypto_phishing", glyph: "⛓", enLabel: "Crypto phishing" },
-  { value: "romance_scam", glyph: "💔", enLabel: "Romance scam" },
-  { value: "impersonation", glyph: "🎭", enLabel: "Impersonation" },
-  { value: "other", glyph: "◇", enLabel: "Other" },
+  { value: "investment_scam", enLabel: "Investment scam" },
+  { value: "judol_deposit", enLabel: "Online gambling" },
+  { value: "crypto_phishing", enLabel: "Crypto phishing" },
+  { value: "romance_scam", enLabel: "Romance scam" },
+  { value: "impersonation", enLabel: "Impersonation" },
+  { value: "other", enLabel: "Other" },
 ];
 
 // UI labels come from i18n (see `sources` in the caseFile namespace); enLabel
@@ -179,8 +179,9 @@ function stageAction(
   return map[stage];
 }
 
+// Clean, flat Framer field: surface fill, hairline, 10px radius, quiet focus.
 const fieldCls =
-  "h-[32px] w-full rounded-lg border border-line bg-card px-2.5 font-mono text-[11.5px] text-fg outline-none placeholder:text-muted focus:border-accent/40";
+  "h-9 w-full rounded-[10px] border border-[#262626] bg-[#1c1c1c] px-3 text-[13px] text-fg outline-none placeholder:text-[#666] focus:border-[#0099ff]/60";
 
 // The one navigation control: a linear case-workflow stepper that IS the tab
 // bar. Each step opens its stage's tool below. Two visual dimensions on one row:
@@ -206,7 +207,7 @@ function StageFlow({
     <div className="rounded-card border border-line bg-card p-3.5">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="eyebrow">{t("stageFlow.eyebrow")}</div>
-        <div className="text-[10.5px] text-muted">
+        <div className="text-[12px] text-muted">
           {isClosed
             ? t("stageFlow.caseClosed")
             : t("stageFlow.stepOf", {
@@ -222,7 +223,7 @@ function StageFlow({
           type="button"
           onClick={() => onView("overview")}
           aria-current={view === "overview" ? "page" : undefined}
-          className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-medium transition-colors ${
+          className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition-colors ${
             view === "overview"
               ? "border-accent bg-accent/15 text-accent-bright"
               : "border-line bg-card text-muted hover:text-fg"
@@ -254,7 +255,7 @@ function StageFlow({
                   opens: opensLabel,
                 })}
                 aria-current={selected ? "page" : current ? "step" : undefined}
-                className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-medium transition-colors ${
+                className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition-colors ${
                   selected
                     ? "border-accent bg-accent/15 text-accent-bright"
                     : current
@@ -265,7 +266,7 @@ function StageFlow({
                 }`}
               >
                 <span
-                  className={`flex h-4 w-4 items-center justify-center rounded-full font-mono text-[9px] ${
+                  className={`flex h-4 w-4 items-center justify-center rounded-full font-mono text-[12px] ${
                     past
                       ? "bg-accent/20 text-accent-bright"
                       : current
@@ -295,14 +296,14 @@ function StageFlow({
         <span className="mx-1 h-5 w-px bg-line" aria-hidden />
         <div
           title={isClosed ? t("stageFlow.closedTitle") : t("stageFlow.closedSetFromTitle")}
-          className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-medium ${
+          className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12px] font-medium ${
             isClosed
               ? "border-accent/50 bg-accent/10 text-accent-bright"
               : "border-dashed border-line text-muted"
           }`}
         >
           <span
-            className={`flex h-4 w-4 items-center justify-center rounded-full font-mono text-[9px] ${
+            className={`flex h-4 w-4 items-center justify-center rounded-full font-mono text-[12px] ${
               isClosed ? "bg-accent/20 text-accent-bright" : "border border-line text-muted"
             }`}
           >
@@ -346,7 +347,7 @@ function StageNav({
   return (
     <div>
       {showBlock && !allDone && nextStage && (
-        <div className="mb-2 rounded-lg border border-risk-med/30 bg-risk-med/10 px-3 py-2.5 text-[11px]">
+        <div className="mb-2 rounded-lg border border-risk-med/30 bg-risk-med/10 px-3 py-2.5 text-[12px]">
           <div className="mb-1 font-semibold text-risk-med">
             {t("stageNav.finishBefore", { stage: t(`stageLabel.${nextStage}`) })}
           </div>
@@ -361,7 +362,7 @@ function StageNav({
           <button
             type="button"
             onClick={() => onGo(nextStage)}
-            className="mt-2 text-[10.5px] font-semibold text-muted hover:text-fg hover:underline"
+            className="mt-2 text-[12px] font-semibold text-muted hover:text-fg hover:underline"
           >
             {t("stageNav.advanceAnyway")}
           </button>
@@ -372,7 +373,7 @@ function StageNav({
           <button
             type="button"
             onClick={() => onGo(prevStage)}
-            className="rounded-lg border border-line px-2.5 py-1.5 text-[11.5px] font-medium text-muted transition-colors hover:text-fg"
+            className="rounded-lg border border-line px-2.5 py-1.5 text-[12px] font-medium text-muted transition-colors hover:text-fg"
           >
             {t("stageNav.back", { stage: t(`stageLabel.${prevStage}`) })}
           </button>
@@ -380,7 +381,7 @@ function StageNav({
           <span />
         )}
         {nextStage === "closed" ? (
-          <span className="text-[11px] text-muted">
+          <span className="text-[12px] text-muted">
             {t.rich("stageNav.closeViaRecovery", {
               b: (chunks) => <b className="text-fg">{chunks}</b>,
             })}
@@ -394,7 +395,7 @@ function StageNav({
                 ? t("stageNav.advanceTo", { stage: t(`stageLabel.${nextStage}`) })
                 : t("stageNav.someStepsOpen")
             }
-            className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[11.5px] font-semibold transition-colors ${
+            className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[12px] font-semibold transition-colors ${
               allDone
                 ? "bg-accent text-[#090909] hover:bg-accent-bright"
                 : "border border-accent/40 bg-accent/10 text-accent-bright hover:bg-accent/20"
@@ -438,14 +439,14 @@ function NextAction({
             {t("nextAction.now", { stage: t(`stageLabel.${stage}`) })}
           </div>
           <div className="text-[14px] font-semibold text-fg">{a.task}</div>
-          <p className="mt-0.5 text-[11.5px] text-muted">{a.why}</p>
+          <p className="mt-0.5 text-[12px] text-muted">{a.why}</p>
         </div>
         <div className="flex flex-none flex-col items-end gap-1.5">
           {canFreeze && (
             <button
               type="button"
               onClick={onFreeze}
-              className="h-8 whitespace-nowrap rounded-lg border border-risk-high/50 bg-risk-high/15 px-3.5 text-xs font-semibold text-risk-high transition-colors hover:bg-risk-high/25"
+              className="h-8 whitespace-nowrap rounded-lg border border-risk-high/50 bg-risk-high/15 px-3.5 text-[12px] font-semibold text-risk-high transition-colors hover:bg-risk-high/25"
             >
               {t("nextAction.freezeNow")}
             </button>
@@ -453,7 +454,7 @@ function NextAction({
           <button
             type="button"
             onClick={onOpen}
-            className="h-8 whitespace-nowrap rounded-full bg-accent px-3.5 text-xs font-semibold leading-8 text-[#090909] transition-colors hover:bg-accent-bright"
+            className="h-8 whitespace-nowrap rounded-full bg-accent px-3.5 text-[12px] font-semibold leading-8 text-[#090909] transition-colors hover:bg-accent-bright"
           >
             {a.cta} →
           </button>
@@ -463,9 +464,9 @@ function NextAction({
       {a.checks.length > 0 && (
         <ul className="mt-3 space-y-1">
           {a.checks.map((c) => (
-            <li key={c.label} className="flex items-center gap-2 text-[11.5px]">
+            <li key={c.label} className="flex items-center gap-2 text-[12px]">
               <span
-                className={`flex h-4 w-4 flex-none items-center justify-center rounded-full border text-[9px] ${
+                className={`flex h-4 w-4 flex-none items-center justify-center rounded-full border text-[12px] ${
                   c.done
                     ? "border-accent bg-accent/20 text-accent-bright"
                     : "border-line text-muted"
@@ -515,11 +516,11 @@ function CardShell({
           <button
             type="button"
             onClick={onAddToggle}
-            className="text-[11px] font-semibold text-accent-bright hover:underline"
+            className="text-[12px] font-semibold text-accent-bright hover:underline"
           >
             {adding ? t("cardShell.cancel") : t("cardShell.add")}
           </button>
-          <button type="button" onClick={onOpen} className="text-[11px] text-muted hover:text-fg">
+          <button type="button" onClick={onOpen} className="text-[12px] text-muted hover:text-fg">
             {t("cardShell.openArrow", { label: openLabel })}
           </button>
         </div>
@@ -540,7 +541,7 @@ function StatTile({
 }) {
   return (
     <div className="rounded-lg border border-line bg-card px-3 py-2.5">
-      <div className="text-[10px] uppercase tracking-wide text-muted">{label}</div>
+      <div className="text-[12px] uppercase tracking-wide text-muted">{label}</div>
       <div className={`tnum mt-0.5 text-lg font-bold ${accent ? "text-accent-bright" : "text-fg"}`}>
         {value}
       </div>
@@ -626,14 +627,14 @@ function CaseSessions({
         <button
           type="button"
           onClick={onOpenHoneypot}
-          className="text-[11px] text-accent-bright hover:underline"
+          className="text-[12px] text-accent-bright hover:underline"
         >
           {t("caseSessions.honeypotLink")}
         </button>
       </div>
       <div className="p-2">
         {sessions.length === 0 ? (
-          <p className="px-1.5 py-2 text-[11px] text-muted">
+          <p className="px-1.5 py-2 text-[12px] text-muted">
             {t("caseSessions.empty")}
           </p>
         ) : (
@@ -648,9 +649,9 @@ function CaseSessions({
                     type="button"
                     onClick={() => toggle(s.id)}
                     aria-expanded={open}
-                    className="flex w-full items-start gap-2 px-2.5 py-1.5 text-left text-[11.5px] transition-colors hover:bg-fg/[.04]"
+                    className="flex w-full items-start gap-2 px-2.5 py-1.5 text-left text-[12px] transition-colors hover:bg-fg/[.04]"
                   >
-                    <span className="mt-[1px] flex-none text-[10px] text-muted">
+                    <span className="mt-[1px] flex-none text-[12px] text-muted">
                       {open ? "▾" : "▸"}
                     </span>
                     <span className="min-w-0 flex-1">
@@ -658,7 +659,7 @@ function CaseSessions({
                         {voice && (
                           <span
                             title={t("caseSessions.voiceCallTitle")}
-                            className="rounded border border-accent/[.22] bg-accent/10 px-1 py-px font-mono text-[9.5px] uppercase tracking-[.06em] text-accent-bright"
+                            className="rounded border border-accent/[.22] bg-accent/10 px-1 py-px font-mono text-[12px] uppercase tracking-[.06em] text-accent-bright"
                           >
                             {t("caseSessions.voiceCallBadge")}
                           </span>
@@ -675,9 +676,9 @@ function CaseSessions({
                   {open && (
                     <div className="border-t border-line px-2 pb-2 pt-2">
                       {!tr || tr.status === "loading" ? (
-                        <p className="px-1.5 py-2 text-[11px] text-muted">{t("caseSessions.loadingTranscript")}</p>
+                        <p className="px-1.5 py-2 text-[12px] text-muted">{t("caseSessions.loadingTranscript")}</p>
                       ) : tr.status === "error" ? (
-                        <p className="px-1.5 py-2 text-[11px] text-risk-high">
+                        <p className="px-1.5 py-2 text-[12px] text-risk-high">
                           ✗ {tr.message} {t("caseSessions.transcriptErrorSuffix")}
                         </p>
                       ) : (
@@ -706,6 +707,7 @@ function CaseSessions({
 function IntakeStage({
   caseId,
   banks,
+  txCount,
   defaultCrimeType,
   onSaveReport,
   onLogged,
@@ -714,6 +716,8 @@ function IntakeStage({
 }: {
   caseId: string;
   banks: CaseRollup["bank_accounts"];
+  /** Crypto transfers on the case — with `banks`, what "something captured" means. */
+  txCount: number;
   /** The case's current crime_type, to seed the selector. */
   defaultCrimeType?: string;
   /** Persist the report brief onto the case (crime_type + summary). */
@@ -726,6 +730,12 @@ function IntakeStage({
 }) {
   const t = useTranslations("caseFile.page");
   const [mode, setMode] = useState<"report" | "honeypot">("report");
+  // Same precondition the stage checklist uses (see stageAction.intake): intake
+  // is finishable once EITHER path has captured a freezable account or wallet.
+  const captured = banks.length + txCount > 0;
+  // Accounts already on the case, so the honeypot's "+ Case" controls render
+  // "in case" across visits instead of inviting a duplicate promotion.
+  const trackedAccounts = new Set(banks.map((b) => String(b.account_number)));
   const [form, setForm] = useState({ bank_name: "", account_number: "", holder_name: "" });
   const [crimeType, setCrimeType] = useState(
     defaultCrimeType && CRIME_TYPES.some((c) => c.value === defaultCrimeType)
@@ -810,7 +820,7 @@ function IntakeStage({
       <div className={`text-[12.5px] font-semibold ${mode === id ? "text-accent-bright" : "text-fg"}`}>
         {title}
       </div>
-      <div className="mt-0.5 text-[10.5px] leading-snug text-muted">{sub}</div>
+      <div className="mt-0.5 text-[12px] leading-snug text-muted">{sub}</div>
     </button>
   );
 
@@ -839,7 +849,7 @@ function IntakeStage({
             {/* the report */}
             <div>
               <div className="eyebrow mb-2">{t("intake.theReport")}</div>
-              <label className="mb-1 block text-[11px] font-medium text-muted">{t("intake.scamType")}</label>
+              <label className="mb-1 block text-[12px] font-medium text-muted">{t("intake.scamType")}</label>
               <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {CRIME_TYPES.map((c) => {
                   const on = crimeType === c.value;
@@ -851,18 +861,17 @@ function IntakeStage({
                       aria-pressed={on}
                       className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-[12px] transition-colors ${
                         on
-                          ? "border-accent bg-accent/10 font-semibold text-accent-bright"
-                          : "border-line bg-elevated text-muted hover:text-fg"
+                          ? "border-white/25 bg-[#1c1c1c] font-semibold text-white"
+                          : "border-[#262626] bg-[#141414] text-[#999] hover:text-white"
                       }`}
                     >
-                      <span aria-hidden className="text-[13px]">{c.glyph}</span>
                       {t(`crimeTypes.${c.value}`)}
                     </button>
                   );
                 })}
               </div>
 
-              <label className="mb-1 block text-[11px] font-medium text-muted">{t("intake.reportedVia")}</label>
+              <label className="mb-1 block text-[12px] font-medium text-muted">{t("intake.reportedVia")}</label>
               <div className="mb-3 flex flex-wrap gap-1.5">
                 {SOURCES.map((s) => {
                   const on = source === s.value;
@@ -872,10 +881,10 @@ function IntakeStage({
                       type="button"
                       onClick={() => setSource(s.value)}
                       aria-pressed={on}
-                      className={`rounded-lg border px-2.5 py-1 text-[11.5px] transition-colors ${
+                      className={`rounded-lg border px-2.5 py-1 text-[12px] transition-colors ${
                         on
-                          ? "border-accent bg-accent/10 font-semibold text-accent-bright"
-                          : "border-line bg-elevated text-muted hover:text-fg"
+                          ? "border-white/25 bg-[#1c1c1c] font-semibold text-white"
+                          : "border-[#262626] bg-[#141414] text-[#999] hover:text-white"
                       }`}
                     >
                       {t(`sources.${s.value}`)}
@@ -886,35 +895,31 @@ function IntakeStage({
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-[11px] font-medium text-muted">{t("intake.amountLost")}</label>
+                  <label className="mb-1 block text-[12px] font-medium text-muted">{t("intake.amountLost")}</label>
                   <input className={fieldCls} type="number" min="0" inputMode="numeric"
                     placeholder={t("intake.amountPlaceholder")} value={amount}
                     onChange={(e) => setAmount(e.target.value)} />
                   {amountPretty && (
-                    <div className="mt-1 font-mono text-[11px] text-accent-bright">{amountPretty}</div>
+                    <div className="mt-1 font-mono text-[12px] text-accent-bright">{amountPretty}</div>
                   )}
                 </div>
                 <div>
                   <div className="mb-1 flex items-center justify-between">
-                    <label className="text-[11px] font-medium text-muted">{t("intake.whenItHappened")}</label>
+                    <label className="text-[12px] font-medium text-muted">{t("intake.whenItHappened")}</label>
                     <button type="button" onClick={() => setIncidentAt(nowLocal())}
-                      className="text-[10.5px] font-semibold text-accent-bright hover:underline">{t("intake.now")}</button>
+                      className="text-[12px] font-semibold text-accent-bright hover:underline">{t("intake.now")}</button>
                   </div>
-                  <div className="relative">
-                    <input ref={dateRef}
-                      className={`${fieldCls} cursor-pointer pr-9 [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:opacity-0`}
-                      type="datetime-local" max={nowLocal()} value={incidentAt}
-                      onChange={(e) => setIncidentAt(e.target.value)} onClick={openPicker} />
-                    <button type="button" onClick={openPicker} aria-label={t("intake.openCalendar")} tabIndex={-1}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[13px] text-muted transition-colors hover:text-accent-bright">📅</button>
-                  </div>
+                  <input ref={dateRef}
+                    className={`${fieldCls} cursor-pointer [color-scheme:dark]`}
+                    type="datetime-local" max={nowLocal()} value={incidentAt}
+                    onChange={(e) => setIncidentAt(e.target.value)} onClick={openPicker} />
                 </div>
               </div>
             </div>
 
             {/* receiving account */}
             <div className="border-t border-line pt-3.5">
-              <div className="eyebrow mb-2">{t("intake.receivingAccount")} <span className="font-normal normal-case text-muted">{t("intake.receivingAccountHint")}</span></div>
+              <div className="eyebrow mb-2">{t("intake.receivingAccount")}</div>
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
                 <input required placeholder={t("intake.bankPlaceholder")} className={fieldCls}
                   value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} />
@@ -927,16 +932,16 @@ function IntakeStage({
 
             {/* context */}
             <div className="border-t border-line pt-3.5">
-              <label className="mb-1 block text-[11px] font-medium text-muted">
-                {t("intake.whatHappened")} <span className="text-muted">{t("intake.whatHappenedHint")}</span>
+              <label className="mb-1 block text-[12px] font-medium text-muted">
+                {t("intake.whatHappened")}
               </label>
               <textarea
-                className="min-h-[64px] w-full rounded-lg border border-line bg-card px-3 py-2 text-[13px] leading-relaxed text-fg outline-none placeholder:text-muted focus:border-accent/40"
+                className="min-h-[64px] w-full rounded-[10px] border border-[#262626] bg-[#1c1c1c] px-3 py-2 text-[13px] leading-relaxed text-fg outline-none placeholder:text-[#666] focus:border-[#0099ff]/60"
                 placeholder={t("intake.whatHappenedPlaceholder")}
                 value={description} onChange={(e) => setDescription(e.target.value)} />
             </div>
 
-            <label className="flex cursor-pointer items-center gap-2.5 rounded-full border border-accent/30 bg-accent/[.06] px-3 py-2.5">
+            <label className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-accent/30 bg-accent/[.06] px-3 py-2.5">
               <input type="checkbox" checked={freezeNow} onChange={(e) => setFreezeNow(e.target.checked)}
                 className="h-4 w-4 accent-[#0099ff]" />
               <span className="text-[12px] text-fg">
@@ -946,13 +951,13 @@ function IntakeStage({
             </label>
 
             {err && (
-              <p className="rounded-lg border border-risk-high/30 bg-risk-high/10 px-3 py-2 text-[11.5px] text-risk-high">
+              <p className="rounded-lg border border-risk-high/30 bg-risk-high/10 px-3 py-2 text-[12px] text-risk-high">
                 {err}
               </p>
             )}
 
             <button type="submit" disabled={busy}
-              className="h-9 w-full rounded-full bg-accent px-4 text-xs font-semibold text-[#090909] transition-colors hover:bg-accent-bright disabled:opacity-60">
+              className="h-9 w-full rounded-full bg-accent px-4 text-[12px] font-semibold text-[#090909] transition-colors hover:bg-accent-bright disabled:opacity-60">
               {busy ? t("intake.working") : freezeNow ? t("intake.logAndContinue") : t("intake.logReport")}
             </button>
           </form>
@@ -963,15 +968,15 @@ function IntakeStage({
             </div>
             <div className="p-2">
               {banks.length === 0 ? (
-                <p className="px-1.5 py-2 text-[11px] text-muted">
+                <p className="px-1.5 py-2 text-[12px] text-muted">
                   {t("intake.noneLoggedYet")}
                 </p>
               ) : (
                 <ul className="space-y-1">
                   {banks.map((b) => (
-                    <li key={String(b.id)} className="rounded-lg bg-elevated px-2.5 py-1.5 font-mono text-[11.5px] text-fg">
+                    <li key={String(b.id)} className="rounded-lg bg-elevated px-2.5 py-1.5 font-mono text-[12px] text-fg">
                       {String(b.bank_name)} {String(b.account_number)}
-                      <span className="ml-2 text-[10.5px] text-muted">{String(b.category)}</span>
+                      <span className="ml-2 text-[12px] text-muted">{String(b.category)}</span>
                     </li>
                   ))}
                 </ul>
@@ -980,7 +985,34 @@ function IntakeStage({
           </div>
         </div>
       ) : (
-        <HoneypotPanel embedded onTraceWallet={onTraceWallet} />
+        <>
+          <HoneypotPanel
+            embedded
+            onTraceWallet={onTraceWallet}
+            trackedAccounts={trackedAccounts}
+            onPromoted={() => void onLogged()}
+          />
+          {/* The report branch ends in "Log & continue"; without this the
+              honeypot branch had no way to finish intake at all — the analyst
+              had to know to reach for the stepper. Same destination, same
+              precondition (something captured), stated the same way. */}
+          <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3 rounded-card border border-accent/25 bg-accent/[.05] px-3.5 py-3">
+            <p className="min-w-0 flex-1 text-[12px] leading-relaxed text-muted">
+              {captured
+                ? t("intake.honeypotDoneReady", { count: banks.length })
+                : t("intake.honeypotDoneEmpty")}
+            </p>
+            <button
+              type="button"
+              disabled={!captured}
+              onClick={() => onDone(true)}
+              title={captured ? t("intake.logAndContinue") : t("intake.honeypotDoneEmpty")}
+              className="h-8 flex-none rounded-full bg-accent px-4 text-[12px] font-semibold text-[#090909] transition-colors hover:bg-accent-bright disabled:opacity-40"
+            >
+              {t("intake.logAndContinue")}
+            </button>
+          </div>
+        </>
       )}
     </div>
   );
@@ -1063,7 +1095,7 @@ function RecoveryStage({
             {checklist.map((c) => (
               <li key={c.label} className="flex items-center gap-2 text-[12px]">
                 <span
-                  className={`flex h-4 w-4 flex-none items-center justify-center rounded-full border text-[9px] ${
+                  className={`flex h-4 w-4 flex-none items-center justify-center rounded-full border text-[12px] ${
                     c.done
                       ? "border-accent bg-accent/20 text-accent-bright"
                       : "border-line text-muted"
@@ -1077,7 +1109,7 @@ function RecoveryStage({
           </ul>
           {dispatched ? (
             <div className="mt-3 border-t border-line pt-2.5">
-              <div className="mb-1.5 text-[10px] uppercase tracking-wide text-muted">
+              <div className="mb-1.5 text-[12px] uppercase tracking-wide text-muted">
                 {t("recovery.dispatchedToAgencies")}
               </div>
               <ul className="space-y-1">
@@ -1086,10 +1118,10 @@ function RecoveryStage({
                   .map((d) => (
                     <li
                       key={d.id}
-                      className="flex items-center justify-between rounded-lg bg-elevated px-2.5 py-1.5 text-[11px]"
+                      className="flex items-center justify-between rounded-lg bg-elevated px-2.5 py-1.5 text-[12px]"
                     >
                       <span className="font-mono text-fg">{t("recovery.docsCount", { count: d.document_count })}</span>
-                      <span className="text-[10px] text-accent-bright">
+                      <span className="text-[12px] text-accent-bright">
                         {d.crime_type} · {t("recovery.dispatchedLabel")}
                       </span>
                     </li>
@@ -1097,7 +1129,7 @@ function RecoveryStage({
               </ul>
             </div>
           ) : (
-            <p className="mt-3 text-[11px] text-muted">
+            <p className="mt-3 text-[12px] text-muted">
               {t("recovery.noFreezeYet")}
             </p>
           )}
@@ -1108,13 +1140,13 @@ function RecoveryStage({
           <div className="eyebrow mb-2.5">{t("recovery.recordOutcomeTitle")}</div>
           {closed ? (
             <div>
-              <p className="rounded-full border border-accent/30 bg-accent/[.06] px-3 py-2 text-[12px] text-fg">
+              <p className="rounded-lg border border-accent/30 bg-accent/[.06] px-3 py-2 text-[12px] text-fg">
                 {t("recovery.closedNotice")}
               </p>
               <button
                 type="button"
                 onClick={() => void onUpdate({ status: "open", stage: "recovery" })}
-                className="mt-2.5 h-8 rounded-lg border border-line bg-elevated px-3 text-[11.5px] font-semibold text-muted transition-colors hover:text-fg"
+                className="mt-2.5 h-8 rounded-lg border border-line bg-elevated px-3 text-[12px] font-semibold text-muted transition-colors hover:text-fg"
               >
                 {t("recovery.reopenCase")}
               </button>
@@ -1122,7 +1154,7 @@ function RecoveryStage({
           ) : (
             <div className="space-y-2.5">
               <div>
-                <label className="mb-1 block text-[11px] text-muted">
+                <label className="mb-1 block text-[12px] text-muted">
                   {t("recovery.recoveredAmountLabel")}
                 </label>
                 <input
@@ -1135,7 +1167,7 @@ function RecoveryStage({
                 />
               </div>
               <div>
-                <label className="mb-1 block text-[11px] text-muted">{t("recovery.noteLabel")}</label>
+                <label className="mb-1 block text-[12px] text-muted">{t("recovery.noteLabel")}</label>
                 <input
                   placeholder={t("recovery.notePlaceholder")}
                   className={fieldCls}
@@ -1143,12 +1175,12 @@ function RecoveryStage({
                   onChange={(e) => setNote(e.target.value)}
                 />
               </div>
-              {err && <p className="text-[11px] text-risk-high">{err}</p>}
+              {err && <p className="text-[12px] text-risk-high">{err}</p>}
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => void recordOutcome()}
-                className="h-9 w-full rounded-full bg-accent px-4 text-xs font-semibold text-[#090909] transition-colors hover:bg-accent-bright disabled:opacity-60"
+                className="h-9 w-full rounded-full bg-accent px-4 text-[12px] font-semibold text-[#090909] transition-colors hover:bg-accent-bright disabled:opacity-60"
               >
                 {busy ? t("recovery.saving") : t("recovery.recordOutcomeAndClose")}
               </button>
@@ -1179,6 +1211,9 @@ export default function CaseFilePage() {
   const [tx, setTx] = useState({ from_addr: "", to_addr: "", value: "", category: "scam" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // A "package for action" handoff that could not attach its wallet to the case.
+  // Surfaced instead of opening Uncover on an incomplete case (see below).
+  const [attachError, setAttachError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!activeCase) {
@@ -1280,7 +1315,7 @@ export default function CaseFilePage() {
     return (
       <div className="mx-auto max-w-[560px] pt-10 text-center">
         <h1 className="text-xl font-bold tracking-tight">{t("noCase.title")}</h1>
-        <p className="mx-auto mt-1 max-w-[46ch] text-xs text-muted">
+        <p className="mx-auto mt-1 max-w-[46ch] text-[12px] text-muted">
           {t("noCase.body")}
         </p>
         <form
@@ -1294,16 +1329,16 @@ export default function CaseFilePage() {
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             placeholder={t("noCase.titlePlaceholder")}
-            className="h-9 flex-1 rounded-lg border border-line bg-card px-3 text-[13px] text-fg outline-none focus:border-accent/40"
+            className="h-9 flex-1 rounded-lg border border-line bg-card px-3 text-[13px] text-fg outline-none focus:border-[#0099ff]/60"
           />
           <button
             type="submit"
-            className="h-9 rounded-full bg-accent px-4 text-xs font-semibold text-[#090909] hover:bg-accent-bright"
+            className="h-9 rounded-full bg-accent px-4 text-[12px] font-semibold text-[#090909] hover:bg-accent-bright"
           >
             {t("noCase.openCase")}
           </button>
         </form>
-        <div className="mt-3 text-[11.5px] text-muted">
+        <div className="mt-3 text-[12px] text-muted">
           {t.rich("noCase.hint", {
             b: (chunks) => <b className="text-fg">{chunks}</b>,
           })}
@@ -1355,7 +1390,7 @@ export default function CaseFilePage() {
                   });
                   setEditing(true);
                 }}
-                className="h-7 rounded-lg border border-line bg-elevated px-2.5 text-[11px] font-semibold text-muted transition-colors hover:text-fg"
+                className="h-7 rounded-lg border border-line bg-elevated px-2.5 text-[12px] font-semibold text-muted transition-colors hover:text-fg"
               >
                 {t("header.edit")}
               </button>
@@ -1368,10 +1403,10 @@ export default function CaseFilePage() {
                   ...(activeCase.status === "closed" ? {} : { stage: "closed" as CaseStage }),
                 })
               }
-              className={`h-7 rounded-lg border px-2.5 text-[11px] font-semibold transition-colors ${
+              className={`h-7 rounded-lg border px-2.5 text-[12px] font-semibold transition-colors ${
                 activeCase.status === "closed"
                   ? "border-accent/40 bg-accent/10 text-accent-bright hover:bg-accent/20"
-                  : "border-line bg-elevated text-muted hover:text-fg"
+                  : "border-[#262626] bg-[#141414] text-[#999] hover:text-white"
               }`}
             >
               {activeCase.status === "closed" ? t("header.reopenCase") : t("header.closeCase")}
@@ -1382,19 +1417,19 @@ export default function CaseFilePage() {
         {editing ? (
           <div className="rounded-card border border-line bg-card p-3.5">
             <input
-              className="mb-2 h-9 w-full rounded-lg border border-line bg-elevated px-3 text-[15px] font-semibold text-fg outline-none focus:border-accent/40"
+              className="mb-2 h-9 w-full rounded-lg border border-line bg-elevated px-3 text-[15px] font-semibold text-fg outline-none focus:border-[#0099ff]/60"
               value={draft.title}
               onChange={(e) => setDraft({ ...draft, title: e.target.value })}
               placeholder={t("header.titlePlaceholder")}
             />
             <input
-              className="mb-2 h-8 w-full rounded-lg border border-line bg-elevated px-3 text-[12px] text-fg outline-none focus:border-accent/40"
+              className="mb-2 h-8 w-full rounded-lg border border-line bg-elevated px-3 text-[12px] text-fg outline-none focus:border-[#0099ff]/60"
               value={draft.crime_type}
               onChange={(e) => setDraft({ ...draft, crime_type: e.target.value })}
               placeholder={t("header.crimeTypePlaceholder")}
             />
             <textarea
-              className="mb-2.5 min-h-[64px] w-full rounded-lg border border-line bg-elevated px-3 py-2 text-[12px] text-fg outline-none focus:border-accent/40"
+              className="mb-2.5 min-h-[64px] w-full rounded-lg border border-line bg-elevated px-3 py-2 text-[12px] text-fg outline-none focus:border-[#0099ff]/60"
               value={draft.summary}
               onChange={(e) => setDraft({ ...draft, summary: e.target.value })}
               placeholder={t("header.summaryPlaceholder")}
@@ -1403,7 +1438,7 @@ export default function CaseFilePage() {
               <button
                 type="button"
                 onClick={() => setEditing(false)}
-                className="h-8 rounded-lg border border-line px-3 text-[11.5px] text-muted hover:text-fg"
+                className="h-8 rounded-lg border border-line px-3 text-[12px] text-muted hover:text-fg"
               >
                 {t("header.cancel")}
               </button>
@@ -1417,7 +1452,7 @@ export default function CaseFilePage() {
                   });
                   setEditing(false);
                 }}
-                className="h-8 rounded-full bg-accent px-3.5 text-[11.5px] font-semibold text-[#090909] hover:bg-accent-bright"
+                className="h-8 rounded-full bg-accent px-3.5 text-[12px] font-semibold text-[#090909] hover:bg-accent-bright"
               >
                 {t("header.save")}
               </button>
@@ -1428,7 +1463,7 @@ export default function CaseFilePage() {
             <div className="flex flex-wrap items-center gap-2.5">
               <h1 className="text-xl font-bold tracking-tight">{activeCase.title}</h1>
               <span
-                className={`rounded-md border px-2 py-0.5 font-mono text-[10.5px] ${
+                className={`rounded-md border px-2 py-0.5 font-mono text-[12px] ${
                   activeCase.status === "closed"
                     ? "border-line bg-elevated text-muted"
                     : "border-accent/30 bg-accent/10 text-accent-bright"
@@ -1437,13 +1472,13 @@ export default function CaseFilePage() {
                 {activeCase.status}
               </span>
               {activeCase.crime_type && (
-                <span className="rounded-md border border-risk-med/30 bg-risk-med/10 px-2 py-0.5 text-[10.5px] text-risk-med">
+                <span className="rounded-md border border-risk-med/30 bg-risk-med/10 px-2 py-0.5 text-[12px] text-risk-med">
                   {activeCase.crime_type}
                 </span>
               )}
             </div>
             {activeCase.summary && (
-              <p className="mt-1 max-w-[75ch] text-xs leading-relaxed text-muted">
+              <p className="mt-1 max-w-[75ch] text-[12px] leading-relaxed text-muted">
                 {activeCase.summary}
               </p>
             )}
@@ -1462,13 +1497,13 @@ export default function CaseFilePage() {
 
       {/* the ONE stage banner: what to do here + set/return controls */}
       {view !== "overview" && (
-        <div className="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-1.5 rounded-full border border-accent/20 bg-accent/[.05] px-3 py-2">
-          <p className="min-w-0 flex-1 text-[11.5px] leading-relaxed text-muted">
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-1.5 rounded-lg border border-accent/20 bg-accent/[.05] px-3 py-2">
+          <p className="min-w-0 flex-1 text-[12px] leading-relaxed text-muted">
             <b className="text-accent-bright">{t(`stageLabel.${view}`)}</b>{" "}
             <span className="text-muted/70">· {viewToolLabel}</span> —{" "}
             {t(`viewGuide.${view}`)}
           </p>
-          <div className="flex flex-none items-center gap-3 pt-0.5 text-[11px]">
+          <div className="flex flex-none items-center gap-3 pt-0.5 text-[12px]">
             {view !== activeCase.stage && view !== "closed" && (
               <button
                 type="button"
@@ -1492,7 +1527,7 @@ export default function CaseFilePage() {
 
       {/* Back/Next on the stage you're working — same validated control as Overview */}
       {view !== "overview" && view !== "closed" && view === activeCase.stage && (
-        <div className="mb-3 rounded-full border border-accent/20 bg-accent/[.04] px-3 py-2.5">
+        <div className="mb-3 rounded-lg border border-accent/20 bg-accent/[.04] px-3 py-2.5">
           <StageNav
             stage={activeCase.stage}
             rollup={rollup}
@@ -1504,10 +1539,17 @@ export default function CaseFilePage() {
         </div>
       )}
 
+      {attachError && (
+        <p className="mb-3 rounded-lg border border-risk-high/30 bg-risk-high/10 px-3 py-2.5 text-[12px] text-risk-high">
+          {t("overview.attachErrorPrefix")} {attachError}
+        </p>
+      )}
+
       {viewTool === "honeypot" && (
         <IntakeStage
           caseId={activeCase.id}
           banks={banks}
+          txCount={txs.length}
           defaultCrimeType={activeCase.crime_type ?? undefined}
           onSaveReport={(patch) => updateCase(activeCase.id, patch)}
           onLogged={load}
@@ -1543,14 +1585,21 @@ export default function CaseFilePage() {
                   value: GOLDEN.amountUsdt,
                   ts: new Date().toISOString(),
                   chain: "tron",
-                  category: "onramp",
+                  category: ONRAMP_CATEGORY,
                   case_id: activeCase.id,
                 });
                 await load();
-              } catch {
-                /* non-fatal — the stage still opens */
+              } catch (e) {
+                // Do NOT open Uncover regardless: the wallet isn't on the case,
+                // so the bundle would be generated WITHOUT the wallet the analyst
+                // just packaged — a wrong document, produced silently.
+                setAttachError(
+                  e instanceof Error ? e.message : t("overview.attachErrorFallback"),
+                );
+                return;
               }
             }
+            setAttachError(null);
             openView("report");
           }}
         />
@@ -1561,6 +1610,7 @@ export default function CaseFilePage() {
           key={view}
           outputs={view === "freeze" ? ["freeze"] : undefined}
           cacheSalt={`${banks.length}.${caseWallets.length}`}
+          onChanged={load}
         />
       )}
 
@@ -1595,7 +1645,7 @@ export default function CaseFilePage() {
       </div>
 
       {err && (
-        <p className="mb-3 rounded-lg border border-risk-high/30 bg-risk-high/10 px-3 py-2 text-[11.5px] text-risk-high">
+        <p className="mb-3 rounded-lg border border-risk-high/30 bg-risk-high/10 px-3 py-2 text-[12px] text-risk-high">
           {err}
         </p>
       )}
@@ -1624,21 +1674,21 @@ export default function CaseFilePage() {
                 {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
               <button type="submit" disabled={busy}
-                className="h-8 w-full rounded-full bg-accent text-xs font-semibold text-[#090909] hover:bg-accent-bright disabled:opacity-50">
+                className="h-8 w-full rounded-full bg-accent text-[12px] font-semibold text-[#090909] hover:bg-accent-bright disabled:opacity-50">
                 {busy ? t("overview.adding") : t("overview.addToCase")}
               </button>
             </form>
           )}
           {loading ? (
-            <p className="px-1.5 py-2 text-[11px] text-muted">{t("overview.loading")}</p>
+            <p className="px-1.5 py-2 text-[12px] text-muted">{t("overview.loading")}</p>
           ) : banks.length === 0 ? (
-            <p className="px-1.5 py-2 text-[11px] text-muted">{t("overview.noneYetAdd")}</p>
+            <p className="px-1.5 py-2 text-[12px] text-muted">{t("overview.noneYetAdd")}</p>
           ) : (
             <ul className="space-y-1">
               {banks.map((b) => (
-                <li key={String(b.id)} className="rounded-lg bg-elevated px-2.5 py-1.5 font-mono text-[11.5px] text-fg">
+                <li key={String(b.id)} className="rounded-lg bg-elevated px-2.5 py-1.5 font-mono text-[12px] text-fg">
                   {String(b.bank_name)} {String(b.account_number)}
-                  <span className="ml-2 text-[10.5px] text-muted">{String(b.category)}</span>
+                  <span className="ml-2 text-[12px] text-muted">{String(b.category)}</span>
                 </li>
               ))}
             </ul>
@@ -1667,31 +1717,31 @@ export default function CaseFilePage() {
                 {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
               <button type="submit" disabled={busy}
-                className="h-8 w-full rounded-full bg-accent text-xs font-semibold text-[#090909] hover:bg-accent-bright disabled:opacity-50">
+                className="h-8 w-full rounded-full bg-accent text-[12px] font-semibold text-[#090909] hover:bg-accent-bright disabled:opacity-50">
                 {busy ? t("overview.adding") : t("overview.addToCase")}
               </button>
             </form>
           )}
           {loading ? (
-            <p className="px-1.5 py-2 text-[11px] text-muted">{t("overview.loading")}</p>
+            <p className="px-1.5 py-2 text-[12px] text-muted">{t("overview.loading")}</p>
           ) : txs.length === 0 ? (
-            <p className="px-1.5 py-2 text-[11px] text-muted">{t("overview.noneYetAdd")}</p>
+            <p className="px-1.5 py-2 text-[12px] text-muted">{t("overview.noneYetAdd")}</p>
           ) : (
             <ul className="space-y-1">
               {txs.map((tx2) => (
-                <li key={String(tx2.id)} className="flex items-center justify-between gap-2 rounded-lg bg-elevated px-2.5 py-1.5 font-mono text-[11px] text-fg">
+                <li key={String(tx2.id)} className="flex items-center justify-between gap-2 rounded-lg bg-elevated px-2.5 py-1.5 font-mono text-[12px] text-fg">
                   <span className="min-w-0 truncate">
                     <span className="text-muted">{String(tx2.from_addr).slice(0, 8)}…</span>
                     {" → "}
                     <span>{String(tx2.to_addr).slice(0, 8)}…</span>
-                    <span className="ml-2 text-[10.5px] text-accent-bright">
+                    <span className="ml-2 text-[12px] text-accent-bright">
                       {Number(tx2.value).toLocaleString()} USDT
                     </span>
                   </span>
                   <button
                     type="button"
                     onClick={() => openTool("investigation", String(tx2.to_addr))}
-                    className="flex-none text-[10.5px] text-accent-bright hover:underline"
+                    className="flex-none text-[12px] text-accent-bright hover:underline"
                   >
                     {t("overview.investigateArrow")}
                   </button>
@@ -1714,20 +1764,20 @@ export default function CaseFilePage() {
             <button
               type="button"
               onClick={() => openTool("actions")}
-              className="text-[11px] text-accent-bright hover:underline"
+              className="text-[12px] text-accent-bright hover:underline"
             >
               {t("overview.actionPanelLink")}
             </button>
           </div>
           <div className="p-2">
             {documents.length === 0 ? (
-              <p className="px-1.5 py-2 text-[11px] text-muted">
+              <p className="px-1.5 py-2 text-[12px] text-muted">
                 {t("overview.noDocumentsYet")}
               </p>
             ) : (
               <ul className="space-y-1">
                 {documents.map((d) => (
-                  <li key={d.id} className="rounded-lg bg-elevated px-2.5 py-1.5 text-[11.5px]">
+                  <li key={d.id} className="rounded-lg bg-elevated px-2.5 py-1.5 text-[12px]">
                     <span className="font-mono text-fg">{t("recovery.docsCount", { count: d.document_count })}</span>
                     <span className="ml-2 text-muted">
                       {d.crime_type} ·{" "}
@@ -1777,7 +1827,7 @@ export default function CaseFilePage() {
                   />
                   <div className="min-w-0">
                     <div className="text-[12px] text-fg">{e.label}</div>
-                    <div className="text-[10.5px] text-muted">
+                    <div className="text-[12px] text-muted">
                       {e.sub}
                       {Number.isFinite(e.t) && (
                         <span className="ml-1.5 text-muted/60">
@@ -1793,7 +1843,7 @@ export default function CaseFilePage() {
         </div>
       </div>
 
-      <p className="mt-5 border-t border-line pt-3.5 text-[10.5px] leading-relaxed text-muted">
+      <p className="mt-5 border-t border-line pt-3.5 text-[12px] leading-relaxed text-muted">
         {t.rich("overview.footerNote", {
           title: activeCase.title,
           b: (chunks) => <b className="text-fg">{chunks}</b>,

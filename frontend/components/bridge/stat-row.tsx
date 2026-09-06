@@ -32,7 +32,7 @@ function Metric({ meta, stat }: { meta: MetricMeta; stat: StatValue }) {
           <span className="text-[13px] font-bold text-muted"> {stat.suffix}</span>
         )}
       </div>
-      <div className="mt-1.5 text-[10.5px] text-muted">{meta.sub}</div>
+      <div className="mt-1.5 text-[12px] text-muted">{meta.sub}</div>
     </div>
   );
 }

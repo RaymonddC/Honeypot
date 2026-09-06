@@ -77,7 +77,7 @@ export function CallHeader({
           <div className="truncate font-mono text-[13px] font-semibold text-fg">
             {callerId}
           </div>
-          <small className="block truncate text-[10.5px] text-muted">
+          <small className="block truncate text-[12px] text-muted">
             {t("callerSub", { persona })}
           </small>
         </div>
@@ -85,7 +85,7 @@ export function CallHeader({
 
       {/* state + timer */}
       <div className="flex flex-none items-center gap-2">
-        <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] text-muted">
+        <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[12px] text-muted">
           {modeTag}
         </span>
         <VoiceIndicator voice={{ active: onAir, label: STATE_LABEL[state] }} />

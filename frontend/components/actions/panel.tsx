@@ -59,12 +59,21 @@ export function ActionsPanel({
   embedded = false,
   outputs,
   cacheSalt,
+  onChanged,
 }: {
   embedded?: boolean;
   /** Which documents to produce (e.g. ["freeze"] on the Freeze stage); omit = full set. */
   outputs?: string[];
   /** Changes when the case's input entities change → invalidates the cached bundle. */
   cacheSalt?: string;
+  /**
+   * Generating or dispatching wrote documents to the case. The embedding Case
+   * File MUST reload its rollup on this: the stage checklist gates "Next" on
+   * `documents > 0` and a dispatched document, and it reads those from the
+   * rollup — not from this panel. Without it a successful dispatch leaves the
+   * case insisting the freeze still hasn't been sent.
+   */
+  onChanged?: () => void;
 }) {
   const t = useTranslations("actions.panel");
   const { activeCase } = useCases();
@@ -79,6 +88,13 @@ export function ActionsPanel({
   const [loading, setLoading] = useState(!bundleCache.has(cacheKey));
   const [dispatching, setDispatching] = useState(false);
   const loadSeq = useRef(0);
+
+  // Held in a ref, deliberately: `generate` runs from an effect keyed on its own
+  // identity, so taking `onChanged` as a dependency would make every parent
+  // re-render (which a reload causes) re-run generation. The ref lets callers
+  // pass a plain inline arrow without needing useCallback.
+  const onChangedRef = useRef(onChanged);
+  onChangedRef.current = onChanged;
 
   const generate = useCallback(
     async (force: boolean) => {
@@ -103,6 +119,7 @@ export function ActionsPanel({
       bundleCache.set(cacheKey, result);
       setBundle(result);
       setLoading(false);
+      onChangedRef.current?.(); // documents now exist — refresh the case checklist
     },
     [activeCase, cacheKey, outputsKey],
   );
@@ -118,6 +135,9 @@ export function ActionsPanel({
     bundleCache.set(cacheKey, result);
     setBundle(result);
     setDispatching(false);
+    // The freeze is now dispatched server-side. Tell the case, or its checklist
+    // keeps reporting the dispatch step as outstanding and blocks "Next".
+    onChangedRef.current?.();
   }, [bundle, cacheKey]);
 
   return (
@@ -137,7 +157,7 @@ export function ActionsPanel({
               documents below keep the visual weight */}
           {bundle && (
             <span
-              className={`rounded-md border px-1.5 py-0.5 font-mono text-[9.5px] ${
+              className={`rounded-md border px-1.5 py-0.5 font-mono text-[12px] ${
                 bundle.source === "api"
                   ? "border-line bg-elevated text-muted"
                   : "border-risk-med/30 bg-risk-med/10 text-risk-med"
@@ -156,7 +176,7 @@ export function ActionsPanel({
             disabled={loading}
             onClick={() => void generate(true)}
             title={t("regenerateTitle")}
-            className="h-8 rounded-full bg-accent px-3.5 text-xs font-semibold text-[#090909] shadow-[0_0_16px_rgba(255, 255, 255,.28)] transition-colors hover:bg-accent-bright disabled:opacity-50"
+            className="h-8 rounded-full bg-accent px-3.5 text-[12px] font-semibold text-[#090909] transition-colors hover:bg-accent-bright disabled:opacity-50"
           >
             {loading
               ? t("generating")
@@ -170,8 +190,7 @@ export function ActionsPanel({
       {bundle && !loading ? (
         <>
           {/* ── provenance banner ──────────────────────────────────── */}
-          <div className="mb-4 flex items-center gap-2.5 rounded-[9px] border border-accent/[.22] bg-accent/10 px-3.5 py-[9px] text-[11.5px] text-accent-bright">
-            <span aria-hidden>◇</span>
+          <div className="mb-4 flex items-center gap-2.5 rounded-[10px] border border-[#262626] bg-[#141414] px-3.5 py-[9px] text-[12px] text-[#999]">
             {t("generatedFromPrefix")}{" "}
             <span className="font-mono">{bundle.caseRef}</span> ·{" "}
             {bundle.summary} · {t("reasoningAttached")}
@@ -199,13 +218,13 @@ export function ActionsPanel({
           />
         </>
       ) : (
-        <div className="grid h-[420px] animate-pulse place-items-center rounded-card border border-line bg-card text-[11px] text-muted">
+        <div className="grid h-[420px] animate-pulse place-items-center rounded-card border border-line bg-card text-[12px] text-muted">
           {freezeOnly ? t("assemblingFreeze") : t("assemblingAll")}
         </div>
       )}
 
       {!embedded && (
-        <div className="mt-5 border-t border-line pt-3.5 text-[10.5px] leading-relaxed text-muted">
+        <div className="mt-5 border-t border-line pt-3.5 text-[12px] leading-relaxed text-muted">
           {t.rich("footerNote", {
             b: (chunks) => <b className="text-fg">{chunks}</b>,
           })}

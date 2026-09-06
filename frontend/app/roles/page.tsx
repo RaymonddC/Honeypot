@@ -179,16 +179,16 @@ export default function RolesPage() {
       <div className="mb-4">
         <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
         <p className="mt-1.5 max-w-[64ch] text-[13px] leading-relaxed text-muted">{t("pageLead")}</p>
-        <p className="mt-1 max-w-[64ch] text-[11.5px] leading-relaxed text-muted">{t("subtitle")}</p>
+        <p className="mt-1 max-w-[64ch] text-[12px] leading-relaxed text-muted">{t("subtitle")}</p>
       </div>
 
       {error && (
-        <p role="alert" className="mb-3 text-[11px] leading-relaxed text-risk-high">
+        <p role="alert" className="mb-3 text-[12px] leading-relaxed text-risk-high">
           ✗ {error}
         </p>
       )}
       {notice && (
-        <p role="status" className="mb-3 text-[11px] text-accent-bright">
+        <p role="status" className="mb-3 text-[12px] text-accent-bright">
           ✓ {notice}
         </p>
       )}
@@ -203,23 +203,23 @@ export default function RolesPage() {
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder={t("namePlaceholder")}
-            className="min-w-[220px] flex-1 rounded-md border border-line bg-elevated px-2.5 py-1.5 text-xs text-fg outline-none placeholder:text-muted focus:border-fg/20"
+            className="min-w-[220px] flex-1 rounded-md border border-line bg-elevated px-2.5 py-1.5 text-[12px] text-fg outline-none placeholder:text-muted focus:border-fg/20"
           />
           <button
             type="button"
             onClick={create}
             disabled={!newName.trim() || busy === "__new__"}
-            className="cursor-pointer rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs text-accent-bright transition-colors hover:bg-accent/15 disabled:cursor-not-allowed disabled:opacity-40"
+            className="cursor-pointer rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-[12px] text-accent-bright transition-colors hover:bg-accent/15 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy === "__new__" ? t("creating") : t("create")}
           </button>
         </div>
-        <p className="border-t border-line px-3.5 py-2 text-[10.5px] leading-relaxed text-muted">
+        <p className="border-t border-line px-3.5 py-2 text-[12px] leading-relaxed text-muted">
           {t("createHint")}
         </p>
       </div>
 
-      {loading && <p className="text-xs text-muted">{t("loading")}</p>}
+      {loading && <p className="text-[12px] text-muted">{t("loading")}</p>}
 
       {/* One collapsible card per role.
        *
@@ -243,18 +243,18 @@ export default function RolesPage() {
             >
               <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-elevated/40 [&::-webkit-details-marker]:hidden">
                 <span
-                  className="w-3 flex-none text-[10px] text-muted transition-transform group-open:rotate-90"
+                  className="w-3 flex-none text-[12px] text-muted transition-transform group-open:rotate-90"
                   aria-hidden
                 >
                   ▸
                 </span>
                 <span className="text-sm font-medium text-fg">{role.name}</span>
                 {role.builtin && (
-                  <span className="rounded border border-line px-1.5 py-0.5 text-[10px] text-muted">
+                  <span className="rounded border border-line px-1.5 py-0.5 text-[12px] text-muted">
                     {t("builtin")}
                   </span>
                 )}
-                <span className="text-[10.5px] text-muted">
+                <span className="text-[12px] text-muted">
                   {t("userCount", { count: role.user_count })}
                 </span>
 
@@ -263,14 +263,14 @@ export default function RolesPage() {
                     rather than as a rendering failure. */}
                 <span className="ml-auto flex flex-wrap items-center justify-end gap-1">
                   {granted.length === 0 ? (
-                    <span className="text-[10.5px] italic text-muted">
+                    <span className="text-[12px] italic text-muted">
                       {t("noAccess")}
                     </span>
                   ) : (
                     granted.map((c) => (
                       <span
                         key={c.key}
-                        className="rounded border border-accent/25 bg-accent/[.07] px-1.5 py-0.5 text-[10px] text-accent-bright"
+                        className="rounded border border-accent/25 bg-accent/[.07] px-1.5 py-0.5 text-[12px] text-accent-bright"
                       >
                         {c.label}
                       </span>
@@ -306,14 +306,14 @@ export default function RolesPage() {
                             />
                             <span className="min-w-0">
                               <span className="flex flex-wrap items-center gap-1.5">
-                                <span className="text-xs text-fg">{cap.label}</span>
+                                <span className="text-[12px] text-fg">{cap.label}</span>
                                 {/* The raw key stays visible — audits and support
                                     tickets reference it directly — but as a small
                                     muted mono gloss next to the plain-language
                                     label, not the only thing shown. */}
                                 <span
                                   title={t("capabilityKeyLabel")}
-                                  className="rounded border border-line bg-elevated px-1 py-px font-mono text-[9.5px] text-muted"
+                                  className="rounded border border-line bg-elevated px-1 py-px font-mono text-[12px] text-muted"
                                 >
                                   {cap.key}
                                 </span>
@@ -322,7 +322,7 @@ export default function RolesPage() {
                                   it is written for the person deciding whether
                                   to grant this, so it is never truncated behind
                                   a tooltip. */}
-                              <span className="mt-0.5 block text-[10.5px] leading-relaxed text-muted">
+                              <span className="mt-0.5 block text-[12px] leading-relaxed text-muted">
                                 {cap.description}
                               </span>
                             </span>
@@ -338,7 +338,7 @@ export default function RolesPage() {
                       type="button"
                       onClick={() => remove(role)}
                       disabled={busy === role.name}
-                      className="cursor-pointer rounded-md border border-line px-2.5 py-1 text-[11px] text-muted transition-colors hover:border-risk-high/40 hover:text-risk-high disabled:cursor-not-allowed disabled:opacity-40"
+                      className="cursor-pointer rounded-md border border-line px-2.5 py-1 text-[12px] text-muted transition-colors hover:border-risk-high/40 hover:text-risk-high disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       {t("delete")}
                     </button>
@@ -350,7 +350,7 @@ export default function RolesPage() {
         })}
       </div>
 
-      <p className="mt-3.5 text-[10.5px] leading-relaxed text-muted">
+      <p className="mt-3.5 text-[12px] leading-relaxed text-muted">
         {t("footerNote")}
       </p>
     </div>

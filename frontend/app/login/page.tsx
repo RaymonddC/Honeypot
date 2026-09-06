@@ -45,18 +45,6 @@ export default function LoginPage() {
       {/* full-bleed ambient money-flow graph — desaturated to monochrome so the
           canvas stays Framer-neutral (one accent only) */}
       <LoginGraph className="login-breathe pointer-events-none absolute inset-0 h-full w-full opacity-30 [filter:grayscale(1)] [mask-image:radial-gradient(90%_110%_at_52%_44%,#000_18%,transparent_72%)] [-webkit-mask-image:radial-gradient(90%_110%_at_52%_44%,#000_18%,transparent_72%)]" />
-      {/* faint scan-grid */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-40"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)",
-          backgroundSize: "46px 46px",
-          maskImage: "radial-gradient(760px 560px at 52% 44%, #000 25%, transparent 75%)",
-          WebkitMaskImage: "radial-gradient(760px 560px at 52% 44%, #000 25%, transparent 75%)",
-        }}
-      />
       <div className="relative mx-auto flex min-h-screen w-full max-w-[1060px] items-stretch">
         {/* left scrim — keeps the brand copy crisp over the graph */}
         <div
@@ -73,7 +61,7 @@ export default function LoginPage() {
             </span>
             <div>
               <div className="text-[15px] font-semibold tracking-tight">ITTU</div>
-              <div className="text-[11px] text-[#999]">Financial-crime forensics</div>
+              <div className="text-[12px] text-[#999]">Financial-crime forensics</div>
             </div>
           </div>
 
@@ -92,12 +80,12 @@ export default function LoginPage() {
                   className="login-rise flex items-start gap-3"
                   style={{ animationDelay: `${200 + i * 80}ms` }}
                 >
-                  <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-md border border-[#262626] bg-[#141414] font-mono text-[11px] font-bold text-white">
+                  <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-md border border-[#262626] bg-[#141414] font-mono text-[12px] font-bold text-white">
                     {p.k}
                   </span>
                   <div>
                     <div className="text-[13px] font-semibold text-white">{p.name}</div>
-                    <div className="text-[11.5px] leading-snug text-[#999]">{p.desc}</div>
+                    <div className="text-[12px] leading-snug text-[#999]">{p.desc}</div>
                   </div>
                 </li>
               ))}
@@ -105,7 +93,7 @@ export default function LoginPage() {
           </div>
 
           <div
-            className="login-rise relative flex items-center gap-2 text-[11px] leading-relaxed text-[#999]"
+            className="login-rise relative flex items-center gap-2 text-[12px] leading-relaxed text-[#999]"
             style={{ animationDelay: "560ms" }}
           >
             <span className="login-pulse h-1.5 w-1.5 flex-none rounded-full" style={{ background: "#0099ff" }} aria-hidden />
@@ -123,7 +111,7 @@ export default function LoginPage() {
               </span>
               <div className="text-center">
                 <h1 className="text-lg font-semibold tracking-tight">ITTU</h1>
-                <p className="pt-1 text-[11px] font-medium uppercase tracking-widest text-[#999]">
+                <p className="pt-1 text-[12px] font-medium tracking-wide text-[#999]">
                   Infiltrate · Trace · Takedown · Uncover
                 </p>
               </div>
@@ -165,11 +153,11 @@ export default function LoginPage() {
                   key={t.label}
                   className="rounded-[10px] border border-[#262626] bg-[#141414] px-2 py-2 text-center"
                 >
-                  <div className="flex items-center justify-center gap-1 text-[10.5px] font-semibold text-white/80">
+                  <div className="flex items-center justify-center gap-1 text-[12px] font-semibold text-white/80">
                     <span className="h-1 w-1 rounded-full" style={{ background: "#0099ff" }} aria-hidden />
                     {t.label}
                   </div>
-                  <div className="mt-0.5 text-[9.5px] leading-tight text-[#999]">{t.sub}</div>
+                  <div className="mt-0.5 text-[12px] leading-tight text-[#999]">{t.sub}</div>
                 </div>
               ))}
             </div>

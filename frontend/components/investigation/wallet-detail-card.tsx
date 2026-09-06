@@ -89,7 +89,7 @@ function RiskGauge({ detail }: { detail: WalletDetail }) {
         <div className="font-mono text-[30px] font-extrabold leading-none tracking-tight tnum" style={{ color }}>
           {exchange ? "—" : pct.toFixed(2)}
         </div>
-        <div className="mt-1 text-[9.5px] font-bold uppercase tracking-[.08em]" style={{ color }}>
+        <div className="mt-1 text-[12px] font-bold uppercase tracking-[.08em]" style={{ color }}>
           {exchange ? t("attributedExchange") : t("riskSuffix", { risk: RISK_LABELS[detail.risk] })}
         </div>
       </div>
@@ -99,7 +99,7 @@ function RiskGauge({ detail }: { detail: WalletDetail }) {
 
 function KV({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <div className="flex justify-between px-3.5 py-[7px] text-[11.5px]">
+    <div className="flex justify-between px-3.5 py-[7px] text-[12px]">
       <span className="text-muted">{label}</span>
       <span className="font-mono tnum text-fg" style={color ? { color } : undefined}>
         {value}
@@ -125,7 +125,7 @@ export function WalletDetailCard({
         <div className="flex items-center justify-between border-b border-line px-3.5 py-3">
           <span className="eyebrow">{t("selectedWallet")}</span>
         </div>
-        <div className={`px-3.5 py-8 text-center text-[11px] text-muted ${loading ? "animate-pulse" : ""}`}>
+        <div className={`px-3.5 py-8 text-center text-[12px] text-muted ${loading ? "animate-pulse" : ""}`}>
           {loading ? t("scoringWallet") : t("clickToInspect")}
         </div>
       </div>
@@ -144,21 +144,21 @@ export function WalletDetailCard({
       <div className="flex flex-col items-center px-3.5 pb-3 pt-4">
         <RiskGauge detail={detail} />
         <div
-          className="mt-2 cursor-help text-[9.5px] uppercase tracking-[.05em] text-muted"
+          className="mt-2 cursor-help text-[12px] uppercase tracking-[.05em] text-muted"
           title={t("methodHint")}
         >
           {detail.method}
         </div>
         {detail.risk !== "exchange" && (
           <div className="mt-2.5 flex w-full items-center gap-2">
-            <span className="text-[9.5px] uppercase tracking-wide text-muted">{t("confidence")}</span>
+            <span className="text-[12px] uppercase tracking-wide text-muted">{t("confidence")}</span>
             <span className="h-1 flex-1 overflow-hidden rounded-full bg-elevated">
               <i
                 className="block h-full rounded-full bg-accent transition-all duration-300"
                 style={{ width: `${Math.round(detail.confidence * 100)}%` }}
               />
             </span>
-            <span className="font-mono text-[10px] tnum text-fg/80">
+            <span className="font-mono text-[12px] tnum text-fg/80">
               {detail.confidence.toFixed(2)}
             </span>
           </div>
@@ -190,7 +190,7 @@ export function WalletDetailCard({
             role="tab"
             aria-selected={tab === key}
             onClick={() => setTab(key)}
-            className={`flex-1 border-b-2 px-2 py-2 text-center text-[11px] font-semibold transition-colors ${
+            className={`flex-1 border-b-2 px-2 py-2 text-center text-[12px] font-semibold transition-colors ${
               tab === key
                 ? "border-accent text-accent-bright"
                 : "border-transparent text-muted hover:text-fg"
@@ -206,7 +206,7 @@ export function WalletDetailCard({
           <div className="eyebrow px-3.5 pb-0.5 pt-3">
             {t("flaggedTypologies")}
             {detail.patterns && detail.patterns.length > 0 && (
-              <span className="ml-1.5 rounded bg-risk-high/15 px-1.5 py-px text-[9px] font-bold text-risk-high">
+              <span className="ml-1.5 rounded bg-risk-high/15 px-1.5 py-px text-[12px] font-bold text-risk-high">
                 {t("fired", { count: detail.patterns.length })}
               </span>
             )}
@@ -228,13 +228,13 @@ export function WalletDetailCard({
                   {p.icon ?? "◆"}
                 </div>
                 <div className="min-w-0">
-                  <b className="block text-xs">{p.name}</b>
-                  <small className="text-[10.5px] text-muted">{p.evidence}</small>
+                  <b className="block text-[12px]">{p.name}</b>
+                  <small className="text-[12px] text-muted">{p.evidence}</small>
                 </div>
               </div>
             ))
           ) : (
-            <div className="px-3.5 py-5 text-center text-[11px] text-muted">
+            <div className="px-3.5 py-5 text-center text-[12px] text-muted">
               {detail.patterns === null
                 ? t("notApplicableExchange")
                 : t("noPatternsFired")}
@@ -245,7 +245,7 @@ export function WalletDetailCard({
             <>
               <div className="flex items-baseline justify-between px-3.5 pb-1 pt-2">
                 <span className="eyebrow">{t("riskFactors")}</span>
-                <span className="text-[9px] text-muted/70">{t("percentileHint")}</span>
+                <span className="text-[12px] text-muted/70">{t("percentileHint")}</span>
               </div>
               <div className="space-y-1.5 px-3.5 py-2.5">
                 {[...detail.features]
@@ -265,7 +265,7 @@ export function WalletDetailCard({
                         onMouseEnter={() => setHoverFactor(f.name)}
                         onMouseLeave={() => setHoverFactor(null)}
                       >
-                        <span className={`w-[40%] flex-none truncate text-[10.5px] ${on ? "text-fg" : "text-muted"}`}>
+                        <span className={`w-[40%] flex-none truncate text-[12px] ${on ? "text-fg" : "text-muted"}`}>
                           {f.name}
                         </span>
                         <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-elevated">
@@ -274,7 +274,7 @@ export function WalletDetailCard({
                             style={{ width: `${f.percentile}%`, background: band }}
                           />
                         </span>
-                        <span className="w-6 flex-none text-right font-mono text-[9.5px] tnum" style={{ color: band }}>
+                        <span className="w-6 flex-none text-right font-mono text-[12px] tnum" style={{ color: band }}>
                           {f.percentile}
                         </span>
                       </div>
@@ -282,7 +282,7 @@ export function WalletDetailCard({
                   })}
               </div>
               {/* plain-language meaning of the hovered factor */}
-              <div className="mx-3.5 mb-3 min-h-[34px] rounded-lg border border-line bg-elevated px-2.5 py-1.5 text-[10.5px] leading-snug text-muted">
+              <div className="mx-3.5 mb-3 min-h-[34px] rounded-lg border border-line bg-elevated px-2.5 py-1.5 text-[12px] leading-snug text-muted">
                 {hoverFactor ? (
                   <>
                     <b className="text-fg/80">{hoverFactor}</b> —{" "}
@@ -303,10 +303,10 @@ export function WalletDetailCard({
             detail.transactions.map((t, i) => (
               <div
                 key={i}
-                className="flex items-center gap-2.5 border-b border-line px-3.5 py-[9px] text-[11px] last:border-b-0"
+                className="flex items-center gap-2.5 border-b border-line px-3.5 py-[9px] text-[12px] last:border-b-0"
               >
                 <span
-                  className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[.04em] ${
+                  className={`rounded px-1.5 py-0.5 text-[12px] font-bold uppercase tracking-[.04em] ${
                     t.direction === "out"
                       ? "bg-risk-high/[.13] text-risk-high"
                       : "bg-risk-low/[.12] text-risk-low"
@@ -315,16 +315,16 @@ export function WalletDetailCard({
                   {t.direction}
                 </span>
                 <span className="font-mono font-semibold tnum">{t.amount}</span>
-                <span className="truncate font-mono text-[10.5px] text-muted">
+                <span className="truncate font-mono text-[12px] text-muted">
                   {t.counterparty}
                 </span>
-                <span className="ml-auto font-mono text-[10px] tnum text-muted">
+                <span className="ml-auto font-mono text-[12px] tnum text-muted">
                   {t.time}
                 </span>
               </div>
             ))
           ) : (
-            <div className="px-3.5 py-5 text-center text-[11px] text-muted">
+            <div className="px-3.5 py-5 text-center text-[12px] text-muted">
               {t("noTransactions")}
             </div>
           )}

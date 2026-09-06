@@ -18,7 +18,7 @@ function KV({
   accent?: boolean;
 }) {
   return (
-    <div className="flex justify-between px-3.5 py-[7px] text-[11.5px]">
+    <div className="flex justify-between px-3.5 py-[7px] text-[12px]">
       <span className="text-muted">{label}</span>
       <span
         className={`font-mono tnum ${accent ? "text-accent-bright" : "text-fg"}`}
@@ -37,14 +37,14 @@ export function CustodyCard({ custody }: { custody: CustodyInfo }) {
         <div className="flex items-center justify-between">
           <span className="eyebrow" title={t("subtitle")}>{t("title")}</span>
           <span
-            className={`rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] ${
+            className={`rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[12px] ${
               custody.intact ? "text-accent-bright" : "text-risk-med"
             }`}
           >
             {custody.intact ? t("intact") : t("unverified")}
           </span>
         </div>
-        <p className="mt-1 text-[10.5px] leading-snug text-muted">{t("subtitle")}</p>
+        <p className="mt-1 text-[12px] leading-snug text-muted">{t("subtitle")}</p>
       </div>
       <div className="pt-1">
         <KV label={t("messagesLogged")} value={custody.messagesLogged} />

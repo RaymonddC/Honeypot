@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "arial",
+        "files": [
+          "lib/actions/letter.ts"
+        ],
+        "createdAt": "2026-09-06T19:08:05.940Z",
+        "reason": "Printed legal document (kop surat / LTKM), not app UI: Arial is a core PDF font chosen so agency and court copies render identically everywhere. Body face is Times New Roman."
+      }
+    ]
+  }
+}

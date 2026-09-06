@@ -102,7 +102,7 @@ const SendIcon = () => (
 );
 
 const BASE_BTN =
-  "inline-flex h-11 cursor-pointer items-center gap-2 rounded-full px-5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40";
+  "inline-flex h-11 cursor-pointer items-center gap-2 rounded-full px-5 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40";
 
 /* ── Speaker stage tile (mirrors call-view) ────────────────────────────── */
 
@@ -129,7 +129,7 @@ function SpeakerTile({
     >
       <div className="flex items-baseline justify-between gap-2">
         <span
-          className={`truncate text-[10px] font-semibold uppercase tracking-[.06em] ${
+          className={`truncate text-[12px] font-semibold uppercase tracking-[.06em] ${
             active
               ? tone === "accent"
                 ? "text-accent-bright"
@@ -139,7 +139,7 @@ function SpeakerTile({
         >
           {label}
         </span>
-        <small className="hidden flex-none text-[9.5px] text-muted sm:block">
+        <small className="hidden flex-none text-[12px] text-muted sm:block">
           {sub}
         </small>
       </div>
@@ -565,7 +565,7 @@ export function LiveCallView({
           {notice && (
             <p
               role="status"
-              className="mb-2.5 rounded-lg border border-risk-med/30 bg-risk-med/10 px-3 py-2 text-center text-[11px] text-risk-med"
+              className="mb-2.5 rounded-lg border border-risk-med/30 bg-risk-med/10 px-3 py-2 text-center text-[12px] text-risk-med"
             >
               {notice}
             </p>
@@ -646,13 +646,13 @@ export function LiveCallView({
                     : t("typePlaceholderMicOff")
                 }
                 autoComplete="off"
-                className="h-9 min-w-0 flex-1 rounded-lg border border-line bg-elevated px-3 text-xs text-fg placeholder:text-muted"
+                className="h-9 min-w-0 flex-1 rounded-lg border border-line bg-elevated px-3 text-[12px] text-fg placeholder:text-muted"
               />
               <button
                 type="submit"
                 disabled={!textDraft.trim() || thinking}
                 aria-label={t("sendAriaLabel")}
-                className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full border border-accent/40 bg-accent/15 px-3 text-xs font-semibold text-accent-bright transition-colors hover:bg-accent/25 disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full border border-accent/40 bg-accent/15 px-3 text-[12px] font-semibold text-accent-bright transition-colors hover:bg-accent/25 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <SendIcon /> {t("send")}
               </button>
@@ -661,7 +661,7 @@ export function LiveCallView({
 
           <div
             role="status"
-            className="mt-2.5 flex items-center justify-center gap-2 text-[11px] text-muted"
+            className="mt-2.5 flex items-center justify-center gap-2 text-[12px] text-muted"
           >
             <span className="text-accent-bright" aria-hidden>
               ◇
@@ -675,7 +675,7 @@ export function LiveCallView({
       <div>
         <EntityPanel entities={entities} />
         {custody && <CustodyCard custody={custody} />}
-        <p className="mt-3 px-1 text-[10.5px] leading-relaxed text-muted">
+        <p className="mt-3 px-1 text-[12px] leading-relaxed text-muted">
           {t.rich("entitiesNote", {
             count: entities.length,
             b: (chunks) => <b className="text-fg">{chunks}</b>,

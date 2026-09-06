@@ -16,16 +16,22 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useCases } from "@/components/cases/case-provider";
 import { addBankAccount, addCryptoTransfer } from "@/lib/casedata/api";
-import { GOLDEN } from "@/lib/demo/golden-thread";
+import { GOLDEN, ONRAMP_CATEGORY } from "@/lib/demo/golden-thread";
 import type { HpEntity } from "@/lib/honeypot/types";
 import { entityIcon, formatConf } from "@/lib/honeypot/types";
 
 function PromoteControl({
   e,
   onTraceWallet,
+  alreadyTracked,
+  onPromoted,
 }: {
   e: HpEntity;
   onTraceWallet?: (addr: string) => void;
+  /** This entity is already on the active case (from the case rollup). */
+  alreadyTracked?: boolean;
+  /** Something was attached to the case — ask the parent to reload its rollup. */
+  onPromoted?: () => void;
 }) {
   const t = useTranslations("honeypot.entityPanel");
   const { activeCaseId } = useCases();
@@ -53,25 +59,29 @@ function PromoteControl({
                   value: GOLDEN.amountUsdt,
                   ts: new Date().toISOString(),
                   chain: "tron",
-                  category: "onramp",
+                  category: ONRAMP_CATEGORY,
                   case_id: activeCaseId,
                 });
             } catch {
-              /* non-fatal — still open the live trace */
+              // The wallet did NOT get attached, so Trace/Uncover downstream
+              // won't see it. Say so and stay put rather than navigating to a
+              // Takedown view that silently drops the case link.
+              setState("err");
+              return;
             }
             onTraceWallet(full);
           }}
           title={t("traceAttachTitle")}
-          className="flex-none rounded-full border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent-bright transition-colors hover:bg-accent/20 disabled:opacity-40"
+          className="flex-none rounded-full border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[12px] font-semibold text-accent-bright transition-colors hover:bg-accent/20 disabled:opacity-40"
         >
-          {state === "busy" ? "…" : t("trace")}
+          {state === "busy" ? "…" : state === "err" ? t("retry") : t("trace")}
         </button>
       );
     return (
       <Link
         href={`/investigation?address=${encodeURIComponent(full)}`}
         title={t("traceTitle")}
-        className="flex-none rounded-full border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent-bright transition-colors hover:bg-accent/20"
+        className="flex-none rounded-full border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[12px] font-semibold text-accent-bright transition-colors hover:bg-accent/20"
       >
         {t("trace")}
       </Link>
@@ -80,9 +90,13 @@ function PromoteControl({
 
   // Bank account → add to the active case (surfaces on BridgeWatch).
   if (e.type === "bank_account") {
-    if (state === "done")
+    // Already on the case, either because this click just landed it there or
+    // because a previous visit did. `alreadyTracked` comes from the case's own
+    // rollup, so the state survives navigating away and back — without it the
+    // control resets to "+ Case" and a second click files a duplicate account.
+    if (state === "done" || alreadyTracked)
       return (
-        <span className="flex-none text-[9.5px] font-semibold text-accent-bright" title={t("inCaseTitle")}>
+        <span className="flex-none text-[12px] font-semibold text-accent-bright" title={t("inCaseTitle")}>
           {t("inCase")}
         </span>
       );
@@ -109,16 +123,17 @@ function PromoteControl({
                 value: GOLDEN.amountUsdt,
                 ts: new Date().toISOString(),
                 chain: "tron",
-                category: "onramp",
+                category: ONRAMP_CATEGORY,
                 case_id: activeCaseId,
               });
             setState("done");
+            onPromoted?.();
           } catch {
             setState("err");
           }
         }}
         title={activeCaseId ? t("trackTitle") : t("openCaseTitle")}
-        className="flex-none rounded-full border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent-bright transition-colors hover:bg-accent/20 disabled:opacity-40"
+        className="flex-none rounded-full border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[12px] font-semibold text-accent-bright transition-colors hover:bg-accent/20 disabled:opacity-40"
       >
         {state === "busy" ? "…" : state === "err" ? t("retry") : t("addCase")}
       </button>
@@ -131,17 +146,23 @@ function PromoteControl({
 export function EntityPanel({
   entities,
   onTraceWallet,
+  trackedAccounts,
+  onPromoted,
 }: {
   entities: HpEntity[];
   /** In-case: open the case's Takedown tab on a wallet (else it links out). */
   onTraceWallet?: (addr: string) => void;
+  /** Account numbers already tracked on the active case — drives "in case". */
+  trackedAccounts?: Set<string>;
+  /** An entity was attached to the case — the parent should reload its rollup. */
+  onPromoted?: () => void;
 }) {
   const t = useTranslations("honeypot.entityPanel");
   return (
     <div className="mb-3.5 rounded-card border border-line bg-card">
       <div className="flex items-center justify-between border-b border-line px-3.5 py-3">
         <span className="eyebrow">{t("title")}</span>
-        <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] text-muted">
+        <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[12px] text-muted">
           {t("validatedCount", { count: entities.length })}
         </span>
       </div>
@@ -155,31 +176,36 @@ export function EntityPanel({
             <div
               aria-label={e.type.replace(/_/g, " ")}
               role="img"
-              className="grid h-6 w-6 flex-none place-items-center rounded-md border border-line bg-elevated text-[11px]"
+              className="grid h-6 w-6 flex-none place-items-center rounded-md border border-line bg-elevated text-[12px]"
             >
               {entityIcon(e.type)}
             </div>
             <div className="min-w-0">
-              <div className="truncate font-mono text-[11px] text-fg">
+              <div className="truncate font-mono text-[12px] text-fg">
                 {e.value}
               </div>
-              <small className="block truncate text-[10px] text-muted">
+              <small className="block truncate text-[12px] text-muted">
                 {e.subtitle}
               </small>
             </div>
             <div className="ml-auto flex flex-none items-center gap-2">
-              <span className="font-mono text-[10px] tnum text-muted" title={t("confidenceTitle")}>
+              <span className="font-mono text-[12px] tnum text-muted" title={t("confidenceTitle")}>
                 conf{" "}
                 <b className="font-bold text-accent-bright">
                   {formatConf(e.confidence)}
                 </b>
               </span>
-              <PromoteControl e={e} onTraceWallet={onTraceWallet} />
+              <PromoteControl
+                e={e}
+                onTraceWallet={onTraceWallet}
+                alreadyTracked={trackedAccounts?.has(e.rawValue ?? e.value)}
+                onPromoted={onPromoted}
+              />
             </div>
           </div>
         ))
       ) : (
-        <div className="px-3.5 py-6 text-center text-[11px] text-muted">
+        <div className="px-3.5 py-6 text-center text-[12px] text-muted">
           {t("empty")}
         </div>
       )}

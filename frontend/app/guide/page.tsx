@@ -104,7 +104,7 @@ export default function GuidePage() {
                   </span>
                   <a
                     href={m.href}
-                    className="text-[11px] text-accent-bright hover:underline"
+                    className="text-[12px] text-accent-bright hover:underline"
                   >
                     {t("open")}
                   </a>
@@ -112,7 +112,7 @@ export default function GuidePage() {
                 <p className="mt-0.5 text-[12px] leading-relaxed text-muted">
                   {t(`modules.${m.key}.tagline`)}
                 </p>
-                <p className="mt-1 text-[11px] text-fg/70">
+                <p className="mt-1 text-[12px] text-fg/70">
                   <span className="text-muted">{t("produces")}</span>{" "}
                   {t(`modules.${m.key}.produces`)}
                 </p>
@@ -127,7 +127,7 @@ export default function GuidePage() {
         <div className="flex flex-wrap items-center gap-2 text-[12px]">
           {MODULES.map((m, i) => (
             <span key={m.key} className="flex items-center gap-2">
-              <span className="rounded-md border border-line bg-elevated px-2.5 py-1 font-mono text-[11px] text-fg">
+              <span className="rounded-md border border-line bg-elevated px-2.5 py-1 font-mono text-[12px] text-fg">
                 {m.glyph} {t(`modules.${m.key}.name`)}
               </span>
               {i < MODULES.length - 1 && (
@@ -172,11 +172,11 @@ export default function GuidePage() {
                 >
                   {t(`screens.${s.key}.name`)}
                 </a>
-                <p className="mt-0.5 text-[11.5px] leading-snug text-muted">
+                <p className="mt-0.5 text-[12px] leading-snug text-muted">
                   <span className="text-fg/60">{t("seeLabel")}</span>{" "}
                   {t(`screens.${s.key}.see`)}
                 </p>
-                <p className="mt-0.5 text-[11.5px] leading-snug text-muted">
+                <p className="mt-0.5 text-[12px] leading-snug text-muted">
                   <span className="text-fg/60">{t("doLabel")}</span>{" "}
                   {t(`screens.${s.key}.doWhat`)}
                 </p>
@@ -193,20 +193,20 @@ export default function GuidePage() {
         </p>
         <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
           <div className="rounded-lg border border-risk-med/30 bg-risk-med/[.06] p-3">
-            <span className="rounded-md border border-risk-med/40 bg-risk-med/10 px-2 py-0.5 font-mono text-[10px] font-bold tracking-widest text-risk-med">
+            <span className="rounded-md border border-risk-med/40 bg-risk-med/10 px-2 py-0.5 font-mono text-[12px] font-bold tracking-widest text-risk-med">
               {t("postures.poc.badge")}
             </span>
-            <p className="mt-2 text-[11.5px] leading-relaxed text-muted">
+            <p className="mt-2 text-[12px] leading-relaxed text-muted">
               {t.rich("postures.poc.body", {
                 b: (chunks) => <span className="text-fg/80">{chunks}</span>,
               })}
             </p>
           </div>
-          <div className="rounded-full border border-accent/30 bg-accent/[.06] p-3">
-            <span className="rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 font-mono text-[10px] font-bold tracking-widest text-accent-bright">
+          <div className="rounded-lg border border-accent/30 bg-accent/[.06] p-3">
+            <span className="rounded-md border border-accent/40 bg-accent/10 px-2 py-0.5 font-mono text-[12px] font-bold tracking-widest text-accent-bright">
               {t("postures.live.badge")}
             </span>
-            <p className="mt-2 text-[11.5px] leading-relaxed text-muted">
+            <p className="mt-2 text-[12px] leading-relaxed text-muted">
               {t("postures.live.body")}
             </p>
           </div>
@@ -233,7 +233,7 @@ export default function GuidePage() {
               <div className="text-[12.5px] font-medium text-fg">
                 {t(`scenarios.${key}.name`)}
               </div>
-              <div className="text-[11.5px] text-muted">
+              <div className="text-[12px] text-muted">
                 <span className="font-mono text-fg/70">{t(`scenarios.${key}.persona`)}</span>
                 <span className="mx-1.5 text-fg/30">·</span>
                 {t("discloses", { discloses: t(`scenarios.${key}.discloses`) })}
@@ -250,16 +250,16 @@ export default function GuidePage() {
             b: (chunks) => <span className="text-fg/80">{chunks}</span>,
           })}
         </p>
-        <p className="mt-2 text-[11.5px] text-muted">
+        <p className="mt-2 text-[12px] text-muted">
           {t("riskModelApiNote")}{" "}
-          <code className="rounded bg-elevated px-1.5 py-0.5 font-mono text-[11px] text-fg/80">
+          <code className="rounded bg-elevated px-1.5 py-0.5 font-mono text-[12px] text-fg/80">
             GET /api/takedown/model-card
           </code>
           .
         </p>
       </Card>
 
-      <p className="mb-2 mt-1 text-center text-[11px] text-muted">
+      <p className="mb-2 mt-1 text-center text-[12px] text-muted">
         {t("footerTip")}
       </p>
     </div>

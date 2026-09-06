@@ -67,14 +67,14 @@ export function AgencyAlertCard({
         </div>
         <div className="min-w-0">
           <b className="block truncate text-[12.5px]">{meta.title}</b>
-          <small className="font-mono text-[10px] text-muted">
+          <small className="font-mono text-[12px] text-muted">
             {ref} ·{" "}
             {targets.length === 1
               ? t("agencyCountOne")
               : t("agencyCountOther", { count: targets.length })}
           </small>
         </div>
-        <span className="ml-auto flex-none rounded-md border border-risk-high/40 bg-risk-high/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-risk-high">
+        <span className="ml-auto flex-none rounded-md border border-risk-high/40 bg-risk-high/10 px-1.5 py-0.5 text-[12px] font-bold uppercase tracking-wide text-risk-high">
           ⚠ {t("urgent")}
         </span>
       </div>
@@ -91,14 +91,14 @@ export function AgencyAlertCard({
                 className="flex items-start gap-2.5 border-b border-line px-3.5 py-2.5 last:border-b-0"
               >
                 <div
-                  className="grid h-[32px] w-[32px] flex-none place-items-center rounded-lg border text-[10px] font-extrabold"
+                  className="grid h-[32px] w-[32px] flex-none place-items-center rounded-lg border text-[12px] font-extrabold"
                   style={{ color, borderColor: `${color}55`, background: `${color}12` }}
                 >
                   {target.code}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <b className="truncate text-xs">{target.name}</b>
+                    <b className="truncate text-[12px]">{target.name}</b>
                     {type && (
                       <span
                         className="flex-none rounded px-1 py-px text-[8.5px] font-semibold uppercase tracking-wide"
@@ -108,15 +108,15 @@ export function AgencyAlertCard({
                       </span>
                     )}
                   </div>
-                  <small className="mt-0.5 block truncate text-[10px] text-muted">
+                  <small className="mt-0.5 block truncate text-[12px] text-muted">
                     {target.action}
                   </small>
-                  <span className="mt-1 inline-flex items-center gap-1 rounded border border-line bg-elevated px-1.5 py-px font-mono text-[9px] text-muted">
+                  <span className="mt-1 inline-flex items-center gap-1 rounded border border-line bg-elevated px-1.5 py-px font-mono text-[12px] text-muted">
                     <span aria-hidden>↗</span> {t("viaChannel", { channel: channelOf(target, t) })}
                   </span>
                 </div>
                 <span
-                  className="flex-none text-[10.5px] font-bold uppercase tracking-[.05em]"
+                  className="flex-none text-[12px] font-bold uppercase tracking-[.05em]"
                   style={{ color: STATUS_COLORS[target.status] }}
                 >
                   {STATUS_LABELS[target.status]}
@@ -125,14 +125,14 @@ export function AgencyAlertCard({
             );
           })
         ) : (
-          <div className="px-3.5 py-6 text-center text-[11px] text-muted">
+          <div className="px-3.5 py-6 text-center text-[12px] text-muted">
             {t("noTargets")}
           </div>
         )}
       </div>
 
       {/* footer — dispatch posture */}
-      <div className="border-t border-line px-3.5 py-2 text-[9.5px] leading-relaxed text-muted">
+      <div className="border-t border-line px-3.5 py-2 text-[12px] leading-relaxed text-muted">
         {t.rich("footerNote", {
           b: (chunks) => <b className="text-fg">{chunks}</b>,
         })}

@@ -67,7 +67,7 @@ export default function HoneypotCallPage() {
         <div>
           <Link
             href="/honeypot"
-            className="text-[11px] text-muted transition-colors hover:text-fg"
+            className="text-[12px] text-muted transition-colors hover:text-fg"
           >
             {t("backLink")}
           </Link>
@@ -75,7 +75,7 @@ export default function HoneypotCallPage() {
             {t("title")}{" "}
             <span className="font-semibold text-muted">{t("titleModule")}</span>
           </h1>
-          <p className="mt-1 max-w-[52ch] text-xs text-muted">
+          <p className="mt-1 max-w-[52ch] text-[12px] text-muted">
             {mode === "scripted" ? t("descScripted") : t("descLiveMic")}
           </p>
         </div>
@@ -98,7 +98,7 @@ export default function HoneypotCallPage() {
                     ? t("modeScriptedTitle")
                     : t("modeLiveMicTitle")
                 }
-                className={`cursor-pointer rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                className={`cursor-pointer rounded-md px-2.5 py-1 text-[12px] font-semibold transition-colors ${
                   mode === m
                     ? "bg-accent/15 text-accent-bright"
                     : "text-muted hover:text-fg"
@@ -111,7 +111,7 @@ export default function HoneypotCallPage() {
 
           {source && (
             <span
-              className={`rounded-md border px-2 py-0.5 font-mono text-[10.5px] font-semibold ${
+              className={`rounded-md border px-2 py-0.5 font-mono text-[12px] font-semibold ${
                 source === "api"
                   ? "border-accent/30 bg-accent/10 text-accent-bright"
                   : "border-risk-med/30 bg-risk-med/10 text-risk-med"
@@ -133,7 +133,7 @@ export default function HoneypotCallPage() {
       ) : data && !loading ? (
         <CallView data={data} />
       ) : (
-        <div className="grid h-[calc(100vh-13.5rem)] min-h-[480px] animate-pulse place-items-center rounded-card border border-line bg-card text-[11px] text-muted">
+        <div className="grid h-[calc(100vh-13.5rem)] min-h-[480px] animate-pulse place-items-center rounded-card border border-line bg-card text-[12px] text-muted">
           {t("dialing")}
         </div>
       )}

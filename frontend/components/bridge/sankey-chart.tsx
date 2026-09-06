@@ -84,7 +84,7 @@ export function SankeyChart({ data }: { data: BridgeSankeyData }) {
 
   if (!layout) {
     return (
-      <div className="grid h-[460px] place-items-center text-[11px] text-muted">
+      <div className="grid h-[460px] place-items-center text-[12px] text-muted">
         {t("empty")}
       </div>
     );

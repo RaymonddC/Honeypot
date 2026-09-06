@@ -68,7 +68,7 @@ export function AddTransaction({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="h-8 rounded-lg border border-line bg-elevated px-3.5 text-xs font-semibold text-fg transition-colors hover:bg-fg/[.07]"
+        className="h-8 rounded-lg border border-line bg-elevated px-3.5 text-[12px] font-semibold text-fg transition-colors hover:bg-fg/[.07]"
       >
         {t("addTransaction")}
       </button>
@@ -76,7 +76,7 @@ export function AddTransaction({
   }
 
   const field =
-    "h-[34px] w-full rounded-lg border border-line bg-card px-2.5 font-mono text-[12px] text-fg outline-none placeholder:text-muted focus:border-accent/40";
+    "h-9 w-full rounded-[10px] border border-[#262626] bg-[#1c1c1c] px-3 text-[13px] text-fg outline-none placeholder:text-[#666] focus:border-[#0099ff]/60";
 
   return (
     <form
@@ -91,7 +91,7 @@ export function AddTransaction({
             setOpen(false);
             reset();
           }}
-          className="text-[11px] text-muted hover:text-fg"
+          className="text-[12px] text-muted hover:text-fg"
         >
           {t("cancel")}
         </button>
@@ -99,7 +99,7 @@ export function AddTransaction({
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <label className="block">
-          <span className="mb-1 block text-[10.5px] text-muted">{t("fromWallet")}</span>
+          <span className="mb-1 block text-[12px] text-muted">{t("fromWallet")}</span>
           <input
             required
             value={from}
@@ -109,7 +109,7 @@ export function AddTransaction({
           />
         </label>
         <label className="block">
-          <span className="mb-1 block text-[10.5px] text-muted">{t("toWallet")}</span>
+          <span className="mb-1 block text-[12px] text-muted">{t("toWallet")}</span>
           <input
             required
             value={to}
@@ -119,7 +119,7 @@ export function AddTransaction({
           />
         </label>
         <label className="block">
-          <span className="mb-1 block text-[10.5px] text-muted">
+          <span className="mb-1 block text-[12px] text-muted">
             {t("amountUsdt")}
           </span>
           <input
@@ -134,7 +134,7 @@ export function AddTransaction({
           />
         </label>
         <label className="block">
-          <span className="mb-1 block text-[10.5px] text-muted">
+          <span className="mb-1 block text-[12px] text-muted">
             {t("timestampOptional")}
           </span>
           <input
@@ -145,7 +145,7 @@ export function AddTransaction({
           />
         </label>
         <label className="block">
-          <span className="mb-1 block text-[10.5px] text-muted">{t("category")}</span>
+          <span className="mb-1 block text-[12px] text-muted">{t("category")}</span>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
@@ -161,14 +161,14 @@ export function AddTransaction({
       </div>
 
       {error && (
-        <p className="mt-2 text-[11px] text-risk-high">{error}</p>
+        <p className="mt-2 text-[12px] text-risk-high">{error}</p>
       )}
 
       <div className="mt-3 flex justify-end">
         <button
           type="submit"
           disabled={busy}
-          className="h-8 rounded-full bg-accent px-4 text-xs font-semibold text-[#090909] transition-colors hover:bg-accent-bright disabled:opacity-50"
+          className="h-8 rounded-full bg-accent px-4 text-[12px] font-semibold text-[#090909] transition-colors hover:bg-accent-bright disabled:opacity-50"
         >
           {busy ? t("adding") : t("addAndTrace")}
         </button>

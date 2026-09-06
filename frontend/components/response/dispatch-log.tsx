@@ -27,7 +27,7 @@ function StatusPill({ status }: { status: DispatchNotification["status"] }) {
   const color = STATUS_COLORS[status] ?? "rgba(255,255,255,.5)";
   return (
     <span
-      className="rounded-md border px-1.5 py-0.5 font-mono text-[10px] font-semibold"
+      className="rounded-md border px-1.5 py-0.5 font-mono text-[12px] font-semibold"
       style={{ color, borderColor: `${color}44`, background: `${color}14` }}
     >
       {STATUS_LABELS[status] ?? status}
@@ -70,7 +70,7 @@ export function DispatchLog() {
         <div className="flex items-center gap-2">
           <span className="eyebrow">{t("eyebrow")}</span>
           <span
-            className={`rounded-md border px-1.5 py-0.5 font-mono text-[9.5px] font-semibold ${
+            className={`rounded-md border px-1.5 py-0.5 font-mono text-[12px] font-semibold ${
               source === "api"
                 ? "border-accent/30 bg-accent/10 text-accent-bright"
                 : "border-risk-med/30 bg-risk-med/10 text-risk-med"
@@ -79,24 +79,24 @@ export function DispatchLog() {
             {source === "api" ? t("liveApi") : t("offlineMock")}
           </span>
         </div>
-        <span className="font-mono text-[10.5px] text-muted">
+        <span className="font-mono text-[12px] text-muted">
           {t("dispatchedCount", { count: items?.length ?? 0 })}
         </span>
       </div>
 
       {items === null ? (
-        <div className="grid h-[180px] animate-pulse place-items-center text-[11px] text-muted">
+        <div className="grid h-[180px] animate-pulse place-items-center text-[12px] text-muted">
           {t("loading")}
         </div>
       ) : items.length === 0 ? (
-        <div className="grid h-[120px] place-items-center px-4 text-center text-[11px] text-muted">
+        <div className="grid h-[120px] place-items-center px-4 text-center text-[12px] text-muted">
           {t("empty")}
         </div>
       ) : (
         <div className="max-h-[340px] overflow-y-auto">
-          <table className="w-full border-collapse text-[11.5px]">
+          <table className="w-full border-collapse text-[12px]">
             <thead>
-              <tr className="sticky top-0 bg-card text-left text-[9px] uppercase tracking-wide text-muted">
+              <tr className="sticky top-0 bg-card text-left text-[12px] uppercase tracking-wide text-muted">
                 <th className="px-3.5 py-2 font-medium">{t("colAgency")}</th>
                 <th className="px-2 py-2 font-medium">{t("colChannel")}</th>
                 <th className="px-2 py-2 font-medium">{t("colStatus")}</th>
@@ -113,33 +113,33 @@ export function DispatchLog() {
                       <span className="font-medium text-fg">{n.agency}</span>
                     </div>
                   </td>
-                  <td className="px-2 py-2 font-mono text-[10.5px] text-muted">
+                  <td className="px-2 py-2 font-mono text-[12px] text-muted">
                     {n.channel || "—"}
                   </td>
                   <td className="px-2 py-2">
                     <StatusPill status={n.status} />
                     {n.lastError && (
                       <span
-                        className="ml-1.5 font-mono text-[9.5px] text-risk-high"
+                        className="ml-1.5 font-mono text-[12px] text-risk-high"
                         title={n.lastError}
                       >
                         {n.lastError}
                       </span>
                     )}
                   </td>
-                  <td className="px-2 py-2 font-mono text-[10px] text-muted">{n.caseId}</td>
+                  <td className="px-2 py-2 font-mono text-[12px] text-muted">{n.caseId}</td>
                   <td className="px-3.5 py-2 text-right">
                     {n.status === "failed" ? (
                       <button
                         type="button"
                         disabled={retrying === n.id}
                         onClick={() => onRetry(n.id)}
-                        className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10px] font-semibold text-accent-bright transition-colors hover:bg-fg/[.04] disabled:opacity-50"
+                        className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[12px] font-semibold text-accent-bright transition-colors hover:bg-fg/[.04] disabled:opacity-50"
                       >
                         {retrying === n.id ? t("retrying") : t("retry")}
                       </button>
                     ) : (
-                      <span className="font-mono text-[10px] text-muted">
+                      <span className="font-mono text-[12px] text-muted">
                         {n.attemptCount > 0 ? `${n.attemptCount}×` : "—"}
                       </span>
                     )}

@@ -46,12 +46,12 @@ export const MOCK_TILES: MetricTile[] = [
     deltaUp: true,
   },
   {
-    label: "Recovery rate",
+    // Freeze, not recovery — see the note in lib/response/api.ts buildTiles.
+    label: "Freeze rate",
     value: "14.8",
     suffix: "%",
     color: EMERALD,
-    delta: "▲ vs 4.76% baseline",
-    deltaUp: true,
+    delta: "of funds at risk, freeze dispatched",
   },
 ];
 
@@ -60,11 +60,13 @@ export const MOCK_TREND = [
   720, 690, 540, 505, 430, 300, 260, 210, 150, 90, 60, 42, 33, 27,
 ];
 
+// Every row here is fixture data by definition — this whole module is the
+// offline fallback — so they are all marked seeded.
 export const MOCK_CASES: ActiveCase[] = [
-  { ref: "ITU-0417", type: "Judol relay", atRisk: "Rp 48M", risk: "high", statusLabel: "High" },
-  { ref: "ITU-0416", type: "Invest. scam", atRisk: "Rp 31M", risk: "high", statusLabel: "High" },
-  { ref: "ITU-0412", type: "Phishing", atRisk: "Rp 9M", risk: "med", statusLabel: "Med" },
-  { ref: "ITU-0409", type: "Mule net", atRisk: "Rp 15M", risk: "low", statusLabel: "Frozen" },
+  { ref: "ITU-0417", type: "Judol relay", atRisk: "Rp 48M", risk: "high", statusLabel: "High", source: "baseline" },
+  { ref: "ITU-0416", type: "Invest. scam", atRisk: "Rp 31M", risk: "high", statusLabel: "High", source: "baseline" },
+  { ref: "ITU-0412", type: "Phishing", atRisk: "Rp 9M", risk: "med", statusLabel: "Med", source: "baseline" },
+  { ref: "ITU-0409", type: "Mule net", atRisk: "Rp 15M", risk: "low", statusLabel: "Frozen", source: "baseline" },
 ];
 
 export function buildMockMetrics(range: RangeKey = "30d"): ResponseMetrics {

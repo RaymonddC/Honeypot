@@ -25,7 +25,7 @@ export function TrendSparkline({
   const t = useTranslations("response.trendSparkline");
   if (data.length < 2) {
     return (
-      <div className="grid h-[180px] place-items-center text-[11px] text-muted">
+      <div className="grid h-[180px] place-items-center text-[12px] text-muted">
         {t("empty")}
       </div>
     );

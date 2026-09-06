@@ -71,7 +71,7 @@ export function LoginForm() {
       {expired && (
         <p
           role="status"
-          className="mb-3 rounded-[10px] border border-[#262626] bg-[#1c1c1c] px-3 py-2 text-xs leading-relaxed text-white"
+          className="mb-3 rounded-[10px] border border-[#262626] bg-[#1c1c1c] px-3 py-2 text-[12px] leading-relaxed text-white"
         >
           <span className="font-medium">{t("sessionExpiredTitle")}</span>{" "}
           {t("sessionExpiredBody")}
@@ -83,7 +83,7 @@ export function LoginForm() {
 
       {/* Agency picker — compact 2-col tile grid (selection = surface lift) */}
       <fieldset>
-        <legend className="mb-1.5 text-[11px] font-medium uppercase tracking-widest text-[#999]">
+        <legend className="mb-1.5 text-[12px] font-medium uppercase tracking-widest text-[#999]">
           {t("agencyLegend")}
         </legend>
         <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label={t("agencyLegend")}>
@@ -104,7 +104,7 @@ export function LoginForm() {
                 }`}
               >
                 <span
-                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md font-mono text-[10px] font-bold ${
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md font-mono text-[12px] font-bold ${
                     active ? "bg-white/10 text-white" : "bg-white/[.05] text-[#999]"
                   }`}
                   aria-hidden
@@ -126,7 +126,7 @@ export function LoginForm() {
 
       {/* Role picker — pill toggles */}
       <fieldset className="pt-3">
-        <legend className="mb-1.5 text-[11px] font-medium uppercase tracking-widest text-[#999]">
+        <legend className="mb-1.5 text-[12px] font-medium uppercase tracking-widest text-[#999]">
           {t("roleLegend")}
         </legend>
         <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={t("roleLegend")}>
@@ -139,7 +139,7 @@ export function LoginForm() {
                 role="radio"
                 aria-checked={active}
                 onClick={() => setRole(r)}
-                className={`cursor-pointer rounded-full border px-3 py-1 text-xs transition-colors ${
+                className={`cursor-pointer rounded-full border px-3 py-1 text-[12px] transition-colors ${
                   active
                     ? "border-white/20 bg-[#1c1c1c] font-medium text-white"
                     : "border-[#262626] bg-[#141414] text-[#999] hover:border-white/10 hover:text-white"
@@ -152,8 +152,9 @@ export function LoginForm() {
         </div>
       </fieldset>
 
-      {/* Capability — fixed two lines, so switching role never resizes the form */}
-      <div className="mt-3 rounded-[10px] border border-[#262626] bg-[#1c1c1c] px-2.5 py-2 text-[10.5px] leading-snug">
+      {/* Capability — fixed two lines, so switching role never resizes the form.
+          Flat (divider, not a nested card) to keep the surface hierarchy clean. */}
+      <div className="mt-3 border-t border-[#262626] pt-3 text-[12px] leading-snug">
         <div className="truncate text-[#999]">
           <b className="text-white/80">{agency.name}</b> · {t("ownData")}
         </div>
@@ -170,7 +171,7 @@ export function LoginForm() {
       </div>
 
       {error && (
-        <p role="alert" className="pt-2.5 text-xs leading-relaxed text-[#ff5577]">
+        <p role="alert" className="pt-2.5 text-[12px] leading-relaxed text-[#ff5577]">
           {error}
         </p>
       )}
@@ -178,7 +179,7 @@ export function LoginForm() {
         <button
           type="button"
           onClick={() => loginOffline(agencyId, role)}
-          className="mt-2 w-full cursor-pointer rounded-full border border-dashed border-[#333] bg-[#1c1c1c] px-3 py-1.5 text-xs text-[#999] transition-colors hover:border-white/15 hover:text-white"
+          className="mt-2 w-full cursor-pointer rounded-full border border-dashed border-[#333] bg-[#1c1c1c] px-3 py-1.5 text-[12px] text-[#999] transition-colors hover:border-white/15 hover:text-white"
         >
           {t("continueOffline")}
         </button>
@@ -204,7 +205,7 @@ export function LoginForm() {
           t("enterConsole")
         )}
       </button>
-      <p className="pt-2 text-center text-[11px] text-[#999]">
+      <p className="pt-2 text-center text-[12px] text-[#999]">
         {t("footer")}
       </p>
     </div>

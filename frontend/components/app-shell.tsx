@@ -9,6 +9,7 @@ import { CaseSwitcher } from "@/components/cases/case-switcher";
 import { CaseContextBar } from "@/components/cases/case-context-bar";
 import { useTheme } from "@/components/theme/theme-provider";
 import { CAP, can, initialsOf, roleLabel } from "@/lib/auth/types";
+import { isNavActive } from "@/lib/nav";
 
 // Admin destinations, each shown only to someone who holds the CAPABILITY it
 // needs. Gated on capabilities rather than role NAMES on purpose: a role created
@@ -97,7 +98,7 @@ function ModeBadge() {
 
   return (
     <span
-      className={`rounded-md border px-2 py-0.5 font-mono text-[10px] font-bold tracking-widest ${
+      className={`rounded-md border px-2 py-0.5 font-mono text-[12px] font-bold tracking-widest ${
         mode === "LIVE"
           ? "border-[#0099ff]/40 bg-[#0099ff]/10 text-[#0099ff]"
           : "border-risk-med/40 bg-risk-med/10 text-risk-med"
@@ -178,7 +179,7 @@ function UserMenu() {
         aria-expanded={open}
         aria-label={t("accountLabel", { name })}
         title={name}
-        className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-line bg-elevated text-[11px] font-semibold text-white transition-colors hover:border-white/40"
+        className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-line bg-elevated text-[12px] font-semibold text-white transition-colors hover:border-white/40"
       >
         {initials}
       </button>
@@ -193,17 +194,17 @@ function UserMenu() {
               {name}
             </div>
             {me?.user.email && (
-              <div className="truncate font-mono text-[11px] text-muted">
+              <div className="truncate font-mono text-[12px] text-muted">
                 {me.user.email}
               </div>
             )}
-            <div className="pt-1 text-[11px] text-muted">
+            <div className="pt-1 text-[12px] text-muted">
               {me ? roleLabel(me.role) : "—"}
               {me?.agency.name ? ` · ${me.agency.name}` : ""}
             </div>
             <div className="pt-1.5">
               <span
-                className={`inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 text-[10px] ${
+                className={`inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 text-[12px] ${
                   liveVerified
                     ? "bg-[#0099ff]/10 text-[#0099ff]"
                     : "bg-fg/[.05] text-muted"
@@ -224,7 +225,7 @@ function UserMenu() {
             onClick={logout}
             className="mt-1 flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-[13px] text-muted transition-colors hover:bg-fg/[.04] hover:text-fg"
           >
-            <span aria-hidden className="text-xs">
+            <span aria-hidden className="text-[12px]">
               ⏻
             </span>
             {t("signOut")}
@@ -301,7 +302,7 @@ function SidebarNav({
                 // page or a bug, not as "step 3 isn't offered here".
                 let stepCounter = 0;
                 return shown.map((item) => {
-                  const active = pathname.startsWith(item.href);
+                  const active = isNavActive(pathname, item.href);
                   const displayStep = item.step ? ++stepCounter : undefined;
                   return (
                     <li key={item.href}>
@@ -316,7 +317,7 @@ function SidebarNav({
                         }`}
                       >
                         <span
-                          className={`flex h-6 w-6 flex-none items-center justify-center rounded-md text-[11px] font-bold ${
+                          className={`flex h-6 w-6 flex-none items-center justify-center rounded-md text-[12px] font-bold ${
                             displayStep
                               ? active
                                 ? "bg-white text-[#090909]"
@@ -336,7 +337,7 @@ function SidebarNav({
                             {t(item.labelKey)}
                           </span>
                           {item.subKey && (
-                            <span className="block truncate text-[11px] leading-tight text-muted">
+                            <span className="block truncate text-[12px] leading-tight text-muted">
                               {t(item.subKey)}
                             </span>
                           )}
@@ -355,14 +356,14 @@ function SidebarNav({
         <Link
           href="/guide"
           onClick={onNavigate}
-          aria-current={pathname.startsWith("/guide") ? "page" : undefined}
+          aria-current={isNavActive(pathname, "/guide") ? "page" : undefined}
           className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${
-            pathname.startsWith("/guide")
+            isNavActive(pathname, "/guide")
               ? "bg-[#1c1c1c] text-white"
               : "text-white/70 hover:bg-white/[.04] hover:text-white"
           }`}
         >
-          <span className="w-4 text-center text-xs" aria-hidden>
+          <span className="w-4 text-center text-[12px]" aria-hidden>
             ?
           </span>
           {t("guide")}
@@ -370,14 +371,14 @@ function SidebarNav({
         <Link
           href="/settings"
           onClick={onNavigate}
-          aria-current={pathname.startsWith("/settings") ? "page" : undefined}
+          aria-current={isNavActive(pathname, "/settings") ? "page" : undefined}
           className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${
-            pathname.startsWith("/settings")
+            isNavActive(pathname, "/settings")
               ? "bg-[#1c1c1c] text-white"
               : "text-white/70 hover:bg-white/[.04] hover:text-white"
           }`}
         >
-          <span className="w-4 text-center text-xs" aria-hidden>
+          <span className="w-4 text-center text-[12px]" aria-hidden>
             ⚙
           </span>
           {t("controlPanel")}
@@ -460,7 +461,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               smallest screens so it never pushes the mode badge / avatar
               off-screen; the case switcher already carries the case name. */}
           <span
-            className="hidden max-w-[16rem] truncate rounded-md border border-line bg-elevated px-2.5 py-1 text-xs text-muted sm:inline"
+            className="hidden max-w-[16rem] truncate rounded-md border border-line bg-elevated px-2.5 py-1 text-[12px] text-muted sm:inline"
             title={
               me
                 ? tShell("signedInAs", { agency: me.agency.name, role: roleLabel(me.role) })
@@ -482,7 +483,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             administration, where it is actively misleading: a case banner over
             "Users" suggests access is granted per case, when roles and accounts
             are agency- and platform-wide. */}
-        {!ADMIN_NAV.some((item) => pathname.startsWith(item.href)) && <CaseContextBar />}
+        {!ADMIN_NAV.some((item) => isNavActive(pathname, item.href)) && <CaseContextBar />}
 
         {/* Screen canvas */}
         <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-6">{children}</main>

@@ -49,7 +49,7 @@ function SpeakerTile({
     >
       <div className="flex items-baseline justify-between gap-2">
         <span
-          className={`truncate text-[10px] font-semibold uppercase tracking-[.06em] ${
+          className={`truncate text-[12px] font-semibold uppercase tracking-[.06em] ${
             active
               ? tone === "accent"
                 ? "text-accent-bright"
@@ -59,7 +59,7 @@ function SpeakerTile({
         >
           {label}
         </span>
-        <small className="hidden flex-none text-[9.5px] text-muted sm:block">
+        <small className="hidden flex-none text-[12px] text-muted sm:block">
           {sub}
         </small>
       </div>
@@ -242,7 +242,7 @@ export function CallView({ data }: { data: VoiceCallSession }) {
       <div>
         <EntityPanel entities={heardEntities} />
         <CustodyCard custody={data.custody} />
-        <p className="mt-3 px-1 text-[10.5px] leading-relaxed text-muted">
+        <p className="mt-3 px-1 text-[12px] leading-relaxed text-muted">
           {t.rich("entitiesNote", {
             heard: heardEntities.length,
             total: data.entities.length,

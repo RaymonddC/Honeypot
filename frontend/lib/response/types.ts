@@ -40,6 +40,14 @@ export interface ActiveCase {
   risk: CaseRisk;
   /** Pill label — usually the risk level, "Frozen" when resolved. */
   statusLabel: string;
+  /**
+   * Where the row came from. "baseline" rows are seeded demo cases the backend
+   * ships to give the dashboard shape; "action" rows are real bundles this
+   * deployment generated. The table marks the seeded ones — rendered
+   * identically, a demo case is indistinguishable from a real one, and anyone
+   * reading the dashboard would over-count what the system has actually done.
+   */
+  source: "baseline" | "action";
 }
 
 /* ── Operations pipeline (INFILTRATE → TAKEDOWN → UNCOVER activity) ─────── */
@@ -58,7 +66,7 @@ export interface OpsStat {
 /* ── Aggregate screen payload ──────────────────────────────────────────── */
 
 export interface ResponseMetrics {
-  /** Order: cases · time-to-freeze · at risk · frozen · recovery rate. */
+  /** Order: cases · time-to-freeze · at risk · frozen · freeze rate. */
   tiles: MetricTile[];
   /** Operational pipeline stats (honeypot · wallets · documents · dispatch). */
   ops: OpsStat[];
@@ -89,7 +97,9 @@ export const RANGE_LABELS: Record<RangeKey, string> = {
 export const EMERALD = "#0099ff";
 export const CYAN = "#33adff";
 
-/** IASC baseline the recovery rate is benchmarked against. */
+/** IASC recovery-rate baseline (share of scammed funds returned to victims).
+ *  Reference figure only — NOT the benchmark for the freeze-rate tile, which
+ *  measures a different thing (see buildTiles in lib/response/api.ts). */
 export const BASELINE_RECOVERY_PCT = 4.76;
 /** Manual-workflow baseline the time-to-freeze story is told against. */
 export const BASELINE_FREEZE = "12h+";

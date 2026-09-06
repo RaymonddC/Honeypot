@@ -276,7 +276,7 @@ export function WalletGraph({
       <div ref={containerRef} className="absolute inset-0" />
 
       {/* hint */}
-      <div className="pointer-events-none absolute left-3 top-3 rounded-lg border border-line bg-card/90 px-2.5 py-1.5 text-[10.5px] text-muted backdrop-blur-sm">
+      <div className="pointer-events-none absolute left-3 top-3 rounded-lg border border-line bg-card/90 px-2.5 py-1.5 text-[12px] text-muted backdrop-blur-sm">
         {t("hint")}
       </div>
 
@@ -310,7 +310,7 @@ export function WalletGraph({
       </div>
 
       {/* legend */}
-      <div className="pointer-events-none absolute bottom-3 left-3 flex gap-3 rounded-lg border border-line bg-card/90 px-2.5 py-1.5 text-[10.5px] text-muted backdrop-blur-sm">
+      <div className="pointer-events-none absolute bottom-3 left-3 flex gap-3 rounded-lg border border-line bg-card/90 px-2.5 py-1.5 text-[12px] text-muted backdrop-blur-sm">
         {(["high", "medium", "low", "exchange"] as const).map((r) => (
           <span key={r} className="flex items-center gap-1.5">
             <i
@@ -323,7 +323,7 @@ export function WalletGraph({
       </div>
 
       {/* peeling-chain callout */}
-      <div className="pointer-events-none absolute bottom-3 right-3 rounded-lg border border-risk-high/20 bg-card/90 px-2.5 py-1.5 font-mono text-[10px] font-bold text-risk-high backdrop-blur-sm">
+      <div className="pointer-events-none absolute bottom-3 right-3 rounded-lg border border-risk-high/20 bg-card/90 px-2.5 py-1.5 font-mono text-[12px] font-bold text-risk-high backdrop-blur-sm">
         {t("peelingChain")}
       </div>
 
@@ -333,8 +333,8 @@ export function WalletGraph({
           className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-[115%] rounded-lg border border-line bg-card/95 px-2.5 py-1.5 shadow-lg backdrop-blur-sm"
           style={{ left: tip.x, top: tip.y }}
         >
-          <div className="font-mono text-[11px] text-fg">{tip.address}</div>
-          <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted">
+          <div className="font-mono text-[12px] text-fg">{tip.address}</div>
+          <div className="mt-0.5 flex items-center gap-1.5 text-[12px] text-muted">
             <i
               className="inline-block h-[7px] w-[7px] rounded-full"
               style={{ background: RISK_COLORS[tip.risk] }}

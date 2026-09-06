@@ -46,3 +46,15 @@ graphify-out/
 
 # Local agent tooling / installed skills
 .agents/
+# Vendored impeccable skill packs (~17 MB each, and .claude/ + .github/ are
+# near-duplicate copies of the same thing). Reinstallable with
+# `npx impeccable install`, so they are machine setup, not source.
+# NOTE: frontend/.impeccable/config.json is deliberately NOT ignored — the
+# detector ignore-rules there (and the reasons for them) are project decisions
+# every contributor's audit should share.
+.claude/agents/
+.claude/skills/
+.claude/settings.local.json
+.github/agents/
+.github/hooks/
+.github/skills/

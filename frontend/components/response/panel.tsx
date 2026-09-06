@@ -3,7 +3,7 @@
 /**
  * Response Dashboard screen — "from days to minutes", on real case data.
  * Five metric tiles (cases · avg time-to-freeze · funds at risk · funds
- * frozen · recovery rate vs 4.76% baseline) → time-to-freeze trend
+ * frozen · freeze rate) → time-to-freeze trend
  * sparkline + active-cases table. Consumes GET /api/metrics/response?range=
  * and falls back to the local mock dataset when unreachable.
  *
@@ -63,7 +63,7 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
               tiles below keep the visual weight */}
           {data && (
             <span
-              className={`rounded-md border px-1.5 py-0.5 font-mono text-[9.5px] ${
+              className={`rounded-md border px-1.5 py-0.5 font-mono text-[12px] ${
                 data.source === "api"
                   ? "border-line bg-elevated text-muted"
                   : "border-risk-med/30 bg-risk-med/10 text-risk-med"
@@ -84,7 +84,7 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
                 type="button"
                 disabled={loading}
                 onClick={() => setRange(r)}
-                className={`h-[26px] px-3 text-[11px] font-semibold transition-colors disabled:opacity-60 ${
+                className={`h-[26px] px-3 text-[12px] font-semibold transition-colors disabled:opacity-60 ${
                   r === range
                     ? "bg-accent/10 text-accent-bright"
                     : "text-muted hover:bg-fg/[.03] hover:text-fg"
@@ -110,11 +110,11 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
                 <div className="text-[13.5px] font-semibold text-fg">
                   {t("heroFasterSuffix")}
                 </div>
-                <div className="text-[11px] text-muted">
+                <div className="text-[12px] text-muted">
                   {t("heroBaseline", { trendNow: data.trendNow })}
                 </div>
               </div>
-              <span className="ml-auto hidden flex-none rounded-full border border-accent/30 bg-accent/10 px-2 py-1 font-mono text-[11px] font-semibold text-accent-bright sm:block">
+              <span className="ml-auto hidden flex-none rounded-full border border-accent/30 bg-accent/10 px-2 py-1 font-mono text-[12px] font-semibold text-accent-bright sm:block">
                 {data.trendTag}
               </span>
             </div>
@@ -131,7 +131,7 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
                 <div key={o.label} className="rounded-card border border-line bg-card p-3">
                   <div className="flex items-center gap-1.5 text-muted">
                     <span className="text-[12px]" aria-hidden>{o.glyph}</span>
-                    <span className="text-[9px] uppercase tracking-wide">{o.label}</span>
+                    <span className="text-[12px] uppercase tracking-wide">{o.label}</span>
                   </div>
                   <div
                     className="mt-1.5 font-mono text-[20px] font-bold leading-none tnum"
@@ -139,7 +139,7 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
                   >
                     {o.value}
                   </div>
-                  {o.sub && <div className="mt-1 text-[9.5px] text-muted">{o.sub}</div>}
+                  {o.sub && <div className="mt-1 text-[12px] text-muted">{o.sub}</div>}
                 </div>
               ))}
             </div>
@@ -150,7 +150,7 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
             <div className="rounded-card border border-line bg-card">
               <div className="flex items-center justify-between border-b border-line px-3.5 py-[13px]">
                 <span className="eyebrow">{t("trendEyebrow")}</span>
-                <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] text-accent-bright">
+                <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[12px] text-accent-bright">
                   {data.trendTag}
                 </span>
               </div>
@@ -168,13 +168,13 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
           </div>
         </>
       ) : (
-        <div className="grid h-[420px] animate-pulse place-items-center rounded-card border border-line bg-card text-[11px] text-muted">
+        <div className="grid h-[420px] animate-pulse place-items-center rounded-card border border-line bg-card text-[12px] text-muted">
           {t("loadingState")}
         </div>
       )}
 
       {!embedded && (
-        <div className="mt-5 border-t border-line pt-3.5 text-[10.5px] leading-relaxed text-muted">
+        <div className="mt-5 border-t border-line pt-3.5 text-[12px] leading-relaxed text-muted">
           {t.rich("footerNote", {
             b: (chunks) => <b className="text-fg">{chunks}</b>,
           })}

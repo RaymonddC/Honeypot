@@ -145,7 +145,7 @@ export function GoogleSignInButton() {
       </div>
 
       {error && (
-        <p role="alert" className="pt-2 text-center text-[11px] leading-relaxed text-risk-high">
+        <p role="alert" className="pt-2 text-center text-[12px] leading-relaxed text-risk-high">
           {error}
         </p>
       )}
@@ -153,7 +153,7 @@ export function GoogleSignInButton() {
       {/* divider before the demo agency/role picker */}
       <div className="mt-3 flex items-center gap-2.5">
         <span className="h-px flex-1 bg-line" />
-        <span className="text-[10px] uppercase tracking-wide text-muted">{t("orDemoSignIn")}</span>
+        <span className="text-[12px] uppercase tracking-wide text-muted">{t("orDemoSignIn")}</span>
         <span className="h-px flex-1 bg-line" />
       </div>
     </div>

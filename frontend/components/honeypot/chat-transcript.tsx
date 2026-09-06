@@ -15,14 +15,14 @@ function Bubble({ msg }: { msg: HpMessage }) {
   const isPersona = msg.sender === "persona";
   return (
     <div
-      className={`max-w-[74%] rounded-xl border px-3 py-[9px] text-xs leading-relaxed ${
+      className={`max-w-[74%] rounded-xl border px-3 py-[9px] text-[12px] leading-relaxed ${
         isPersona
           ? "self-end rounded-br-[4px] border-accent/[.22] bg-accent/10 text-fg"
           : "self-start rounded-bl-[4px] border-line bg-elevated"
       }`}
     >
       <div
-        className={`mb-[3px] text-[9.5px] uppercase tracking-[.06em] ${
+        className={`mb-[3px] text-[12px] uppercase tracking-[.06em] ${
           isPersona ? "text-accent-bright opacity-90" : "opacity-60"
         }`}
       >
@@ -32,7 +32,7 @@ function Bubble({ msg }: { msg: HpMessage }) {
       {msg.extractions.map((ex, i) => (
         <div
           key={`${msg.id}-${ex.label}-${i}`}
-          className="mt-[7px] flex items-center gap-1.5 border-t border-dashed border-accent/[.22] pt-[7px] font-mono text-[10px] text-accent-bright"
+          className="mt-[7px] flex items-center gap-1.5 border-t border-dashed border-accent/[.22] pt-[7px] font-mono text-[12px] text-accent-bright"
         >
           {t("extractedBadge", { label: ex.label, confidence: formatConf(ex.confidence) })}
         </div>
@@ -63,7 +63,7 @@ export function ChatTranscript({
         <span className="eyebrow">
           {t("sessionEyebrow", { channel: session.channel, persona: session.persona })}
         </span>
-        <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] text-muted">
+        <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[12px] text-muted">
           {session.modeTag}
         </span>
       </div>
@@ -81,7 +81,7 @@ export function ChatTranscript({
 
       {/* composer status line (live console only — omitted on read-only embeds) */}
       {composerNote && (
-        <div className="flex items-center gap-2.5 border-t border-line px-3.5 py-[11px] text-[11px] text-muted">
+        <div className="flex items-center gap-2.5 border-t border-line px-3.5 py-[11px] text-[12px] text-muted">
           <span className="text-accent-bright">◇</span> {composerNote}
         </div>
       )}
