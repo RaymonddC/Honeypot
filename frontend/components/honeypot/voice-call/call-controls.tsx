@@ -82,7 +82,7 @@ function NeutralButton(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
     <button
       type="button"
       {...props}
-      className={`${BASE_BTN} border border-line bg-elevated text-fg hover:bg-white/[.07]`}
+      className={`${BASE_BTN} border border-line bg-elevated text-fg hover:bg-fg/[.07]`}
     />
   );
 }

@@ -108,7 +108,7 @@ export function OnRampFeed({
             return (
               <div
                 key={a.id}
-                className="border-b border-line px-3.5 py-2.5 transition-colors last:border-b-0 hover:bg-white/[.02]"
+                className="border-b border-line px-3.5 py-2.5 transition-colors last:border-b-0 hover:bg-fg/[.02]"
               >
                 <div className="flex items-center gap-2.5">
                   {/* rank + confidence */}

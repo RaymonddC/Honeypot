@@ -134,7 +134,7 @@ export function DispatchLog() {
                         type="button"
                         disabled={retrying === n.id}
                         onClick={() => onRetry(n.id)}
-                        className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10px] font-semibold text-accent-bright transition-colors hover:bg-white/[.04] disabled:opacity-50"
+                        className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10px] font-semibold text-accent-bright transition-colors hover:bg-fg/[.04] disabled:opacity-50"
                       >
                         {retrying === n.id ? t("retrying") : t("retry")}
                       </button>

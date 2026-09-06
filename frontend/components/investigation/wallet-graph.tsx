@@ -330,7 +330,7 @@ export function WalletGraph({
       {/* hover tooltip */}
       {tip && (
         <div
-          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-[115%] rounded-lg border border-white/10 bg-[#141518]/95 px-2.5 py-1.5 shadow-[0_8px_24px_rgba(0,0,0,.5)]"
+          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-[115%] rounded-lg border border-line bg-card/95 px-2.5 py-1.5 shadow-lg backdrop-blur-sm"
           style={{ left: tip.x, top: tip.y }}
         >
           <div className="font-mono text-[11px] text-fg">{tip.address}</div>
