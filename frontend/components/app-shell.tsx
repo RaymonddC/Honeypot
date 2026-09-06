@@ -292,50 +292,60 @@ function SidebarNav({
           <div key={group.groupKey} className="mb-4">
             <div className="eyebrow px-3 pb-2">{t(group.groupKey)}</div>
             <ul className="space-y-1">
-              {visible(group.items).map((item) => {
-                const active = pathname.startsWith(item.href);
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      onClick={onNavigate}
-                      aria-current={active ? "page" : undefined}
-                      className={`flex items-center gap-2.5 rounded-lg px-3 py-2 transition-colors ${
-                        active
-                          ? "bg-accent/10"
-                          : "hover:bg-fg/[.04]"
-                      }`}
-                    >
-                      <span
-                        className={`flex h-6 w-6 flex-none items-center justify-center rounded-md text-[11px] font-bold ${
-                          item.step
-                            ? active
-                              ? "bg-accent text-white"
-                              : "bg-elevated text-muted"
-                            : ""
-                        } ${item.step ? "" : "text-[15px]"}`}
-                        aria-hidden
+              {(() => {
+                const shown = visible(group.items);
+                // Renumber sequentially by DISPLAY order, not the `step`
+                // each item is declared with — if crypto is off and step 3
+                // (Takedown) is hidden, the visible steps must read 1·2·3,
+                // never 1·2·4. A gap in the sequence reads as a missing
+                // page or a bug, not as "step 3 isn't offered here".
+                let stepCounter = 0;
+                return shown.map((item) => {
+                  const active = pathname.startsWith(item.href);
+                  const displayStep = item.step ? ++stepCounter : undefined;
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        onClick={onNavigate}
+                        aria-current={active ? "page" : undefined}
+                        className={`flex items-center gap-2.5 rounded-lg px-3 py-2 transition-colors ${
+                          active
+                            ? "bg-accent/10"
+                            : "hover:bg-fg/[.04]"
+                        }`}
                       >
-                        {item.step ?? item.glyph}
-                      </span>
-                      <span className="min-w-0">
                         <span
-                          className={`block truncate text-[13.5px] leading-tight ${
-                            active ? "font-semibold text-accent-bright" : "font-medium text-fg"
-                          }`}
+                          className={`flex h-6 w-6 flex-none items-center justify-center rounded-md text-[11px] font-bold ${
+                            displayStep
+                              ? active
+                                ? "bg-accent text-white"
+                                : "bg-elevated text-muted"
+                              : ""
+                          } ${displayStep ? "" : "text-[15px]"}`}
+                          aria-hidden
                         >
-                          {t(item.labelKey)}
+                          {displayStep ?? item.glyph}
                         </span>
-                        {item.subKey && (
-                          <span className="block truncate text-[11px] leading-tight text-muted">
-                            {t(item.subKey)}
+                        <span className="min-w-0">
+                          <span
+                            className={`block truncate text-[13.5px] leading-tight ${
+                              active ? "font-semibold text-accent-bright" : "font-medium text-fg"
+                            }`}
+                          >
+                            {t(item.labelKey)}
                           </span>
-                        )}
-                      </span>
-                    </Link>
-                  </li>
-                );
-              })}
+                          {item.subKey && (
+                            <span className="block truncate text-[11px] leading-tight text-muted">
+                              {t(item.subKey)}
+                            </span>
+                          )}
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                });
+              })()}
             </ul>
           </div>
         ))}
