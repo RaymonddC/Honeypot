@@ -199,12 +199,21 @@ export async function fetchConfig(): Promise<AppConfig> {
         modules.some((m) => m.mode === "LIVE") ? "live" : "poc",
       ),
     );
-    return { mode, modules, source: "api" };
+    return {
+      mode,
+      modules,
+      source: "api",
+      cryptoEnabled: c?.crypto_enabled === true,
+    };
   } catch {
     return {
       mode: asMode(process.env.NEXT_PUBLIC_ITTU_MODE ?? "poc"),
       modules: [],
       source: "env",
+      // FALSE on failure, matching the server default. Guessing true would show
+      // an investigator a Takedown screen that cannot load — the wrong way to
+      // be wrong when the whole point is that the feature is not offered here.
+      cryptoEnabled: false,
     };
   }
 }

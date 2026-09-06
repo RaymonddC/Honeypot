@@ -32,6 +32,7 @@ from app.core.auth import (
     mint_token,
 )
 from app.core.config import MODULES, get_mode_resolver, get_settings
+from app.core.gated import GATED
 from app.core.db import get_optional_session
 from app.core.user_repository import UserRepository, get_user_repository, resolve_demo_user
 from app.users.schemas import RoleName
@@ -110,11 +111,30 @@ class AdapterInfo(BaseModel):
     active: bool  # impl selected under the current effective MODE
 
 
+class GatedOut(BaseModel):
+    key: str
+    label: str
+    what: str
+    blocker: str
+    lifted_by: str
+    flag: str | None = None
+    enabled: bool = False
+
+
 class ConfigResponse(BaseModel):
     mode: str  # global default MODE
     modules: dict[str, str]  # effective MODE per module (override or global)
     adapters: list[AdapterInfo]
     # --- Voice (#15) — read-only, no secrets: presence booleans only ---------
+    # Whether the crypto surface exists in this deployment (TAKEDOWN in full,
+    # the crypto half of TRACE). The frontend hides those screens when false —
+    # a menu item leading to a 404 is worse than no menu item. Not a secret and
+    # not a permission: it describes the PRODUCT, which is why it rides on the
+    # unauthenticated config endpoint alongside the MODE badge.
+    crypto_enabled: bool = False
+    # What is switched off and what would switch it on. Descriptive, not
+    # sensitive: it says the product does not offer X and who could change that.
+    gated: list["GatedOut"] = []
     tts_provider: str = "browser"  # effective ITTU_TTS_PROVIDER
     tts_providers: list[str] = []  # known live providers (voice.LIVE_TTS_PROVIDERS)
     live_keys: dict[str, bool] = {}  # provider slug -> is a LIVE key configured
@@ -476,6 +496,16 @@ async def get_config() -> ConfigResponse:
         mode=settings.mode,
         modules=modules,
         adapters=adapters,
+        crypto_enabled=settings.crypto_enabled,
+        gated=[
+            GatedOut(
+                key=f.key, label=f.label, what=f.what, blocker=f.blocker.value,
+                lifted_by=f.lifted_by, flag=f.flag,
+                enabled=(f.key == "crypto" and settings.crypto_enabled)
+                or (f.key == "honeypot_inbound" and bool(settings.twilio_account_sid)),
+            )
+            for f in GATED
+        ],
         tts_provider=settings.tts_provider,
         tts_providers=sorted(LIVE_TTS_PROVIDERS),
         live_keys=live_keys,

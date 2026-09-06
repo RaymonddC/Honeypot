@@ -57,6 +57,46 @@ on the Response dashboard). **513 backend tests green**, frontend build green.
       (~1 query/request) or short TTL + refresh — **not built**, and worth revisiting if a
       compromised-account drill ever needs to be measured in seconds.
 
+- [x] **RBAC — capabilities, and roles as data** · L · **DONE (2026-09-05)** — role went from
+      decorative to real. Only TWO modules enforced anything (uncover dispatch, users admin); cases,
+      infiltrate, takedown, trace, honeypot_ops, casedata and intel had **no role guard at all**, so
+      any authenticated user of any role could call every one of them. The nav hid `/users` and
+      nothing else, which is decoration: the data was one curl away.
+      **The split that makes configurable roles safe:** a CAPABILITY is defined in code (closed set,
+      each one enforced somewhere — a test fails otherwise) and names WHAT is being done; a ROLE is a
+      row in `core.roles` naming which capabilities it holds. Adding a role or changing what it may
+      do is a data edit, not a deploy.
+      **Capabilities are split by CONSEQUENCE, not by screen.** `honeypot.read` / `honeypot.engage` /
+      `honeypot.dial` — reviewing a transcript, talking to a suspect, and cold-calling a list are
+      three different acts, and one permission covering all three gave the least dangerous the
+      authority of the most dangerous. `action.generate` split from `dispatch.send` so drafting and
+      sending can be different people. Deliberately NOT a page × view/create/edit/delete grid:
+      screens move (Users and Audit Trail changed menus in an afternoon), and on Honeypot Ops
+      "create" is creating a campaign while STARTING one — the act that actually dials people — is
+      neither create nor edit.
+      **Fails closed three ways, each tested:** an unreadable `core.roles` grants nobody anything
+      rather than falling back to the in-code defaults (an outage must not resurrect a revoked
+      capability); a failed read is not cached; and a guard naming an undeclared capability raises at
+      definition rather than 403-ing every request silently.
+      **Lockout guards:** an edit may not leave zero roles holding `users.admin` or `roles.admin`, a
+      role in use may not be deleted, and built-in names may not be — the seed migration, the OAuth
+      allowlist and the demo login all reference them literally.
+      Roles are GLOBAL (`core.roles` has no `agency_id`), so administering them needs `roles.admin`,
+      seeded to platform-admin alone: an agency-admin editing a role would change what OTHER agencies'
+      users can do. **That is also the main gap vs standard multi-tenant RBAC — see F3.**
+      Screens: `/roles` (collapsible per role, capabilities grouped for display), nav gated on
+      capabilities with a legacy fallback so a frontend deployed ahead of its backend does not hide
+      every admin's menu. `ITTU_OAUTH_PROVISION` remains the break-glass path for the first admin.
+      **476 → 568 tests** across the whole RBAC arc.
+      - [ ] **Per-tenant roles** · M · the honest gap: each agency cannot define its own roles,
+            because `core.roles` is global. Real multi-tenant products let a tenant name and shape
+            its own. Needs `agency_id` (nullable = shared template), the admin API scoped to it, and
+            a decision about whether a tenant may edit a shared template or only fork it.
+      - [ ] **Per-user resource access** · M · *only if the need arises* — sharing is agency→case
+            (`core.case_shares`), so "only these three investigators may see this case" is not
+            expressible. Need-to-know compartmentalisation is normal in law enforcement, and the
+            threat model is an insider in the owning agency. Not built because nobody has asked yet.
+
 - [ ] **Horizontal scaling — what breaks with more than one instance** · M · **TARGET CHOSEN
       2026-08-23 (user): horizontally scalable.** ⛔ **GATED ON REDIS**, which is gated on the Render
       tier — `/ready` currently reports `redis: unreachable`. Audited for module-level mutable state,

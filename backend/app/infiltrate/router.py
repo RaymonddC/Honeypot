@@ -21,10 +21,20 @@ from typing import Literal
 from urllib.parse import parse_qsl
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from app.core.adapters import get_adapter
 from app.core.audit import ENTITY_REVIEWED, record_action
 from app.core.auth import AuthContext, get_current_user, require_capability
 from app.core.capabilities import HONEYPOT_ENGAGE, HONEYPOT_READ
@@ -49,8 +59,11 @@ from app.infiltrate.service import (
     TurnOut,
     TurnRequest,
 )
+import secrets
+
 from app.infiltrate.telephony import (
     build_say_and_hangup_twiml,
+    build_stream_twiml,
     verify_twilio_signature,
 )
 from app.infiltrate.voice import (
@@ -526,12 +539,122 @@ async def post_telephony_voice(request: Request) -> Response:
         )
 
     logger.info("telephony: answered call %s", params.get("CallSid", "<no sid>"))
+
+    # Hand the call to the media bridge when one can actually be reached.
+    # Pointing Twilio at a socket nobody serves connects a real caller to
+    # silence, so both preconditions are checked: a public base URL (Twilio
+    # dials it from the internet) and a stream token (the socket refuses
+    # without one). Missing either, fall back to speaking a line and hanging
+    # up — a short, polite call beats an open line playing nothing.
+    if settings.public_base_url and settings.telephony_stream_token:
+        wss = (
+            settings.public_base_url.rstrip("/").replace("https://", "wss://", 1)
+            .replace("http://", "ws://", 1)
+            + f"/api/telephony/stream?token={settings.telephony_stream_token}"
+        )
+        try:
+            return Response(
+                content=build_stream_twiml(wss, greeting=None),
+                media_type="application/xml",
+            )
+        except ValueError as exc:
+            # build_stream_twiml refuses ws:// and non-websocket URLs. A
+            # misconfigured base URL must not silently degrade to a dead socket.
+            logger.error("telephony: cannot build a stream URL (%s) — saying goodbye", exc)
+
     return Response(
         content=build_say_and_hangup_twiml(
             "Halo, terima kasih sudah menghubungi. Sampai jumpa."
         ),
         media_type="application/xml",
     )
+
+
+@router.websocket("/telephony/stream")
+async def telephony_stream(websocket: WebSocket) -> None:
+    """Twilio Media Streams socket — the live call itself.
+
+    **Authenticated by a token in the URL, not by our JWT.** Twilio cannot
+    present a bearer token on a WebSocket, and unlike its webhooks it does not
+    sign stream frames — the answer TwiML is the only thing we control, so the
+    secret rides in the URL we put there. Compared with ``compare_digest`` so a
+    wrong token cannot be found one character at a time.
+
+    Refuses when no token is configured: an open socket is an LLM bill and, worse,
+    a way to fabricate a "call" in an evidentiary record.
+    """
+    settings = get_settings()
+    expected = settings.telephony_stream_token
+    supplied = websocket.query_params.get("token", "")
+    if not expected or not secrets.compare_digest(supplied, expected):
+        # Close BEFORE accepting: never run a persona for an unauthenticated peer.
+        await websocket.close(code=1008)
+        logger.warning(
+            "telephony: rejected a media stream (token configured: %s)", bool(expected)
+        )
+        return
+
+    await websocket.accept()
+
+    from app.infiltrate import service
+    from app.infiltrate.bridge import MediaBridge, pcm_from_tts
+
+    # Boundary adapters, resolved for the infiltrate module's effective MODE —
+    # the same path every other adapter takes, so a LIVE deployment gets the
+    # LIVE ones without a second selection mechanism here.
+    stt = get_adapter("stt", "infiltrate", settings)
+    tts = get_adapter("tts", "infiltrate", settings)
+
+    async def transcribe(pcm16: bytes) -> str:
+        return await stt.transcribe(pcm16)
+
+    async def reply(session_id: str | None, text: str) -> str:
+        if not session_id:
+            return ""
+        result = await service.run_one_turn(session_id, text, None)
+        return getattr(result, "reply", "") or ""
+
+    async def synthesize(text: str) -> tuple[bytes, int]:
+        spoken = await tts.synthesize(text)
+        if not spoken.audio_bytes:
+            return b"", 8000
+        return pcm_from_tts(spoken.audio_bytes, spoken.mime_type)
+
+    # ⚠️ INBOUND SESSION CREATION IS NOT WIRED, and this refuses rather than
+    # running a persona that cannot answer.
+    #
+    # An inbound call needs an agency to file the session under, and the only
+    # honest source is the honeypot NUMBER that was dialled — `honeypot.numbers`
+    # carries `agency_id`. But that table is RLS-scoped by agency, so reading it
+    # requires knowing the agency we are trying to look up: the same chicken-
+    # and-egg `worker_session` solves with an owner-role read, and adding a
+    # second RLS-bypass path is a decision to take deliberately rather than in
+    # passing (docs/Security-Evidence.md §2).
+    #
+    # Until then: accept, log, close. A socket that stays open with a mute
+    # persona is worse than a refused one — the caller hears silence on an
+    # answered call, which is the exact failure the answer webhook already
+    # avoids by not pointing at a socket nobody serves.
+    async def _no_session(_call_sid: str) -> str | None:
+        logger.error(
+            "telephony: inbound session creation is not wired — refusing the "
+            "stream rather than answering with a mute persona. Needs "
+            "number->agency resolution (see the comment in this handler)."
+        )
+        return None
+
+    bridge = MediaBridge(
+        transcribe=transcribe, reply=reply, synthesize=synthesize,
+        on_start=_no_session,
+    )
+    try:
+        state = await bridge.handle(websocket)
+        logger.info(
+            "telephony: stream for call %s ended after %d turn(s)",
+            state.call_sid, state.turns,
+        )
+    except WebSocketDisconnect:
+        logger.info("telephony: caller hung up")
 
 
 @router.get("/infiltrate/ping")

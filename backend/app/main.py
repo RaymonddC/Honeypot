@@ -5,7 +5,7 @@ import secrets
 from contextlib import asynccontextmanager
 
 import httpx
-from fastapi import FastAPI, Request, Response
+from fastapi import Depends, FastAPI, Request, Response
 from fastapi.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from app.auth.router import router as auth_router
 from app.cases.router import router as cases_router
 from app.casedata.router import router as casedata_router
+from app.core.auth import require_crypto_enabled
 from app.core.config import get_settings
 from app.core.db import engine
 from app.core.requests import (
@@ -236,11 +237,21 @@ def create_app() -> FastAPI:
             media_type="text/plain; version=0.0.4; charset=utf-8",
         )
 
+    # TAKEDOWN is crypto in its entirety — wallet graph, risk scoring,
+    # investigations — so the whole module is gated at the mount point rather
+    # than endpoint by endpoint. A router-level dependency cannot be forgotten
+    # when someone adds the next route, which is exactly how a feature gate
+    # springs a leak.
+    app.include_router(
+        takedown_router,
+        prefix="/api",
+        dependencies=[Depends(require_crypto_enabled)],
+    )
+
     for router in (
         auth_router,
         infiltrate_router,
         trace_router,
-        takedown_router,
         uncover_router,
         intel_router,
         casedata_router,

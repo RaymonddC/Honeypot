@@ -16,6 +16,7 @@ screens (`/home`, `/case`, `/guide`) now front the four pillars. Source: `../PID
 | Doc | What it covers |
 |---|---|
 | **[ITTU-Development-Plan.md](ITTU-Development-Plan.md)** | Master plan — research briefing, reuse map, locked decisions, backlog. Start here. |
+| **[Ecosystem-Strategy.md](Ecosystem-Strategy.md)** | The three-layer B2C/B2G ecosystem, reviewed against what is built — legal exposure in Layer 1, the auto-deploy vs Polri-supervision contradiction, and where the plan says "automatic LTKM" but the code deliberately does not. |
 | **[MVP-Scope.md](MVP-Scope.md)** | Hackathon MVP: Gary's 4 screens + honeypot; "real architecture, run lean"; roadmap. |
 | **[Data-Model.md](Data-Model.md)** | Postgres schema + RLS + Neo4j graph model + custody + POC/LIVE isolation. |
 | **[Adapter-MODE-Framework.md](Adapter-MODE-Framework.md)** | The POC↔LIVE toggle backbone — interfaces, config, registry. |
@@ -37,6 +38,7 @@ screens (`/home`, `/case`, `/guide`) now front the four pillars. Source: `../PID
 | **[Deploy.md](Deploy.md)** | Vercel (frontend) + Render (backend) Blueprint, env vars, migrations. |
 | **[Wallet-Risk-Scoring-Rules.md](Wallet-Risk-Scoring-Rules.md)** | What the risk score actually computes, which constants are unvalidated, and what the bands should mean. Read §4. |
 | **[Live-Voice-Calls.md](Live-Voice-Calls.md)** | Voice call modes (live-mic shipped) + path to real telephony (Twilio/PSTN). |
+| **[Voice-Honeypot-Inbound.md](Voice-Honeypot-Inbound.md)** | The honeypot that needs no authorisation — why inbound differs from outbound, and where to seed numbers so scammers find them. **Read before the outbound doc.** |
 | **[Voice-Honeypot-Outbound.md](Voice-Honeypot-Outbound.md)** | Outbound calling: number pool, dial campaigns, the call log, triage → case. Built except real telephony. |
 
 ---
