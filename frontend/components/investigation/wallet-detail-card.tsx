@@ -256,7 +256,7 @@ export function WalletDetailCard({
                         ? "#ef4444"
                         : f.percentile >= 40
                           ? "#f5a524"
-                          : "#10b981";
+                          : "#4ade80";
                     const on = hoverFactor === f.name;
                     return (
                       <div

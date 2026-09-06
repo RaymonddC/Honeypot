@@ -114,7 +114,7 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
                   {t("heroBaseline", { trendNow: data.trendNow })}
                 </div>
               </div>
-              <span className="ml-auto hidden flex-none rounded-md border border-accent/30 bg-accent/10 px-2 py-1 font-mono text-[11px] font-semibold text-accent-bright sm:block">
+              <span className="ml-auto hidden flex-none rounded-full border border-accent/30 bg-accent/10 px-2 py-1 font-mono text-[11px] font-semibold text-accent-bright sm:block">
                 {data.trendTag}
               </span>
             </div>

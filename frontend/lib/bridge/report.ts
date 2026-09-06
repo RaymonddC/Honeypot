@@ -87,7 +87,7 @@ export function buildTraceReportHtml(
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BridgeWatch Trace Report${caseTitle ? ` — ${esc(caseTitle)}` : ""}</title>
 <style>
-  :root { --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --accent:#0d9488; --bg:#f8fafc; }
+  :root { --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --accent:#0b5394; --bg:#f8fafc; }
   * { box-sizing:border-box; }
   body { margin:0; font:14px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; color:var(--ink); background:#fff; }
   .wrap { max-width:820px; margin:0 auto; padding:40px 36px 64px; }

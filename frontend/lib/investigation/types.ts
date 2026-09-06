@@ -98,10 +98,10 @@ export interface WalletDetail {
 export type DataSource = "api" | "mock";
 
 export const RISK_COLORS: Record<RiskLevel, string> = {
-  low: "#10b981",
+  low: "#4ade80",
   medium: "#f5a524",
   high: "#ef4444",
-  exchange: "#06b6d4",
+  exchange: "#33adff",
 };
 
 export const RISK_LABELS: Record<RiskLevel, string> = {

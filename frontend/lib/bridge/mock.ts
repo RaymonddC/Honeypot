@@ -20,15 +20,15 @@ import { CYAN, AMBER } from "./types";
 export const MOCK_SANKEY: BridgeSankeyData = {
   nodes: [
     // fiat · simulated (amber)
-    { id: "qris-a", name: "QRIS shell merchants · cluster A", label: "QRIS merchants", color: "#f5a524" },
-    { id: "qris-b", name: "QRIS shell merchants · cluster B", color: "#f5a524" },
-    { id: "qris-c", name: "QRIS shell merchants · cluster C", color: "#f5a524" },
-    { id: "mule-a", name: "Mule accounts · M-07 / M-03", label: "Mule accounts", color: "#f59e0b" },
-    { id: "mule-b", name: "Mule accounts · M-11 / M-04", color: "#f59e0b" },
+    { id: "qris-a", name: "QRIS shell merchants · cluster A", label: "QRIS merchants", color: "#7a7f87" },
+    { id: "qris-b", name: "QRIS shell merchants · cluster B", color: "#7a7f87" },
+    { id: "qris-c", name: "QRIS shell merchants · cluster C", color: "#7a7f87" },
+    { id: "mule-a", name: "Mule accounts · M-07 / M-03", label: "Mule accounts", color: "#9aa0a8" },
+    { id: "mule-b", name: "Mule accounts · M-11 / M-04", color: "#9aa0a8" },
     // bridge → crypto · real TRON (cyan → sky → blue)
-    { id: "exchange", name: "Exchange deposits · Indodax / Tokocrypto / Reku", label: "Exchange deposits", color: "#06b6d4" },
-    { id: "usdt", name: "USDT-TRC20 wallets", label: "USDT wallets", color: "#0ea5e9" },
-    { id: "foreign", name: "Foreign destinations", label: "Foreign", color: "#3b82f6" },
+    { id: "exchange", name: "Exchange deposits · Indodax / Tokocrypto / Reku", label: "Exchange deposits", color: "#0088e6" },
+    { id: "usdt", name: "USDT-TRC20 wallets", label: "USDT wallets", color: "#0099ff" },
+    { id: "foreign", name: "Foreign destinations", label: "Foreign", color: "#4b5563" },
   ],
   // Values = mockup link weights (relative flow volume).
   links: [

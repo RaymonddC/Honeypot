@@ -101,11 +101,11 @@ export interface BridgeData {
 /* ── Colors (mockup fiat→crypto ramp) ──────────────────────────────────── */
 
 /** Node fill by Sankey depth: QRIS → mules → exchange → USDT. */
-export const STAGE_COLORS = ["#f5a524", "#f59e0b", "#06b6d4", "#0ea5e9"];
+export const STAGE_COLORS = ["#7a7f87", "#9aa0a8", "#0088e6", "#0099ff"];
 /** Foreign-destination endpoints get the deep-blue end of the ramp. */
-export const FOREIGN_COLOR = "#3b82f6";
+export const FOREIGN_COLOR = "#4b5563";
 
-export const CYAN = "#06b6d4";
+export const CYAN = "#33adff";
 export const AMBER = "#f5a524";
 export const HIGH = "#ef4444";
 

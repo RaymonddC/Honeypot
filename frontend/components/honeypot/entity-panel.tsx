@@ -62,7 +62,7 @@ function PromoteControl({
             onTraceWallet(full);
           }}
           title={t("traceAttachTitle")}
-          className="flex-none rounded-md border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent-bright transition-colors hover:bg-accent/20 disabled:opacity-40"
+          className="flex-none rounded-full border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent-bright transition-colors hover:bg-accent/20 disabled:opacity-40"
         >
           {state === "busy" ? "…" : t("trace")}
         </button>
@@ -71,7 +71,7 @@ function PromoteControl({
       <Link
         href={`/investigation?address=${encodeURIComponent(full)}`}
         title={t("traceTitle")}
-        className="flex-none rounded-md border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent-bright transition-colors hover:bg-accent/20"
+        className="flex-none rounded-full border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent-bright transition-colors hover:bg-accent/20"
       >
         {t("trace")}
       </Link>
@@ -118,7 +118,7 @@ function PromoteControl({
           }
         }}
         title={activeCaseId ? t("trackTitle") : t("openCaseTitle")}
-        className="flex-none rounded-md border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent-bright transition-colors hover:bg-accent/20 disabled:opacity-40"
+        className="flex-none rounded-full border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent-bright transition-colors hover:bg-accent/20 disabled:opacity-40"
       >
         {state === "busy" ? "…" : state === "err" ? t("retry") : t("addCase")}
       </button>

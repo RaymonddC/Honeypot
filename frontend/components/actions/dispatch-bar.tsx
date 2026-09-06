@@ -41,7 +41,7 @@ export function DispatchBar({
             <button
               type="button"
               onClick={() => setShowReceipt(true)}
-              className="h-7 rounded-lg border border-accent/30 bg-accent/10 px-3 text-[11px] font-semibold text-accent-bright transition-colors hover:bg-accent/20"
+              className="h-7 rounded-full border border-accent/30 bg-accent/10 px-3 text-[11px] font-semibold text-accent-bright transition-colors hover:bg-accent/20"
             >
               ⧉ {t("receipt")}
             </button>
@@ -69,7 +69,7 @@ export function DispatchBar({
             className={`h-7 rounded-lg px-3.5 text-[11px] font-semibold transition-colors disabled:opacity-60 ${
               armed
                 ? "bg-risk-high text-white hover:bg-risk-high/90"
-                : "bg-accent text-[#04140d] shadow-[0_0_16px_rgba(16,185,129,.28)] hover:bg-accent-bright"
+                : "bg-accent text-[#090909] shadow-[0_0_16px_rgba(255, 255, 255,.28)] hover:bg-accent-bright"
             }`}
           >
             {bundle.dispatched

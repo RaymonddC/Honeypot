@@ -33,7 +33,7 @@ const TOOLS: Tool[] = [
 function Glyph({ children }: { children: React.ReactNode }) {
   return (
     <span
-      className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-accent/10 text-base text-accent-bright"
+      className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-accent/10 text-base text-accent-bright"
       aria-hidden
     >
       {children}
@@ -99,7 +99,7 @@ export default function HomePage() {
               <div className="flex gap-2">
                 <Link
                   href="/case"
-                  className="h-9 rounded-lg bg-accent px-4 text-xs font-semibold leading-9 text-[#04140d] transition-colors hover:bg-accent-bright"
+                  className="h-9 rounded-full bg-accent px-4 text-xs font-semibold leading-9 text-[#090909] transition-colors hover:bg-accent-bright"
                 >
                   {t("continueCase")}
                 </Link>
@@ -127,7 +127,7 @@ export default function HomePage() {
                 type="button"
                 onClick={startReport}
                 disabled={creating}
-                className="h-9 rounded-lg bg-accent px-4 text-xs font-semibold text-[#04140d] transition-colors hover:bg-accent-bright disabled:opacity-60"
+                className="h-9 rounded-full bg-accent px-4 text-xs font-semibold text-[#090909] transition-colors hover:bg-accent-bright disabled:opacity-60"
               >
                 {creating ? t("opening") : t("newReportCta")}
               </button>
@@ -188,7 +188,7 @@ export default function HomePage() {
           </div>
           <button
             type="submit"
-            className="h-[38px] rounded-lg bg-accent px-4 text-xs font-semibold text-[#04140d] transition-colors hover:bg-accent-bright"
+            className="h-[38px] rounded-full bg-accent px-4 text-xs font-semibold text-[#090909] transition-colors hover:bg-accent-bright"
           >
             {t("trace")}
           </button>

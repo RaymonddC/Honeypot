@@ -17,7 +17,7 @@ function Splash() {
   return (
     <div className="flex h-screen items-center justify-center bg-bg">
       <div className="flex items-center gap-2.5 text-muted">
-        <span className="flex h-7 w-7 animate-pulse items-center justify-center rounded-md bg-accent/15 font-mono text-xs font-bold text-accent-bright">
+        <span className="flex h-7 w-7 animate-pulse items-center justify-center rounded-full bg-accent/15 font-mono text-xs font-bold text-accent-bright">
           IT
         </span>
         <span className="text-sm tracking-wide">{t("appName")}</span>
@@ -26,18 +26,23 @@ function Splash() {
   );
 }
 
+// Routes that render bare (no shell, no auth): the public marketing landing and
+// the login screen. Everything else requires a session.
+const PUBLIC_ROUTES = new Set(["/", "/login"]);
+
 export function AppGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { status } = useAuth();
   const isLogin = pathname === "/login";
+  const isPublic = PUBLIC_ROUTES.has(pathname);
 
   useEffect(() => {
-    if (!isLogin && status === "anon") router.replace("/login");
+    if (!isPublic && status === "anon") router.replace("/login");
     if (isLogin && status === "authed") router.replace("/home");
-  }, [isLogin, status, router]);
+  }, [isPublic, isLogin, status, router]);
 
-  if (isLogin) return <>{children}</>;
+  if (isPublic) return <>{children}</>;
   if (status !== "authed") return <Splash />;
   return <AppShell>{children}</AppShell>;
 }

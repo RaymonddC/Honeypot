@@ -53,11 +53,11 @@ export function BridgePanel({
   const router = useRouter();
   // Sankey colour key (fiat → crypto ramp) — shown under the chart.
   const legend: Array<[string, string]> = [
-    ["#f5a524", t("legend.qrisFiat")],
-    ["#f59e0b", t("legend.muleAccounts")],
-    ["#06b6d4", t("legend.exchange")],
-    ["#0ea5e9", t("legend.usdtWallets")],
-    ["#3b82f6", t("legend.foreign")],
+    ["#7a7f87", t("legend.qrisFiat")],
+    ["#9aa0a8", t("legend.muleAccounts")],
+    ["#0088e6", t("legend.exchange")],
+    ["#0099ff", t("legend.usdtWallets")],
+    ["#4b5563", t("legend.foreign")],
   ];
   const [data, setData] = useState<BridgeData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -150,7 +150,7 @@ export function BridgePanel({
                 ? t("scoreTopOnRampTitle")
                 : t("scoreWalletsTitle")
             }
-            className="h-8 rounded-lg bg-accent px-3.5 text-xs font-semibold text-[#04140d] shadow-[0_0_16px_rgba(16,185,129,.28)] transition-colors hover:bg-accent-bright"
+            className="h-8 rounded-full bg-accent px-3.5 text-xs font-semibold text-[#090909] shadow-[0_0_16px_rgba(255, 255, 255,.28)] transition-colors hover:bg-accent-bright"
           >
             {t("scoreWallets")}
           </button>
@@ -176,7 +176,7 @@ export function BridgePanel({
               <div className="grid grid-cols-3 px-1.5 pb-1 text-[10px] font-bold uppercase tracking-[.08em]">
                 <span className="text-muted">{t("fiatSimulated")}</span>
                 <span className="text-center text-risk-med">{t("bridgeLabel")}</span>
-                <span className="text-right text-[#06b6d4]">
+                <span className="text-right text-[#0099ff]">
                   {t("cryptoRealTron")}
                 </span>
               </div>
@@ -198,18 +198,18 @@ export function BridgePanel({
                 <div className="mb-3.5 rounded-card border border-accent/30 bg-accent/[.06]">
                   <div className="flex items-center justify-between border-b border-accent/20 px-3.5 py-2.5">
                     <span className="eyebrow text-accent-bright">{t("caseOnRamp")}</span>
-                    <span className="rounded-md border border-accent/30 bg-accent/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-accent-bright">
+                    <span className="rounded-full border border-accent/30 bg-accent/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-accent-bright">
                       conf {caseBridge.confidence.toFixed(2)}
                     </span>
                   </div>
                   <div className="px-3.5 py-3">
                     {/* fiat account → crypto wallet, the bridge the honeypot surfaced */}
                     <div className="flex items-center gap-2 text-[11px]">
-                      <span className="rounded-md bg-[#f5a524]/15 px-1.5 py-0.5 font-mono text-[10.5px] text-[#f5a524]">
+                      <span className="rounded-md bg-[#8b93a1]/15 px-1.5 py-0.5 font-mono text-[10.5px] text-[#8b93a1]">
                         {caseBridge.bankLabel}
                       </span>
                       <span className="text-muted" aria-hidden>→</span>
-                      <span className="min-w-0 flex-1 truncate rounded-md bg-[#06b6d4]/15 px-1.5 py-0.5 font-mono text-[10.5px] text-[#22d3ee]">
+                      <span className="min-w-0 flex-1 truncate rounded-md bg-[#0099ff]/15 px-1.5 py-0.5 font-mono text-[10.5px] text-[#33adff]">
                         {caseBridge.wallet}
                       </span>
                     </div>
@@ -226,7 +226,7 @@ export function BridgePanel({
                     <button
                       type="button"
                       onClick={() => goTakedown(caseBridge.wallet)}
-                      className="mt-2.5 h-7 w-full rounded-lg bg-accent px-3 text-[11px] font-semibold text-[#04140d] transition-colors hover:bg-accent-bright"
+                      className="mt-2.5 h-7 w-full rounded-full bg-accent px-3 text-[11px] font-semibold text-[#090909] transition-colors hover:bg-accent-bright"
                     >
                       {t("traceThisWallet")}
                     </button>

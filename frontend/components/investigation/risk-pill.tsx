@@ -8,7 +8,7 @@ const STYLES: Record<RiskLevel, string> = {
   high: "bg-risk-high/[.13] text-risk-high",
   medium: "bg-risk-med/[.13] text-risk-med",
   low: "bg-risk-low/[.12] text-risk-low",
-  exchange: "bg-[#06b6d4]/[.13] text-[#06b6d4]",
+  exchange: "bg-[#33adff]/[.13] text-[#33adff]",
 };
 
 export function RiskPill({

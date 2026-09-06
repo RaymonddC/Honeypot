@@ -59,14 +59,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // pre-hydration script (app/layout.tsx) already painted the right class
   // by the time this runs, so this effect only needs to sync REACT's copy
   // of the choice from storage — the DOM is already correct.
-  const [theme, setThemeState] = useState<ThemeChoice>("system");
+  // Dark is the default ground (Framer near-black); the pre-paint init script
+  // already added .dark for a first visit, so this just syncs React's copy.
+  const [theme, setThemeState] = useState<ThemeChoice>("dark");
 
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (isThemeChoice(stored)) setThemeState(stored);
+      setThemeState(isThemeChoice(stored) ? stored : "dark");
     } catch {
-      // localStorage unavailable — stay on "system".
+      // localStorage unavailable — stay on the dark default.
     }
   }, []);
 

@@ -42,6 +42,43 @@ TYPOLOGY_DETECTORS = [
 ]
 
 
+class Benchmark(BaseModel):
+    """A measured accuracy result on the full Elliptic Data Set, recorded
+    offline (the 200k CSVs are not vendored). Kept as a static, honest record
+    so the card tells the truth even where ``run_validation()`` falls back to a
+    synthetic sample."""
+
+    method: str
+    dataset: str
+    roc_auc: float
+    precision: float
+    recall: float
+    f1: float
+    note: str
+
+
+# ── Measured offline on the FULL Elliptic Data Set (203,769 tx · 46,564 labelled).
+#    Reproduce: scripts/validate_elliptic.py (unsupervised) and
+#    scripts/benchmark_supervised_elliptic.py (supervised), with ITTU_ELLIPTIC_DIR set.
+UNSUPERVISED_ELLIPTIC = Benchmark(
+    method="Isolation Forest (unsupervised — the production anomaly component)",
+    dataset="Elliptic full (203,769 tx, 46,564 labelled, 4,545 illicit)",
+    roc_auc=0.0995, precision=0.0004, recall=0.0002, f1=0.0003,
+    note="Anomaly detection ALONE underperforms on real laundering data — illicit "
+         "tx are not statistical outliers. This is precisely why TAKEDOWN does not "
+         "rely on the Isolation Forest alone; the decisive signal comes from the 5 "
+         "deterministic typology detectors + honeypot-confirmed labels.",
+)
+SUPERVISED_BENCHMARK = Benchmark(
+    method="RandomForest (supervised BENCHMARK — requires labels; not production)",
+    dataset="Elliptic labelled · temporal split (train time-step ≤34, test ≥35)",
+    roc_auc=0.9321, precision=0.9818, recall=0.6962, f1=0.8147,
+    note="Ceiling benchmark: the feature space IS learnable with labels. NOT ITTU's "
+         "live metric — production is unsupervised because no labelled Indonesian "
+         "crypto data exists. Reported only to characterise the data, not the system.",
+)
+
+
 class ModelCard(BaseModel):
     """TAKEDOWN anomaly-model card: what it is + how it validates."""
 
@@ -52,6 +89,9 @@ class ModelCard(BaseModel):
     features: list[str]
     typology_detectors: list[str]
     elliptic_validation: EllipticValidationReport
+    # Static, measured-offline results on the full dataset (honest even in prod,
+    # where run_validation() above falls back to a synthetic sample).
+    benchmarks: list[Benchmark]
 
 
 @lru_cache(maxsize=1)
@@ -65,6 +105,7 @@ def _model_card() -> ModelCard:
         features=list(FEATURE_ORDER),
         typology_detectors=list(TYPOLOGY_DETECTORS),
         elliptic_validation=run_validation(),
+        benchmarks=[UNSUPERVISED_ELLIPTIC, SUPERVISED_BENCHMARK],
     )
 
 

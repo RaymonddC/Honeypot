@@ -86,8 +86,8 @@ export const RANGE_LABELS: Record<RangeKey, string> = {
 
 /* ── Colors (mockup tokens) ────────────────────────────────────────────── */
 
-export const EMERALD = "#34d399";
-export const CYAN = "#06b6d4";
+export const EMERALD = "#0099ff";
+export const CYAN = "#33adff";
 
 /** IASC baseline the recovery rate is benchmarked against. */
 export const BASELINE_RECOVERY_PCT = 4.76;

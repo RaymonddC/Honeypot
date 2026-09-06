@@ -163,7 +163,7 @@ export function CaseSwitcher() {
                 <button
                   type="submit"
                   disabled={busy}
-                  className="h-7 flex-1 rounded-md bg-accent text-[11px] font-semibold text-[#04140d] hover:bg-accent-bright disabled:opacity-50"
+                  className="h-7 flex-1 rounded-full bg-accent text-[11px] font-semibold text-[#090909] hover:bg-accent-bright disabled:opacity-50"
                 >
                   {busy ? t("opening") : t("openCase")}
                 </button>

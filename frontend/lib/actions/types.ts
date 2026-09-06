@@ -90,9 +90,9 @@ export const STATUS_COLORS: Record<DispatchStatus, string> = {
   draft: "rgba(255,255,255,.34)",
   mock: "#f5a524",
   queued: "#f5a524",
-  sending: "#38bdf8",
-  sent: "#34d399",
-  acknowledged: "#34d399",
+  sending: "#33adff",
+  sent: "#0099ff",
+  acknowledged: "#0099ff",
   failed: "#ef4444",
 };
 

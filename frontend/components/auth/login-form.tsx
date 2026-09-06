@@ -67,11 +67,11 @@ export function LoginForm() {
   const dispatch = canDispatch(role);
 
   return (
-    <div className="w-full rounded-xl border border-line bg-card p-4">
+    <div className="w-full rounded-[20px] border border-[#262626] bg-[#141414] p-4">
       {expired && (
         <p
           role="status"
-          className="mb-3 rounded-md border border-risk-med/30 bg-risk-med/10 px-3 py-2 text-xs leading-relaxed text-fg"
+          className="mb-3 rounded-[10px] border border-[#262626] bg-[#1c1c1c] px-3 py-2 text-xs leading-relaxed text-white"
         >
           <span className="font-medium">{t("sessionExpiredTitle")}</span>{" "}
           {t("sessionExpiredBody")}
@@ -81,9 +81,11 @@ export function LoginForm() {
           below is the demo path. */}
       <GoogleSignInButton />
 
-      {/* Agency picker — compact 2-col tile grid */}
+      {/* Agency picker — compact 2-col tile grid (selection = surface lift) */}
       <fieldset>
-        <legend className="eyebrow pb-1.5">{t("agencyLegend")}</legend>
+        <legend className="mb-1.5 text-[11px] font-medium uppercase tracking-widest text-[#999]">
+          {t("agencyLegend")}
+        </legend>
         <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label={t("agencyLegend")}>
           {AGENCIES.map((a) => {
             const active = a.id === agencyId;
@@ -95,15 +97,15 @@ export function LoginForm() {
                 aria-checked={active}
                 title={a.sub}
                 onClick={() => pickAgency(a.id)}
-                className={`flex cursor-pointer items-center gap-2 rounded-lg border px-2 py-1.5 text-left transition-colors ${
+                className={`flex cursor-pointer items-center gap-2 rounded-[10px] border px-2 py-1.5 text-left transition-colors ${
                   active
-                    ? "border-accent/40 bg-accent/10"
-                    : "border-line bg-elevated hover:border-fg/10 hover:bg-fg/[.04]"
+                    ? "border-white/20 bg-[#1c1c1c]"
+                    : "border-[#262626] bg-[#141414] hover:border-white/10 hover:bg-white/[.03]"
                 }`}
               >
                 <span
                   className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md font-mono text-[10px] font-bold ${
-                    active ? "bg-accent/20 text-accent-bright" : "bg-fg/[.05] text-muted"
+                    active ? "bg-white/10 text-white" : "bg-white/[.05] text-[#999]"
                   }`}
                   aria-hidden
                 >
@@ -111,7 +113,7 @@ export function LoginForm() {
                 </span>
                 <span
                   className={`min-w-0 truncate text-[12px] font-medium ${
-                    active ? "text-fg" : "text-fg/80"
+                    active ? "text-white" : "text-white/70"
                   }`}
                 >
                   {a.name}
@@ -122,9 +124,11 @@ export function LoginForm() {
         </div>
       </fieldset>
 
-      {/* Role picker */}
+      {/* Role picker — pill toggles */}
       <fieldset className="pt-3">
-        <legend className="eyebrow pb-1.5">{t("roleLegend")}</legend>
+        <legend className="mb-1.5 text-[11px] font-medium uppercase tracking-widest text-[#999]">
+          {t("roleLegend")}
+        </legend>
         <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={t("roleLegend")}>
           {agency.roles.map((r) => {
             const active = r === role;
@@ -135,10 +139,10 @@ export function LoginForm() {
                 role="radio"
                 aria-checked={active}
                 onClick={() => setRole(r)}
-                className={`cursor-pointer rounded-md border px-2.5 py-1 text-xs transition-colors ${
+                className={`cursor-pointer rounded-full border px-3 py-1 text-xs transition-colors ${
                   active
-                    ? "border-accent/40 bg-accent/10 font-medium text-accent-bright"
-                    : "border-line bg-elevated text-muted hover:border-fg/10 hover:text-fg"
+                    ? "border-white/20 bg-[#1c1c1c] font-medium text-white"
+                    : "border-[#262626] bg-[#141414] text-[#999] hover:border-white/10 hover:text-white"
                 }`}
               >
                 {roleLabel(r, tRoles)}
@@ -149,23 +153,24 @@ export function LoginForm() {
       </fieldset>
 
       {/* Capability — fixed two lines, so switching role never resizes the form */}
-      <div className="mt-3 rounded-lg border border-line bg-elevated px-2.5 py-2 text-[10.5px] leading-snug">
-        <div className="truncate text-muted">
-          <b className="text-fg/80">{agency.name}</b> · {t("ownData")}
+      <div className="mt-3 rounded-[10px] border border-[#262626] bg-[#1c1c1c] px-2.5 py-2 text-[10.5px] leading-snug">
+        <div className="truncate text-[#999]">
+          <b className="text-white/80">{agency.name}</b> · {t("ownData")}
         </div>
         <div className="mt-1 flex items-center gap-1.5 whitespace-nowrap">
           <span
-            className={`h-1.5 w-1.5 flex-none rounded-full ${dispatch ? "bg-accent" : "bg-risk-med"}`}
+            className="h-1.5 w-1.5 flex-none rounded-full"
+            style={{ background: dispatch ? "#0099ff" : "#666" }}
             aria-hidden
           />
-          <span className={dispatch ? "text-accent-bright" : "text-risk-med"}>
+          <span style={dispatch ? { color: "#0099ff" } : undefined} className={dispatch ? "" : "text-[#999]"}>
             {dispatch ? t("canDispatch") : t("receiveOnly")}
           </span>
         </div>
       </div>
 
       {error && (
-        <p role="alert" className="pt-2.5 text-xs leading-relaxed text-risk-high">
+        <p role="alert" className="pt-2.5 text-xs leading-relaxed text-[#ff5577]">
           {error}
         </p>
       )}
@@ -173,18 +178,19 @@ export function LoginForm() {
         <button
           type="button"
           onClick={() => loginOffline(agencyId, role)}
-          className="mt-2 w-full cursor-pointer rounded-md border border-dashed border-line bg-elevated px-3 py-1.5 text-xs text-muted transition-colors hover:border-fg/15 hover:text-fg"
+          className="mt-2 w-full cursor-pointer rounded-full border border-dashed border-[#333] bg-[#1c1c1c] px-3 py-1.5 text-xs text-[#999] transition-colors hover:border-white/15 hover:text-white"
         >
           {t("continueOffline")}
         </button>
       )}
 
-      {/* Enter */}
+      {/* Enter — the white pill CTA (Framer primary) */}
       <button
         type="button"
         onClick={submit}
         disabled={busy}
-        className="mt-3.5 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-[13px] font-semibold text-black transition-colors hover:bg-accent-bright disabled:cursor-default disabled:opacity-60"
+        className="mt-3.5 flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-white px-4 py-2.5 text-[13px] font-medium text-[#090909] transition-transform hover:brightness-95 active:scale-[.99] disabled:cursor-default disabled:opacity-60"
+        style={{ letterSpacing: "-0.14px" }}
       >
         {busy ? (
           <>
@@ -198,7 +204,7 @@ export function LoginForm() {
           t("enterConsole")
         )}
       </button>
-      <p className="pt-2 text-center text-[11px] text-muted">
+      <p className="pt-2 text-center text-[11px] text-[#999]">
         {t("footer")}
       </p>
     </div>

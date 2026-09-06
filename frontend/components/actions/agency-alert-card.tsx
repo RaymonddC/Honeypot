@@ -11,11 +11,12 @@ import { useTranslations } from "next-intl";
 import type { DispatchTarget } from "@/lib/actions/types";
 import { DOC_META, STATUS_COLORS, STATUS_LABELS } from "@/lib/actions/types";
 
+// Distinct category hues drawn from the Framer accent + gradient family.
 const TYPE_COLOR: Record<string, string> = {
-  regulator: "#34d399",
-  bank: "#0ea5e9",
-  exchange: "#06b6d4",
-  police: "#f5a524",
+  regulator: "#0099ff", // blue — the primary accent
+  bank: "#6a4cf5", // violet
+  exchange: "#d44df0", // magenta
+  police: "#ff7a3d", // orange
 };
 
 function typeOf(t: DispatchTarget): string {
@@ -61,7 +62,7 @@ export function AgencyAlertCard({
     <div className="flex flex-col rounded-card border border-line bg-card">
       {/* header */}
       <div className="flex items-center gap-2.5 border-b border-line px-3.5 py-2.5">
-        <div className="grid h-7 w-7 flex-none place-items-center rounded-lg bg-accent/10 text-sm text-accent-bright">
+        <div className="grid h-7 w-7 flex-none place-items-center rounded-full bg-accent/10 text-sm text-accent-bright">
           <span aria-hidden>{meta.icon}</span>
         </div>
         <div className="min-w-0">

@@ -36,15 +36,18 @@
 /* System dark (no explicit choice) — a neutral slate, never near-black. */
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
-    --bg: #14171c;                --bg-rgb: 20 23 28;
-    --sidebar: #191d23;           --sidebar-rgb: 25 29 35;
-    --card: #1c2027;              --card-rgb: 28 32 39;
-    --elevated: #23282f;          --elevated-rgb: 35 40 47;
-    --border: #323844;            --border-rgb: 50 56 68;
-    --fg: #e8eaed;                --fg-rgb: 232 234 237;
-    --fg-muted: #8b93a1;          --fg-muted-rgb: 139 147 161;
-    --accent: #5b8dfb;            --accent-rgb: 91 141 251;
-    --accent-bright: #7ba3ff;     --accent-bright-rgb: 123 163 255;
+    /* Framer dark canvas — near-black ground, charcoal surfaces, one blue accent. */
+    --bg: #090909;                --bg-rgb: 9 9 9;
+    --sidebar: #0c0c0c;           --sidebar-rgb: 12 12 12;
+    --card: #141414;              --card-rgb: 20 20 20;
+    --elevated: #1c1c1c;          --elevated-rgb: 28 28 28;
+    --border: #262626;            --border-rgb: 38 38 38;
+    --fg: #f4f4f5;                --fg-rgb: 244 244 245;
+    --fg-muted: #999999;          --fg-muted-rgb: 153 153 153;
+    /* Primary = white (bg-accent → white pills); accent-bright = the single blue
+       reserved for highlights, links & focus (DESIGN.md). */
+    --accent: #ffffff;            --accent-rgb: 255 255 255;
+    --accent-bright: #0099ff;     --accent-bright-rgb: 0 153 255;
     --risk-low: #4ade80;          --risk-low-rgb: 74 222 128;
     --risk-med: #f0a94e;          --risk-med-rgb: 240 169 78;
     --risk-high: #f87171;         --risk-high-rgb: 248 113 113;
@@ -54,15 +57,16 @@
 /* Explicit dark mode (.dark on <html>, e.g. from a theme toggle) — wins over
  * system preference in both directions since it's a plain class selector. */
 :root.dark {
-  --bg: #14171c;                --bg-rgb: 20 23 28;
-  --sidebar: #191d23;           --sidebar-rgb: 25 29 35;
-  --card: #1c2027;              --card-rgb: 28 32 39;
-  --elevated: #23282f;          --elevated-rgb: 35 40 47;
-  --border: #323844;            --border-rgb: 50 56 68;
-  --fg: #e8eaed;                --fg-rgb: 232 234 237;
-  --fg-muted: #8b93a1;          --fg-muted-rgb: 139 147 161;
-  --accent: #5b8dfb;            --accent-rgb: 91 141 251;
-  --accent-bright: #7ba3ff;     --accent-bright-rgb: 123 163 255;
+  /* Framer dark canvas — see the @media block above for rationale. */
+  --bg: #090909;                --bg-rgb: 9 9 9;
+  --sidebar: #0c0c0c;           --sidebar-rgb: 12 12 12;
+  --card: #141414;              --card-rgb: 20 20 20;
+  --elevated: #1c1c1c;          --elevated-rgb: 28 28 28;
+  --border: #262626;            --border-rgb: 38 38 38;
+  --fg: #f4f4f5;                --fg-rgb: 244 244 245;
+  --fg-muted: #999999;          --fg-muted-rgb: 153 153 153;
+  --accent: #ffffff;            --accent-rgb: 255 255 255;
+  --accent-bright: #0099ff;     --accent-bright-rgb: 0 153 255;
   --risk-low: #4ade80;          --risk-low-rgb: 74 222 128;
   --risk-med: #f0a94e;          --risk-med-rgb: 240 169 78;
   --risk-high: #f87171;         --risk-high-rgb: 248 113 113;
@@ -80,6 +84,14 @@ body {
 /* Figures always tabular */
 .tnum {
   font-variant-numeric: tabular-nums;
+}
+
+/* Framer poster cadence — headings carry tight negative tracking by default
+ * (utilities like `tracking-tight` still win where a component sets one). */
+h1,
+h2,
+h3 {
+  letter-spacing: -0.02em;
 }
 
 /* Section eyebrows — 10px uppercase, wide tracking (ELSA prose-elsa h2) */
@@ -111,9 +123,9 @@ body {
   scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
 }
 
-/* Visible focus rings (accessibility) */
+/* Visible focus rings (accessibility) — the single blue accent (DESIGN.md) */
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-bright);
   outline-offset: 2px;
 }
 
@@ -194,16 +206,16 @@ body {
   animation: login-breathe 8s ease-in-out infinite;
 }
 
-/* Quiet "secure session" heartbeat — a soft emerald ring. */
+/* Quiet "secure session" heartbeat — a soft blue ring (Framer accent). */
 @keyframes login-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+    box-shadow: 0 0 0 0 rgba(0, 153, 255, 0.5);
   }
   70% {
-    box-shadow: 0 0 0 5px rgba(16, 185, 129, 0);
+    box-shadow: 0 0 0 5px rgba(0, 153, 255, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    box-shadow: 0 0 0 0 rgba(0, 153, 255, 0);
   }
 }
 .login-pulse {

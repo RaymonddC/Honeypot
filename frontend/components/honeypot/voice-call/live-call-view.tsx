@@ -652,7 +652,7 @@ export function LiveCallView({
                 type="submit"
                 disabled={!textDraft.trim() || thinking}
                 aria-label={t("sendAriaLabel")}
-                className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/15 px-3 text-xs font-semibold text-accent-bright transition-colors hover:bg-accent/25 disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full border border-accent/40 bg-accent/15 px-3 text-xs font-semibold text-accent-bright transition-colors hover:bg-accent/25 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <SendIcon /> {t("send")}
               </button>

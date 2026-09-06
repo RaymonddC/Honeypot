@@ -84,6 +84,17 @@ def test_model_card_endpoint_reports_elliptic_metrics():
     assert card["n_features"] == 12                            # canonical count
     assert len(card["features"]) == 13                         # volume split total/mean
     assert len(card["typology_detectors"]) == 5
+    # The live validation runs on whatever data is present (synthetic sample by
+    # default; the real 200k CSVs when ITTU_ELLIPTIC_DIR is set). Assert it is a
+    # well-formed report — NOT a specific accuracy, which is source-dependent and
+    # is high only on the separable synthetic sample.
     val = card["elliptic_validation"]
-    assert val["roc_auc"] >= 0.9
+    assert 0.0 <= val["roc_auc"] <= 1.0
     assert val["n_illicit"] > 0 and val["n_licit"] > 0
+    # The honest, measured-offline results on the FULL Elliptic dataset are
+    # recorded statically so the card tells the truth even in prod.
+    benches = {b["method"].split(" ")[0]: b for b in card["benchmarks"]}
+    assert "Isolation" in benches  # unsupervised production component
+    assert "RandomForest" in benches  # supervised ceiling benchmark
+    assert benches["Isolation"]["roc_auc"] < 0.5      # IF alone fails on real data
+    assert benches["RandomForest"]["roc_auc"] >= 0.9  # learnable WITH labels

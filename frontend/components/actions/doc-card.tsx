@@ -68,7 +68,7 @@ export function DocCard({
     <div className="flex flex-col rounded-card border border-line bg-card">
       {/* header */}
       <div className="flex items-center gap-2.5 border-b border-line px-3.5 py-[13px]">
-        <div className="grid h-7 w-7 flex-none place-items-center rounded-lg bg-accent/10 text-sm text-accent-bright">
+        <div className="grid h-7 w-7 flex-none place-items-center rounded-full bg-accent/10 text-sm text-accent-bright">
           <span aria-hidden>{doc.icon}</span>
         </div>
         <div className="min-w-0">
@@ -81,7 +81,7 @@ export function DocCard({
               type="button"
               onClick={() => setShowDoc(true)}
               title={t("viewTitle")}
-              className="cursor-pointer rounded-md border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent-bright transition-colors hover:bg-accent/20"
+              className="cursor-pointer rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent-bright transition-colors hover:bg-accent/20"
             >
               ⧉ {t("view")}
             </button>

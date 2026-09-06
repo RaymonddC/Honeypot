@@ -99,7 +99,7 @@ function ModeBadge() {
     <span
       className={`rounded-md border px-2 py-0.5 font-mono text-[10px] font-bold tracking-widest ${
         mode === "LIVE"
-          ? "border-accent/40 bg-accent/10 text-accent-bright"
+          ? "border-[#0099ff]/40 bg-[#0099ff]/10 text-[#0099ff]"
           : "border-risk-med/40 bg-risk-med/10 text-risk-med"
       } ${config ? "" : "opacity-50"}`}
       title={title}
@@ -134,7 +134,7 @@ function ThemeToggle() {
       onClick={() => setTheme(THEME_CYCLE[theme])}
       title={t("title", { current: t(theme) })}
       aria-label={t("title", { current: t(theme) })}
-      className="flex h-7 w-7 flex-none items-center justify-center rounded-full border border-line bg-elevated text-[13px] text-muted transition-colors hover:border-accent/40 hover:text-fg"
+      className="flex h-7 w-7 flex-none items-center justify-center rounded-full border border-line bg-elevated text-[13px] text-muted transition-colors hover:border-white/40 hover:text-fg"
     >
       <span aria-hidden>{icon}</span>
     </button>
@@ -178,7 +178,7 @@ function UserMenu() {
         aria-expanded={open}
         aria-label={t("accountLabel", { name })}
         title={name}
-        className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-line bg-elevated text-[11px] font-semibold text-accent-bright transition-colors hover:border-accent/40"
+        className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-line bg-elevated text-[11px] font-semibold text-white transition-colors hover:border-white/40"
       >
         {initials}
       </button>
@@ -205,12 +205,12 @@ function UserMenu() {
               <span
                 className={`inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 text-[10px] ${
                   liveVerified
-                    ? "bg-accent/10 text-accent-bright"
+                    ? "bg-[#0099ff]/10 text-[#0099ff]"
                     : "bg-fg/[.05] text-muted"
                 }`}
               >
                 <span
-                  className={`h-1 w-1 rounded-full ${liveVerified ? "bg-accent" : "bg-muted"}`}
+                  className={`h-1 w-1 rounded-full ${liveVerified ? "bg-[#0099ff]" : "bg-muted"}`}
                   aria-hidden
                 />
                 {liveVerified ? t("sessionVerified") : t("offlineSession")}
@@ -259,7 +259,7 @@ function SidebarNav({
   return (
     <>
       <div className="flex items-center gap-2.5 px-5 py-5">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-sm font-bold text-white">
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-sm font-bold text-white">
           IT
         </span>
         <span className="text-[15px] font-semibold tracking-tight">{tCommon("appName")}</span>
@@ -273,8 +273,8 @@ function SidebarNav({
           aria-current={pathname === "/home" ? "page" : undefined}
           className={`mb-3 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
             pathname === "/home"
-              ? "bg-accent/10 text-accent-bright"
-              : "text-fg hover:bg-fg/[.04]"
+              ? "bg-[#1c1c1c] text-white"
+              : "text-white/70 hover:bg-white/[.04] hover:text-white"
           }`}
         >
           <span className="w-4 text-center text-[15px]" aria-hidden>⌂</span>
@@ -311,15 +311,15 @@ function SidebarNav({
                         aria-current={active ? "page" : undefined}
                         className={`flex items-center gap-2.5 rounded-lg px-3 py-2 transition-colors ${
                           active
-                            ? "bg-accent/10"
-                            : "hover:bg-fg/[.04]"
+                            ? "bg-[#1c1c1c]"
+                            : "hover:bg-white/[.04]"
                         }`}
                       >
                         <span
                           className={`flex h-6 w-6 flex-none items-center justify-center rounded-md text-[11px] font-bold ${
                             displayStep
                               ? active
-                                ? "bg-accent text-white"
+                                ? "bg-white text-[#090909]"
                                 : "bg-elevated text-muted"
                               : ""
                           } ${displayStep ? "" : "text-[15px]"}`}
@@ -330,7 +330,7 @@ function SidebarNav({
                         <span className="min-w-0">
                           <span
                             className={`block truncate text-[13.5px] leading-tight ${
-                              active ? "font-semibold text-accent-bright" : "font-medium text-fg"
+                              active ? "font-semibold text-white" : "font-medium text-white/70"
                             }`}
                           >
                             {t(item.labelKey)}
@@ -358,8 +358,8 @@ function SidebarNav({
           aria-current={pathname.startsWith("/guide") ? "page" : undefined}
           className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${
             pathname.startsWith("/guide")
-              ? "bg-accent/10 text-accent-bright"
-              : "text-fg hover:bg-fg/[.04]"
+              ? "bg-[#1c1c1c] text-white"
+              : "text-white/70 hover:bg-white/[.04] hover:text-white"
           }`}
         >
           <span className="w-4 text-center text-xs" aria-hidden>
@@ -373,8 +373,8 @@ function SidebarNav({
           aria-current={pathname.startsWith("/settings") ? "page" : undefined}
           className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${
             pathname.startsWith("/settings")
-              ? "bg-accent/10 text-accent-bright"
-              : "text-fg hover:bg-fg/[.04]"
+              ? "bg-[#1c1c1c] text-white"
+              : "text-white/70 hover:bg-white/[.04] hover:text-white"
           }`}
         >
           <span className="w-4 text-center text-xs" aria-hidden>

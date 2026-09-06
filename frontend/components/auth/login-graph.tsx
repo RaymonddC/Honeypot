@@ -39,7 +39,7 @@ export function LoginGraph({ className }: { className?: string }) {
           <g key={`e${i}`}>
             <line
               x1={s.x} y1={s.y} x2={t.x} y2={t.y}
-              stroke="rgba(16,185,129,0.09)"
+              stroke="rgba(255, 255, 255,0.09)"
               strokeWidth={1}
             />
             <line
@@ -54,7 +54,7 @@ export function LoginGraph({ className }: { className?: string }) {
       })}
       {NODES.map((n, i) => (
         <g key={`n${i}`}>
-          <circle cx={n.x} cy={n.y} r={n.r} fill="rgba(16,185,129,0.13)" />
+          <circle cx={n.x} cy={n.y} r={n.r} fill="rgba(255, 255, 255,0.13)" />
           <circle
             cx={n.x} cy={n.y} r={n.r}
             fill="none"

@@ -156,7 +156,7 @@ export function ActionsPanel({
             disabled={loading}
             onClick={() => void generate(true)}
             title={t("regenerateTitle")}
-            className="h-8 rounded-lg bg-accent px-3.5 text-xs font-semibold text-[#04140d] shadow-[0_0_16px_rgba(16,185,129,.28)] transition-colors hover:bg-accent-bright disabled:opacity-50"
+            className="h-8 rounded-full bg-accent px-3.5 text-xs font-semibold text-[#090909] shadow-[0_0_16px_rgba(255, 255, 255,.28)] transition-colors hover:bg-accent-bright disabled:opacity-50"
           >
             {loading
               ? t("generating")

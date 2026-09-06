@@ -269,7 +269,7 @@ function StageFlow({
                     past
                       ? "bg-accent/20 text-accent-bright"
                       : current
-                        ? "bg-accent text-[#04140d]"
+                        ? "bg-accent text-[#090909]"
                         : "border border-line text-muted"
                   }`}
                 >
@@ -396,7 +396,7 @@ function StageNav({
             }
             className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[11.5px] font-semibold transition-colors ${
               allDone
-                ? "bg-accent text-[#04140d] hover:bg-accent-bright"
+                ? "bg-accent text-[#090909] hover:bg-accent-bright"
                 : "border border-accent/40 bg-accent/10 text-accent-bright hover:bg-accent/20"
             }`}
           >
@@ -453,7 +453,7 @@ function NextAction({
           <button
             type="button"
             onClick={onOpen}
-            className="h-8 whitespace-nowrap rounded-lg bg-accent px-3.5 text-xs font-semibold leading-8 text-[#04140d] transition-colors hover:bg-accent-bright"
+            className="h-8 whitespace-nowrap rounded-full bg-accent px-3.5 text-xs font-semibold leading-8 text-[#090909] transition-colors hover:bg-accent-bright"
           >
             {a.cta} →
           </button>
@@ -936,9 +936,9 @@ function IntakeStage({
                 value={description} onChange={(e) => setDescription(e.target.value)} />
             </div>
 
-            <label className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-accent/30 bg-accent/[.06] px-3 py-2.5">
+            <label className="flex cursor-pointer items-center gap-2.5 rounded-full border border-accent/30 bg-accent/[.06] px-3 py-2.5">
               <input type="checkbox" checked={freezeNow} onChange={(e) => setFreezeNow(e.target.checked)}
-                className="h-4 w-4 accent-[#10b981]" />
+                className="h-4 w-4 accent-[#0099ff]" />
               <span className="text-[12px] text-fg">
                 <b className="text-accent-bright">{t("intake.continueToFreezeLabel")}</b>{" "}
                 {t("intake.continueToFreezeRest")}
@@ -952,7 +952,7 @@ function IntakeStage({
             )}
 
             <button type="submit" disabled={busy}
-              className="h-9 w-full rounded-lg bg-accent px-4 text-xs font-semibold text-[#04140d] transition-colors hover:bg-accent-bright disabled:opacity-60">
+              className="h-9 w-full rounded-full bg-accent px-4 text-xs font-semibold text-[#090909] transition-colors hover:bg-accent-bright disabled:opacity-60">
               {busy ? t("intake.working") : freezeNow ? t("intake.logAndContinue") : t("intake.logReport")}
             </button>
           </form>
@@ -1108,7 +1108,7 @@ function RecoveryStage({
           <div className="eyebrow mb-2.5">{t("recovery.recordOutcomeTitle")}</div>
           {closed ? (
             <div>
-              <p className="rounded-lg border border-accent/30 bg-accent/[.06] px-3 py-2 text-[12px] text-fg">
+              <p className="rounded-full border border-accent/30 bg-accent/[.06] px-3 py-2 text-[12px] text-fg">
                 {t("recovery.closedNotice")}
               </p>
               <button
@@ -1148,7 +1148,7 @@ function RecoveryStage({
                 type="button"
                 disabled={busy}
                 onClick={() => void recordOutcome()}
-                className="h-9 w-full rounded-lg bg-accent px-4 text-xs font-semibold text-[#04140d] transition-colors hover:bg-accent-bright disabled:opacity-60"
+                className="h-9 w-full rounded-full bg-accent px-4 text-xs font-semibold text-[#090909] transition-colors hover:bg-accent-bright disabled:opacity-60"
               >
                 {busy ? t("recovery.saving") : t("recovery.recordOutcomeAndClose")}
               </button>
@@ -1298,7 +1298,7 @@ export default function CaseFilePage() {
           />
           <button
             type="submit"
-            className="h-9 rounded-lg bg-accent px-4 text-xs font-semibold text-[#04140d] hover:bg-accent-bright"
+            className="h-9 rounded-full bg-accent px-4 text-xs font-semibold text-[#090909] hover:bg-accent-bright"
           >
             {t("noCase.openCase")}
           </button>
@@ -1417,7 +1417,7 @@ export default function CaseFilePage() {
                   });
                   setEditing(false);
                 }}
-                className="h-8 rounded-lg bg-accent px-3.5 text-[11.5px] font-semibold text-[#04140d] hover:bg-accent-bright"
+                className="h-8 rounded-full bg-accent px-3.5 text-[11.5px] font-semibold text-[#090909] hover:bg-accent-bright"
               >
                 {t("header.save")}
               </button>
@@ -1462,7 +1462,7 @@ export default function CaseFilePage() {
 
       {/* the ONE stage banner: what to do here + set/return controls */}
       {view !== "overview" && (
-        <div className="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-1.5 rounded-lg border border-accent/20 bg-accent/[.05] px-3 py-2">
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-1.5 rounded-full border border-accent/20 bg-accent/[.05] px-3 py-2">
           <p className="min-w-0 flex-1 text-[11.5px] leading-relaxed text-muted">
             <b className="text-accent-bright">{t(`stageLabel.${view}`)}</b>{" "}
             <span className="text-muted/70">· {viewToolLabel}</span> —{" "}
@@ -1492,7 +1492,7 @@ export default function CaseFilePage() {
 
       {/* Back/Next on the stage you're working — same validated control as Overview */}
       {view !== "overview" && view !== "closed" && view === activeCase.stage && (
-        <div className="mb-3 rounded-lg border border-accent/20 bg-accent/[.04] px-3 py-2.5">
+        <div className="mb-3 rounded-full border border-accent/20 bg-accent/[.04] px-3 py-2.5">
           <StageNav
             stage={activeCase.stage}
             rollup={rollup}
@@ -1624,7 +1624,7 @@ export default function CaseFilePage() {
                 {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
               <button type="submit" disabled={busy}
-                className="h-8 w-full rounded-lg bg-accent text-xs font-semibold text-[#04140d] hover:bg-accent-bright disabled:opacity-50">
+                className="h-8 w-full rounded-full bg-accent text-xs font-semibold text-[#090909] hover:bg-accent-bright disabled:opacity-50">
                 {busy ? t("overview.adding") : t("overview.addToCase")}
               </button>
             </form>
@@ -1667,7 +1667,7 @@ export default function CaseFilePage() {
                 {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
               <button type="submit" disabled={busy}
-                className="h-8 w-full rounded-lg bg-accent text-xs font-semibold text-[#04140d] hover:bg-accent-bright disabled:opacity-50">
+                className="h-8 w-full rounded-full bg-accent text-xs font-semibold text-[#090909] hover:bg-accent-bright disabled:opacity-50">
                 {busy ? t("overview.adding") : t("overview.addToCase")}
               </button>
             </form>

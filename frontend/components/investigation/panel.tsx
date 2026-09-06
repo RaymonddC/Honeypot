@@ -194,7 +194,7 @@ export function InvestigationPanel({
           {!onSendToActions && (
             <Link
               href="/actions"
-              className="flex h-8 items-center rounded-lg bg-accent px-3.5 text-xs font-semibold text-[#04140d] shadow-[0_0_16px_rgba(16,185,129,.28)] transition-colors hover:bg-accent-bright"
+              className="flex h-8 items-center rounded-full bg-accent px-3.5 text-xs font-semibold text-[#090909] shadow-[0_0_16px_rgba(255, 255, 255,.28)] transition-colors hover:bg-accent-bright"
             >
               {t("sendToActions")}
             </Link>
@@ -241,7 +241,7 @@ export function InvestigationPanel({
         <button
           type="submit"
           disabled={tracing || !address.trim()}
-          className="h-9 rounded-lg bg-accent px-4 text-xs font-semibold text-[#04140d] shadow-[0_0_16px_rgba(16,185,129,.28)] transition-colors hover:bg-accent-bright disabled:opacity-50"
+          className="h-9 rounded-full bg-accent px-4 text-xs font-semibold text-[#090909] shadow-[0_0_16px_rgba(255, 255, 255,.28)] transition-colors hover:bg-accent-bright disabled:opacity-50"
         >
           {tracing ? t("tracing") : t("traceWallet")}
         </button>
@@ -321,7 +321,7 @@ export function InvestigationPanel({
               title={t("packageForActionTitle")}
               className={`h-8 flex-none rounded-lg px-3 text-xs font-semibold transition-colors ${
                 detail.risk === "high" || detail.risk === "exchange"
-                  ? "bg-accent text-[#04140d] hover:bg-accent-bright"
+                  ? "bg-accent text-[#090909] hover:bg-accent-bright"
                   : "border border-accent/40 bg-accent/10 text-accent-bright hover:bg-accent/20"
               }`}
             >

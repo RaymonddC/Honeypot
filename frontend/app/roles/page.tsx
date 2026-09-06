@@ -209,7 +209,7 @@ export default function RolesPage() {
             type="button"
             onClick={create}
             disabled={!newName.trim() || busy === "__new__"}
-            className="cursor-pointer rounded-md border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs text-accent-bright transition-colors hover:bg-accent/15 disabled:cursor-not-allowed disabled:opacity-40"
+            className="cursor-pointer rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs text-accent-bright transition-colors hover:bg-accent/15 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy === "__new__" ? t("creating") : t("create")}
           </button>

@@ -10,9 +10,9 @@
 import { useTranslations } from "next-intl";
 
 const PROVIDER_COLOR: Record<string, string> = {
-  elevenlabs: "#34d399", // emerald — real natural voice
+  elevenlabs: "#0099ff", // emerald — real natural voice
   gemini: "#a78bfa", // violet
-  google: "#38bdf8", // cyan
+  google: "#33adff", // cyan
   browser: "#f5a524", // amber — fell back, NOT the real provider
 };
 

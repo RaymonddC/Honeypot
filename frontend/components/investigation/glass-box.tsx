@@ -53,7 +53,7 @@ export function GlassBox({ detail }: { detail: WalletDetail | null }) {
     <section className="mt-3.5 rounded-card border border-line bg-card">
       <div className="border-b border-line px-3.5 py-3">
         <div className="flex items-center justify-between">
-          <span className="eyebrow text-accent-bright" style={{ color: "#34d399" }}>
+          <span className="eyebrow text-accent-bright" style={{ color: "#0099ff" }}>
             {t("eyebrow")}
           </span>
           {detail && (

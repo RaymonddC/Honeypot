@@ -74,7 +74,7 @@ const SHELL = (title: string, body: string) => `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
 <style>
-  :root { --ink:#111827; --muted:#6b7280; --line:#d1d5db; --accent:#0d9488; }
+  :root { --ink:#111827; --muted:#6b7280; --line:#d1d5db; --accent:#0b5394; }
   * { box-sizing:border-box; }
   body { margin:0; background:#f3f4f6; color:var(--ink);
     font:13.5px/1.65 "Times New Roman", Georgia, serif; }

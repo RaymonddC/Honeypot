@@ -168,7 +168,7 @@ export function AddTransaction({
         <button
           type="submit"
           disabled={busy}
-          className="h-8 rounded-lg bg-accent px-4 text-xs font-semibold text-[#04140d] transition-colors hover:bg-accent-bright disabled:opacity-50"
+          className="h-8 rounded-full bg-accent px-4 text-xs font-semibold text-[#090909] transition-colors hover:bg-accent-bright disabled:opacity-50"
         >
           {busy ? t("adding") : t("addAndTrace")}
         </button>

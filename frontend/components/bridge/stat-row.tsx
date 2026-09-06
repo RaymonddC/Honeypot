@@ -40,9 +40,9 @@ function Metric({ meta, stat }: { meta: MetricMeta; stat: StatValue }) {
 export function StatRow({ stats }: { stats: BridgeStats }) {
   const t = useTranslations("bridge.statRow");
   const METRICS: MetricMeta[] = [
-    { key: "qrisInflow", label: t("qrisInflowLabel"), sub: t("qrisInflowSub"), dot: "#f5a524" },
-    { key: "bridgedToCrypto", label: t("bridgedToCryptoLabel"), sub: t("bridgedToCryptoSub"), dot: "#06b6d4" },
-    { key: "correlatedOnRamps", label: t("correlatedOnRampsLabel"), sub: t("correlatedOnRampsSub"), dot: "#34d399" },
+    { key: "qrisInflow", label: t("qrisInflowLabel"), sub: t("qrisInflowSub"), dot: "#7a7f87" },
+    { key: "bridgedToCrypto", label: t("bridgedToCryptoLabel"), sub: t("bridgedToCryptoSub"), dot: "#0088e6" },
+    { key: "correlatedOnRamps", label: t("correlatedOnRampsLabel"), sub: t("correlatedOnRampsSub"), dot: "#0099ff" },
   ];
   return (
     <div className="mb-3.5 grid grid-cols-3 gap-2.5">

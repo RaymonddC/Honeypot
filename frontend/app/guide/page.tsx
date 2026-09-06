@@ -63,7 +63,7 @@ function Card({
 function Glyph({ children }: { children: React.ReactNode }) {
   return (
     <span
-      className="flex h-7 w-7 flex-none items-center justify-center rounded-md bg-accent/10 text-sm text-accent-bright"
+      className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-accent/10 text-sm text-accent-bright"
       aria-hidden
     >
       {children}
@@ -202,8 +202,8 @@ export default function GuidePage() {
               })}
             </p>
           </div>
-          <div className="rounded-lg border border-accent/30 bg-accent/[.06] p-3">
-            <span className="rounded-md border border-accent/40 bg-accent/10 px-2 py-0.5 font-mono text-[10px] font-bold tracking-widest text-accent-bright">
+          <div className="rounded-full border border-accent/30 bg-accent/[.06] p-3">
+            <span className="rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 font-mono text-[10px] font-bold tracking-widest text-accent-bright">
               {t("postures.live.badge")}
             </span>
             <p className="mt-2 text-[11.5px] leading-relaxed text-muted">

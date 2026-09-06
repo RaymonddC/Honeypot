@@ -64,8 +64,8 @@ export function TrendSparkline({
     >
       <defs>
         <linearGradient id="ttf-area" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor="#10b981" stopOpacity=".28" />
-          <stop offset="1" stopColor="#10b981" stopOpacity="0" />
+          <stop offset="0" stopColor="#0099ff" stopOpacity=".28" />
+          <stop offset="1" stopColor="#0099ff" stopOpacity="0" />
         </linearGradient>
       </defs>
       {gridlines}
@@ -73,7 +73,7 @@ export function TrendSparkline({
       <path
         d={line}
         fill="none"
-        stroke="#34d399"
+        stroke="#0099ff"
         strokeWidth="2"
         strokeLinejoin="round"
       />
@@ -81,14 +81,14 @@ export function TrendSparkline({
         cx={last[0]}
         cy={last[1]}
         r="4"
-        fill="#34d399"
-        style={{ filter: "drop-shadow(0 0 6px #10b981)" }}
+        fill="#0099ff"
+        style={{ filter: "drop-shadow(0 0 6px #0099ff)" }}
       />
       <text
         x={last[0] - 6}
         y={last[1] - 10}
         textAnchor="end"
-        fill="#34d399"
+        fill="#0099ff"
         fontSize="11"
         fontWeight="700"
         fontFamily="var(--font-mono)"

@@ -64,7 +64,7 @@ function AlertActions({
             onClick={save}
             disabled={state === "busy"}
             title={t("saveTitle")}
-            className="rounded-md border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent-bright transition-colors hover:bg-accent/20 disabled:opacity-50"
+            className="rounded-full border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent-bright transition-colors hover:bg-accent/20 disabled:opacity-50"
           >
             {state === "busy" ? t("saving") : state === "err" ? t("retry") : t("addCase")}
           </button>

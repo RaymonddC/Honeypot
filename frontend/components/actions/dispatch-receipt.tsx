@@ -61,7 +61,7 @@ export function DispatchReceipt({
             <button
               type="button"
               onClick={printDoc}
-              className="h-8 rounded-lg bg-accent px-3.5 text-xs font-semibold text-[#04140d] transition-colors hover:bg-accent-bright"
+              className="h-8 rounded-full bg-accent px-3.5 text-xs font-semibold text-[#090909] transition-colors hover:bg-accent-bright"
             >
               🖶 {t("printSaveAsPdf")}
             </button>

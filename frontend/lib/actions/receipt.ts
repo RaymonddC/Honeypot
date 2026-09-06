@@ -80,7 +80,7 @@ export function buildDispatchReceiptHtml(bundle: ActionBundle): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bukti Pengiriman — ${esc(bundle.caseRef)}</title>
 <style>
-  :root { --ink:#111827; --muted:#6b7280; --line:#d1d5db; --accent:#0d9488; --head:#f3f4f6; }
+  :root { --ink:#111827; --muted:#6b7280; --line:#d1d5db; --accent:#0b5394; --head:#f3f4f6; }
   * { box-sizing:border-box; }
   body { margin:0; background:#f3f4f6; color:var(--ink); font:13px/1.6 Arial, Helvetica, sans-serif; }
   .page { max-width:760px; margin:0 auto; background:#fff; padding:44px 52px 56px; box-shadow:0 1px 3px rgba(0,0,0,.1); }

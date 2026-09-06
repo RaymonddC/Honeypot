@@ -87,7 +87,7 @@ export function HoneypotPanel({
           {/* P4b — dedicated voice-call view (repurposes the old indicator slot) */}
           <Link
             href="/honeypot/call"
-            className="inline-flex h-8 items-center gap-2 rounded-lg border border-accent/40 bg-accent/10 px-3.5 text-xs font-semibold text-accent-bright transition-colors hover:bg-accent/20"
+            className="inline-flex h-8 items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-3.5 text-xs font-semibold text-accent-bright transition-colors hover:bg-accent/20"
           >
             <svg
               aria-hidden
