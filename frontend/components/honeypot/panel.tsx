@@ -73,7 +73,7 @@ export function HoneypotPanel({
               and muted so the transcript/entities keep the visual weight. */}
           {data && (
             <span
-              className={`rounded-md border px-1.5 py-0.5 font-mono text-[12px] ${
+              className={`rounded-md border px-1.5 py-0.5 text-[12px] ${
                 data.source === "api"
                   ? "border-line bg-elevated text-muted"
                   : "border-risk-med/30 bg-risk-med/10 text-risk-med"

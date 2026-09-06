@@ -9,6 +9,14 @@ import { LocaleProvider } from "@/components/i18n/locale-provider";
 // Hanken Grotesk for UI text, JetBrains Mono reserved for technical data
 // (wallet addresses, hashes, account numbers) — see app/globals.css's
 // --font-ui / --font-mono, which these variables feed.
+//
+// Both use a "-next" suffix so they DON'T collide with the tokens globals.css
+// defines. next/font emits its variable via a class on <html>, and :root has
+// the same specificity (0,1,0) — so with a shared name the tie breaks on source
+// order, globals.css wins, and next/font's value is silently discarded along
+// with the "… Fallback" family it generates. That fallback is metric-adjusted
+// to match the real face, and it is what stops text reflowing when the webfont
+// lands under `display: swap`. Mono had exactly this collision.
 const sans = Hanken_Grotesk({
   subsets: ["latin"],
   variable: "--font-ui-next",
@@ -16,7 +24,7 @@ const sans = Hanken_Grotesk({
 });
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
-  variable: "--font-mono",
+  variable: "--font-mono-next",
   display: "swap",
 });
 

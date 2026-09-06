@@ -97,7 +97,7 @@ function ModeBadge() {
 
   return (
     <span
-      className={`rounded-md border px-2 py-0.5 font-mono text-[12px] font-bold tracking-widest ${
+      className={`rounded-md border px-2 py-0.5 text-[12px] font-bold tracking-widest ${
         mode === "LIVE"
           ? "border-[#0099ff]/40 bg-[#0099ff]/10 text-[#0099ff]"
           : "border-risk-med/40 bg-risk-med/10 text-risk-med"

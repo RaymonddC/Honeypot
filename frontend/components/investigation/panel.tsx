@@ -231,7 +231,7 @@ export function InvestigationPanel({
           </span>
           {status && (
             <span
-              className={`rounded border px-1.5 py-0.5 font-mono text-[12px] ${STATUS_BADGE_CLS[status]}`}
+              className={`rounded border px-1.5 py-0.5 text-[12px] ${STATUS_BADGE_CLS[status]}`}
               title={t(`statusBadge.${status}.title`)}
             >
               {t(`statusBadge.${status}.label`)}

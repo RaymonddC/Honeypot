@@ -70,7 +70,7 @@ export function CaseSwitcher() {
         aria-haspopup="menu"
         aria-expanded={open}
         title={activeCase ? t("activeCaseTitle", { stage: activeCase.stage }) : t("pickOrOpenCase")}
-        className="flex min-w-0 max-w-[10rem] cursor-pointer items-center gap-2 rounded-md border border-line bg-elevated px-2.5 py-1 font-mono text-[12px] text-fg hover:border-fg/10 sm:max-w-[18rem]"
+        className="flex min-w-0 max-w-[10rem] cursor-pointer items-center gap-2 rounded-md border border-line bg-elevated px-2.5 py-1 text-[12px] text-fg hover:border-fg/10 sm:max-w-[18rem]"
       >
         <span
           className={`h-1.5 w-1.5 rounded-full ${activeCase ? "bg-accent" : "bg-muted"}`}

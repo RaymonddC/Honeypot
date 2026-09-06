@@ -63,7 +63,7 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
               tiles below keep the visual weight */}
           {data && (
             <span
-              className={`rounded-md border px-1.5 py-0.5 font-mono text-[12px] ${
+              className={`rounded-md border px-1.5 py-0.5 text-[12px] ${
                 data.source === "api"
                   ? "border-line bg-elevated text-muted"
                   : "border-risk-med/30 bg-risk-med/10 text-risk-med"
@@ -114,7 +114,7 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
                   {t("heroBaseline", { trendNow: data.trendNow })}
                 </div>
               </div>
-              <span className="ml-auto hidden flex-none rounded-full border border-accent/30 bg-accent/10 px-2 py-1 font-mono text-[12px] font-semibold text-accent-bright sm:block">
+              <span className="ml-auto hidden flex-none rounded-full border border-accent/30 bg-accent/10 px-2 py-1 text-[12px] font-semibold text-accent-bright sm:block">
                 {data.trendTag}
               </span>
             </div>
@@ -150,7 +150,7 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
             <div className="rounded-card border border-line bg-card">
               <div className="flex items-center justify-between border-b border-line px-3.5 py-[13px]">
                 <span className="eyebrow">{t("trendEyebrow")}</span>
-                <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[12px] text-accent-bright">
+                <span className="rounded-md border border-line bg-elevated px-2 py-0.5 text-[12px] text-accent-bright">
                   {data.trendTag}
                 </span>
               </div>
