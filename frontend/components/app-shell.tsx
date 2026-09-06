@@ -23,11 +23,19 @@ import { CAP, can, initialsOf, roleLabel } from "@/lib/auth/types";
 // and someone reading the menu would infer that access is decided per case,
 // which is exactly backwards.
 /** One nav item. Both nav tables use this shape so they can be concatenated —
- *  `capability` gates on who you are, `crypto` on what this deployment offers. */
+ *  `capability` gates on who you are, `crypto` on what this deployment offers.
+ *  `step` numbers the four-module investigation flow (1-4) so a first-time
+ *  user sees it as an order to work through, not an alphabetic menu; items
+ *  without a `step` (Case File, Honeypot Ops, Command Center) aren't part of
+ *  that sequence. `subKey` is a one-line plain-language gloss shown under the
+ *  module's proper name — the name stays (it's the product's branding), the
+ *  gloss is what tells a new investigator what clicking it actually does. */
 type NavItem = {
   href: string;
   labelKey: string;
+  subKey?: string;
   glyph: string;
+  step?: number;
   /** Omitted = visible to everyone signed in. */
   capability?: string;
   /** Hidden when the deployment does not offer the crypto surface. */
@@ -62,13 +70,13 @@ const NAV_GROUPS: { groupKey: string; items: NavItem[] }[] = [
   {
     groupKey: "operations",
     items: [
-      { href: "/honeypot", labelKey: "infiltrate", glyph: "⬡" },
-      { href: "/honeypot-ops", labelKey: "honeypotOps", glyph: "☎" },
+      { href: "/honeypot", labelKey: "infiltrate", subKey: "infiltrateSub", glyph: "①", step: 1 },
       // TRACE keeps its FIAT half (mule bank accounts) when crypto is off,
       // so it is NOT hidden. TAKEDOWN is crypto in its entirety.
-      { href: "/bridge", labelKey: "trace", glyph: "⇌" },
-      { href: "/investigation", labelKey: "takedown", glyph: "◉", crypto: true },
-      { href: "/actions", labelKey: "uncover", glyph: "⚑" },
+      { href: "/bridge", labelKey: "trace", subKey: "traceSub", glyph: "②", step: 2 },
+      { href: "/investigation", labelKey: "takedown", subKey: "takedownSub", glyph: "③", step: 3, crypto: true },
+      { href: "/actions", labelKey: "uncover", subKey: "uncoverSub", glyph: "④", step: 4 },
+      { href: "/honeypot-ops", labelKey: "honeypotOps", subKey: "honeypotOpsSub", glyph: "☎" },
       { href: "/response", labelKey: "commandCenter", glyph: "▦" },
     ],
   },
@@ -217,26 +225,26 @@ function SidebarNav({
 
   return (
     <>
-      <div className="flex items-center gap-2 px-4 py-4">
-        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent/15 font-mono text-xs font-bold text-accent-bright">
+      <div className="flex items-center gap-2.5 px-5 py-5">
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-sm font-bold text-white">
           IT
         </span>
-        <span className="text-sm font-semibold tracking-wide">{tCommon("appName")}</span>
+        <span className="text-[15px] font-semibold tracking-tight">{tCommon("appName")}</span>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 pt-1">
+      <nav className="flex-1 overflow-y-auto px-3 pb-2">
         {/* Home */}
         <Link
           href="/home"
           onClick={onNavigate}
           aria-current={pathname === "/home" ? "page" : undefined}
-          className={`mb-1 flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
+          className={`mb-3 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
             pathname === "/home"
-              ? "bg-accent/10 font-medium text-accent-bright"
-              : "text-muted hover:bg-fg/[.04] hover:text-fg"
+              ? "bg-accent/10 text-accent-bright"
+              : "text-fg hover:bg-fg/[.04]"
           }`}
         >
-          <span className="w-4 text-center text-xs" aria-hidden>⌂</span>
+          <span className="w-4 text-center text-[15px]" aria-hidden>⌂</span>
           {t("home")}
         </Link>
 
@@ -248,9 +256,9 @@ function SidebarNav({
             ? [{ groupKey: "administration", items: adminItems }]
             : []),
         ].map((group) => (
-          <div key={group.groupKey} className="mt-2">
-            <div className="eyebrow px-3 pb-1.5">{t(group.groupKey)}</div>
-            <ul className="space-y-0.5">
+          <div key={group.groupKey} className="mb-4">
+            <div className="eyebrow px-3 pb-2">{t(group.groupKey)}</div>
+            <ul className="space-y-1">
               {visible(group.items).map((item) => {
                 const active = pathname.startsWith(item.href);
                 return (
@@ -259,16 +267,38 @@ function SidebarNav({
                       href={item.href}
                       onClick={onNavigate}
                       aria-current={active ? "page" : undefined}
-                      className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
+                      className={`flex items-center gap-2.5 rounded-lg px-3 py-2 transition-colors ${
                         active
-                          ? "bg-accent/10 font-medium text-accent-bright"
-                          : "text-muted hover:bg-fg/[.04] hover:text-fg"
+                          ? "bg-accent/10"
+                          : "hover:bg-fg/[.04]"
                       }`}
                     >
-                      <span className="w-4 text-center text-xs" aria-hidden>
-                        {item.glyph}
+                      <span
+                        className={`flex h-6 w-6 flex-none items-center justify-center rounded-md text-[11px] font-bold ${
+                          item.step
+                            ? active
+                              ? "bg-accent text-white"
+                              : "bg-elevated text-muted"
+                            : ""
+                        } ${item.step ? "" : "text-[15px]"}`}
+                        aria-hidden
+                      >
+                        {item.step ?? item.glyph}
                       </span>
-                      {t(item.labelKey)}
+                      <span className="min-w-0">
+                        <span
+                          className={`block truncate text-[13.5px] leading-tight ${
+                            active ? "font-semibold text-accent-bright" : "font-medium text-fg"
+                          }`}
+                        >
+                          {t(item.labelKey)}
+                        </span>
+                        {item.subKey && (
+                          <span className="block truncate text-[11px] leading-tight text-muted">
+                            {t(item.subKey)}
+                          </span>
+                        )}
+                      </span>
                     </Link>
                   </li>
                 );
@@ -278,15 +308,15 @@ function SidebarNav({
         ))}
       </nav>
 
-      <div className="border-t border-line px-2 py-2">
+      <div className="border-t border-line px-3 py-3">
         <Link
           href="/guide"
           onClick={onNavigate}
           aria-current={pathname.startsWith("/guide") ? "page" : undefined}
-          className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
+          className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${
             pathname.startsWith("/guide")
-              ? "bg-accent/10 font-medium text-accent-bright"
-              : "text-muted hover:bg-fg/[.04] hover:text-fg"
+              ? "bg-accent/10 text-accent-bright"
+              : "text-fg hover:bg-fg/[.04]"
           }`}
         >
           <span className="w-4 text-center text-xs" aria-hidden>
@@ -298,10 +328,10 @@ function SidebarNav({
           href="/settings"
           onClick={onNavigate}
           aria-current={pathname.startsWith("/settings") ? "page" : undefined}
-          className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
+          className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${
             pathname.startsWith("/settings")
-              ? "bg-accent/10 font-medium text-accent-bright"
-              : "text-muted hover:bg-fg/[.04] hover:text-fg"
+              ? "bg-accent/10 text-accent-bright"
+              : "text-fg hover:bg-fg/[.04]"
           }`}
         >
           <span className="w-4 text-center text-xs" aria-hidden>
@@ -309,7 +339,6 @@ function SidebarNav({
           </span>
           {t("controlPanel")}
         </Link>
-        <span className="eyebrow mt-1 block px-3">{t("authBadge")}</span>
       </div>
     </>
   );
