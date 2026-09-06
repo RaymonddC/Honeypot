@@ -149,9 +149,15 @@ export default function UsersPage() {
 
   if (!loading && !isAdmin) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="text-xl font-bold tracking-tight">{t("title")}</h1>
-        <p className="mt-2 text-xs text-muted">
+      <div className="mx-auto max-w-[560px] pt-10 text-center">
+        <span
+          className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-accent/10 text-2xl text-accent-bright"
+          aria-hidden
+        >
+          ◫
+        </span>
+        <h1 className="text-xl font-bold tracking-tight">{t("gateTitle")}</h1>
+        <p className="mx-auto mt-1.5 max-w-[46ch] text-[13px] leading-relaxed text-muted">
           {t("gateBody")}
         </p>
       </div>
@@ -162,9 +168,9 @@ export default function UsersPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-5">
-      <div className="mb-3.5">
-        <h1 className="text-xl font-bold tracking-tight">{t("title")}</h1>
-        <p className="mt-1 text-xs text-muted">
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
+        <p className="mt-1.5 max-w-[64ch] text-[13px] leading-relaxed text-muted">
           {/* `auditLink` is a TAG in the message (<auditLink>…</auditLink>),
               so it takes a function receiving the tag's chunks. It was written
               as a value placeholder ({auditLink}) with a function passed here,
@@ -190,46 +196,57 @@ export default function UsersPage() {
           <span className="eyebrow">{t("giveAccessEyebrow")}</span>
         </div>
         <div className="p-3.5">
-          <div className="grid gap-2 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
-            <input
-              type="email"
-              value={email}
-              placeholder={t("emailPlaceholder")}
-              spellCheck={false}
-              onChange={(e) => setEmail(e.target.value)}
-              className={INPUT}
-              aria-label={t("emailAriaLabel")}
-            />
-            <input
-              type="text"
-              value={name}
-              placeholder={t("namePlaceholder")}
-              onChange={(e) => setName(e.target.value)}
-              className={INPUT}
-              aria-label={t("nameAriaLabel")}
-            />
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className={INPUT}
-              aria-label={t("roleAriaLabel")}
-            >
-              {ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {roleLabel(r, tRoles)}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={() => void invite()}
-              disabled={!canSubmit}
-              className={BTN}
-            >
-              {inviting ? t("addUserBusy") : t("addUser")}
-            </button>
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
+            <label className="grid gap-1">
+              <span className="text-[11px] font-medium text-muted">{t("emailAriaLabel")}</span>
+              <input
+                type="email"
+                value={email}
+                placeholder={t("emailPlaceholder")}
+                spellCheck={false}
+                onChange={(e) => setEmail(e.target.value)}
+                className={INPUT}
+              />
+            </label>
+            <label className="grid gap-1">
+              <span className="text-[11px] font-medium text-muted">{t("nameAriaLabel")}</span>
+              <input
+                type="text"
+                value={name}
+                placeholder={t("namePlaceholder")}
+                onChange={(e) => setName(e.target.value)}
+                className={INPUT}
+              />
+            </label>
+            <label className="grid gap-1">
+              <span className="text-[11px] font-medium text-muted">{t("roleAriaLabel")}</span>
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className={INPUT}
+              >
+                {ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {roleLabel(r, tRoles)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="grid gap-1">
+              <span className="hidden text-[11px] font-medium text-transparent sm:block" aria-hidden>
+                &nbsp;
+              </span>
+              <button
+                type="button"
+                onClick={() => void invite()}
+                disabled={!canSubmit}
+                className={BTN}
+              >
+                {inviting ? t("addUserBusy") : t("addUser")}
+              </button>
+            </div>
           </div>
-          <p className="mt-2 text-[10px] text-muted">
+          <p className="mt-2.5 text-[10.5px] leading-relaxed text-muted">
             {t("emailHint")}
           </p>
         </div>

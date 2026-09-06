@@ -80,11 +80,14 @@ export default function GuidePage() {
       {/* header */}
       <div className="mb-4">
         <div className="eyebrow mb-1">{t("eyebrow")}</div>
-        <h1 className="text-xl font-bold tracking-tight">
+        <h1 className="text-2xl font-bold tracking-tight">
           {t("title")}
         </h1>
-        <p className="mt-1 max-w-[62ch] text-xs leading-relaxed text-muted">
+        <p className="mt-2 max-w-[62ch] text-[13px] leading-relaxed text-muted">
           {t("subtitle")}
+        </p>
+        <p className="mt-1.5 max-w-[62ch] text-[13px] leading-relaxed text-muted">
+          {t("subtitleRest")}
         </p>
       </div>
 
@@ -136,7 +139,7 @@ export default function GuidePage() {
           ))}
         </div>
         <p className="mt-3 text-[12px] leading-relaxed text-muted">
-          {t.rich("flowBody", {
+          {t.rich("flowIntro", {
             caseLink: (chunks) => (
               <a href="/case" className="text-accent-bright hover:underline">
                 {chunks}
@@ -144,6 +147,12 @@ export default function GuidePage() {
             ),
             intake: (chunks) => <span className="text-fg/80">{chunks}</span>,
           })}
+        </p>
+        <p className="mt-2.5 text-[12px] leading-relaxed text-muted">
+          {t("flowBody")}
+        </p>
+        <p className="mt-2.5 text-[12px] leading-relaxed text-muted">
+          {t("flowClose")}
         </p>
       </Card>
 

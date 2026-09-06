@@ -160,24 +160,69 @@ function summarize(e: AuditEntry, t: ReturnType<typeof useTranslations>): string
       const edited = ov.length ? ` · operator edited ${ov.join(", ")}` : "";
       return `${d.title ?? ""}${edited}`;
     }
-    default: {
-      const rest = Object.fromEntries(
-        Object.entries(d).filter(([k]) => !k.startsWith("_")),
-      );
-      return Object.keys(rest).length ? JSON.stringify(rest) : "";
+    // Generated a document bundle — readable count + the requested outputs,
+    // instead of dumping the per-document sha256 array inline. The full
+    // array (with every hash) is still there for anyone who expands details.
+    case "action.bundle.generated": {
+      const docs = (d.documents ?? []) as Array<Record<string, unknown>>;
+      const outputs = (d.outputs ?? []) as string[];
+      return t("summaries.bundleGenerated", {
+        count: docs.length,
+        outputs: outputs.join(", ") || String(d.crime_type ?? ""),
+      });
     }
+    // Dispatched notifications — which agencies and how many documents, not
+    // the full per-notification id/status array (still in the raw detail).
+    case "dispatch.sent": {
+      const recipients = (d.recipients ?? []) as string[];
+      const docCount =
+        typeof d.documents === "number"
+          ? d.documents
+          : ((d.notifications ?? []) as unknown[]).length;
+      return t("summaries.dispatchSent", {
+        agencies: recipients.join(", ") || "—",
+        docCount,
+      });
+    }
+    case "evidence.exported":
+      return t("summaries.evidenceExported", {
+        type: String(d.type ?? "—"),
+        status: String(d.status ?? "—"),
+      });
+    case "user.created":
+      return t("summaries.userRole", { role: String(d.role ?? "—") });
+    case "user.role_changed":
+      return t("summaries.roleChange", { from: String(d.from ?? "—"), to: String(d.to ?? "—") });
+    case "user.deactivated":
+    case "user.reactivated":
+      return t("summaries.userRole", { role: String(d.role ?? "—") });
+    default:
+      // Nothing dedicated for this action — the raw detail is still available
+      // via the per-entry "show technical details" toggle below, never dropped.
+      return "";
   }
+}
+
+/** The fields worth hiding behind "show details" for an entry that already
+ *  has a human summary — everything else in `detail` (minus the underscore-
+ *  prefixed bookkeeping fields), so the raw evidence is one click away
+ *  rather than competing with the summary line for attention. NEVER used to
+ *  remove data: this only decides what's collapsed by default. */
+function rawDetail(e: AuditEntry): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(e.detail ?? {}).filter(([k]) => !k.startsWith("_")),
+  );
 }
 
 function ChainBanner({ feed }: { feed: AuditFeed }) {
   const t = useTranslations("audit.page");
   if (feed.chain_ok) {
     return (
-      <div className="mb-3.5 rounded-card border border-accent/[.22] bg-accent/[.06] px-3.5 py-2.5">
-        <p className="text-[11.5px] text-accent-bright">
+      <div className="mb-4 rounded-card border border-accent/[.22] bg-accent/[.06] px-4 py-3.5">
+        <p className="text-[13px] font-semibold text-accent-bright">
           {t("chainVerified.title")}
         </p>
-        <p className="mt-1 text-[10.5px] text-muted">
+        <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted">
           {t("chainVerified.body")}
         </p>
         {/* Says what the green tick does NOT cover. "Verified" invites the
@@ -187,7 +232,7 @@ function ChainBanner({ feed }: { feed: AuditFeed }) {
             investigator meets that here than in front of a court. The last
             sentence matters as much as the caveat — without it this reads as a
             shrug, when write failures are in fact counted and alerted on. */}
-        <p className="mt-1 text-[10.5px] text-muted">
+        <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted">
           {t.rich("chainVerified.caveat", {
             b: (chunks) => <span className="text-fg">{chunks}</span>,
           })}
@@ -196,13 +241,13 @@ function ChainBanner({ feed }: { feed: AuditFeed }) {
     );
   }
   return (
-    <div className="mb-3.5 rounded-card border border-risk-high/40 bg-risk-high/[.08] px-3.5 py-2.5">
-      <p className="text-[11.5px] font-semibold text-risk-high">
+    <div className="mb-4 rounded-card border border-risk-high/40 bg-risk-high/[.08] px-4 py-3.5">
+      <p className="text-[13px] font-semibold text-risk-high">
         {feed.broken_at_seq != null
           ? t("chainFailed.titleAtEntry", { seq: feed.broken_at_seq })
           : t("chainFailed.title")}
       </p>
-      <p className="mt-1 text-[10.5px] text-muted">
+      <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted">
         {t("chainFailed.body")}
       </p>
     </div>
@@ -235,10 +280,13 @@ export default function AuditPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-5">
-      <div className="mb-3.5 flex items-end justify-between gap-3">
+      <div className="mb-4 flex items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">{t("title")}</h1>
-          <p className="mt-1 text-xs text-muted">
+          <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
+          <p className="mt-2 max-w-[64ch] text-[13px] leading-relaxed text-muted">
+            {t("pageLead")}
+          </p>
+          <p className="mt-1 max-w-[64ch] text-[11.5px] leading-relaxed text-muted">
             {t.rich("subtitle", {
               r: (chunks) => <span className="text-risk-high">{chunks}</span>,
             })}
@@ -278,6 +326,8 @@ export default function AuditPage() {
                 const label = hasCopy ? t(`actionCopy.${slug}.label`) : e.action;
                 const glyph = ACTION_GLYPH[e.action] ?? "·";
                 const detail = summarize(e, t);
+                const raw = rawDetail(e);
+                const hasRaw = Object.keys(raw).length > 0;
                 const denied = isDenied(e);
                 const verb = denied
                   ? HAS_ATTEMPT_COPY.has(e.action)
@@ -339,21 +389,50 @@ export default function AuditPage() {
                         })}
                       </p>
                     )}
-                    {/* The hash is what makes the entry verifiable; showing a
-                        prefix lets a reviewer eyeball the chain without
-                        drowning the row in 64 hex characters. */}
-                    <div className="mt-1 flex flex-wrap gap-x-3 font-mono text-[9.5px] text-muted">
-                      <span title={e.sha256}>sha {e.sha256.slice(0, 12)}…</span>
-                      <span title={e.prev_sha256}>
-                        prev {e.prev_sha256.slice(0, 12)}…
-                      </span>
-                      {e.target_type && (
-                        <span>
-                          {e.target_type}
-                          {e.target_id ? ` ${e.target_id.slice(0, 8)}…` : ""}
+                    {/* Everything below is collapsed by default — the summary
+                        line above already answers "who did what, when" for a
+                        skim. Nothing here is ever removed, only tucked behind
+                        one click: the hash chain (sha/prev-sha) and the full
+                        raw detail this entry recorded (document arrays,
+                        nested sha256 hashes, full URLs, case ids — whatever
+                        the backend attached), for the reviewer who needs to
+                        verify rather than just skim. */}
+                    <details className="group mt-1.5">
+                      <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[10px] text-muted transition-colors hover:text-fg [&::-webkit-details-marker]:hidden">
+                        <span className="inline-block w-2.5 transition-transform group-open:rotate-90" aria-hidden>
+                          ▸
                         </span>
-                      )}
-                    </div>
+                        <span className="group-open:hidden">{t("showDetails")}</span>
+                        <span className="hidden group-open:inline">{t("hideDetails")}</span>
+                      </summary>
+                      <div className="mt-1.5 space-y-1.5 border-t border-line/60 pt-1.5">
+                        {/* The hash is what makes the entry verifiable; showing
+                            a prefix lets a reviewer eyeball the chain without
+                            drowning the row in 64 hex characters. */}
+                        <div className="flex flex-wrap gap-x-3 font-mono text-[9.5px] text-muted">
+                          <span title={e.sha256}>sha {e.sha256.slice(0, 12)}…</span>
+                          <span title={e.prev_sha256}>
+                            prev {e.prev_sha256.slice(0, 12)}…
+                          </span>
+                          {e.target_type && (
+                            <span>
+                              {e.target_type}
+                              {e.target_id ? ` ${e.target_id.slice(0, 8)}…` : ""}
+                            </span>
+                          )}
+                        </div>
+                        {hasRaw && (
+                          <div>
+                            <div className="text-[9.5px] uppercase tracking-wide text-muted/80">
+                              {t("detailsRawLabel")}
+                            </div>
+                            <pre className="mt-1 overflow-x-auto rounded-md border border-line bg-card px-2.5 py-2 font-mono text-[10px] leading-relaxed text-fg/80">
+                              {JSON.stringify(raw, null, 2)}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
+                    </details>
                   </li>
                 );
               })}

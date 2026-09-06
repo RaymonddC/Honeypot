@@ -159,18 +159,27 @@ export default function RolesPage() {
 
   if (!loading && !isAdmin) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="text-xl font-bold tracking-tight">{t("title")}</h1>
-        <p className="mt-2 text-xs leading-relaxed text-muted">{t("gateBody")}</p>
+      <div className="mx-auto max-w-[560px] pt-10 text-center">
+        <span
+          className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-accent/10 text-2xl text-accent-bright"
+          aria-hidden
+        >
+          ⛊
+        </span>
+        <h1 className="text-xl font-bold tracking-tight">{t("gateTitle")}</h1>
+        <p className="mx-auto mt-1.5 max-w-[46ch] text-[13px] leading-relaxed text-muted">
+          {t("gateBody")}
+        </p>
       </div>
     );
   }
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-5">
-      <div className="mb-3.5">
-        <h1 className="text-xl font-bold tracking-tight">{t("title")}</h1>
-        <p className="mt-1 text-xs leading-relaxed text-muted">{t("subtitle")}</p>
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
+        <p className="mt-1.5 max-w-[64ch] text-[13px] leading-relaxed text-muted">{t("pageLead")}</p>
+        <p className="mt-1 max-w-[64ch] text-[11.5px] leading-relaxed text-muted">{t("subtitle")}</p>
       </div>
 
       {error && (
@@ -296,8 +305,18 @@ export default function RolesPage() {
                               className="mt-0.5 h-3.5 w-3.5 flex-none accent-[var(--accent)]"
                             />
                             <span className="min-w-0">
-                              <span className="block text-xs text-fg">
-                                {cap.label}
+                              <span className="flex flex-wrap items-center gap-1.5">
+                                <span className="text-xs text-fg">{cap.label}</span>
+                                {/* The raw key stays visible — audits and support
+                                    tickets reference it directly — but as a small
+                                    muted mono gloss next to the plain-language
+                                    label, not the only thing shown. */}
+                                <span
+                                  title={t("capabilityKeyLabel")}
+                                  className="rounded border border-line bg-elevated px-1 py-px font-mono text-[9.5px] text-muted"
+                                >
+                                  {cap.key}
+                                </span>
                               </span>
                               {/* The description is the whole point of the row:
                                   it is written for the person deciding whether

@@ -191,45 +191,59 @@ function NumbersTab() {
         </a>
       }
     >
-      <p className="mb-3 text-[10.5px] text-muted">
+      <p className="mb-3.5 text-[11px] leading-relaxed text-muted">
         {t("numbersTab.intro")}
       </p>
 
-      <div className="mb-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)_auto]">
-        <input
-          type="text"
-          value={phone}
-          placeholder={t("numbersTab.phonePlaceholder")}
-          spellCheck={false}
-          onChange={(e) => setPhone(e.target.value)}
-          className={`${INPUT_CLS} font-mono ${phoneBad ? "border-risk-high" : ""}`}
-        />
-        <input
-          type="text"
-          value={sid}
-          placeholder={t("numbersTab.sidPlaceholder")}
-          spellCheck={false}
-          onChange={(e) => setSid(e.target.value)}
-          className={`${INPUT_CLS} font-mono`}
-        />
-        <input
-          type="text"
-          value={label}
-          placeholder={t("numbersTab.labelPlaceholder")}
-          onChange={(e) => setLabel(e.target.value)}
-          className={INPUT_CLS}
-        />
-        <button
-          type="button"
-          onClick={() => void add()}
-          disabled={!normalized || saving}
-          className={BTN_CLS}
-        >
-          {saving ? t("numbersTab.registerBusy") : t("numbersTab.register")}
-        </button>
+      <div className="mb-3.5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)_auto]">
+        <label className="grid gap-1">
+          <span className="text-[11px] font-medium text-muted">{t("numbersTab.phoneFieldLabel")}</span>
+          <input
+            type="text"
+            value={phone}
+            placeholder={t("numbersTab.phonePlaceholder")}
+            spellCheck={false}
+            onChange={(e) => setPhone(e.target.value)}
+            className={`${INPUT_CLS} font-mono ${phoneBad ? "border-risk-high" : ""}`}
+          />
+        </label>
+        <label className="grid gap-1">
+          <span className="text-[11px] font-medium text-muted">{t("numbersTab.sidFieldLabel")}</span>
+          <input
+            type="text"
+            value={sid}
+            placeholder={t("numbersTab.sidPlaceholder")}
+            spellCheck={false}
+            onChange={(e) => setSid(e.target.value)}
+            className={`${INPUT_CLS} font-mono`}
+          />
+        </label>
+        <label className="grid gap-1">
+          <span className="text-[11px] font-medium text-muted">{t("numbersTab.labelFieldLabel")}</span>
+          <input
+            type="text"
+            value={label}
+            placeholder={t("numbersTab.labelPlaceholder")}
+            onChange={(e) => setLabel(e.target.value)}
+            className={INPUT_CLS}
+          />
+        </label>
+        <div className="grid gap-1">
+          <span className="hidden text-[11px] font-medium text-transparent sm:block" aria-hidden>
+            &nbsp;
+          </span>
+          <button
+            type="button"
+            onClick={() => void add()}
+            disabled={!normalized || saving}
+            className={BTN_CLS}
+          >
+            {saving ? t("numbersTab.registerBusy") : t("numbersTab.register")}
+          </button>
+        </div>
       </div>
       {phoneBad && (
-        <p className="mb-2 text-[10px] text-risk-high">
+        <p className="mb-2.5 text-[10.5px] text-risk-high">
           {t("numbersTab.phoneInvalidHint")}
         </p>
       )}
@@ -686,38 +700,48 @@ function CampaignsTab() {
 
   return (
     <Card title={t("campaignsTab.cardTitle")}>
-      <p className="mb-3 text-[10.5px] text-muted">
+      <p className="mb-3.5 text-[11px] leading-relaxed text-muted">
         {t("campaignsTab.intro")}
       </p>
 
-      <div className="mb-3 grid gap-2 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto]">
-        <input
-          type="text"
-          value={name}
-          placeholder={t("campaignsTab.namePlaceholder")}
-          onChange={(e) => setName(e.target.value)}
-          className={INPUT_CLS}
-        />
-        <label className="flex min-w-0 items-center gap-1.5">
+      <div className="mb-3.5 grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto]">
+        <label className="grid gap-1">
+          <span className="text-[11px] font-medium text-muted">{t("campaignsTab.nameFieldLabel")}</span>
           <input
-            type="number"
-            min={1}
-            max={60}
-            value={pacing}
-            onChange={(e) => setPacing(e.target.value)}
-            title={t("campaignsTab.pacingTitle")}
-            className={`${INPUT_CLS} tnum w-full min-w-0`}
+            type="text"
+            value={name}
+            placeholder={t("campaignsTab.namePlaceholder")}
+            onChange={(e) => setName(e.target.value)}
+            className={INPUT_CLS}
           />
-          <span className="shrink-0 text-[10px] text-muted">{t("campaignsTab.pacingUnit")}</span>
         </label>
-        <button
-          type="button"
-          onClick={() => void create()}
-          disabled={!name.trim() || saving}
-          className={BTN_CLS}
-        >
-          {saving ? t("campaignsTab.createBusy") : t("campaignsTab.create")}
-        </button>
+        <label className="grid gap-1">
+          <span className="text-[11px] font-medium text-muted">{t("campaignsTab.pacingTitle")}</span>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <input
+              type="number"
+              min={1}
+              max={60}
+              value={pacing}
+              onChange={(e) => setPacing(e.target.value)}
+              className={`${INPUT_CLS} tnum w-full min-w-0`}
+            />
+            <span className="shrink-0 text-[10px] text-muted">{t("campaignsTab.pacingUnit")}</span>
+          </div>
+        </label>
+        <div className="grid gap-1">
+          <span className="hidden text-[11px] font-medium text-transparent sm:block" aria-hidden>
+            &nbsp;
+          </span>
+          <button
+            type="button"
+            onClick={() => void create()}
+            disabled={!name.trim() || saving}
+            className={BTN_CLS}
+          >
+            {saving ? t("campaignsTab.createBusy") : t("campaignsTab.create")}
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -892,7 +916,7 @@ function TriageTab() {
 
   return (
     <Card title={t("triageTab.cardTitle", { count: rows.length })}>
-      <p className="mb-3 text-[10.5px] text-muted">
+      <p className="mb-3.5 text-[11px] leading-relaxed text-muted">
         {t("triageTab.intro")}
       </p>
 
@@ -932,12 +956,22 @@ export default function HoneypotOpsPage() {
     ["triage", t("tabs.triage")],
   ];
 
+  const tabSub: Record<Tab, string> = {
+    numbers: t("tabsSub.numbers"),
+    campaigns: t("tabsSub.campaigns"),
+    triage: t("tabsSub.triage"),
+  };
+
   return (
-    <div className="mx-auto max-w-[760px]">
-      <div className="mb-3">
-        <h1 className="text-xl font-bold tracking-tight">{t("title")}</h1>
-        <p className="mt-1 text-xs text-muted">
-          {t("subtitle")}
+    <div className="mx-auto max-w-[820px]">
+      <div className="mb-5">
+        <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
+        <p className="mt-2 max-w-[62ch] text-[13px] leading-relaxed text-muted">
+          {t("pageLead")}
+        </p>
+        <p className="mt-1.5 max-w-[62ch] text-[13px] leading-relaxed text-muted">
+          {t("subtitle")}{" "}
+          <span className="text-fg/60">{t("subtitleRest")}</span>
         </p>
       </div>
 
@@ -957,27 +991,42 @@ export default function HoneypotOpsPage() {
         ))}
       </ol>
 
+      {/* Segmented control — same visual language as the Control Panel's
+          SegmentedControl (bigger touch targets, label + one-line sub,
+          clear active state) rather than a cramped default tab strip. */}
       <div
-        className="mb-3.5 flex gap-0.5 border-b border-line"
         role="tablist"
         aria-label={t("tabsAriaLabel")}
+        className="mb-3.5 grid gap-2 sm:grid-cols-3"
       >
-        {tabList.map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={tab === key}
-            onClick={() => setTab(key)}
-            className={`border-b-2 px-3 py-2 text-[11px] font-semibold transition-colors ${
-              tab === key
-                ? "border-accent text-accent-bright"
-                : "border-transparent text-muted hover:text-fg"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+        {tabList.map(([key, label]) => {
+          const active = tab === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setTab(key)}
+              className={`cursor-pointer rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                active
+                  ? "border-accent/40 bg-accent/[.08]"
+                  : "border-line bg-elevated hover:border-fg/15"
+              }`}
+            >
+              <div
+                className={`text-xs font-semibold ${
+                  active ? "text-accent-bright" : "text-fg"
+                }`}
+              >
+                {label}
+              </div>
+              <div className="mt-0.5 text-[10.5px] leading-snug text-muted">
+                {tabSub[key]}
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       {tab === "numbers" ? (

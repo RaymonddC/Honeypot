@@ -577,6 +577,7 @@
   "audit": {
     "page": {
       "title": "Audit trail",
+      "pageLead": "The complete, tamper-evident record of every action taken in your agency — who did what, and when.",
       "subtitle": "Every recorded action by your agency, newest first — who did it, when, and what changed. Actions that were <r>refused</r> are recorded too, and marked as such: an attempt someone's role did not allow is often the line that matters most. Append-only and hash-chained, so alteration is detectable. Other agencies' actions are never shown.",
       "reverify": "Re-verify",
       "reverifying": "…",
@@ -659,7 +660,19 @@
       "loginMethod": {
         "google": "Google",
         "demo": "demo login"
-      }
+      },
+      "summaries": {
+        "roleChange": "role changed from {from} to {to}",
+        "userRole": "as {role}",
+        "bundleGenerated": "{count} documents · {outputs}",
+        "dispatchSent": "sent to {agencies} · {docCount} documents",
+        "evidenceExported": "{type} · {status}",
+        "documentsCountOne": "{count} document",
+        "documentsCountOther": "{count} documents"
+      },
+      "showDetails": "Show technical details",
+      "hideDetails": "Hide technical details",
+      "detailsRawLabel": "Raw data recorded for this entry"
     }
   },
   "home": {
@@ -720,12 +733,15 @@
     "page": {
       "eyebrow": "Orientation",
       "title": "How ITTU works — a quick guide",
-      "subtitle": "ITTU (Infiltrate, Trace, Takedown & Uncover) turns financial-crime response from reactive to proactive. Four modules chain into one investigation: hunt intel from scammers, trace the money across bank and crypto rails, score the wallet network, and generate the legal action — every step preserved for court.",
+      "subtitle": "ITTU (Infiltrate, Trace, Takedown & Uncover) turns financial-crime response from reactive to proactive.",
+      "subtitleRest": "Four modules chain into one investigation — every step preserved for court.",
       "modulesCardTitle": "The four modules",
       "open": "open →",
       "produces": "Produces:",
       "flowCardTitle": "The investigation flow",
-      "flowBody": "It all hangs off a <caseLink>Case File</caseLink>. You start at its <intake>Intake</intake> stage — log a victim report or run a honeypot — then the stage tracker walks the case through the four modules. A scammer chat (or a report) surfaces a wallet and a mule account; that wallet feeds the bridge (fiat ↔ crypto) and the graph (risk scoring); the scored targets feed Uncover, which emits the freeze request and agency notifications. Everything is custody-hashed from the first message to the final document.",
+      "flowIntro": "It all hangs off a <caseLink>Case File</caseLink>. You start at its <intake>Intake</intake> stage — log a victim report or run a honeypot — then the stage tracker walks the case through the four modules.",
+      "flowBody": "A scammer chat (or a report) surfaces a wallet and a mule account. That wallet feeds the bridge (fiat ↔ crypto) and the graph (risk scoring). The scored targets feed Uncover, which emits the freeze request and agency notifications.",
+      "flowClose": "Everything is custody-hashed from the first message to the final document.",
       "screensCardTitle": "Screen-by-screen",
       "seeLabel": "See:",
       "doLabel": "Do:",
@@ -1129,6 +1145,7 @@
   },
   "users": {
     "title": "Users",
+    "gateTitle": "You don't have access to this page",
     "gateBody": "Managing accounts needs an admin role. Ask your agency admin if you need access changed.",
     "subtitle": "Who can sign in to {agency}, and what they may do. Every change here is recorded in the <auditLink>audit trail</auditLink>. There are no passwords to manage — people sign in with Google, and access is decided by whether they appear on this list.",
     "agencyFallback": "your agency",
@@ -1168,6 +1185,7 @@
   },
   "settings": {
     "title": "Control Panel",
+    "pageLead": "Set your own display, language, and voice/call preferences for this app.",
     "subtitle": "Analyst-local voice & call preferences — saved to this browser, applied on your next honeypot call. No API keys or secrets ever live here.",
     "refresh": "Refresh status",
     "refreshing": "Refreshing…",
@@ -1208,38 +1226,38 @@
         "hint": "Which engine speaks the honeypot persona's lines.",
         "browser": {
           "label": "Browser",
-          "sub": "Web Speech API · free, offline"
+          "sub": "Built into your browser · free, works offline"
         },
         "elevenlabs": {
           "label": "ElevenLabs",
-          "sub": "Backend audio · GET /sessions/'{id}'/audio/'{seq}'"
+          "sub": "Realistic cloned voices · generated on the server"
         },
         "gemini": {
           "label": "Gemini TTS",
-          "sub": "Backend audio · style-controlled persona (AI Studio)"
+          "sub": "Style-controlled persona voice · generated on the server"
         },
         "google": {
           "label": "Google TTS",
-          "sub": "Backend audio · GET /sessions/'{id}'/audio/'{seq}'"
+          "sub": "Standard synthesized voices · generated on the server"
         }
       },
       "callMode": {
         "legend": "Call mode",
-        "hint": "How /honeypot/call runs the conversation.",
+        "hint": "How the honeypot's calls are run.",
         "scripted": {
           "label": "Scripted replay",
           "sub": "Agent loop pre-run server-side · faithful simulation"
         },
         "liveMic": {
           "label": "Live mic (interactive)",
-          "sub": "You play the scammer on the mic · Tier-B, docs/Live-Voice-Calls.md"
+          "sub": "You play the scammer on the mic, the AI persona answers back"
         }
       },
       "sttSource": {
         "legend": "Speech-to-text source",
         "hint": "Used to transcribe the operator's mic in live-mic mode.",
         "webSpeech": {
-          "label": "Browser Web Speech API",
+          "label": "Browser's built-in speech-to-text",
           "sub": "Chrome/Edge only · id-ID · free (Safari/Firefox fall back to text input)"
         }
       },
@@ -1320,7 +1338,9 @@
   },
   "honeypotOps": {
     "title": "Honeypot Ops",
-    "subtitle": "Outbound calling operations — the pool of numbers we dial from, the campaigns of numbers to work through, and the calls waiting to be placed into a case. Shared across your agency (unlike the Control Panel, which is per-browser).",
+    "pageLead": "This is where you manage the phone numbers and calling campaigns the honeypot uses to reach out to scammers.",
+    "subtitle": "The pool of numbers we dial from, the campaigns of numbers to work through, and the calls waiting to be placed into a case.",
+    "subtitleRest": "Shared across your agency — unlike the Control Panel, which is per-browser.",
     "steps": {
       "registerNumbers": "Register the numbers you call from",
       "uploadNumbers": "Upload a list of numbers to call",
@@ -1332,12 +1352,20 @@
       "campaigns": "Campaigns",
       "triage": "Triage"
     },
+    "tabsSub": {
+      "numbers": "Caller phone numbers",
+      "campaigns": "Call lists being worked",
+      "triage": "Calls waiting to be filed"
+    },
     "numbersTab": {
       "cardTitle": "Number pool",
       "twilioConsole": "Twilio console ↗",
       "intro": "The numbers the honeypot dials from, rotated so a single caller ID isn't burned. Buy and configure them in the Twilio console, then register them here — this app never provisions numbers itself.",
+      "phoneFieldLabel": "Phone number",
       "phonePlaceholder": "+6281234567890",
+      "sidFieldLabel": "Twilio SID",
       "sidPlaceholder": "Twilio SID (optional)",
+      "labelFieldLabel": "Label",
       "labelPlaceholder": "Label, e.g. Bareskrim #1",
       "register": "Register",
       "registerBusy": "…",
@@ -1363,6 +1391,7 @@
     "campaignsTab": {
       "cardTitle": "Dial campaigns",
       "intro": "A batch of scammer numbers to work through. Name one, paste the list into it, then start it — the persona calls each number in turn. Calls are simulated in this build, and engaging real reported numbers stays gated on law-enforcement authorization.",
+      "nameFieldLabel": "Campaign name",
       "namePlaceholder": "Campaign name, e.g. Judol sweep Aug",
       "pacingTitle": "How fast this campaign works through its list",
       "pacingUnit": "calls/min",
@@ -1464,8 +1493,11 @@
   },
   "rolesAdmin": {
     "title": "Roles & access",
+    "pageLead": "This screen decides what each role is allowed to do across the whole platform.",
     "subtitle": "What each role is allowed to do. Roles are shared across every agency, so a change here applies everywhere — not just to yours.",
+    "gateTitle": "You don't have access to this page",
     "gateBody": "Roles are defined platform-wide, so only a platform operator can change them. Ask one if a role needs different access.",
+    "capabilityKeyLabel": "Technical key",
     "createEyebrow": "Add a role",
     "namePlaceholder": "e.g. fraud-analyst",
     "create": "Create role",

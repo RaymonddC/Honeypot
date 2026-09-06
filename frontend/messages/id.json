@@ -577,6 +577,7 @@
   "audit": {
     "page": {
       "title": "Jejak audit",
+      "pageLead": "Catatan lengkap dan tidak dapat diubah dari setiap tindakan di instansi Anda — siapa melakukan apa, dan kapan.",
       "subtitle": "Setiap tindakan yang tercatat oleh instansi Anda, terbaru lebih dulu — siapa yang melakukannya, kapan, dan apa yang berubah. Tindakan yang <r>ditolak</r> juga tercatat, dan ditandai sebagai demikian: percobaan yang tidak diizinkan oleh peran seseorang sering kali menjadi baris yang paling penting. Bersifat append-only dan hash-chained, sehingga perubahan dapat dideteksi. Tindakan instansi lain tidak pernah ditampilkan.",
       "reverify": "Verifikasi ulang",
       "reverifying": "…",
@@ -659,7 +660,19 @@
       "loginMethod": {
         "google": "Google",
         "demo": "demo login"
-      }
+      },
+      "summaries": {
+        "roleChange": "peran diubah dari {from} ke {to}",
+        "userRole": "sebagai {role}",
+        "bundleGenerated": "{count} dokumen · {outputs}",
+        "dispatchSent": "dikirim ke {agencies} · {docCount} dokumen",
+        "evidenceExported": "{type} · {status}",
+        "documentsCountOne": "{count} dokumen",
+        "documentsCountOther": "{count} dokumen"
+      },
+      "showDetails": "Tampilkan detail teknis",
+      "hideDetails": "Sembunyikan detail teknis",
+      "detailsRawLabel": "Data mentah tercatat untuk entri ini"
     }
   },
   "home": {
@@ -720,12 +733,15 @@
     "page": {
       "eyebrow": "Orientasi",
       "title": "Cara kerja ITTU — panduan singkat",
-      "subtitle": "ITTU (Infiltrate, Trace, Takedown & Uncover) mengubah respons kejahatan finansial dari reaktif menjadi proaktif. Empat modul terangkai menjadi satu investigasi: memburu intelijen dari pelaku penipuan, melacak aliran dana lintas jalur bank dan crypto, menilai jaringan wallet, dan menghasilkan tindakan hukum — setiap langkah tersimpan untuk pengadilan.",
+      "subtitle": "ITTU (Infiltrate, Trace, Takedown & Uncover) mengubah respons kejahatan finansial dari reaktif menjadi proaktif.",
+      "subtitleRest": "Empat modul terangkai menjadi satu investigasi — setiap langkah tersimpan untuk pengadilan.",
       "modulesCardTitle": "Empat modul",
       "open": "buka →",
       "produces": "Menghasilkan:",
       "flowCardTitle": "Alur investigasi",
-      "flowBody": "Semuanya bergantung pada sebuah <caseLink>Case File</caseLink>. Anda mulai pada tahap <intake>Intake</intake>-nya — catat laporan korban atau jalankan honeypot — lalu pelacak tahap membawa kasus melalui empat modul. Percakapan dengan pelaku penipuan (atau sebuah laporan) memunculkan wallet dan rekening mule; wallet tersebut mengalir ke bridge (fiat ↔ crypto) dan grafik (penilaian risiko); target yang telah dinilai mengalir ke Uncover, yang menerbitkan permohonan pemblokiran dan notifikasi instansi. Semuanya di-hash untuk rantai pengawasan sejak pesan pertama hingga dokumen akhir.",
+      "flowIntro": "Semuanya bergantung pada sebuah <caseLink>Case File</caseLink>. Anda mulai pada tahap <intake>Intake</intake>-nya — catat laporan korban atau jalankan honeypot — lalu pelacak tahap membawa kasus melalui empat modul.",
+      "flowBody": "Percakapan dengan pelaku penipuan (atau sebuah laporan) memunculkan wallet dan rekening mule. Wallet tersebut mengalir ke bridge (fiat ↔ crypto) dan grafik (penilaian risiko). Target yang telah dinilai mengalir ke Uncover, yang menerbitkan permohonan pemblokiran dan notifikasi instansi.",
+      "flowClose": "Semuanya di-hash untuk rantai pengawasan sejak pesan pertama hingga dokumen akhir.",
       "screensCardTitle": "Per layar",
       "seeLabel": "Lihat:",
       "doLabel": "Lakukan:",
@@ -1129,6 +1145,7 @@
   },
   "users": {
     "title": "Pengguna",
+    "gateTitle": "Anda belum memiliki akses ke halaman ini",
     "gateBody": "Mengelola akun memerlukan peran admin. Hubungi admin instansi Anda jika perlu perubahan akses.",
     "subtitle": "Siapa yang dapat masuk ke {agency}, dan apa yang boleh mereka lakukan. Setiap perubahan di sini tercatat di <auditLink>jejak audit</auditLink>. Tidak ada kata sandi yang perlu dikelola — orang masuk dengan Google, dan akses ditentukan oleh apakah mereka muncul di daftar ini.",
     "agencyFallback": "instansi Anda",
@@ -1168,6 +1185,7 @@
   },
   "settings": {
     "title": "Panel Kontrol",
+    "pageLead": "Atur tampilan, bahasa, dan preferensi suara/panggilan Anda sendiri untuk aplikasi ini.",
     "subtitle": "Preferensi suara & panggilan khusus analis (di perangkat ini) — disimpan di peramban ini, berlaku pada panggilan honeypot berikutnya. Tidak ada kunci API atau rahasia yang tersimpan di sini.",
     "refresh": "Segarkan status",
     "refreshing": "Menyegarkan…",
@@ -1208,38 +1226,38 @@
         "hint": "Mesin mana yang mengucapkan dialog persona honeypot.",
         "browser": {
           "label": "Peramban",
-          "sub": "Web Speech API · gratis, luring"
+          "sub": "Bawaan peramban Anda · gratis, bisa luring"
         },
         "elevenlabs": {
           "label": "ElevenLabs",
-          "sub": "Audio backend · GET /sessions/'{id}'/audio/'{seq}'"
+          "sub": "Suara tiruan realistis · dibuat di server"
         },
         "gemini": {
           "label": "Gemini TTS",
-          "sub": "Audio backend · persona dengan kontrol gaya (AI Studio)"
+          "sub": "Suara persona dengan kontrol gaya · dibuat di server"
         },
         "google": {
           "label": "Google TTS",
-          "sub": "Audio backend · GET /sessions/'{id}'/audio/'{seq}'"
+          "sub": "Suara sintetis standar · dibuat di server"
         }
       },
       "callMode": {
         "legend": "Mode panggilan",
-        "hint": "Bagaimana /honeypot/call menjalankan percakapan.",
+        "hint": "Bagaimana panggilan honeypot dijalankan.",
         "scripted": {
           "label": "Replai naskah",
           "sub": "Loop agen dijalankan lebih dulu di server · simulasi yang setia"
         },
         "liveMic": {
           "label": "Mikrofon langsung (interaktif)",
-          "sub": "Anda memerankan penipu lewat mikrofon · Tingkat-B, docs/Live-Voice-Calls.md"
+          "sub": "Anda memerankan penipu lewat mikrofon, persona AI menjawab bergiliran"
         }
       },
       "sttSource": {
         "legend": "Sumber ucapan-ke-teks",
         "hint": "Digunakan untuk mentranskrip mikrofon operator pada mode mikrofon langsung.",
         "webSpeech": {
-          "label": "Web Speech API peramban",
+          "label": "Ucapan-ke-teks bawaan peramban",
           "sub": "Hanya Chrome/Edge · id-ID · gratis (Safari/Firefox beralih ke input teks)"
         }
       },
@@ -1320,7 +1338,9 @@
   },
   "honeypotOps": {
     "title": "Ops Honeypot",
-    "subtitle": "Operasi panggilan keluar — kumpulan nomor tempat kami menelepon, kampanye nomor yang dikerjakan, dan panggilan yang menunggu untuk ditempatkan ke sebuah kasus. Digunakan bersama di seluruh instansi Anda (berbeda dari Panel Kontrol, yang khusus per-peramban).",
+    "pageLead": "Di sinilah Anda mengelola nomor telepon dan kampanye panggilan yang dipakai honeypot untuk menjangkau pelaku.",
+    "subtitle": "Kumpulan nomor tempat kami menelepon, kampanye nomor yang dikerjakan, dan panggilan yang menunggu untuk ditempatkan ke sebuah kasus.",
+    "subtitleRest": "Digunakan bersama di seluruh instansi Anda — berbeda dari Panel Kontrol, yang khusus per-peramban.",
     "steps": {
       "registerNumbers": "Daftarkan nomor tempat Anda menelepon",
       "uploadNumbers": "Unggah daftar nomor yang akan ditelepon",
@@ -1332,12 +1352,20 @@
       "campaigns": "Kampanye",
       "triage": "Triase"
     },
+    "tabsSub": {
+      "numbers": "Nomor telepon penelepon",
+      "campaigns": "Daftar panggilan yang dikerjakan",
+      "triage": "Panggilan menunggu diarsipkan"
+    },
     "numbersTab": {
       "cardTitle": "Kumpulan nomor",
       "twilioConsole": "Konsol Twilio ↗",
       "intro": "Nomor tempat honeypot menelepon, dirotasi agar satu ID penelepon tidak terbakar. Beli dan konfigurasikan di konsol Twilio, lalu daftarkan di sini — aplikasi ini tidak pernah menyediakan nomor sendiri.",
+      "phoneFieldLabel": "Nomor telepon",
       "phonePlaceholder": "+6281234567890",
+      "sidFieldLabel": "SID Twilio",
       "sidPlaceholder": "SID Twilio (opsional)",
+      "labelFieldLabel": "Label",
       "labelPlaceholder": "Label, mis. Bareskrim #1",
       "register": "Daftarkan",
       "registerBusy": "…",
@@ -1363,6 +1391,7 @@
     "campaignsTab": {
       "cardTitle": "Kampanye panggilan",
       "intro": "Sekumpulan nomor penipu untuk dikerjakan. Beri nama, tempel daftarnya, lalu mulai — persona menelepon setiap nomor secara berurutan. Panggilan disimulasikan pada build ini, dan menghubungi nomor yang benar-benar dilaporkan tetap memerlukan otorisasi penegak hukum.",
+      "nameFieldLabel": "Nama kampanye",
       "namePlaceholder": "Nama kampanye, mis. Sapu bersih judol Agu",
       "pacingTitle": "Seberapa cepat kampanye ini mengerjakan daftarnya",
       "pacingUnit": "panggilan/mnt",
@@ -1464,8 +1493,11 @@
   },
   "rolesAdmin": {
     "title": "Peran & akses",
+    "pageLead": "Layar ini menentukan apa yang boleh dilakukan setiap peran di seluruh platform.",
     "subtitle": "Apa yang boleh dilakukan setiap peran. Peran berlaku untuk semua instansi, jadi perubahan di sini berdampak ke semuanya — bukan hanya instansi Anda.",
+    "gateTitle": "Anda belum memiliki akses ke halaman ini",
     "gateBody": "Peran ditetapkan untuk seluruh platform, sehingga hanya operator platform yang dapat mengubahnya. Hubungi mereka jika sebuah peran memerlukan akses berbeda.",
+    "capabilityKeyLabel": "Kunci teknis",
     "createEyebrow": "Tambah peran",
     "namePlaceholder": "mis. fraud-analyst",
     "create": "Buat peran",

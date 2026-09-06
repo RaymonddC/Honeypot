@@ -835,8 +835,11 @@ export default function SettingsPage() {
       {/* ── header ─────────────────────────────────────────────────── */}
       <div className="mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">{t("title")}</h1>
-          <p className="mt-1 text-xs text-muted">
+          <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
+          <p className="mt-2 max-w-[60ch] text-[13px] leading-relaxed text-muted">
+            {t("pageLead")}
+          </p>
+          <p className="mt-1 max-w-[60ch] text-xs leading-relaxed text-muted">
             {t("subtitle")}
           </p>
         </div>
