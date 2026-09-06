@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useLocale } from "@/components/i18n/locale-provider";
 import type { Locale } from "@/i18n/config";
+import { useTheme, type ThemeChoice } from "@/components/theme/theme-provider";
 import {
   CALL_MODE_SETTINGS,
   STT_SOURCE_SETTINGS,
@@ -781,6 +782,32 @@ function LanguageCard() {
   );
 }
 
+/* ── Theme switcher — light / dark / system ──────────────────────────────── */
+
+function ThemeCard() {
+  const t = useTranslations("settings.theme");
+  const { theme, setTheme } = useTheme();
+  const options: readonly ThemeChoice[] = ["light", "dark", "system"];
+  const copy: Record<ThemeChoice, { label: string; sub: string }> = {
+    light: { label: t("light.label"), sub: t("light.sub") },
+    dark: { label: t("dark.label"), sub: t("dark.sub") },
+    system: { label: t("system.label"), sub: t("system.sub") },
+  };
+  return (
+    <Card title={t("cardTitle")}>
+      <SegmentedControl
+        legend={t("legend")}
+        hint={t("hint")}
+        name="theme"
+        options={options}
+        copy={copy}
+        value={theme}
+        onChange={setTheme}
+      />
+    </Card>
+  );
+}
+
 /* ── Page ─────────────────────────────────────────────────────────────────── */
 
 export default function SettingsPage() {
@@ -823,6 +850,7 @@ export default function SettingsPage() {
         </button>
       </div>
 
+      <ThemeCard />
       <LanguageCard />
 
       <Card title={t("voiceCall.cardTitle")}>

@@ -34,6 +34,12 @@
       "dataModeTitle": "Mode data: {mode}",
       "envFallback": " (fallback env — /api/config tidak dapat dijangkau)"
     },
+    "themeToggle": {
+      "title": "Ganti tampilan (saat ini: {current})",
+      "light": "terang",
+      "dark": "gelap",
+      "system": "ikuti perangkat"
+    },
     "userMenu": {
       "accountLabel": "Akun: {name}",
       "sessionVerified": "sesi terverifikasi",
@@ -1165,6 +1171,23 @@
     "subtitle": "Preferensi suara & panggilan khusus analis (di perangkat ini) — disimpan di peramban ini, berlaku pada panggilan honeypot berikutnya. Tidak ada kunci API atau rahasia yang tersimpan di sini.",
     "refresh": "Segarkan status",
     "refreshing": "Menyegarkan…",
+    "theme": {
+      "cardTitle": "Tampilan",
+      "legend": "Mode warna",
+      "hint": "Berlaku instan di peramban ini — tidak memuat ulang halaman.",
+      "light": {
+        "label": "Terang",
+        "sub": "Latar putih, selalu"
+      },
+      "dark": {
+        "label": "Gelap",
+        "sub": "Latar gelap, selalu"
+      },
+      "system": {
+        "label": "Ikuti perangkat",
+        "sub": "Default — mengikuti pengaturan OS"
+      }
+    },
     "language": {
       "cardTitle": "Bahasa",
       "legend": "Bahasa antarmuka",
