@@ -81,7 +81,9 @@
       "refreshSession": "Refresh session",
       "startVoiceCall": "Start voice call →",
       "loadingState": "Attaching to scam session…",
-      "footerNote": "Agent stays <b>strictly reactive & victim-framed</b> — never initiates fraud, accesses systems, or redistributes data (clear of entrapment + UU ITE Arts. 30/32/33). Extracted wallet flows straight into the Investigation graph."
+      "footerNote": "Agent stays <b>strictly reactive & victim-framed</b> — never initiates fraud, accesses systems, or redistributes data (clear of entrapment + UU ITE Arts. 30/32/33). Extracted wallet flows straight into the Investigation graph.",
+      "pageLead": "Chat as the bait persona, and watch what the scammer gives away.",
+      "dataSourceHint": "Where this session's data is coming from"
     },
     "chatTranscript": {
       "sessionEyebrow": "Session · {channel} · persona \"{persona}\"",
@@ -90,6 +92,7 @@
     },
     "custodyCard": {
       "title": "Chain of custody",
+      "subtitle": "A tamper-evident record that this transcript is unedited — needed for it to hold up as evidence.",
       "intact": "◇ intact",
       "unverified": "◇ unverified",
       "messagesLogged": "Messages logged",
@@ -110,7 +113,8 @@
       "addCase": "+ Case",
       "retry": "retry",
       "trackTitle": "Track on this case → links the on-ramp wallet",
-      "openCaseTitle": "Open a case to attach"
+      "openCaseTitle": "Open a case to attach",
+      "confidenceTitle": "How sure the system is this extraction is correct (0–1)"
     },
     "callPage": {
       "backLink": "← Honeypot console",
@@ -220,6 +224,7 @@
       "title": "Bridge View",
       "titleModule": "BridgeWatch",
       "subtitle": "The fiat→crypto on-ramp — where dirty rupiah becomes USDT. Case template: PT A2Z (Rp 530 M · 4,656 accounts · 22 banks).",
+      "pageLead": "See where scam proceeds cross from bank transfers into crypto, and which accounts are doing the bridging.",
       "liveApi": "● live api",
       "offlineMock": "● offline · mock",
       "liveApiTitle": "Live backend API",
@@ -320,6 +325,8 @@
       "riskSuffix": "{risk} risk",
       "tracingOnChain": "Tracing on-chain…",
       "tracingHint": "a busy wallet can take up to a minute",
+      "pageLead": "Trace where a wallet's money came from and went to, and get a plain-language read on how suspicious it looks.",
+      "walletInputHint": "Wallet to trace",
       "footerNote": "Isolation Forest is presented as <b>anomaly triage</b>, paired with deterministic typology rules for court-explainable signal · every flag carries confidence + reasoning (UU ITE Pasal 5).",
       "statusBadge": {
         "idle": {
@@ -389,6 +396,7 @@
     },
     "glassBox": {
       "eyebrow": "◇ Glass Box · reasoning trace",
+      "eyebrowHint": "A step-by-step record of how the system reached this score — not a black box.",
       "confidence": "confidence {confidence}",
       "empty": "Select a wallet to see how its score was reached — every step of the pipeline is logged."
     },
@@ -397,6 +405,7 @@
       "scoringWallet": "Scoring wallet…",
       "clickToInspect": "Click a node in the graph to inspect it.",
       "calculatedRisk": "Calculated risk",
+      "methodHint": "The detection model behind this score — an algorithm trained to spot unusual wallet behavior automatically.",
       "confidence": "Confidence",
       "attributedExchange": "Exchange",
       "riskSuffix": "{risk} risk",
@@ -447,6 +456,7 @@
     "panel": {
       "title": "Action Panel",
       "subtitle": "One click turns a confirmed case into legal action — every document hashed as evidence.",
+      "pageLead": "Generate the freeze request and regulatory filings for this case, then send them to the right agencies.",
       "liveApiTitle": "Live backend API",
       "offlineMockTitle": "Backend unreachable — rendering local demo dataset",
       "liveApi": "● live api",

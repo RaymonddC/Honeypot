@@ -51,29 +51,27 @@ export function HoneypotPanel({
     <div className={embedded ? "" : "mx-auto max-w-[1200px]"}>
       {/* ── header ─────────────────────────────────────────────────── */}
       <div
-        className={`mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:gap-4 ${embedded ? "sm:justify-end" : "sm:justify-between"}`}
+        className={`mb-5 flex flex-col items-start gap-3 sm:flex-row sm:items-start sm:gap-4 ${embedded ? "sm:justify-end" : "sm:justify-between"}`}
       >
         {!embedded && (
           <div>
-            <h1 className="text-xl font-bold tracking-tight">
-              {t("title")} <span className="font-semibold text-muted">· {t("titleModule")}</span>
+            <h1 className="text-2xl font-bold tracking-tight">
+              {t("title")} <span className="text-base font-semibold text-muted">· {t("titleModule")}</span>
             </h1>
-            <p className="mt-1 text-xs text-muted">{t("subtitle")}</p>
+            <p className="mt-1.5 max-w-[60ch] text-[13px] leading-relaxed text-muted">{t("pageLead")}</p>
           </div>
         )}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Data-source and refresh are plumbing, not the point — kept small
+              and muted so the transcript/entities keep the visual weight. */}
           {data && (
             <span
-              className={`rounded-md border px-2 py-0.5 font-mono text-[10.5px] font-semibold ${
+              className={`rounded-md border px-1.5 py-0.5 font-mono text-[9.5px] ${
                 data.source === "api"
-                  ? "border-accent/30 bg-accent/10 text-accent-bright"
+                  ? "border-line bg-elevated text-muted"
                   : "border-risk-med/30 bg-risk-med/10 text-risk-med"
               }`}
-              title={
-                data.source === "api"
-                  ? t("liveApiTitle")
-                  : t("offlineMockTitle")
-              }
+              title={`${t("dataSourceHint")}: ${data.source === "api" ? t("liveApiTitle") : t("offlineMockTitle")}`}
             >
               {data.source === "api" ? t("liveApi") : t("offlineMock")}
             </span>

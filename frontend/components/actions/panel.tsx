@@ -124,20 +124,22 @@ export function ActionsPanel({
     <div className={embedded ? "" : "mx-auto max-w-[1200px]"}>
       {/* ── header ─────────────────────────────────────────────────── */}
       <div
-        className={`mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:gap-4 ${embedded ? "sm:justify-end" : "sm:justify-between"}`}
+        className={`mb-5 flex flex-col items-start gap-3 sm:flex-row sm:items-start sm:gap-4 ${embedded ? "sm:justify-end" : "sm:justify-between"}`}
       >
         {!embedded && (
           <div>
-            <h1 className="text-xl font-bold tracking-tight">{t("title")}</h1>
-            <p className="mt-1 text-xs text-muted">{t("subtitle")}</p>
+            <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
+            <p className="mt-1.5 max-w-[62ch] text-[13px] leading-relaxed text-muted">{t("pageLead")}</p>
           </div>
         )}
         <div className="flex flex-wrap items-center gap-2">
+          {/* data-source is plumbing — de-emphasized so the generated
+              documents below keep the visual weight */}
           {bundle && (
             <span
-              className={`rounded-md border px-2 py-0.5 font-mono text-[10.5px] font-semibold ${
+              className={`rounded-md border px-1.5 py-0.5 font-mono text-[9.5px] ${
                 bundle.source === "api"
-                  ? "border-accent/30 bg-accent/10 text-accent-bright"
+                  ? "border-line bg-elevated text-muted"
                   : "border-risk-med/30 bg-risk-med/10 text-risk-med"
               }`}
               title={

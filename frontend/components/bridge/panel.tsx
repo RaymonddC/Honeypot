@@ -93,25 +93,27 @@ export function BridgePanel({
     <div className={embedded ? "" : "mx-auto max-w-[1200px]"}>
       {/* ── header ─────────────────────────────────────────────────── */}
       <div
-        className={`mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:gap-4 ${embedded ? "sm:justify-end" : "sm:justify-between"}`}
+        className={`mb-5 flex flex-col items-start gap-3 sm:flex-row sm:items-start sm:gap-4 ${embedded ? "sm:justify-end" : "sm:justify-between"}`}
       >
         {!embedded && (
           <div>
-            <h1 className="text-xl font-bold tracking-tight">
+            <h1 className="text-2xl font-bold tracking-tight">
               {t("title")}{" "}
-              <span className="font-semibold text-muted">· {t("titleModule")}</span>
+              <span className="text-base font-semibold text-muted">· {t("titleModule")}</span>
             </h1>
-            <p className="mt-1 text-xs text-muted">
-              {t("subtitle")}
+            <p className="mt-1.5 max-w-[65ch] text-[13px] leading-relaxed text-muted">
+              {t("pageLead")}
             </p>
           </div>
         )}
         <div className="flex flex-wrap items-center gap-2">
+          {/* data-source is plumbing — kept small/muted so it doesn't compete
+              with the stat tiles and Sankey below */}
           {data && (
             <span
-              className={`rounded-md border px-2 py-0.5 font-mono text-[10.5px] font-semibold ${
+              className={`rounded-md border px-1.5 py-0.5 font-mono text-[9.5px] ${
                 data.source === "api"
-                  ? "border-accent/30 bg-accent/10 text-accent-bright"
+                  ? "border-line bg-elevated text-muted"
                   : "border-risk-med/30 bg-risk-med/10 text-risk-med"
               }`}
               title={

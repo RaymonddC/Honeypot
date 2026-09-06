@@ -143,7 +143,10 @@ export function WalletDetailCard({
       {/* radial risk gauge — the highlighted verdict */}
       <div className="flex flex-col items-center px-3.5 pb-3 pt-4">
         <RiskGauge detail={detail} />
-        <div className="mt-2 text-[9.5px] uppercase tracking-[.05em] text-muted">
+        <div
+          className="mt-2 cursor-help text-[9.5px] uppercase tracking-[.05em] text-muted"
+          title={t("methodHint")}
+        >
           {detail.method}
         </div>
         {detail.risk !== "exchange" && (

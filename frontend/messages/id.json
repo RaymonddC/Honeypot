@@ -81,7 +81,9 @@
       "refreshSession": "Segarkan sesi",
       "startVoiceCall": "Mulai panggilan suara →",
       "loadingState": "Menyambungkan ke sesi penipuan…",
-      "footerNote": "Agen tetap <b>bersifat reaktif & berkedok korban</b> — tidak pernah memulai penipuan, mengakses sistem, atau mendistribusikan ulang data (bebas dari jebakan/entrapment + UU ITE Pasal 30/32/33). Wallet yang terekstrak langsung mengalir ke grafik Investigation."
+      "footerNote": "Agen tetap <b>bersifat reaktif & berkedok korban</b> — tidak pernah memulai penipuan, mengakses sistem, atau mendistribusikan ulang data (bebas dari jebakan/entrapment + UU ITE Pasal 30/32/33). Wallet yang terekstrak langsung mengalir ke grafik Investigation.",
+      "pageLead": "Mengobrol sebagai persona umpan, dan lihat apa yang terungkap dari pelaku.",
+      "dataSourceHint": "Sumber data sesi ini berasal dari mana"
     },
     "chatTranscript": {
       "sessionEyebrow": "Sesi · {channel} · persona \"{persona}\"",
@@ -90,6 +92,7 @@
     },
     "custodyCard": {
       "title": "Rantai pengawasan",
+      "subtitle": "Catatan anti-rusak yang membuktikan transkrip ini tidak diubah — diperlukan agar sah sebagai barang bukti.",
       "intact": "◇ utuh",
       "unverified": "◇ belum terverifikasi",
       "messagesLogged": "Pesan tercatat",
@@ -110,7 +113,8 @@
       "addCase": "+ Kasus",
       "retry": "coba lagi",
       "trackTitle": "Lacak pada kasus ini → menautkan wallet on-ramp",
-      "openCaseTitle": "Buka kasus untuk melampirkan"
+      "openCaseTitle": "Buka kasus untuk melampirkan",
+      "confidenceTitle": "Seberapa yakin sistem bahwa hasil ekstraksi ini benar (0–1)"
     },
     "callPage": {
       "backLink": "← Konsol Honeypot",
@@ -219,6 +223,7 @@
     "panel": {
       "title": "Bridge View",
       "titleModule": "BridgeWatch",
+      "pageLead": "Lihat di mana hasil penipuan berpindah dari transfer bank ke aset kripto, dan akun mana yang menjadi jembatannya.",
       "subtitle": "Jalur fiat→crypto on-ramp — tempat rupiah kotor berubah menjadi USDT. Template kasus: PT A2Z (Rp 530 M · 4.656 rekening · 22 bank).",
       "liveApi": "● live api",
       "offlineMock": "● offline · mock",
@@ -320,6 +325,8 @@
       "riskSuffix": "Risiko {risk}",
       "tracingOnChain": "Melacak on-chain…",
       "tracingHint": "wallet yang sibuk bisa memakan waktu hingga satu menit",
+      "pageLead": "Lacak asal dan tujuan uang dari suatu wallet, dan dapatkan penilaian dalam bahasa sederhana seberapa mencurigakan wallet tersebut.",
+      "walletInputHint": "Wallet yang akan dilacak",
       "footerNote": "Isolation Forest disajikan sebagai <b>triase anomali</b>, dipadukan dengan aturan tipologi deterministik untuk sinyal yang dapat dijelaskan di pengadilan · setiap flag disertai tingkat keyakinan + penalaran (UU ITE Pasal 5).",
       "statusBadge": {
         "idle": {
@@ -389,6 +396,7 @@
     },
     "glassBox": {
       "eyebrow": "◇ Glass Box · jejak penalaran",
+      "eyebrowHint": "Catatan langkah demi langkah tentang bagaimana sistem sampai pada skor ini — bukan kotak hitam.",
       "confidence": "tingkat keyakinan {confidence}",
       "empty": "Pilih wallet untuk melihat bagaimana skornya diperoleh — setiap tahap pipeline tercatat."
     },
@@ -397,6 +405,7 @@
       "scoringWallet": "Menilai wallet…",
       "clickToInspect": "Klik node pada grafik untuk memeriksanya.",
       "calculatedRisk": "Risiko terhitung",
+      "methodHint": "Model deteksi di balik skor ini — algoritma yang dilatih untuk mengenali perilaku wallet yang tidak lazim secara otomatis.",
       "confidence": "Tingkat keyakinan",
       "attributedExchange": "Exchange",
       "riskSuffix": "Risiko {risk}",
@@ -447,6 +456,7 @@
     "panel": {
       "title": "Action Panel",
       "subtitle": "Satu klik mengubah kasus yang telah dikonfirmasi menjadi tindakan hukum — setiap dokumen di-hash sebagai barang bukti.",
+      "pageLead": "Buat surat permintaan pemblokiran dan laporan regulasi untuk kasus ini, lalu kirim ke instansi yang tepat.",
       "liveApiTitle": "API backend live",
       "offlineMockTitle": "Backend tidak dapat dijangkau — menampilkan dataset demo lokal",
       "liveApi": "● live api",

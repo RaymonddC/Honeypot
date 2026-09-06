@@ -168,7 +168,7 @@ export function EntityPanel({
               </small>
             </div>
             <div className="ml-auto flex flex-none items-center gap-2">
-              <span className="font-mono text-[10px] tnum text-muted">
+              <span className="font-mono text-[10px] tnum text-muted" title={t("confidenceTitle")}>
                 conf{" "}
                 <b className="font-bold text-accent-bright">
                   {formatConf(e.confidence)}

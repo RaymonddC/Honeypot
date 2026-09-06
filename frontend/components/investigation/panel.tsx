@@ -171,13 +171,13 @@ export function InvestigationPanel({
     <div className={embedded ? "" : "mx-auto max-w-[1200px]"}>
       {/* ── header ─────────────────────────────────────────────────── */}
       <div
-        className={`mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:gap-4 ${embedded ? "sm:justify-end" : "sm:justify-between"}`}
+        className={`mb-5 flex flex-col items-start gap-3 sm:flex-row sm:items-start sm:gap-4 ${embedded ? "sm:justify-end" : "sm:justify-between"}`}
       >
         {!embedded && (
           <div>
-            <h1 className="text-xl font-bold tracking-tight">{t("title")}</h1>
-            <p className="mt-1 text-xs text-muted">
-              {t("subtitle")}{" "}
+            <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
+            <p className="mt-1.5 max-w-[60ch] text-[13px] leading-relaxed text-muted">
+              {t("pageLead")}{" "}
               <span className="text-accent-bright">{t("subtitleCta")}</span>
             </p>
           </div>
@@ -202,15 +202,16 @@ export function InvestigationPanel({
         </div>
       </div>
 
-      {/* ── search bar ─────────────────────────────────────────────── */}
+      {/* ── search bar — plumbing: kept compact so the verdict below carries
+          the visual weight, not the input itself ─────────────────────── */}
       <form
-        className="mb-2.5 flex gap-2.5"
+        className="mb-2.5 flex gap-2"
         onSubmit={(e) => {
           e.preventDefault();
           if (!tracing && address.trim()) void trace(address.trim());
         }}
       >
-        <div className="flex h-[38px] flex-1 items-center gap-2 rounded-lg border border-line bg-card px-3">
+        <div className="flex h-9 flex-1 items-center gap-2 rounded-lg border border-line bg-elevated px-3">
           <span className="text-muted" aria-hidden>
             ⌕
           </span>
@@ -220,14 +221,17 @@ export function InvestigationPanel({
             spellCheck={false}
             aria-label={t("walletAddressLabel")}
             placeholder={t("walletAddressPlaceholder")}
-            className="min-w-0 flex-1 bg-transparent font-mono text-[12.5px] text-fg outline-none placeholder:text-muted"
+            className="min-w-0 flex-1 bg-transparent font-mono text-[12px] text-fg outline-none placeholder:text-muted"
           />
-          <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] text-muted">
+          <span
+            className="rounded border border-line bg-card px-1.5 py-0.5 font-mono text-[9.5px] text-muted"
+            title={t("walletInputHint")}
+          >
             USDT-TRC20
           </span>
           {status && (
             <span
-              className={`rounded-md border px-2 py-0.5 font-mono text-[10.5px] font-semibold ${STATUS_BADGE_CLS[status]}`}
+              className={`rounded border px-1.5 py-0.5 font-mono text-[9.5px] ${STATUS_BADGE_CLS[status]}`}
               title={t(`statusBadge.${status}.title`)}
             >
               {t(`statusBadge.${status}.label`)}
@@ -237,7 +241,7 @@ export function InvestigationPanel({
         <button
           type="submit"
           disabled={tracing || !address.trim()}
-          className="h-[38px] rounded-lg bg-accent px-4 text-xs font-semibold text-[#04140d] shadow-[0_0_16px_rgba(16,185,129,.28)] transition-colors hover:bg-accent-bright disabled:opacity-50"
+          className="h-9 rounded-lg bg-accent px-4 text-xs font-semibold text-[#04140d] shadow-[0_0_16px_rgba(16,185,129,.28)] transition-colors hover:bg-accent-bright disabled:opacity-50"
         >
           {tracing ? t("tracing") : t("traceWallet")}
         </button>
@@ -270,23 +274,24 @@ export function InvestigationPanel({
         </div>
       )}
 
-      {/* verdict + plain-language recommendation for the scored wallet */}
+      {/* verdict + plain-language recommendation — the headline finding on
+          this screen, so it gets the largest type and the most presence */}
       {detail && !tracing && (
         <div
-          className="relative mb-3.5 flex flex-wrap items-center gap-x-4 gap-y-2 overflow-hidden rounded-card border px-4 py-3"
+          className="relative mb-4 flex flex-wrap items-center gap-x-5 gap-y-2.5 overflow-hidden rounded-card border px-5 py-4"
           style={{
             borderColor: `${RISK_COLORS[detail.risk]}55`,
             background: `${RISK_COLORS[detail.risk]}12`,
           }}
         >
           <span
-            className="absolute inset-y-0 left-0 w-1"
+            className="absolute inset-y-0 left-0 w-1.5"
             style={{ background: RISK_COLORS[detail.risk] }}
             aria-hidden
           />
-          <div className="flex items-center gap-2.5 pl-1">
+          <div className="flex items-center gap-3 pl-1">
             <span
-              className="font-mono text-[27px] font-extrabold leading-none tnum"
+              className="font-mono text-[34px] font-extrabold leading-none tnum"
               style={{
                 color: RISK_COLORS[detail.risk],
                 textShadow: `0 0 14px ${RISK_COLORS[detail.risk]}55`,
@@ -296,7 +301,7 @@ export function InvestigationPanel({
             </span>
             <div>
               <div
-                className="text-[11.5px] font-bold uppercase tracking-wide"
+                className="text-[12.5px] font-bold uppercase tracking-wide"
                 style={{ color: RISK_COLORS[detail.risk] }}
               >
                 {detail.risk === "exchange" ? t("attributedExchange") : t("riskSuffix", { risk: RISK_LABELS[detail.risk] })}
@@ -306,7 +311,7 @@ export function InvestigationPanel({
               </div>
             </div>
           </div>
-          <p className="min-w-0 flex-1 text-[11.5px] leading-snug text-fg/80">
+          <p className="min-w-0 flex-1 text-[12px] leading-snug text-fg/80">
             {t(`riskReco.${detail.risk}`)}
           </p>
           {onSendToActions && (

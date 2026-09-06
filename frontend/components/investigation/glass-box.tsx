@@ -51,15 +51,18 @@ export function GlassBox({ detail }: { detail: WalletDetail | null }) {
   const t = useTranslations("investigation.glassBox");
   return (
     <section className="mt-3.5 rounded-card border border-line bg-card">
-      <div className="flex items-center justify-between border-b border-line px-3.5 py-3">
-        <span className="eyebrow text-accent-bright" style={{ color: "#34d399" }}>
-          {t("eyebrow")}
-        </span>
-        {detail && (
-          <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] tnum text-muted">
-            {t("confidence", { confidence: detail.confidence.toFixed(2) })}
+      <div className="border-b border-line px-3.5 py-3">
+        <div className="flex items-center justify-between">
+          <span className="eyebrow text-accent-bright" style={{ color: "#34d399" }}>
+            {t("eyebrow")}
           </span>
-        )}
+          {detail && (
+            <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[10.5px] tnum text-muted">
+              {t("confidence", { confidence: detail.confidence.toFixed(2) })}
+            </span>
+          )}
+        </div>
+        <p className="mt-1 text-[10.5px] leading-snug text-muted">{t("eyebrowHint")}</p>
       </div>
       {detail && detail.reasoning.length > 0 ? (
         detail.reasoning.map((s) => <Step key={s.step} s={s} />)
