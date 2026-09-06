@@ -28,8 +28,8 @@ import type {
 } from "./types";
 import {
   BASELINE_RECOVERY_PCT,
-  CYAN,
-  EMERALD,
+  ACCENT_SOFT,
+  ACCENT,
   formatIDRShort,
   splitIDR,
   splitMinutes,
@@ -101,7 +101,7 @@ function buildTiles(m: any, frozenCount: number | null): MetricTile[] {
       label: "Avg time-to-freeze",
       value: ttf?.value ?? "—",
       suffix: ttf?.suffix,
-      color: EMERALD,
+      color: ACCENT,
       delta:
         ttf != null
           ? `▼ from ${baselineHours != null ? `${Math.round(baselineHours)}h+` : "12h+"} baseline`
@@ -118,7 +118,7 @@ function buildTiles(m: any, frozenCount: number | null): MetricTile[] {
       label: "Funds frozen",
       value: froz?.value ?? "—",
       suffix: froz?.suffix,
-      color: CYAN,
+      color: ACCENT_SOFT,
       delta:
         frozenCount != null && frozenCount > 0
           ? `▲ ${frozenCount} freeze${frozenCount > 1 ? "s" : ""} ack’d`
@@ -129,7 +129,7 @@ function buildTiles(m: any, frozenCount: number | null): MetricTile[] {
       label: "Freeze rate",
       value: freezeRate != null ? freezeRate.toFixed(1) : "—",
       suffix: "%",
-      color: EMERALD,
+      color: ACCENT,
       delta: "of funds at risk, freeze dispatched",
     },
   ];
@@ -150,14 +150,14 @@ function buildOps(m: any): OpsStat[] {
   return [
     { label: "Honeypot sessions", glyph: "⬡", value: intStr(first(hp?.active_sessions, hp?.sessions)), sub: "INFILTRATE" },
     { label: "Entities confirmed", glyph: "◇", value: intStr(hp?.entities_confirmed), sub: "wallets · accounts" },
-    { label: "Wallets scored", glyph: "◉", value: intStr(m?.wallets_scored), sub: "TAKEDOWN graph", color: EMERALD },
+    { label: "Wallets scored", glyph: "◉", value: intStr(m?.wallets_scored), sub: "TAKEDOWN graph", color: ACCENT },
     { label: "Documents generated", glyph: "⚑", value: intStr(a?.documents_generated), sub: "UNCOVER" },
     {
       label: "Bundles dispatched",
       glyph: "↗",
       value: dispatched != null ? `${dispatched}${generated != null ? `/${generated}` : ""}` : "—",
       sub: "human-gated",
-      color: CYAN,
+      color: ACCENT_SOFT,
     },
     { label: "Agency notifications", glyph: "📡", value: intStr(a?.notifications_mock), sub: "routed" },
   ];

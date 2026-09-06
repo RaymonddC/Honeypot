@@ -7,7 +7,6 @@ import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/auth/auth-provider";
 import { CaseSwitcher } from "@/components/cases/case-switcher";
 import { CaseContextBar } from "@/components/cases/case-context-bar";
-import { useTheme } from "@/components/theme/theme-provider";
 import { CAP, can, initialsOf, roleLabel } from "@/lib/auth/types";
 import { isNavActive } from "@/lib/nav";
 
@@ -107,38 +106,6 @@ function ModeBadge() {
     >
       {mode}
     </span>
-  );
-}
-
-/* ── Theme toggle — quick access next to the mode badge ──────────────────
- * Cycles light → dark → system on each click, so the common case (flip
- * between light and dark) is one click, with "system" reachable as the
- * third stop rather than needing to open the Control Panel for the full
- * three-way choice (that's still there — see ThemeCard in app/settings). */
-
-const THEME_CYCLE: Record<
-  ReturnType<typeof useTheme>["theme"],
-  ReturnType<typeof useTheme>["theme"]
-> = {
-  light: "dark",
-  dark: "system",
-  system: "light",
-};
-
-function ThemeToggle() {
-  const t = useTranslations("appShell.themeToggle");
-  const { theme, setTheme } = useTheme();
-  const icon = theme === "dark" ? "☾" : theme === "light" ? "☼" : "◐";
-  return (
-    <button
-      type="button"
-      onClick={() => setTheme(THEME_CYCLE[theme])}
-      title={t("title", { current: t(theme) })}
-      aria-label={t("title", { current: t(theme) })}
-      className="flex h-7 w-7 flex-none items-center justify-center rounded-full border border-line bg-elevated text-[13px] text-muted transition-colors hover:border-white/40 hover:text-fg"
-    >
-      <span aria-hidden>{icon}</span>
-    </button>
   );
 }
 
@@ -474,7 +441,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <div className="flex-1" />
 
-          <ThemeToggle />
           <ModeBadge />
           <UserMenu />
         </header>

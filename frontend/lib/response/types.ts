@@ -22,7 +22,7 @@ export interface MetricTile {
   color?: string;
   /** Delta / context line under the value, e.g. "▲ 6 this week". */
   delta?: string;
-  /** Tint the delta emerald (mockup .d.up). */
+  /** Tint the delta with the accent color (mockup .d.up). */
   deltaUp?: boolean;
 }
 
@@ -94,8 +94,14 @@ export const RANGE_LABELS: Record<RangeKey, string> = {
 
 /* ── Colors (mockup tokens) ────────────────────────────────────────────── */
 
-export const EMERALD = "#0099ff";
-export const CYAN = "#33adff";
+// Chart/tile accents, as concrete hex because they are consumed as inline
+// style values. These mirror --accent-bright and a lighter tint of it (see
+// app/globals.css) — keep them in sync by hand if the palette moves.
+// (Formerly EMERALD/CYAN: the values were re-pointed at the Framer blue during
+// the palette change but the names were not, leaving constants called EMERALD
+// that held blue.)
+export const ACCENT = "#0099ff";
+export const ACCENT_SOFT = "#33adff";
 
 /** IASC recovery-rate baseline (share of scammed funds returned to victims).
  *  Reference figure only — NOT the benchmark for the freeze-rate tile, which

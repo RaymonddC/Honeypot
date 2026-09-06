@@ -105,7 +105,8 @@ export const STAGE_COLORS = ["#7a7f87", "#9aa0a8", "#0088e6", "#0099ff"];
 /** Foreign-destination endpoints get the deep-blue end of the ramp. */
 export const FOREIGN_COLOR = "#4b5563";
 
-export const CYAN = "#33adff";
+// Lighter tint of --accent-bright (see lib/response/types.ts).
+export const ACCENT_SOFT = "#33adff";
 export const AMBER = "#f5a524";
 export const HIGH = "#ef4444";
 

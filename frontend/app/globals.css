@@ -2,10 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── ITTU design tokens — corporate/neutral (2026-09 redesign) ───────────────
- * Replaces the near-black/neon-emerald "security tool" look with a clean,
- * institutional palette: light ground by default, a restrained corporate
- * blue accent, and a genuinely neutral (not near-black) dark mode.
+/* ── ITTU design tokens — Framer dark canvas (single theme) ──────────────────
+ * ITTU is dark-only, deliberately. The Framer language this UI is built in
+ * (near-black ground, charcoal surfaces, gradient spotlights, white-primary
+ * pills, one blue accent) is designed for a dark canvas; the light palette that
+ * used to live here was never designed alongside it, and because the module
+ * screens carry the Framer greys as literal values rather than tokens, choosing
+ * "Light" produced near-black cards on a near-white page with text contrast
+ * down at 2.4:1. Rather than ship a broken second theme behind a toggle, there
+ * is one palette and no toggle.
+ *
+ * To reintroduce a light (or high-contrast) theme later: restore a class-scoped
+ * block here, then convert the literal greys in app/ and components/ to these
+ * tokens — the literals are the reason a second theme cannot simply be switched
+ * on, and they all correspond to values defined below.
  *
  * Every color is stored TWICE:
  *   --x       a normal CSS color, for plain `color: var(--x)` usage (SVG
@@ -16,60 +26,30 @@
  *             keep working. Keep both in sync when changing a color.
  */
 :root {
-  --bg: #fafafa;                 --bg-rgb: 250 250 250;             /* app ground */
-  --sidebar: #ffffff;            --sidebar-rgb: 255 255 255;        /* left rail */
-  --card: #ffffff;               --card-rgb: 255 255 255;           /* cards / panels */
-  --elevated: #f4f5f6;           --elevated-rgb: 244 245 246;       /* inputs, chips */
-  --border: #e4e6e9;             --border-rgb: 228 230 233;         /* hairline borders */
-  --fg: #1c2128;                 --fg-rgb: 28 33 40;                /* text */
-  --fg-muted: #6b7280;           --fg-muted-rgb: 107 114 128;
-  --accent: #2454e6;             --accent-rgb: 36 84 230;           /* corporate blue */
-  --accent-bright: #1d4ed8;      --accent-bright-rgb: 29 78 216;
-  --risk-low: #15803d;           --risk-low-rgb: 21 128 61;
-  --risk-med: #b45309;           --risk-med-rgb: 180 83 9;
-  --risk-high: #b91c1c;          --risk-high-rgb: 185 28 28;
-  --radius: 0.625rem;
-  --font-ui: var(--font-ui-next, "Hanken Grotesk"), -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-
-/* System dark (no explicit choice) — a neutral slate, never near-black. */
-@media (prefers-color-scheme: dark) {
-  :root:not(.light) {
-    /* Framer dark canvas — near-black ground, charcoal surfaces, one blue accent. */
-    --bg: #090909;                --bg-rgb: 9 9 9;
-    --sidebar: #0c0c0c;           --sidebar-rgb: 12 12 12;
-    --card: #141414;              --card-rgb: 20 20 20;
-    --elevated: #1c1c1c;          --elevated-rgb: 28 28 28;
-    --border: #262626;            --border-rgb: 38 38 38;
-    --fg: #f4f4f5;                --fg-rgb: 244 244 245;
-    --fg-muted: #999999;          --fg-muted-rgb: 153 153 153;
-    /* Primary = white (bg-accent → white pills); accent-bright = the single blue
-       reserved for highlights, links & focus (DESIGN.md). */
-    --accent: #ffffff;            --accent-rgb: 255 255 255;
-    --accent-bright: #0099ff;     --accent-bright-rgb: 0 153 255;
-    --risk-low: #4ade80;          --risk-low-rgb: 74 222 128;
-    --risk-med: #f0a94e;          --risk-med-rgb: 240 169 78;
-    --risk-high: #f87171;         --risk-high-rgb: 248 113 113;
-  }
-}
-
-/* Explicit dark mode (.dark on <html>, e.g. from a theme toggle) — wins over
- * system preference in both directions since it's a plain class selector. */
-:root.dark {
-  /* Framer dark canvas — see the @media block above for rationale. */
-  --bg: #090909;                --bg-rgb: 9 9 9;
-  --sidebar: #0c0c0c;           --sidebar-rgb: 12 12 12;
-  --card: #141414;              --card-rgb: 20 20 20;
-  --elevated: #1c1c1c;          --elevated-rgb: 28 28 28;
-  --border: #262626;            --border-rgb: 38 38 38;
-  --fg: #f4f4f5;                --fg-rgb: 244 244 245;
+  --bg: #090909;                --bg-rgb: 9 9 9;                   /* app ground */
+  --sidebar: #0c0c0c;           --sidebar-rgb: 12 12 12;           /* left rail */
+  --card: #141414;              --card-rgb: 20 20 20;              /* cards / panels */
+  --elevated: #1c1c1c;          --elevated-rgb: 28 28 28;          /* inputs, chips */
+  --border: #262626;            --border-rgb: 38 38 38;            /* hairline borders */
+  --fg: #f4f4f5;                --fg-rgb: 244 244 245;             /* text */
   --fg-muted: #999999;          --fg-muted-rgb: 153 153 153;
+  /* Primary = white (bg-accent → white pills); accent-bright = the single blue
+     reserved for highlights, links & focus (DESIGN.md). */
   --accent: #ffffff;            --accent-rgb: 255 255 255;
   --accent-bright: #0099ff;     --accent-bright-rgb: 0 153 255;
+  /* Text that sits ON --accent (i.e. on a white pill) — near-black, matching
+     the canvas. Named so it stays correct if --accent ever changes. */
+  --on-accent: #090909;         --on-accent-rgb: 9 9 9;
   --risk-low: #4ade80;          --risk-low-rgb: 74 222 128;
   --risk-med: #f0a94e;          --risk-med-rgb: 240 169 78;
   --risk-high: #f87171;         --risk-high-rgb: 248 113 113;
+  --radius: 0.625rem;
+  /* The canvas is dark regardless of OS preference, so tell the browser: form
+     controls, scrollbars and native pickers (e.g. <input type=datetime-local>)
+     then render in their dark variants without each field opting in by hand. */
+  color-scheme: dark;
+  --font-ui: var(--font-ui-next, "Hanken Grotesk"), -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 html,
@@ -175,7 +155,7 @@ h3 {
   }
 }
 
-/* ── Login — restrained, formal motion (ELSA emerald on black only) ──────── */
+/* ── Login — restrained, formal motion on the dark canvas ────────────── */
 
 /* Content settles in from just below — slow, no bounce. */
 @keyframes login-rise {
@@ -192,7 +172,7 @@ h3 {
   animation: login-rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* The emerald ambient glow breathes very slowly behind the card. */
+/* The ambient accent glow breathes very slowly behind the card. */
 @keyframes login-breathe {
   0%,
   100% {

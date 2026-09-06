@@ -2,7 +2,7 @@
 
 /**
  * Time-to-freeze trend sparkline — hand-rolled SVG ported from the mockup's
- * #trendsvg renderer: faint gridlines, emerald gradient area fill, 2px line,
+ * #trendsvg renderer: faint gridlines, accent gradient area fill, 2px line,
  * glowing end dot + latest-value label.
  */
 

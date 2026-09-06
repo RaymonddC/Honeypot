@@ -22,7 +22,7 @@ import type {
   MuleNetworkStats,
   OnRampAlert,
 } from "./types";
-import { AMBER, CYAN, formatIDR, formatMinutes, formatUSD } from "./types";
+import { AMBER, ACCENT_SOFT, formatIDR, formatMinutes, formatUSD } from "./types";
 
 import { apiFetch } from "@/lib/http";
 
@@ -274,7 +274,7 @@ function deriveStats(
       : { value: idr },
     bridgedToCrypto: {
       value: bridged != null ? formatUSD(bridged) : "—",
-      color: CYAN,
+      color: ACCENT_SOFT,
     },
     correlatedOnRamps: {
       value: correlated != null ? String(correlated) : "—",

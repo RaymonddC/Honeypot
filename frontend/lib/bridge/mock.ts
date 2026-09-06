@@ -13,7 +13,7 @@ import type {
   MuleNetworkStats,
   OnRampAlert,
 } from "./types";
-import { CYAN, AMBER } from "./types";
+import { ACCENT_SOFT, AMBER } from "./types";
 
 /* ── Sankey (mockup columns/links, expressed as a node/link graph) ─────── */
 
@@ -47,7 +47,7 @@ export const MOCK_SANKEY: BridgeSankeyData = {
 
 export const MOCK_STATS: BridgeStats = {
   qrisInflow: { value: "Rp 530.4", suffix: "M" },
-  bridgedToCrypto: { value: "$34,120", color: CYAN },
+  bridgedToCrypto: { value: "$34,120", color: ACCENT_SOFT },
   correlatedOnRamps: { value: "18", color: AMBER },
 };
 

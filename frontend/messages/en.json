@@ -34,12 +34,6 @@
       "dataModeTitle": "Data mode: {mode}",
       "envFallback": " (env fallback — /api/config unreachable)"
     },
-    "themeToggle": {
-      "title": "Switch appearance (currently: {current})",
-      "light": "light",
-      "dark": "dark",
-      "system": "match device"
-    },
     "userMenu": {
       "accountLabel": "Account: {name}",
       "sessionVerified": "session verified",
@@ -1195,23 +1189,6 @@
     "subtitle": "Analyst-local voice & call preferences — saved to this browser, applied on your next honeypot call. No API keys or secrets ever live here.",
     "refresh": "Refresh status",
     "refreshing": "Refreshing…",
-    "theme": {
-      "cardTitle": "Appearance",
-      "legend": "Color mode",
-      "hint": "Applies instantly in this browser — no page reload.",
-      "light": {
-        "label": "Light",
-        "sub": "Always a white ground"
-      },
-      "dark": {
-        "label": "Dark",
-        "sub": "Always a dark ground"
-      },
-      "system": {
-        "label": "Match device",
-        "sub": "Default — follows your OS setting"
-      }
-    },
     "language": {
       "cardTitle": "Language",
       "legend": "Interface language",

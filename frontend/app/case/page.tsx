@@ -910,7 +910,7 @@ function IntakeStage({
                       className="text-[12px] font-semibold text-accent-bright hover:underline">{t("intake.now")}</button>
                   </div>
                   <input ref={dateRef}
-                    className={`${fieldCls} cursor-pointer [color-scheme:dark]`}
+                    className={`${fieldCls} cursor-pointer`}
                     type="datetime-local" max={nowLocal()} value={incidentAt}
                     onChange={(e) => setIncidentAt(e.target.value)} onClick={openPicker} />
                 </div>

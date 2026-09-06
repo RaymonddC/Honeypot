@@ -1,6 +1,6 @@
 /**
  * Active cases table (mockup table.cases) — case ref · crime type · funds at
- * risk · status pill (risk-colored; "Frozen" renders on the low/emerald tint).
+ * risk · status pill (risk-colored; "Frozen" renders on the low-risk tint).
  */
 
 "use client";

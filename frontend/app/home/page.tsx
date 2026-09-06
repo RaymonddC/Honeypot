@@ -7,7 +7,7 @@
  *      lifecycle (intake → freeze → trace → takedown → report → recovery).
  *   2. QUICK TOOLS (ad hoc) — standalone tasks you can run without a case
  *      (trace a wallet, run a honeypot, look at the bridge…).
- * Same ELSA theme (cards, eyebrows, emerald accent) as the rest of the app.
+ * Same theme (cards, eyebrows, single blue accent) as the rest of the app.
  */
 
 import { useState } from "react";

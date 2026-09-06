@@ -5,14 +5,14 @@
  */
 
 import type { ActiveCase, MetricTile, OpsStat, ResponseMetrics, RangeKey } from "./types";
-import { CYAN, EMERALD } from "./types";
+import { ACCENT_SOFT, ACCENT } from "./types";
 
 export const MOCK_OPS: OpsStat[] = [
   { label: "Honeypot sessions", glyph: "⬡", value: "3", sub: "INFILTRATE" },
   { label: "Entities confirmed", glyph: "◇", value: "17", sub: "wallets · accounts" },
-  { label: "Wallets scored", glyph: "◉", value: "42", sub: "TAKEDOWN graph", color: EMERALD },
+  { label: "Wallets scored", glyph: "◉", value: "42", sub: "TAKEDOWN graph", color: ACCENT },
   { label: "Documents generated", glyph: "⚑", value: "9", sub: "UNCOVER" },
-  { label: "Bundles dispatched", glyph: "↗", value: "3/5", sub: "human-gated", color: CYAN },
+  { label: "Bundles dispatched", glyph: "↗", value: "3/5", sub: "human-gated", color: ACCENT_SOFT },
   { label: "Agency notifications", glyph: "📡", value: "8", sub: "routed" },
 ];
 
@@ -27,7 +27,7 @@ export const MOCK_TILES: MetricTile[] = [
     label: "Avg time-to-freeze",
     value: "27",
     suffix: "min",
-    color: EMERALD,
+    color: ACCENT,
     delta: "▼ from 12h+ baseline",
     deltaUp: true,
   },
@@ -41,7 +41,7 @@ export const MOCK_TILES: MetricTile[] = [
     label: "Funds frozen",
     value: "Rp 712",
     suffix: "M",
-    color: CYAN,
+    color: ACCENT_SOFT,
     delta: "▲ 14 freezes ack’d",
     deltaUp: true,
   },
@@ -50,7 +50,7 @@ export const MOCK_TILES: MetricTile[] = [
     label: "Freeze rate",
     value: "14.8",
     suffix: "%",
-    color: EMERALD,
+    color: ACCENT,
     delta: "of funds at risk, freeze dispatched",
   },
 ];

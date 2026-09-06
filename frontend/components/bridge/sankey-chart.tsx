@@ -217,7 +217,7 @@ export function SankeyChart({ data }: { data: BridgeSankeyData }) {
                 fill="rgba(255,255,255,.42)"
                 fontSize={9}
                 fontWeight={600}
-                fontFamily="ui-monospace, monospace"
+                fontFamily="var(--font-mono)"
               >
                 {compact(n.value ?? 0)}
               </text>

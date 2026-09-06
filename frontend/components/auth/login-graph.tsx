@@ -1,6 +1,6 @@
 /**
  * Ambient decoration for the login screen — an abstract wallet / money-flow
- * graph (nodes + travelling-dash edges) in ELSA emerald, spanning the whole
+ * graph (nodes + travelling-dash edges), spanning the whole
  * backdrop. Purely decorative, aria-hidden; motion is CSS-driven and disabled
  * under prefers-reduced-motion.
  */
