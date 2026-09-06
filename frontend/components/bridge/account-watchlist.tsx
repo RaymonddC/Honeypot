@@ -46,7 +46,7 @@ export function AccountWatchlist() {
         <span className="eyebrow">{t("title")}</span>
         {items.length > 0 && (
           <span
-            className="rounded-md border border-line bg-elevated px-1.5 py-0.5 font-mono text-[12px] text-muted"
+            className="rounded-md border border-line bg-elevated px-1.5 py-0.5 text-[12px] text-muted"
             title={t("inFlowTitle")}
           >
             {t("inFlowCount", { inFlow, total: items.length })}

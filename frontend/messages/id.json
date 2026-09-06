@@ -478,7 +478,7 @@
       "channelComplianceApi": "Compliance API",
       "channelSecureEmail": "Email aman",
       "channelSecureChannel": "Kanal aman",
-      "viaChannel": "via {channel}",
+      "viaChannel": "via <c>{channel}</c>",
       "noTargets": "Belum ada target pengiriman — buat dokumen terlebih dahulu.",
       "footerNote": "Alert terkoordinasi · pengiriman bersifat <b>human-gated</b>; POC diarahkan ke mock sink, LIVE ke kanal live masing-masing instansi."
     },

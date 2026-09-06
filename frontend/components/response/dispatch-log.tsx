@@ -27,7 +27,7 @@ function StatusPill({ status }: { status: DispatchNotification["status"] }) {
   const color = STATUS_COLORS[status] ?? "rgba(255,255,255,.5)";
   return (
     <span
-      className="rounded-md border px-1.5 py-0.5 font-mono text-[12px] font-semibold"
+      className="rounded-md border px-1.5 py-0.5 text-[12px] font-semibold"
       style={{ color, borderColor: `${color}44`, background: `${color}14` }}
     >
       {STATUS_LABELS[status] ?? status}
@@ -79,7 +79,7 @@ export function DispatchLog() {
             {source === "api" ? t("liveApi") : t("offlineMock")}
           </span>
         </div>
-        <span className="font-mono text-[12px] text-muted">
+        <span className="text-[12px] text-muted">
           {t("dispatchedCount", { count: items?.length ?? 0 })}
         </span>
       </div>
@@ -120,7 +120,7 @@ export function DispatchLog() {
                     <StatusPill status={n.status} />
                     {n.lastError && (
                       <span
-                        className="ml-1.5 font-mono text-[12px] text-risk-high"
+                        className="ml-1.5 text-[12px] text-risk-high"
                         title={n.lastError}
                       >
                         {n.lastError}
@@ -134,7 +134,7 @@ export function DispatchLog() {
                         type="button"
                         disabled={retrying === n.id}
                         onClick={() => onRetry(n.id)}
-                        className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[12px] font-semibold text-accent-bright transition-colors hover:bg-fg/[.04] disabled:opacity-50"
+                        className="rounded-md border border-line bg-elevated px-2 py-0.5 text-[12px] font-semibold text-accent-bright transition-colors hover:bg-fg/[.04] disabled:opacity-50"
                       >
                         {retrying === n.id ? t("retrying") : t("retry")}
                       </button>

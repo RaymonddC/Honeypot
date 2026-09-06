@@ -92,7 +92,7 @@ export function DocCard({
               onClick={() => void download()}
               disabled={downloading}
               title={t("downloadPdfTitle")}
-              className="cursor-pointer rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[12px] text-muted transition-colors hover:border-accent/30 hover:text-accent-bright disabled:cursor-default disabled:opacity-50"
+              className="cursor-pointer rounded-md border border-line bg-elevated px-2 py-0.5 text-[12px] text-muted transition-colors hover:border-accent/30 hover:text-accent-bright disabled:cursor-default disabled:opacity-50"
             >
               {downloading ? "…" : t("pdfShort")}
             </button>

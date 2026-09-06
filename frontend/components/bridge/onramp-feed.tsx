@@ -94,11 +94,13 @@ export function OnRampFeed({
   const t = useTranslations("bridge.onrampFeed");
   return (
     <div className="mb-3.5 rounded-card border border-line bg-card">
-      <div className="flex items-center justify-between border-b border-line px-3.5 py-2.5">
+      {/* The "ranked by confidence" chip used to sit here. In Indonesian it is
+          "berdasarkan tingkat keyakinan" — far longer than the English — and in
+          a 300px rail it forced the eyebrow to break mid-word ("DUGAAN ON-" /
+          "RAMP"). It was also redundant: the rows are numbered #1..#n and each
+          carries a confidence meter. It survives as the header's tooltip. */}
+      <div className="border-b border-line px-3.5 py-2.5" title={t("byConfidence")}>
         <span className="eyebrow">{t("title", { count: alerts.length })}</span>
-        <span className="rounded-md border border-line bg-elevated px-1.5 py-0.5 text-[12px] uppercase tracking-wide text-muted">
-          {t("byConfidence")}
-        </span>
       </div>
 
       {alerts.length ? (
@@ -110,7 +112,13 @@ export function OnRampFeed({
                 key={a.id}
                 className="border-b border-line px-3.5 py-2.5 transition-colors last:border-b-0 hover:bg-fg/[.02]"
               >
-                <div className="flex items-center gap-2.5">
+                {/* Two rows, not one. Score + title + meta used to share a line
+                    with the action buttons; in a 300px rail that left the text
+                    column ~86px, so `meta` (which is a sentence, not a figure:
+                    "Rp 48.2M · Δt 12 min · amount match 99.1%") wrapped to three
+                    lines and shoved the buttons out of alignment. Giving the
+                    actions their own row lets the text use the full width. */}
+                <div className="flex items-start gap-2.5">
                   {/* rank + confidence */}
                   <div className="flex w-9 flex-none flex-col items-center">
                     <div className="font-mono text-[13px] font-bold leading-none tnum" style={{ color: c }}>
@@ -121,9 +129,15 @@ export function OnRampFeed({
                     </div>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <b className="mb-0.5 block truncate text-[12px]">{a.title}</b>
-                    <small className="font-mono text-[12px] text-muted">{a.meta}</small>
+                    <b className="mb-0.5 block truncate text-[12px]" title={a.title}>
+                      {a.title}
+                    </b>
+                    <small className="block truncate text-[12px] text-muted" title={a.meta}>
+                      {a.meta}
+                    </small>
                   </div>
+                </div>
+                <div className="mt-1.5 flex justify-end">
                   <AlertActions a={a} onTrace={onTrace} />
                 </div>
                 {/* confidence meter */}

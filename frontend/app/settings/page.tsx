@@ -717,7 +717,7 @@ function BackendStatus({
 
       <div>
         <div className="text-[12px] text-muted">{t("backendStatus.ttsProvider")}</div>
-        <div className="mt-1.5 font-mono text-[12px] text-fg">
+        <div className="mt-1.5 text-[12px] text-fg">
           {status.ttsProvider ?? (
             <span className="text-muted">
               {t("backendStatus.ttsProviderUnreported")}

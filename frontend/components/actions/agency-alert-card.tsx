@@ -111,8 +111,14 @@ export function AgencyAlertCard({
                   <small className="mt-0.5 block truncate text-[12px] text-muted">
                     {target.action}
                   </small>
-                  <span className="mt-1 inline-flex items-center gap-1 rounded border border-line bg-elevated px-1.5 py-px font-mono text-[12px] text-muted">
-                    <span aria-hidden>↗</span> {t("viaChannel", { channel: channelOf(target, t) })}
+                  {/* "via <channel>" is prose wrapping one identifier — only the
+                      identifier is data, so only it wears the mono face. */}
+                  <span className="mt-1 inline-flex items-center gap-1 rounded border border-line bg-elevated px-1.5 py-px text-[12px] text-muted">
+                    <span aria-hidden>↗</span>{" "}
+                    {t.rich("viaChannel", {
+                      channel: channelOf(target, t),
+                      c: (chunks) => <span className="font-mono">{chunks}</span>,
+                    })}
                   </span>
                 </div>
                 <span

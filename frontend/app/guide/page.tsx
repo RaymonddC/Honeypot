@@ -193,7 +193,7 @@ export default function GuidePage() {
         </p>
         <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
           <div className="rounded-lg border border-risk-med/30 bg-risk-med/[.06] p-3">
-            <span className="rounded-md border border-risk-med/40 bg-risk-med/10 px-2 py-0.5 font-mono text-[12px] font-bold tracking-widest text-risk-med">
+            <span className="rounded-md border border-risk-med/40 bg-risk-med/10 px-2 py-0.5 text-[12px] font-bold tracking-widest text-risk-med">
               {t("postures.poc.badge")}
             </span>
             <p className="mt-2 text-[12px] leading-relaxed text-muted">
@@ -203,7 +203,7 @@ export default function GuidePage() {
             </p>
           </div>
           <div className="rounded-lg border border-accent/30 bg-accent/[.06] p-3">
-            <span className="rounded-md border border-accent/40 bg-accent/10 px-2 py-0.5 font-mono text-[12px] font-bold tracking-widest text-accent-bright">
+            <span className="rounded-md border border-accent/40 bg-accent/10 px-2 py-0.5 text-[12px] font-bold tracking-widest text-accent-bright">
               {t("postures.live.badge")}
             </span>
             <p className="mt-2 text-[12px] leading-relaxed text-muted">

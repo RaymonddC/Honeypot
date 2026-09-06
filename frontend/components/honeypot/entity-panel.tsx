@@ -162,7 +162,7 @@ export function EntityPanel({
     <div className="mb-3.5 rounded-card border border-line bg-card">
       <div className="flex items-center justify-between border-b border-line px-3.5 py-3">
         <span className="eyebrow">{t("title")}</span>
-        <span className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[12px] text-muted">
+        <span className="rounded-md border border-line bg-elevated px-2 py-0.5 text-[12px] text-muted">
           {t("validatedCount", { count: entities.length })}
         </span>
       </div>
@@ -189,9 +189,11 @@ export function EntityPanel({
               </small>
             </div>
             <div className="ml-auto flex flex-none items-center gap-2">
-              <span className="font-mono text-[12px] tnum text-muted" title={t("confidenceTitle")}>
+              {/* "conf" is a label, the score is the figure — only the figure
+                  needs the mono face and tabular digits. */}
+              <span className="text-[12px] text-muted" title={t("confidenceTitle")}>
                 conf{" "}
-                <b className="font-bold text-accent-bright">
+                <b className="font-mono font-bold tnum text-accent-bright">
                   {formatConf(e.confidence)}
                 </b>
               </span>

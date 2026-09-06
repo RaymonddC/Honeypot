@@ -478,7 +478,7 @@
       "channelComplianceApi": "Compliance API",
       "channelSecureEmail": "Secure email",
       "channelSecureChannel": "Secure channel",
-      "viaChannel": "via {channel}",
+      "viaChannel": "via <c>{channel}</c>",
       "noTargets": "No dispatch targets — generate documents first.",
       "footerNote": "Coordinated alert · dispatch is <b>human-gated</b>; POC routes to a mock sink, LIVE to each agency's live channel."
     },

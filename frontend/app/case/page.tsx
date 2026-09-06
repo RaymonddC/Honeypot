@@ -659,7 +659,7 @@ function CaseSessions({
                         {voice && (
                           <span
                             title={t("caseSessions.voiceCallTitle")}
-                            className="rounded border border-accent/[.22] bg-accent/10 px-1 py-px font-mono text-[12px] uppercase tracking-[.06em] text-accent-bright"
+                            className="rounded border border-accent/[.22] bg-accent/10 px-1 py-px text-[12px] uppercase tracking-[.06em] text-accent-bright"
                           >
                             {t("caseSessions.voiceCallBadge")}
                           </span>

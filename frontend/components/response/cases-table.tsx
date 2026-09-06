@@ -48,11 +48,16 @@ export function CasesTable({ cases }: { cases: ActiveCase[] }) {
                   <span className="flex items-center gap-1.5">
                     <span className="truncate">{c.ref}</span>
                     {/* Seeded demo rows carry a mark; real ones stay unmarked so
-                        the default reading of an unlabelled row is "this is real". */}
+                        the default reading of an unlabelled row is "this is real".
+                        Deliberately quiet — it was on the amber risk colour, which
+                        reads as a warning, and with every row seeded that put four
+                        false alarms in one small table. Provenance is metadata, so
+                        it gets the muted treatment and lets the risk column keep
+                        the only colour that means danger here. */}
                     {c.source === "baseline" && (
                       <span
                         title={t("seededTitle")}
-                        className="flex-none rounded border border-risk-med/30 bg-risk-med/10 px-1 py-px text-[12px] font-semibold uppercase tracking-wide text-risk-med"
+                        className="flex-none rounded border border-line bg-elevated px-1 py-px text-[12px] uppercase tracking-wide text-muted"
                       >
                         {t("seededBadge")}
                       </span>
