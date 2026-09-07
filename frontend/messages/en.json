@@ -9,7 +9,7 @@
     "nav": {
       "home": "Home",
       "caseWorkflow": "Case",
-      "operations": "Investigation tools",
+      "operations": "Takedown tools",
       "caseFile": "Case File",
       "auditTrail": "Audit Trail",
       "users": "Users",
@@ -101,14 +101,19 @@
       "refreshSession": "Refresh session",
       "startVoiceCall": "Start voice call →",
       "loadingState": "Attaching to scam session…",
-      "footerNote": "Agent stays <b>strictly reactive & victim-framed</b> — never initiates fraud, accesses systems, or redistributes data (clear of entrapment + UU ITE Arts. 30/32/33). Extracted wallet flows straight into the Investigation graph.",
+      "footerNote": "Agent stays <b>strictly reactive & victim-framed</b> — never initiates fraud, accesses systems, or redistributes data (clear of entrapment + UU ITE Arts. 30/32/33). Extracted wallet flows straight into the Takedown graph.",
       "pageLead": "Chat as the bait persona, and watch what the scammer gives away.",
       "dataSourceHint": "Where this session's data is coming from"
     },
     "chatTranscript": {
       "sessionEyebrow": "Session · {channel} · persona \"{persona}\"",
       "transcriptLogLabel": "Scam session transcript · {channel}",
-      "extractedBadge": "◇ extracted · {label} · conf {confidence}"
+      "extractedBadge": "◇ extracted · <m>{label}</m> · conf <m>{confidence}</m>",
+      "composerNote": {
+        "drafting": "agent drafting reply · human-in-the-loop armed for the disclosure turn…",
+        "escalated": "escalated · analyst takeover — human-in-the-loop engaged",
+        "closed": "session closed · transcript sealed in the custody log"
+      }
     },
     "custodyCard": {
       "title": "Chain of custody",
@@ -119,7 +124,14 @@
       "crimeClass": "Crime class",
       "syndicateLink": "Syndicate link",
       "feedsLabel": "→ feeds",
-      "feedsValue": "Investigation"
+      "feedsValue": "Takedown",
+      "hashChained": "hash-chained",
+      "crimeTypes": {
+        "investment_scam": "investment scam",
+        "judol_deposit": "online gambling",
+        "crypto_phishing": "phishing",
+        "romance": "romance scam"
+      }
     },
     "entityPanel": {
       "title": "Extracted entities",
@@ -190,7 +202,7 @@
         "scammerLabel": "Scammer",
         "personaLabel": "Honeypot · {persona}",
         "personaSub": "AI persona · agent loop",
-        "entitiesNote": "Entities appear as they are heard on the call — <b>{heard}/{total}</b> so far. The disclosed wallet feeds the Investigation graph."
+        "entitiesNote": "Entities appear as they are heard on the call — <b>{heard}/{total}</b> so far. The disclosed wallet feeds the Takedown graph."
       },
       "liveCallView": {
         "operatorLabel": "Operator (scammer role)",
@@ -228,7 +240,7 @@
         "statusSpeaking": "persona speaking — talk to barge in",
         "statusListening": "listening (id-ID) — speak as the scammer",
         "statusMuted": "mic muted — unmute or type below",
-        "entitiesNote": "Entities are extracted live from what you say on the call — <b>{count}</b> so far. Disclosed wallets/accounts feed the Investigation graph.",
+        "entitiesNote": "Entities are extracted live from what you say on the call — <b>{count}</b> so far. Disclosed wallets/accounts feed the Takedown graph.",
         "defaultCallerId": "live mic · operator",
         "defaultPersona": "Bu Sari, 54",
         "defaultModeTag": "Tier-B · live mic"
@@ -329,7 +341,7 @@
   },
   "investigation": {
     "panel": {
-      "title": "Investigation",
+      "title": "Takedown",
       "subtitle": "Trace fund flows, score wallets, and flag laundering typologies on-chain.",
       "subtitleCta": "Click any node.",
       "sendToActions": "Send to Action Panel →",
@@ -565,7 +577,7 @@
         "intake": "Surface suspect accounts & wallets (Honeypot)",
         "freeze": "Generate & dispatch the freeze request (Action Panel)",
         "trace": "Trace the money flow (Bridge)",
-        "takedown": "Score the wallet network (Investigation)",
+        "takedown": "Score the wallet network (Takedown)",
         "report": "File the STR / LTKM (Action Panel)",
         "recovery": "Track fund recovery for this case",
         "closed": "Case closed"
@@ -1052,7 +1064,7 @@
         "takedown": {
           "task": "Score the wallet network",
           "why": "Identify collection wallets and the syndicate behind them.",
-          "cta": "Open Investigation",
+          "cta": "Open Takedown",
           "checkWalletInGraph": "Wallet in the graph"
         },
         "report": {
@@ -1209,7 +1221,7 @@
         "trackedBankAccounts": "Tracked bank accounts",
         "cryptoTransfers": "Crypto transfers",
         "openBridge": "Bridge",
-        "openInvestigation": "Investigation",
+        "openInvestigation": "Takedown",
         "loading": "Loading…",
         "noneYetAdd": "None yet — click “+ Add”.",
         "adding": "Adding…",

@@ -107,8 +107,8 @@ export const MOCK_ENTITIES: HpEntity[] = [
 /* ── Chain of custody ──────────────────────────────────────────────────── */
 
 export const MOCK_CUSTODY: CustodyInfo = {
-  messagesLogged: "5 · hash-chained",
-  crimeClass: "invest. scam",
+  messagesLogged: "5",
+  crimeClass: "investment_scam",
   syndicateLink: "SYN-14",
   intact: true,
 };
@@ -125,8 +125,7 @@ export function buildMockHoneypot(): HoneypotData {
     entities: MOCK_ENTITIES,
     custody: MOCK_CUSTODY,
     voice: MOCK_VOICE,
-    composerNote:
-      "agent drafting reply · human-in-the-loop armed for disclosure turn…",
+    composerNote: "drafting",
     source: "mock",
   };
 }
@@ -265,8 +264,8 @@ export function buildMockVoiceCall(): VoiceCallSession {
     lines: MOCK_VOICE_LINES,
     entities: MOCK_VOICE_ENTITIES,
     custody: {
-      messagesLogged: `${MOCK_VOICE_LINES.length} · hash-chained`,
-      crimeClass: "invest. scam",
+      messagesLogged: String(MOCK_VOICE_LINES.length),
+      crimeClass: "investment_scam",
       syndicateLink: "SYN-14",
       intact: true,
     },

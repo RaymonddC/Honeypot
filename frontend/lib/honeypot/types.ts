@@ -77,10 +77,18 @@ export interface HpEntity {
 
 /* ── Chain-of-custody card ─────────────────────────────────────────────── */
 
+export type ComposerNoteKey = "drafting" | "escalated" | "closed";
+
 export interface CustodyInfo {
-  /** e.g. "5 · hash-chained". */
+  /** Count only, e.g. "5". The "· hash-chained" suffix is added by the card
+   *  from `intact` — it is a LABEL, so it belongs in i18n, not baked in here. */
   messagesLogged: string;
-  /** e.g. "invest. scam". */
+  /**
+   * Crime typology KEY (e.g. "investment_scam"), not a label. CustodyCard
+   * resolves the wording; the data layer used to emit English ("invest. scam")
+   * which then rendered untranslated inside an Indonesian panel.
+   * Unknown values pass through and are shown verbatim.
+   */
   crimeClass: string;
   /** e.g. "SYN-14". */
   syndicateLink: string;
@@ -104,8 +112,10 @@ export interface HoneypotData {
   entities: HpEntity[];
   custody: CustodyInfo;
   voice: VoiceStatus;
-  /** Composer status line under the transcript. */
-  composerNote: string;
+  /** Which composer status line to show. A KEY, not text: this used to be
+   *  an English sentence built in the data layer, which rendered untranslated
+   *  under an otherwise Indonesian transcript. */
+  composerNote: ComposerNoteKey;
   source: DataSource;
 }
 

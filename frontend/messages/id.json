@@ -101,14 +101,19 @@
       "refreshSession": "Segarkan sesi",
       "startVoiceCall": "Mulai panggilan suara →",
       "loadingState": "Menyambungkan ke sesi penipuan…",
-      "footerNote": "Agen tetap <b>bersifat reaktif & berkedok korban</b> — tidak pernah memulai penipuan, mengakses sistem, atau mendistribusikan ulang data (bebas dari jebakan/entrapment + UU ITE Pasal 30/32/33). Wallet yang terekstrak langsung mengalir ke grafik Investigation.",
+      "footerNote": "Agen tetap <b>bersifat reaktif & berkedok korban</b> — tidak pernah memulai penipuan, mengakses sistem, atau mendistribusikan ulang data (bebas dari jebakan/entrapment + UU ITE Pasal 30/32/33). Wallet yang terekstrak langsung mengalir ke grafik Takedown.",
       "pageLead": "Mengobrol sebagai persona umpan, dan lihat apa yang terungkap dari pelaku.",
       "dataSourceHint": "Sumber data sesi ini berasal dari mana"
     },
     "chatTranscript": {
       "sessionEyebrow": "Sesi · {channel} · persona \"{persona}\"",
       "transcriptLogLabel": "Transkrip sesi penipuan · {channel}",
-      "extractedBadge": "◇ terekstrak · {label} · conf {confidence}"
+      "extractedBadge": "◇ terekstrak · <m>{label}</m> · conf <m>{confidence}</m>",
+      "composerNote": {
+        "drafting": "agen menyusun balasan · pengawasan manusia siap untuk giliran pengungkapan…",
+        "escalated": "dieskalasi · diambil alih analis — pengawasan manusia aktif",
+        "closed": "sesi ditutup · transkrip disegel dalam log pengawasan"
+      }
     },
     "custodyCard": {
       "title": "Rantai pengawasan",
@@ -119,7 +124,14 @@
       "crimeClass": "Klasifikasi kejahatan",
       "syndicateLink": "Tautan sindikat",
       "feedsLabel": "→ mengalir ke",
-      "feedsValue": "Investigation"
+      "feedsValue": "Takedown",
+      "hashChained": "terangkai hash",
+      "crimeTypes": {
+        "investment_scam": "penipuan investasi",
+        "judol_deposit": "judi online",
+        "crypto_phishing": "phishing",
+        "romance": "penipuan asmara"
+      }
     },
     "entityPanel": {
       "title": "Entitas terekstrak",
@@ -190,7 +202,7 @@
         "scammerLabel": "Pelaku penipuan",
         "personaLabel": "Honeypot · {persona}",
         "personaSub": "Persona AI · agent loop",
-        "entitiesNote": "Entitas muncul saat terdengar dalam panggilan — <b>{heard}/{total}</b> sejauh ini. Wallet yang terungkap mengalir ke grafik Investigation."
+        "entitiesNote": "Entitas muncul saat terdengar dalam panggilan — <b>{heard}/{total}</b> sejauh ini. Wallet yang terungkap mengalir ke grafik Takedown."
       },
       "liveCallView": {
         "operatorLabel": "Operator (peran pelaku penipuan)",
@@ -228,7 +240,7 @@
         "statusSpeaking": "persona sedang berbicara — bicara untuk menyela",
         "statusListening": "mendengarkan (id-ID) — bicara sebagai pelaku penipuan",
         "statusMuted": "mikrofon dibisukan — aktifkan atau ketik di bawah",
-        "entitiesNote": "Entitas diekstrak secara live dari apa yang Anda ucapkan dalam panggilan — <b>{count}</b> sejauh ini. Wallet/rekening yang terungkap mengalir ke grafik Investigation.",
+        "entitiesNote": "Entitas diekstrak secara live dari apa yang Anda ucapkan dalam panggilan — <b>{count}</b> sejauh ini. Wallet/rekening yang terungkap mengalir ke grafik Takedown.",
         "defaultCallerId": "live mic · operator",
         "defaultPersona": "Bu Sari, 54",
         "defaultModeTag": "Tier-B · live mic"
@@ -329,7 +341,7 @@
   },
   "investigation": {
     "panel": {
-      "title": "Investigation",
+      "title": "Takedown",
       "subtitle": "Lacak aliran dana, nilai risiko wallet, dan tandai tipologi pencucian uang secara on-chain.",
       "subtitleCta": "Klik node mana pun.",
       "sendToActions": "Kirim ke Action Panel →",
@@ -565,7 +577,7 @@
         "intake": "Munculkan rekening & wallet terduga (Honeypot)",
         "freeze": "Buat & kirim permohonan pemblokiran (Action Panel)",
         "trace": "Lacak aliran dana (Bridge)",
-        "takedown": "Nilai jaringan wallet (Investigation)",
+        "takedown": "Nilai jaringan wallet (Takedown)",
         "report": "Ajukan STR / LTKM (Action Panel)",
         "recovery": "Lacak pemulihan dana untuk kasus ini",
         "closed": "Kasus ditutup"
@@ -1052,7 +1064,7 @@
         "takedown": {
           "task": "Nilai jaringan wallet",
           "why": "Identifikasi wallet penampung dan sindikat di baliknya.",
-          "cta": "Buka Investigation",
+          "cta": "Buka Takedown",
           "checkWalletInGraph": "Wallet ada dalam grafik"
         },
         "report": {
@@ -1209,7 +1221,7 @@
         "trackedBankAccounts": "Rekening bank terlacak",
         "cryptoTransfers": "Transfer crypto",
         "openBridge": "Bridge",
-        "openInvestigation": "Investigation",
+        "openInvestigation": "Takedown",
         "loading": "Memuat…",
         "noneYetAdd": "Belum ada — klik “+ Tambah”.",
         "adding": "Menambahkan…",

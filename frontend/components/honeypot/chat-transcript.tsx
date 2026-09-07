@@ -7,7 +7,7 @@
  */
 
 import { useTranslations } from "next-intl";
-import type { HpMessage, HpSession } from "@/lib/honeypot/types";
+import type { ComposerNoteKey, HpMessage, HpSession } from "@/lib/honeypot/types";
 import { formatConf } from "@/lib/honeypot/types";
 
 function Bubble({ msg }: { msg: HpMessage }) {
@@ -32,9 +32,15 @@ function Bubble({ msg }: { msg: HpMessage }) {
       {msg.extractions.map((ex, i) => (
         <div
           key={`${msg.id}-${ex.label}-${i}`}
-          className="mt-[7px] flex items-center gap-1.5 border-t border-dashed border-accent/[.22] pt-[7px] font-mono text-[12px] text-accent-bright"
+          className="mt-[7px] flex items-center gap-1.5 border-t border-dashed border-accent/[.22] pt-[7px] text-[12px] text-accent-bright"
         >
-          {t("extractedBadge", { label: ex.label, confidence: formatConf(ex.confidence) })}
+          {/* "extracted" and "conf" are labels; the entity type and the score
+              are the data, so only those two wear the mono face. */}
+          {t.rich("extractedBadge", {
+            label: ex.label,
+            confidence: formatConf(ex.confidence),
+            m: (chunks) => <span className="font-mono tnum">{chunks}</span>,
+          })}
         </div>
       ))}
     </div>
@@ -51,7 +57,7 @@ export function ChatTranscript({
   messages: HpMessage[];
   /** Composer status line. Omit for a read-only embed (case view) — the
    *  footer is then hidden rather than showing a live-console status. */
-  composerNote?: string;
+  composerNote?: ComposerNoteKey;
   /** Height override so the transcript can embed in a tighter panel. */
   heightClass?: string;
 }) {
@@ -82,7 +88,7 @@ export function ChatTranscript({
       {/* composer status line (live console only — omitted on read-only embeds) */}
       {composerNote && (
         <div className="flex items-center gap-2.5 border-t border-line px-3.5 py-[11px] text-[12px] text-muted">
-          <span className="text-accent-bright">◇</span> {composerNote}
+          <span className="text-accent-bright">◇</span> {t(`composerNote.${composerNote}`)}
         </div>
       )}
     </div>

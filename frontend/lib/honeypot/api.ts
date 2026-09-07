@@ -109,16 +109,6 @@ export interface RawSyndicate {
 /* ── Session ──────────────────────────────────────────────────────────── */
 
 /** Crime-type enum → console display (mockup convention). */
-const CRIME_LABELS: Record<string, string> = {
-  investment_scam: "invest. scam",
-  judol_deposit: "judol deposit",
-  crypto_phishing: "phishing",
-  romance: "romance scam",
-};
-
-export const crimeLabel = (t: string | null): string =>
-  t ? (CRIME_LABELS[t] ?? t.replace(/_/g, " ")) : "—";
-
 const cap = (s: string): string =>
   s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 
@@ -225,8 +215,9 @@ export function deriveCustody(
     session.custody?.chain_intact ??
     (messages.length > 0 && messages.every((m) => !!m.sha256));
   return {
-    messagesLogged: `${logged}${intact ? " · hash-chained" : ""}`,
-    crimeClass: crimeLabel(session.crime_type),
+    messagesLogged: String(logged),
+    // KEY, not a label — CustodyCard resolves the wording per locale.
+    crimeClass: session.crime_type ?? "—",
     syndicateLink: syndicateLabel ?? session.syndicate_id ?? "—",
     intact,
   };
@@ -301,10 +292,10 @@ export async function fetchHoneypotData(): Promise<HoneypotData> {
       voice: deriveVoice(sessionRaw),
       composerNote:
         sessionRaw.status === "escalated"
-          ? "escalated · analyst takeover — human-in-the-loop engaged"
+          ? "escalated"
           : sessionRaw.status === "closed"
-            ? "session closed · transcript sealed in custody log"
-            : "agent drafting reply · human-in-the-loop armed for disclosure turn…",
+            ? "closed"
+            : "drafting",
       source: "api",
     };
   } catch {

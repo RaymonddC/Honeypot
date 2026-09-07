@@ -19,7 +19,6 @@
 
 import { apiFetch } from "@/lib/http";
 import {
-  crimeLabel,
   deriveCustody,
   entitySubtitle,
   entityValue,
@@ -231,9 +230,9 @@ export async function postLiveTurn(
   const custodyRaw = raw?.custody ?? raw?.session?.custody ?? null;
   const custody: CustodyInfo | null = custodyRaw
     ? {
-        messagesLogged: `${custodyRaw.messages_logged ?? "—"}${custodyRaw.chain_intact === false ? "" : " · hash-chained"}`,
+        messagesLogged: String(custodyRaw.messages_logged ?? "—"),
         // Per-turn classification lights up the crime class as the scammer talks.
-        crimeClass: crimeLabel(raw?.classification?.crime_type ?? null),
+        crimeClass: raw?.classification?.crime_type ?? "—",
         syndicateLink: "—",
         intact: custodyRaw.chain_intact !== false,
       }
@@ -268,8 +267,8 @@ export function buildMockLiveCall(): VoiceCallSession {
     lines: [greeting],
     entities: [],
     custody: {
-      messagesLogged: "1 · hash-chained",
-      crimeClass: "invest. scam",
+      messagesLogged: "1",
+      crimeClass: "investment_scam",
       syndicateLink: "—",
       intact: true,
     },
