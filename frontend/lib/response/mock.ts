@@ -7,51 +7,53 @@
 import type { ActiveCase, MetricTile, OpsStat, ResponseMetrics, RangeKey } from "./types";
 import { ACCENT_SOFT, ACCENT } from "./types";
 
+// Keys only, like the API layer — the components resolve the wording, so the
+// offline fallback speaks the chosen language too.
 export const MOCK_OPS: OpsStat[] = [
-  { label: "Honeypot sessions", glyph: "⬡", value: "3", sub: "INFILTRATE" },
-  { label: "Entities confirmed", glyph: "◇", value: "17", sub: "wallets · accounts" },
-  { label: "Wallets scored", glyph: "◉", value: "42", sub: "TAKEDOWN graph", color: ACCENT },
-  { label: "Documents generated", glyph: "⚑", value: "9", sub: "UNCOVER" },
-  { label: "Bundles dispatched", glyph: "↗", value: "3/5", sub: "human-gated", color: ACCENT_SOFT },
-  { label: "Agency notifications", glyph: "📡", value: "8", sub: "routed" },
+  { key: "honeypotSessions", glyph: "⬡", value: "3" },
+  { key: "entitiesConfirmed", glyph: "◇", value: "17" },
+  { key: "walletsScored", glyph: "◉", value: "42", color: ACCENT },
+  { key: "documentsGenerated", glyph: "⚑", value: "9" },
+  { key: "bundlesDispatched", glyph: "↗", value: "3/5", color: ACCENT_SOFT },
+  { key: "agencyNotifications", glyph: "📡", value: "8" },
 ];
 
 export const MOCK_TILES: MetricTile[] = [
   {
-    label: "Cases in progress",
+    key: "casesInProgress",
     value: "24",
-    delta: "▲ 6 this week",
+    delta: { key: "thisWeek", values: { count: 6 } },
     deltaUp: true,
   },
   {
-    label: "Avg time-to-freeze",
+    key: "avgTimeToFreeze",
     value: "27",
     suffix: "min",
     color: ACCENT,
-    delta: "▼ from 12h+ baseline",
+    delta: { key: "fromBaseline", values: { hours: 12 } },
     deltaUp: true,
   },
   {
-    label: "Funds at risk",
+    key: "fundsAtRisk",
     value: "Rp 4.8",
     suffix: "B",
-    delta: "flagged, open cases",
+    delta: { key: "flaggedOpen" },
   },
   {
-    label: "Funds frozen",
+    key: "fundsFrozen",
     value: "Rp 712",
     suffix: "M",
     color: ACCENT_SOFT,
-    delta: "▲ 14 freezes ack’d",
+    delta: { key: "acked", values: { count: 14 } },
     deltaUp: true,
   },
   {
     // Freeze, not recovery — see the note in lib/response/api.ts buildTiles.
-    label: "Freeze rate",
+    key: "freezeRate",
     value: "14.8",
     suffix: "%",
     color: ACCENT,
-    delta: "of funds at risk, freeze dispatched",
+    delta: { key: "ofAtRisk" },
   },
 ];
 
@@ -63,10 +65,10 @@ export const MOCK_TREND = [
 // Every row here is fixture data by definition — this whole module is the
 // offline fallback — so they are all marked seeded.
 export const MOCK_CASES: ActiveCase[] = [
-  { ref: "ITU-0417", type: "Judol relay", atRisk: "Rp 48M", risk: "high", statusLabel: "High", source: "baseline" },
-  { ref: "ITU-0416", type: "Invest. scam", atRisk: "Rp 31M", risk: "high", statusLabel: "High", source: "baseline" },
-  { ref: "ITU-0412", type: "Phishing", atRisk: "Rp 9M", risk: "med", statusLabel: "Med", source: "baseline" },
-  { ref: "ITU-0409", type: "Mule net", atRisk: "Rp 15M", risk: "low", statusLabel: "Frozen", source: "baseline" },
+  { ref: "ITU-0417", type: "Judol relay", atRisk: "Rp 48M", risk: "high", statusKey: "high", source: "baseline" },
+  { ref: "ITU-0416", type: "Invest. scam", atRisk: "Rp 31M", risk: "high", statusKey: "high", source: "baseline" },
+  { ref: "ITU-0412", type: "Phishing", atRisk: "Rp 9M", risk: "med", statusKey: "med", source: "baseline" },
+  { ref: "ITU-0409", type: "Mule net", atRisk: "Rp 15M", risk: "low", statusKey: "frozen", source: "baseline" },
 ];
 
 export function buildMockMetrics(range: RangeKey = "30d"): ResponseMetrics {

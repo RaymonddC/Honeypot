@@ -66,7 +66,27 @@
     "continueOffline": "Continue offline — demo session with mock data",
     "signingIn": "Signing in…",
     "enterConsole": "Enter console",
-    "footer": "Demo sign-in · POC data mode · no credentials required"
+    "footer": "Demo sign-in · POC data mode · no credentials required",
+    "brandTagline": "Financial-crime forensics",
+    "headline": "From a scam report to a frozen account — in minutes, not days.",
+    "pillarStrip": "Infiltrate · Trace · Takedown · Uncover",
+    "signInTitle": "Secure sign-in",
+    "signInSub": "Choose your agency & role to continue.",
+    "brandFooterNote": "Secure session · agency-scoped (RLS) · every action hash-chained & audited",
+    "pillars": {
+      "infiltrate": "AI honeypot baits the scammer & extracts intel",
+      "trace": "Follow the money across the fiat→crypto bridge",
+      "takedown": "Score wallets, surface the collection wallet",
+      "uncover": "One-click freeze requests & STR / LTKM filings"
+    },
+    "trust": {
+      "encryptedLabel": "Encrypted",
+      "encryptedSub": "in transit & at rest",
+      "isolatedLabel": "Agency-isolated",
+      "isolatedSub": "row-level security",
+      "auditLabel": "Audit trail",
+      "auditSub": "hash-chained"
+    }
   },
   "honeypot": {
     "panel": {
@@ -865,7 +885,14 @@
       "colStatus": "Status",
       "empty": "No active cases in this range.",
       "seededBadge": "demo",
-      "seededTitle": "Seeded demo case shipped with the deployment — not a case this agency worked."
+      "seededTitle": "Seeded demo case shipped with the deployment — not a case this agency worked.",
+      "status": {
+        "frozen": "Frozen",
+        "high": "High",
+        "med": "Med",
+        "low": "Low",
+        "active": "Active"
+      }
     },
     "dispatchLog": {
       "eyebrow": "Dispatch log · agency outbox",
@@ -885,6 +912,68 @@
     "trendSparkline": {
       "empty": "Not enough freeze events yet — trend appears after the first cases.",
       "ariaLabel": "Time-to-freeze trend, latest {nowLabel}"
+    },
+    "tiles": {
+      "casesInProgress": {
+        "label": "Cases in progress",
+        "delta": {
+          "ofTotal": "of {total} total",
+          "openActive": "open + active",
+          "thisWeek": "▲ {count} this week"
+        }
+      },
+      "avgTimeToFreeze": {
+        "label": "Avg time-to-freeze",
+        "delta": {
+          "fromBaseline": "▼ from {hours}h+ baseline",
+          "noFreezes": "no freezes in range yet"
+        }
+      },
+      "fundsAtRisk": {
+        "label": "Funds at risk",
+        "delta": {
+          "flaggedOpen": "flagged, open cases"
+        }
+      },
+      "fundsFrozen": {
+        "label": "Funds frozen",
+        "delta": {
+          "acked": "▲ {count, plural, one {# freeze} other {# freezes}} ack’d",
+          "acknowledged": "acknowledged freezes"
+        }
+      },
+      "freezeRate": {
+        "label": "Freeze rate",
+        "delta": {
+          "ofAtRisk": "of funds at risk, freeze dispatched"
+        }
+      }
+    },
+    "ops": {
+      "honeypotSessions": {
+        "label": "Honeypot sessions",
+        "sub": "INFILTRATE"
+      },
+      "entitiesConfirmed": {
+        "label": "Entities confirmed",
+        "sub": "wallets · accounts"
+      },
+      "walletsScored": {
+        "label": "Wallets scored",
+        "sub": "TAKEDOWN graph"
+      },
+      "documentsGenerated": {
+        "label": "Documents generated",
+        "sub": "UNCOVER"
+      },
+      "bundlesDispatched": {
+        "label": "Bundles dispatched",
+        "sub": "human-gated"
+      },
+      "agencyNotifications": {
+        "label": "Agency notifications",
+        "sub": "routed"
+      }
     }
   },
   "caseFile": {

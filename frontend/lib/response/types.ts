@@ -11,17 +11,33 @@ export type DataSource = "api" | "mock";
 
 /* ── Metric tiles ──────────────────────────────────────────────────────── */
 
+/** The five tiles, in render order. Identifies the tile; the LABEL is resolved
+ *  in the component (see MetricTiles) — this layer must not carry display text,
+ *  or the dashboard renders in English regardless of the chosen locale. */
+export type TileKey =
+  | "casesInProgress"
+  | "avgTimeToFreeze"
+  | "fundsAtRisk"
+  | "fundsFrozen"
+  | "freezeRate";
+
+/** A delta line: which phrasing to use, plus the numbers to interpolate. */
+export interface DeltaRef {
+  /** Leaf under response.tiles.<tile>.delta.* */
+  key: string;
+  values?: Record<string, string | number>;
+}
+
 export interface MetricTile {
-  /** Eyebrow label, e.g. "Avg time-to-freeze". */
-  label: string;
+  key: TileKey;
   /** Big mono figure, e.g. "27". */
   value: string;
   /** Small dimmed unit suffix, e.g. "min" / "B" / "%". */
   suffix?: string;
   /** Value color override (defaults to foreground). */
   color?: string;
-  /** Delta / context line under the value, e.g. "▲ 6 this week". */
-  delta?: string;
+  /** Delta / context line under the value. */
+  delta?: DeltaRef;
   /** Tint the delta with the accent color (mockup .d.up). */
   deltaUp?: boolean;
 }
@@ -29,6 +45,10 @@ export interface MetricTile {
 /* ── Active cases table ────────────────────────────────────────────────── */
 
 export type CaseRisk = "high" | "med" | "low";
+
+/** Pill wording. "unknown" carries the raw backend string through so an
+ *  unrecognised status still shows something truthful rather than "—". */
+export type CaseStatusKey = "frozen" | "high" | "med" | "low" | "active" | "unknown";
 
 export interface ActiveCase {
   /** Short case ref, e.g. "ITU-0417". */
@@ -38,8 +58,10 @@ export interface ActiveCase {
   /** Funds at risk, formatted, e.g. "Rp 48M". */
   atRisk: string;
   risk: CaseRisk;
-  /** Pill label — usually the risk level, "Frozen" when resolved. */
-  statusLabel: string;
+  /** Which pill wording to use — resolved in CasesTable, not here. */
+  statusKey: CaseStatusKey;
+  /** Only for statusKey "unknown": the raw backend status, shown verbatim. */
+  statusRaw?: string;
   /**
    * Where the row came from. "baseline" rows are seeded demo cases the backend
    * ships to give the dashboard shape; "action" rows are real bundles this
@@ -52,11 +74,18 @@ export interface ActiveCase {
 
 /* ── Operations pipeline (INFILTRATE → TAKEDOWN → UNCOVER activity) ─────── */
 
+/** The six pipeline stats, in render order. Label + sub come from i18n. */
+export type OpsKey =
+  | "honeypotSessions"
+  | "entitiesConfirmed"
+  | "walletsScored"
+  | "documentsGenerated"
+  | "bundlesDispatched"
+  | "agencyNotifications";
+
 export interface OpsStat {
-  label: string;
+  key: OpsKey;
   value: string;
-  /** Small context line under the figure. */
-  sub?: string;
   /** Glyph for the tile. */
   glyph?: string;
   /** Accent color for the figure. */

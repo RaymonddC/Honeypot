@@ -78,7 +78,9 @@ export function CasesTable({ cases }: { cases: ActiveCase[] }) {
                       className="h-1.5 w-1.5 rounded-full bg-current shadow-[0_0_7px_currentColor]"
                       aria-hidden
                     />
-                    {c.statusLabel}
+                    {c.statusKey === "unknown"
+                      ? (c.statusRaw ?? "—")
+                      : t(`status.${c.statusKey}`)}
                   </span>
                 </td>
               </tr>

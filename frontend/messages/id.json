@@ -59,14 +59,34 @@
     "agencyLegend": "Instansi",
     "roleLegend": "Peran",
     "ownData": "data sendiri (RLS)",
-    "canDispatch": "Dapat mengirim freeze / STR",
+    "canDispatch": "Dapat mengirim pemblokiran / STR",
     "receiveOnly": "Menerima permintaan · tidak dapat mengirim",
     "errorUnreachable": "Login gagal — backend tidak dapat dijangkau (apakah API berjalan di :8000?)",
     "errorGeneric": "Login gagal — {message}",
     "continueOffline": "Lanjutkan offline — sesi demo dengan data mock",
     "signingIn": "Sedang masuk…",
     "enterConsole": "Masuk ke konsol",
-    "footer": "Demo sign-in · Mode data POC · tanpa kredensial"
+    "footer": "Masuk demo · Mode data POC · tanpa kredensial",
+    "brandTagline": "Forensik kejahatan keuangan",
+    "headline": "Dari laporan penipuan ke rekening terblokir — dalam hitungan menit, bukan hari.",
+    "pillarStrip": "Infiltrate · Trace · Takedown · Uncover",
+    "signInTitle": "Masuk dengan aman",
+    "signInSub": "Pilih instansi & peran Anda untuk melanjutkan.",
+    "brandFooterNote": "Sesi aman · lingkup instansi (RLS) · setiap tindakan terangkai hash & teraudit",
+    "pillars": {
+      "infiltrate": "Honeypot AI memancing pelaku & mengekstrak intel",
+      "trace": "Ikuti aliran dana melintasi jembatan fiat→kripto",
+      "takedown": "Skor wallet, temukan wallet penampungan",
+      "uncover": "Permohonan pemblokiran & laporan STR / LTKM sekali klik"
+    },
+    "trust": {
+      "encryptedLabel": "Terenkripsi",
+      "encryptedSub": "saat transit & tersimpan",
+      "isolatedLabel": "Per instansi",
+      "isolatedSub": "keamanan tingkat baris",
+      "auditLabel": "Jejak audit",
+      "auditSub": "terangkai hash"
+    }
   },
   "honeypot": {
     "panel": {
@@ -865,7 +885,14 @@
       "colStatus": "Status",
       "empty": "Tidak ada kasus aktif pada rentang ini.",
       "seededBadge": "demo",
-      "seededTitle": "Kasus demo bawaan deployment — bukan kasus yang ditangani instansi ini."
+      "seededTitle": "Kasus demo bawaan deployment — bukan kasus yang ditangani instansi ini.",
+      "status": {
+        "frozen": "Diblokir",
+        "high": "Tinggi",
+        "med": "Sedang",
+        "low": "Rendah",
+        "active": "Aktif"
+      }
     },
     "dispatchLog": {
       "eyebrow": "Log pengiriman · outbox instansi",
@@ -885,6 +912,68 @@
     "trendSparkline": {
       "empty": "Belum cukup peristiwa pemblokiran — tren akan muncul setelah kasus pertama.",
       "ariaLabel": "Tren waktu-ke-pemblokiran, terbaru {nowLabel}"
+    },
+    "tiles": {
+      "casesInProgress": {
+        "label": "Kasus berjalan",
+        "delta": {
+          "ofTotal": "dari {total} total",
+          "openActive": "terbuka + aktif",
+          "thisWeek": "▲ {count} minggu ini"
+        }
+      },
+      "avgTimeToFreeze": {
+        "label": "Rata-rata waktu ke pemblokiran",
+        "delta": {
+          "fromBaseline": "▼ dari baseline {hours} jam+",
+          "noFreezes": "belum ada pemblokiran pada rentang ini"
+        }
+      },
+      "fundsAtRisk": {
+        "label": "Dana berisiko",
+        "delta": {
+          "flaggedOpen": "ditandai, kasus terbuka"
+        }
+      },
+      "fundsFrozen": {
+        "label": "Dana diblokir",
+        "delta": {
+          "acked": "▲ {count} pemblokiran dikonfirmasi",
+          "acknowledged": "pemblokiran dikonfirmasi"
+        }
+      },
+      "freezeRate": {
+        "label": "Tingkat pemblokiran",
+        "delta": {
+          "ofAtRisk": "dari dana berisiko, pemblokiran terkirim"
+        }
+      }
+    },
+    "ops": {
+      "honeypotSessions": {
+        "label": "Sesi honeypot",
+        "sub": "INFILTRATE"
+      },
+      "entitiesConfirmed": {
+        "label": "Entitas terkonfirmasi",
+        "sub": "wallet · rekening"
+      },
+      "walletsScored": {
+        "label": "Wallet dinilai",
+        "sub": "graf TAKEDOWN"
+      },
+      "documentsGenerated": {
+        "label": "Dokumen dibuat",
+        "sub": "UNCOVER"
+      },
+      "bundlesDispatched": {
+        "label": "Paket terkirim",
+        "sub": "perlu konfirmasi manusia"
+      },
+      "agencyNotifications": {
+        "label": "Notifikasi instansi",
+        "sub": "diteruskan"
+      }
     }
   },
   "caseFile": {

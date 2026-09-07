@@ -4,12 +4,24 @@
  * rate vs the 4.76% IASC baseline.
  */
 
+"use client";
+
+import { useTranslations } from "next-intl";
 import type { MetricTile } from "@/lib/response/types";
 
 function Tile({ tile }: { tile: MetricTile }) {
+  // Label and delta are resolved HERE, from the tile's key — the data layer
+  // deliberately carries no display text (see buildTiles in lib/response/api.ts).
+  const t = useTranslations("response.tiles");
   return (
     <div className="rounded-card border border-line bg-card p-[15px]">
-      <div className="eyebrow">{tile.label}</div>
+      {/* Two lines' worth of space is reserved whether the label needs it or
+          not, so the figures stay on a common baseline across the row. Without
+          it a longer translation ("Rata-rata waktu ke pemblokiran" vs "Avg
+          time-to-freeze") wraps and drops that one tile's number out of line. */}
+      <div className="eyebrow flex min-h-[2.2em] items-start">
+        {t(`${tile.key}.label`)}
+      </div>
       <div
         className="mt-[9px] font-mono text-[26px] font-extrabold leading-none tracking-tight tnum"
         style={tile.color ? { color: tile.color } : undefined}
@@ -25,7 +37,7 @@ function Tile({ tile }: { tile: MetricTile }) {
             tile.deltaUp ? "text-accent-bright" : "text-muted"
           }`}
         >
-          {tile.delta}
+          {t(`${tile.key}.delta.${tile.delta.key}`, tile.delta.values)}
         </div>
       )}
     </div>
@@ -35,8 +47,8 @@ function Tile({ tile }: { tile: MetricTile }) {
 export function MetricTiles({ tiles }: { tiles: MetricTile[] }) {
   return (
     <div className="mb-3.5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-      {tiles.map((t) => (
-        <Tile key={t.label} tile={t} />
+      {tiles.map((tile) => (
+        <Tile key={tile.key} tile={tile} />
       ))}
     </div>
   );

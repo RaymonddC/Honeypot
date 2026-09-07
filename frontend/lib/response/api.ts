@@ -21,6 +21,7 @@ import { buildMockMetrics } from "./mock";
 import type {
   ActiveCase,
   CaseRisk,
+  CaseStatusKey,
   MetricTile,
   OpsStat,
   RangeKey,
@@ -91,46 +92,55 @@ function buildTiles(m: any, frozenCount: number | null): MetricTile[] {
   const risk = atRisk != null ? splitIDR(atRisk) : null;
   const froz = frozen != null ? splitIDR(frozen) : null;
 
+  // No display text here: this layer emits keys, MetricTiles resolves them
+  // against the active locale. Building labels here is why the whole dashboard
+  // rendered in English no matter which language was selected.
   return [
     {
-      label: "Cases in progress",
+      key: "casesInProgress",
       value: cases != null ? String(cases) : "—",
-      delta: casesTotal != null ? `of ${casesTotal} total` : "open + active",
+      delta:
+        casesTotal != null
+          ? { key: "ofTotal", values: { total: casesTotal } }
+          : { key: "openActive" },
     },
     {
-      label: "Avg time-to-freeze",
+      key: "avgTimeToFreeze",
       value: ttf?.value ?? "—",
       suffix: ttf?.suffix,
       color: ACCENT,
       delta:
         ttf != null
-          ? `▼ from ${baselineHours != null ? `${Math.round(baselineHours)}h+` : "12h+"} baseline`
-          : "no freezes in range yet",
+          ? {
+              key: "fromBaseline",
+              values: { hours: baselineHours != null ? Math.round(baselineHours) : 12 },
+            }
+          : { key: "noFreezes" },
       deltaUp: ttf != null,
     },
     {
-      label: "Funds at risk",
+      key: "fundsAtRisk",
       value: risk?.value ?? "—",
       suffix: risk?.suffix,
-      delta: "flagged, open cases",
+      delta: { key: "flaggedOpen" },
     },
     {
-      label: "Funds frozen",
+      key: "fundsFrozen",
       value: froz?.value ?? "—",
       suffix: froz?.suffix,
       color: ACCENT_SOFT,
       delta:
         frozenCount != null && frozenCount > 0
-          ? `▲ ${frozenCount} freeze${frozenCount > 1 ? "s" : ""} ack’d`
-          : "acknowledged freezes",
+          ? { key: "acked", values: { count: frozenCount } }
+          : { key: "acknowledged" },
       deltaUp: frozenCount != null && frozenCount > 0,
     },
     {
-      label: "Freeze rate",
+      key: "freezeRate",
       value: freezeRate != null ? freezeRate.toFixed(1) : "—",
       suffix: "%",
       color: ACCENT,
-      delta: "of funds at risk, freeze dispatched",
+      delta: { key: "ofAtRisk" },
     },
   ];
 }
@@ -148,18 +158,17 @@ function buildOps(m: any): OpsStat[] {
   const generated = num(a?.bundles_generated);
   const dispatched = num(a?.bundles_dispatched);
   return [
-    { label: "Honeypot sessions", glyph: "⬡", value: intStr(first(hp?.active_sessions, hp?.sessions)), sub: "INFILTRATE" },
-    { label: "Entities confirmed", glyph: "◇", value: intStr(hp?.entities_confirmed), sub: "wallets · accounts" },
-    { label: "Wallets scored", glyph: "◉", value: intStr(m?.wallets_scored), sub: "TAKEDOWN graph", color: ACCENT },
-    { label: "Documents generated", glyph: "⚑", value: intStr(a?.documents_generated), sub: "UNCOVER" },
+    { key: "honeypotSessions", glyph: "⬡", value: intStr(first(hp?.active_sessions, hp?.sessions)) },
+    { key: "entitiesConfirmed", glyph: "◇", value: intStr(hp?.entities_confirmed) },
+    { key: "walletsScored", glyph: "◉", value: intStr(m?.wallets_scored), color: ACCENT },
+    { key: "documentsGenerated", glyph: "⚑", value: intStr(a?.documents_generated) },
     {
-      label: "Bundles dispatched",
+      key: "bundlesDispatched",
       glyph: "↗",
       value: dispatched != null ? `${dispatched}${generated != null ? `/${generated}` : ""}` : "—",
-      sub: "human-gated",
       color: ACCENT_SOFT,
     },
-    { label: "Agency notifications", glyph: "📡", value: intStr(a?.notifications_mock), sub: "routed" },
+    { key: "agencyNotifications", glyph: "📡", value: intStr(a?.notifications_mock) },
   ];
 }
 
@@ -184,19 +193,25 @@ function normalizeTrend(m: any): number[] {
 function normalizeCaseStatus(
   status: unknown,
   atRiskIdr: number | null,
-): { risk: CaseRisk; label: string } {
+): { risk: CaseRisk; statusKey: CaseStatusKey; statusRaw?: string } {
   const s = String(status ?? "").toLowerCase();
   if (s.includes("frozen") || s.includes("resolved"))
-    return { risk: "low", label: "Frozen" };
-  if (s.includes("high")) return { risk: "high", label: "High" };
-  if (s.includes("med")) return { risk: "med", label: "Med" };
-  if (s.includes("low")) return { risk: "low", label: "Low" };
+    return { risk: "low", statusKey: "frozen" };
+  if (s.includes("high")) return { risk: "high", statusKey: "high" };
+  if (s.includes("med")) return { risk: "med", statusKey: "med" };
+  if (s.includes("low")) return { risk: "low", statusKey: "low" };
   // in_progress → tint by exposure (≥ Rp 30M reads high, mockup-style)
   if (s.includes("progress") || s.includes("open") || s.includes("active"))
     return atRiskIdr != null && atRiskIdr >= 30e6
-      ? { risk: "high", label: "High" }
-      : { risk: "med", label: "Active" };
-  return { risk: "med", label: s ? s[0].toUpperCase() + s.slice(1) : "—" };
+      ? { risk: "high", statusKey: "high" }
+      : { risk: "med", statusKey: "active" };
+  // Unrecognised status: carry the raw value through rather than inventing a
+  // label for it — the table shows it verbatim.
+  return {
+    risk: "med",
+    statusKey: "unknown",
+    statusRaw: s ? s[0].toUpperCase() + s.slice(1) : "—",
+  };
 }
 
 /** "judol_deposit" → "Judol deposit". */
@@ -209,7 +224,7 @@ function normalizeCases(m: any): ActiveCase[] {
   const items: any[] = first(m?.cases, m?.active_cases, m?.items, []) ?? [];
   return items.map((c, i): ActiveCase => {
     const atRisk = num(first(c?.at_risk_idr, c?.funds_at_risk_idr, c?.at_risk));
-    const { risk, label } = normalizeCaseStatus(
+    const { risk, statusKey, statusRaw } = normalizeCaseStatus(
       first(c?.status, c?.risk_level, c?.risk),
       atRisk,
     );
@@ -221,7 +236,8 @@ function normalizeCases(m: any): ActiveCase[] {
       type: humanize(String(first(c?.crime_type, c?.type, "—"))),
       atRisk: atRisk != null ? formatIDRShort(atRisk) : "—",
       risk,
-      statusLabel: label,
+      statusKey,
+      statusRaw,
       // Unknown provenance is treated as seeded, not real: over-marking a row
       // as demo data is a far cheaper mistake than passing one off as a case
       // this deployment actually worked.
@@ -244,8 +260,10 @@ export async function fetchResponseMetrics(
     const m = first(raw?.metrics, raw?.data, raw) ?? {};
 
     const cases = normalizeCases(m);
+    // Match on the KEY, not the rendered label: comparing against "Frozen"
+    // meant this silently counted zero as soon as the label was translated.
     const frozenCount = cases.length
-      ? cases.filter((c) => c.statusLabel === "Frozen").length
+      ? cases.filter((c) => c.statusKey === "frozen").length
       : null;
 
     const tiles = buildTiles(m, frozenCount);

@@ -24,6 +24,8 @@ const RANGES: RangeKey[] = ["7d", "30d", "all"];
 
 export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
   const t = useTranslations("response.panel");
+  // Ops labels live in i18n, keyed by OpsStat.key (the data layer sends no text).
+  const tOps = useTranslations("response.ops");
   const [data, setData] = useState<ResponseMetrics | null>(null);
   const [range, setRange] = useState<RangeKey>("30d");
   const [loading, setLoading] = useState(true);
@@ -128,10 +130,12 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
             <div className="eyebrow mb-2">{t("opsPipelineEyebrow", { range: t(`range.${range}`).toLowerCase() })}</div>
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
               {data.ops.map((o) => (
-                <div key={o.label} className="rounded-card border border-line bg-card p-3">
+                <div key={o.key} className="rounded-card border border-line bg-card p-3">
                   <div className="flex items-center gap-1.5 text-muted">
                     <span className="text-[12px]" aria-hidden>{o.glyph}</span>
-                    <span className="text-[12px] uppercase tracking-wide">{o.label}</span>
+                    <span className="text-[12px] uppercase tracking-wide">
+                      {tOps(`${o.key}.label`)}
+                    </span>
                   </div>
                   <div
                     className="mt-1.5 font-mono text-[20px] font-bold leading-none tnum"
@@ -139,7 +143,7 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
                   >
                     {o.value}
                   </div>
-                  {o.sub && <div className="mt-1 text-[12px] text-muted">{o.sub}</div>}
+                  <div className="mt-1 text-[12px] text-muted">{tOps(`${o.key}.sub`)}</div>
                 </div>
               ))}
             </div>
