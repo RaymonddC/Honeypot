@@ -17,18 +17,14 @@ import type { CheckKind, CheckResult, ScamReport } from "./types";
 /**
  * Work out what the user pasted so they do not have to say.
  *
- * Order matters: a TRON address is alphanumeric and long, an Indonesian mobile
- * number and a bank account are both digit strings, and the only thing telling
- * them apart is the 08/62 prefix. E-wallets ride on mobile numbers, so a phone
- * that looks like a wallet is reported as a phone — the lookup checks both.
+ * An Indonesian mobile number and a bank account are both digit strings, and
+ * the only thing separating them is the 08/62 prefix — so the prefix is tested
+ * first. E-wallets ARE mobile numbers here, so anything matching the mobile
+ * shape is reported as a phone and the lookup then tries both.
  */
 export function detectKind(raw: string): CheckKind {
   const v = normalise(raw);
   if (!v) return "unknown";
-  if (/^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}(\/.*)?$/i.test(raw.trim()))
-    return "url";
-  if (/^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(v)) return "crypto_wallet";
-  if (/^0x[a-fA-F0-9]{40}$/.test(v)) return "crypto_wallet";
   if (/^(\+?62|0)8\d{7,12}$/.test(v)) return "phone";
   if (/^\d{8,16}$/.test(v)) return "bank_account";
   return "unknown";
@@ -47,18 +43,12 @@ export async function checkValue(raw: string): Promise<CheckResult> {
   const value = normalise(raw);
   const kind = detectKind(raw);
 
-  // A phone and an e-wallet are the same string; try both before giving up.
+  // A phone and an e-wallet are the same string; try every written form of it
+  // before giving up, since 08…, +628… and 628… are used interchangeably.
   const candidates =
-    kind === "phone" || kind === "ewallet"
-      ? phoneVariants(value)
-      : [value, value.toLowerCase()];
+    kind === "phone" || kind === "ewallet" ? phoneVariants(value) : [value];
 
-  const hit = INDEX.find(
-    (e) =>
-      candidates.some((c) => c === e.value || c === e.value.toLowerCase()) ||
-      (e.kind === "url" &&
-        candidates.some((c) => c.replace(/^https?:\/\//, "") === e.value)),
-  );
+  const hit = INDEX.find((e) => candidates.some((c) => c === e.value));
 
   if (!hit) {
     // Deliberately NOT "safe". See CheckVerdict in ./types.

@@ -1,10 +1,10 @@
 /**
  * CekScam — the public (Layer 1 / B2C) check surface.
  *
- * A member of the public pastes a bank account, phone number, e-wallet or
- * crypto address and asks "is this a scammer?" before they transfer. Every
- * check and report is also intake: it seeds the honeypot intelligence database
- * the institutional modules read from.
+ * A member of the public pastes a bank account, phone number or e-wallet and
+ * asks "is this a scammer?" before they transfer. Every check and report is
+ * also intake: it seeds the honeypot intelligence database the institutional
+ * modules read from.
  *
  * The verdict vocabulary is deliberately three-valued, and the third value is
  * the important one. A lookup that finds nothing must NOT read as "safe" —
@@ -15,15 +15,18 @@
 
 export type DataSource = "api" | "mock";
 
-/** What the user pasted. Detected from the value itself — they should not have
- *  to classify it before they can ask. */
-export type CheckKind =
-  | "bank_account"
-  | "phone"
-  | "ewallet"
-  | "crypto_wallet"
-  | "url"
-  | "unknown";
+/**
+ * What the user pasted. Detected from the value itself — they should not have
+ * to classify it before they can ask.
+ *
+ * Deliberately narrow: a bank account, a phone number, or an e-wallet (which
+ * in Indonesia IS a phone number — DANA, OVO, GoPay, ShopeePay all key on one).
+ * That is what a member of the public is actually about to transfer to. Crypto
+ * addresses live in the investigator console, where TAKEDOWN scores them
+ * properly; asking the public to paste one implies a check this surface cannot
+ * honestly make.
+ */
+export type CheckKind = "bank_account" | "phone" | "ewallet" | "unknown";
 
 export type CheckVerdict =
   /** Reported and corroborated — treat as a scam account. */
@@ -41,8 +44,6 @@ export interface CheckSignal {
     | "honeypotDisclosed"
     | "publicReports"
     | "syndicateLinked"
-    | "onRampToCrypto"
-    | "exchangeDeposit"
     | "seenInFlow"
     | "firstSeen";
   /** Interpolated into the message (counts, dates, names). */
@@ -72,7 +73,7 @@ export interface CheckResult {
 export type ScamType =
   | "investment_scam"
   | "judol_deposit"
-  | "crypto_phishing"
+  | "phishing"
   | "romance_scam"
   | "impersonation"
   | "other";
@@ -118,7 +119,7 @@ export interface ScamReport {
 export const SCAM_TYPES: ScamType[] = [
   "investment_scam",
   "judol_deposit",
-  "crypto_phishing",
+  "phishing",
   "romance_scam",
   "impersonation",
   "other",

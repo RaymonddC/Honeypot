@@ -1633,9 +1633,9 @@
     "brandSub": "by ITTU",
     "demoBadge": "demo data",
     "headline": "Check before you transfer.",
-    "subhead": "Paste a bank account, phone number, e-wallet or crypto address. We check it against accounts our honeypots and the public have already reported — not only against accounts someone has already lost money to.",
-    "inputLabel": "Account, number or address to check",
-    "inputPlaceholder": "e.g. 5271038462, 0812-8841-4471, or a TRON address",
+    "subhead": "Paste a bank account number, phone number or e-wallet. We check it against accounts our honeypots and the public have already reported — not only against accounts someone has already lost money to.",
+    "inputLabel": "Account or number to check",
+    "inputPlaceholder": "e.g. 5271038462 or 0812-8841-4471",
     "inputHint": "We work out the type ourselves. Dashes and spaces are fine.",
     "check": "Check",
     "checking": "Checking…",
@@ -1645,8 +1645,6 @@
       "bank_account": "Bank account",
       "phone": "Phone number",
       "ewallet": "E-wallet",
-      "crypto_wallet": "Crypto address",
-      "url": "Website",
       "unknown": "Unrecognised"
     },
     "verdict": {
@@ -1670,8 +1668,6 @@
       "honeypotDisclosed": "Given out by a scammer to one of our honeypot personas on {channel}",
       "publicReports": "{count, plural, one {# public report} other {# public reports}} from people who were approached",
       "syndicateLinked": "Linked to syndicate {syndicate}, alongside other accounts",
-      "onRampToCrypto": "Money from this account was converted to {chain}",
-      "exchangeDeposit": "Funds moved on to a {exchange} deposit address",
       "seenInFlow": "Seen moving money in a mule-account pattern",
       "firstSeen": "First reported {when}"
     },
@@ -1679,7 +1675,7 @@
       "eyebrow": "Help someone else",
       "title": "Report a scammer",
       "lead": "Every report goes into the same database this page checks against — and into the honeypot intelligence investigators work from. You do not need to have lost money to report.",
-      "valuePlaceholder": "Account, number or address they gave you",
+      "valuePlaceholder": "Account or number they gave you",
       "storyPlaceholder": "What happened? How did they approach you, and what did they ask for?",
       "amountPlaceholder": "Amount lost, if any (Rp)",
       "contactPlaceholder": "Your contact, optional",
@@ -1703,7 +1699,7 @@
     "scamTypes": {
       "investment_scam": "Investment",
       "judol_deposit": "Online gambling",
-      "crypto_phishing": "Crypto / phishing",
+      "phishing": "Phishing link",
       "romance_scam": "Romance",
       "impersonation": "Impersonation",
       "other": "Other"
@@ -1726,8 +1722,8 @@
     "samples": {
       "label": "Try:",
       "bank": "a reported bank account",
+      "phone": "a reported phone number",
       "ewallet": "a reported e-wallet",
-      "wallet": "a crypto address",
       "caution": "one with a single report",
       "unknown": "one we have no record of"
     },

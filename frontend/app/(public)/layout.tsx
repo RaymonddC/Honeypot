@@ -46,7 +46,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       <footer className="mx-auto max-w-[860px] px-5 pb-14">
         <div className="border-t border-line pt-5">
           <div className="eyebrow mb-2">{t("limits.eyebrow")}</div>
-          <ul className="space-y-1.5 text-[12.5px] leading-relaxed text-muted">
+          <ul className="max-w-[70ch] space-y-1.5 text-[12.5px] leading-relaxed text-muted">
             <li>{t("limits.demo", { count: INDEX_SIZE })}</li>
             <li>{t("limits.notSafe")}</li>
             <li>{t("limits.notOfficial")}</li>

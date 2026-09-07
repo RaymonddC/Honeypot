@@ -1633,9 +1633,9 @@
     "brandSub": "dari ITTU",
     "demoBadge": "data demo",
     "headline": "Cek dulu sebelum transfer.",
-    "subhead": "Tempel nomor rekening, nomor telepon, e-wallet, atau alamat kripto. Kami cocokkan dengan rekening yang sudah dilaporkan honeypot kami dan masyarakat — bukan hanya rekening yang sudah memakan korban.",
-    "inputLabel": "Rekening, nomor, atau alamat yang ingin dicek",
-    "inputPlaceholder": "mis. 5271038462, 0812-8841-4471, atau alamat TRON",
+    "subhead": "Tempel nomor rekening, nomor telepon, atau e-wallet. Kami cocokkan dengan rekening yang sudah dilaporkan honeypot kami dan masyarakat — bukan hanya rekening yang sudah memakan korban.",
+    "inputLabel": "Rekening atau nomor yang ingin dicek",
+    "inputPlaceholder": "mis. 5271038462 atau 0812-8841-4471",
     "inputHint": "Jenisnya kami kenali sendiri. Tanda hubung dan spasi tidak masalah.",
     "check": "Cek",
     "checking": "Mengecek…",
@@ -1645,8 +1645,6 @@
       "bank_account": "Rekening bank",
       "phone": "Nomor telepon",
       "ewallet": "E-wallet",
-      "crypto_wallet": "Alamat kripto",
-      "url": "Situs web",
       "unknown": "Tidak dikenali"
     },
     "verdict": {
@@ -1670,8 +1668,6 @@
       "honeypotDisclosed": "Diberikan pelaku kepada persona honeypot kami lewat {channel}",
       "publicReports": "{count} laporan dari masyarakat yang pernah dihubungi",
       "syndicateLinked": "Terhubung ke sindikat {syndicate}, bersama rekening lain",
-      "onRampToCrypto": "Dana dari rekening ini dikonversi ke {chain}",
-      "exchangeDeposit": "Dana diteruskan ke alamat setoran {exchange}",
       "seenInFlow": "Terlihat memindahkan dana dengan pola rekening mule",
       "firstSeen": "Pertama dilaporkan {when}"
     },
@@ -1679,7 +1675,7 @@
       "eyebrow": "Bantu orang lain",
       "title": "Laporkan penipu",
       "lead": "Setiap laporan masuk ke basis data yang sama dengan yang dicek halaman ini — dan ke intelijen honeypot yang dipakai penyidik. Anda tidak perlu sampai kehilangan uang untuk melapor.",
-      "valuePlaceholder": "Rekening, nomor, atau alamat yang mereka berikan",
+      "valuePlaceholder": "Rekening atau nomor yang mereka berikan",
       "storyPlaceholder": "Apa yang terjadi? Bagaimana mereka menghubungi Anda, dan apa yang mereka minta?",
       "amountPlaceholder": "Jumlah kerugian, jika ada (Rp)",
       "contactPlaceholder": "Kontak Anda, opsional",
@@ -1703,7 +1699,7 @@
     "scamTypes": {
       "investment_scam": "Investasi",
       "judol_deposit": "Judi online",
-      "crypto_phishing": "Kripto / phishing",
+      "phishing": "Tautan phishing",
       "romance_scam": "Asmara",
       "impersonation": "Mengaku pihak resmi",
       "other": "Lainnya"
@@ -1726,8 +1722,8 @@
     "samples": {
       "label": "Coba:",
       "bank": "rekening bank dilaporkan",
+      "phone": "nomor telepon dilaporkan",
       "ewallet": "e-wallet dilaporkan",
-      "wallet": "alamat kripto",
       "caution": "baru satu laporan",
       "unknown": "belum ada catatannya"
     },

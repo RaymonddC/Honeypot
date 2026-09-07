@@ -1,9 +1,12 @@
 /**
  * The demo intelligence index CekScam answers from.
  *
- * The first three entries are the SAME identities the rest of the app
- * demonstrates on — the golden-thread BCA account and collection wallet, the
- * on-ramp sender, the exchange exit. That is deliberate: a check here and the
+ * Bank accounts, phone numbers and e-wallets only — what a member of the public
+ * is actually about to transfer to. Crypto addresses are the investigator
+ * console's job (TAKEDOWN scores them against the chain); offering them here
+ * would imply a check this surface cannot honestly make.
+ *
+ * The golden-thread BCA account is first and deliberately: a check here and the
  * investigator console are looking at one database, which is the whole claim of
  * slide 05's three layers. The rest are additional fixtures so every input type
  * and both verdict grades can actually be exercised.
@@ -17,7 +20,7 @@ import type { CheckKind, CheckSignal } from "./types";
 
 export interface IndexEntry {
   kind: CheckKind;
-  /** Normalised: digits only for accounts/phones, case preserved for chains. */
+  /** Normalised: digits only, separators stripped. */
   value: string;
   label?: string;
   /** ≥ 0.6 reads as "flagged", below as "caution" — see checkValue(). */
@@ -31,7 +34,7 @@ export function normalise(raw: string): string {
 }
 
 export const INDEX: IndexEntry[] = [
-  /* ── the golden thread: mule account → collection wallet → exchange ───── */
+  /* ── the golden thread: the mule account the honeypot surfaced ─────────── */
   {
     kind: "bank_account",
     value: GOLDEN.bank.accountNumber,
@@ -40,30 +43,10 @@ export const INDEX: IndexEntry[] = [
     signals: [
       { key: "honeypotDisclosed", values: { channel: "Telegram" } },
       { key: "publicReports", values: { count: 14 } },
-      { key: "onRampToCrypto", values: { chain: "USDT-TRC20" } },
+      { key: "seenInFlow" },
       { key: "syndicateLinked", values: { syndicate: "SYN-14" } },
     ],
   },
-  {
-    kind: "crypto_wallet",
-    value: GOLDEN.wallet,
-    label: "USDT-TRC20",
-    confidence: 0.97,
-    signals: [
-      { key: "onRampToCrypto", values: { chain: "USDT-TRC20" } },
-      { key: "exchangeDeposit", values: { exchange: "Indodax" } },
-      { key: "syndicateLinked", values: { syndicate: "SYN-14" } },
-    ],
-  },
-  {
-    kind: "crypto_wallet",
-    value: GOLDEN.exit,
-    label: "USDT-TRC20 · exchange hot wallet",
-    confidence: 0.42,
-    signals: [{ key: "exchangeDeposit", values: { exchange: "Indodax" } }],
-  },
-
-  /* ── the honeypot session's extracted entities ────────────────────────── */
   {
     kind: "bank_account",
     value: "4881207734",
@@ -78,25 +61,15 @@ export const INDEX: IndexEntry[] = [
   {
     kind: "phone",
     value: "6281288414471",
-    label: "operator",
+    label: "nomor operator",
     confidence: 0.91,
     signals: [
       { key: "honeypotDisclosed", values: { channel: "WhatsApp" } },
       { key: "publicReports", values: { count: 9 } },
     ],
   },
-  {
-    kind: "url",
-    value: "maju-jaya-invest.id",
-    label: "phishing",
-    confidence: 0.87,
-    signals: [
-      { key: "publicReports", values: { count: 4 } },
-      { key: "syndicateLinked", values: { syndicate: "SYN-14" } },
-    ],
-  },
 
-  /* ── judol (online gambling) rail: QRIS collector + its mule chain ────── */
+  /* ── judol (online gambling) rail: collector account + its e-wallet ────── */
   {
     kind: "bank_account",
     value: "7710455823",
@@ -129,7 +102,7 @@ export const INDEX: IndexEntry[] = [
     ],
   },
 
-  /* ── impersonation: fake bank / courier / tax officer ─────────────────── */
+  /* ── impersonation: fake bank officer, fake courier ────────────────────── */
   {
     kind: "phone",
     value: "6281130092255",
@@ -141,12 +114,12 @@ export const INDEX: IndexEntry[] = [
     ],
   },
   {
-    kind: "url",
-    value: "bca-verifikasi-akun.com",
-    label: "phishing",
-    confidence: 0.95,
+    kind: "phone",
+    value: "6285770041188",
+    label: "mengaku kurir paket",
+    confidence: 0.77,
     signals: [
-      { key: "publicReports", values: { count: 31 } },
+      { key: "publicReports", values: { count: 12 } },
       { key: "syndicateLinked", values: { syndicate: "SYN-22" } },
     ],
   },
@@ -161,7 +134,7 @@ export const INDEX: IndexEntry[] = [
     ],
   },
 
-  /* ── romance / investment: newer, thinner evidence ────────────────────── */
+  /* ── newer, thinner evidence: lands as "caution", not "flagged" ────────── */
   {
     kind: "bank_account",
     value: "3320981145",
@@ -182,31 +155,22 @@ export const INDEX: IndexEntry[] = [
   {
     kind: "ewallet",
     value: "081299887766",
-    label: "DANA",
+    label: "GoPay",
     confidence: 0.34,
     signals: [
       { key: "publicReports", values: { count: 1 } },
       { key: "firstSeen", values: { when: "3 hari lalu" } },
     ],
   },
-
-  /* ── crypto side: an ETH launderer and a second TRON collector ────────── */
   {
-    kind: "crypto_wallet",
-    value: "0x7a3F5c91Db4e0A28cB6F2d1E85B7c40A9e3D6F21",
-    label: "USDT-ERC20",
-    confidence: 0.79,
+    kind: "bank_account",
+    value: "5540118822",
+    label: "CIMB Niaga · Budi Santoso",
+    confidence: 0.45,
     signals: [
-      { key: "onRampToCrypto", values: { chain: "USDT-ERC20" } },
-      { key: "syndicateLinked", values: { syndicate: "SYN-22" } },
+      { key: "publicReports", values: { count: 2 } },
+      { key: "firstSeen", values: { when: "6 hari lalu" } },
     ],
-  },
-  {
-    kind: "crypto_wallet",
-    value: "TJ8kL3mNpQ7rS2tU9vW4xY6zA1bC5dE8fG",
-    label: "USDT-TRC20",
-    confidence: 0.51,
-    signals: [{ key: "exchangeDeposit", values: { exchange: "Tokocrypto" } }],
   },
 ];
 
@@ -214,20 +178,20 @@ export const INDEX: IndexEntry[] = [
  *  claim is the real number, not an invented national figure. */
 export const INDEX_SIZE = INDEX.length;
 
+export type SampleKey = "bank" | "phone" | "ewallet" | "caution" | "unknown";
+
 /**
- * A few values offered on the page as one-tap examples.
+ * Values offered on the page as one-tap examples.
  *
  * A public tool nobody can try is a public tool nobody trusts: without these
- * you have to already know a scam account to see what the page does. One of
- * each verdict grade, so the "not in our database" wording — the state most
- * checks land on — is reachable too.
+ * you have to already know a scam account to see what the page does. Each chip
+ * names what it is, and one is the "no record" state — that is where most real
+ * checks land, so it should be the easiest one to reach.
  */
-export type SampleKey = "bank" | "ewallet" | "wallet" | "caution" | "unknown";
-
 export const SAMPLES: Array<{ value: string; labelKey: SampleKey }> = [
   { value: GOLDEN.bank.accountNumber, labelKey: "bank" },
+  { value: "081130092255", labelKey: "phone" },
   { value: "081355720194", labelKey: "ewallet" },
-  { value: GOLDEN.wallet, labelKey: "wallet" },
   { value: "3320981145", labelKey: "caution" },
   { value: "1234567890", labelKey: "unknown" },
 ];

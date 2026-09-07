@@ -8,7 +8,7 @@ import { CekScreen } from "./cek-screen";
 export const metadata: Metadata = {
   title: "CekScam — cek rekening & nomor sebelum transfer",
   description:
-    "Cek rekening bank, nomor telepon, e-wallet atau alamat kripto sebelum Anda transfer. Laporkan penipu dan bantu memutus jaringannya.",
+    "Cek nomor rekening bank, nomor telepon, atau e-wallet sebelum Anda transfer. Laporkan penipu dan bantu memutus jaringannya.",
 };
 
 export default function CekPage() {

@@ -5,7 +5,7 @@ import { LaporScreen } from "./lapor-screen";
 export const metadata: Metadata = {
   title: "Laporkan penipu — CekScam",
   description:
-    "Laporkan rekening, nomor, atau alamat kripto yang dipakai penipu. Anda tidak perlu sampai kehilangan uang untuk melapor.",
+    "Laporkan nomor rekening atau nomor telepon yang dipakai penipu. Anda tidak perlu sampai kehilangan uang untuk melapor.",
 };
 
 export default function LaporPage() {

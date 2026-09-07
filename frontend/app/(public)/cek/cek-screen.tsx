@@ -26,9 +26,8 @@ import { VERDICT_TONE } from "@/lib/cekscam/types";
 const KIND_ICON: Record<CheckKind, IconName> = {
   bank_account: "bank",
   phone: "phone",
-  ewallet: "bank",
-  crypto_wallet: "wallet",
-  url: "link",
+  // An e-wallet IS a phone number here, so it carries the phone mark.
+  ewallet: "phone",
   unknown: "entity",
 };
 
@@ -198,7 +197,7 @@ export function CekScreen() {
           <button
             type="submit"
             disabled={busy || !query.trim()}
-            className="h-12 flex-none rounded-full bg-accent px-6 text-[14px] font-semibold text-on-accent transition-colors hover:bg-accent-bright disabled:opacity-50"
+            className="h-12 flex-none rounded-full bg-accent px-6 text-[14px] font-semibold text-on-accent transition-colors hover:bg-accent-bright disabled:bg-elevated disabled:text-muted"
           >
             {busy ? t("checking") : t("check")}
           </button>

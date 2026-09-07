@@ -128,7 +128,7 @@ export function LaporScreen() {
           </div>
           {/* Never claim a delivery that did not happen. */}
           {!done.delivered && (
-            <p className="mt-3 text-[12.5px] leading-relaxed text-risk-med">
+            <p className="mt-3 max-w-[70ch] text-[12.5px] leading-relaxed text-risk-med">
               {t("report.notDelivered")}
             </p>
           )}
@@ -243,7 +243,9 @@ export function LaporScreen() {
         >
           {busy ? t("report.sending") : t("report.submit")}
         </button>
-        <p className="text-[12px] leading-relaxed text-muted">{t("report.privacy")}</p>
+        <p className="max-w-[70ch] text-[12px] leading-relaxed text-muted">
+          {t("report.privacy")}
+        </p>
       </form>
     </>
   );
