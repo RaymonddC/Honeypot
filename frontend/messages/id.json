@@ -1627,5 +1627,74 @@
       "missingCapability": "Peran Anda tidak dapat mengelola peran."
     },
     "noAccess": "tanpa akses"
+  },
+  "cekscam": {
+    "brand": "CekScam",
+    "brandSub": "dari ITTU",
+    "demoBadge": "data demo",
+    "headline": "Cek dulu sebelum transfer.",
+    "subhead": "Tempel nomor rekening, nomor telepon, e-wallet, atau alamat kripto. Kami cocokkan dengan rekening yang sudah dilaporkan honeypot kami dan masyarakat — bukan hanya rekening yang sudah memakan korban.",
+    "inputLabel": "Rekening, nomor, atau alamat yang ingin dicek",
+    "inputPlaceholder": "mis. 5271038462, 0812-8841-4471, atau alamat TRON",
+    "inputHint": "Jenisnya kami kenali sendiri. Tanda hubung dan spasi tidak masalah.",
+    "check": "Cek",
+    "checking": "Mengecek…",
+    "confidenceLabel": "keyakinan",
+    "whatToDo": "Sebaiknya Anda",
+    "kind": {
+      "bank_account": "Rekening bank",
+      "phone": "Nomor telepon",
+      "ewallet": "E-wallet",
+      "crypto_wallet": "Alamat kripto",
+      "url": "Situs web",
+      "unknown": "Tidak dikenali"
+    },
+    "verdict": {
+      "flagged": {
+        "title": "Dilaporkan sebagai rekening penipu",
+        "body": "Yang ini ada di basis data kami dengan bukti pendukung, bukan sekadar satu keluhan.",
+        "advice": "Jangan transfer. Kalau sudah terlanjur, segera hubungi bank Anda dan minta pemblokiran — satu jam pertama paling menentukan — lalu laporkan lewat IASC di iasc.ojk.go.id."
+      },
+      "caution": {
+        "title": "Hati-hati",
+        "body": "Ada catatan pada yang satu ini, tetapi belum cukup untuk menyebutnya penipuan: baru satu laporan, atau sinyalnya belum lengkap.",
+        "advice": "Jangan kirim uang yang Anda tidak siap kehilangan. Minta panggilan video, cocokkan nama pemilik rekening, dan mulai dari jumlah kecil jika tetap ingin lanjut."
+      },
+      "unknown": {
+        "title": "Tidak ada di basis data kami",
+        "body": "Itu BUKAN berarti aman. Sebagian besar rekening penipu masih baru, dan basis data kami pun masih muda — hasil bersih di sini berarti tidak ada catatan, bukan tanda lolos verifikasi.",
+        "advice": "Nilai dari tawarannya, bukan dari hasil ini. Pastikan nama pemilik rekening cocok, waspadai desakan untuk buru-buru, dan anggap janji untung yang terlalu manis sebagai peringatan."
+      }
+    },
+    "signals": {
+      "honeypotDisclosed": "Diberikan pelaku kepada persona honeypot kami lewat {channel}",
+      "publicReports": "{count} laporan dari masyarakat yang pernah dihubungi",
+      "syndicateLinked": "Terhubung ke sindikat {syndicate}, bersama rekening lain",
+      "onRampToCrypto": "Dana dari rekening ini dikonversi ke {chain}",
+      "exchangeDeposit": "Dana diteruskan ke alamat setoran {exchange}",
+      "seenInFlow": "Terlihat memindahkan dana dengan pola rekening mule",
+      "firstSeen": "Pertama dilaporkan {when}"
+    },
+    "report": {
+      "eyebrow": "Bantu orang lain",
+      "title": "Laporkan penipu",
+      "lead": "Setiap laporan masuk ke basis data yang sama dengan yang dicek halaman ini — dan ke intelijen honeypot yang dipakai penyidik. Anda tidak perlu sampai kehilangan uang untuk melapor.",
+      "valuePlaceholder": "Rekening, nomor, atau alamat yang mereka berikan",
+      "storyPlaceholder": "Apa yang terjadi? Bagaimana mereka menghubungi Anda, dan apa yang mereka minta?",
+      "amountPlaceholder": "Jumlah kerugian, jika ada (Rp)",
+      "contactPlaceholder": "Kontak Anda, opsional",
+      "submit": "Kirim laporan",
+      "sending": "Mengirim…",
+      "thanksTitle": "Laporan tercatat",
+      "refLine": "Nomor referensi Anda {ref}. Simpan jika Anda melanjutkan ke bank atau IASC.",
+      "notDelivered": "Ini prototipe: laporan TIDAK dikirim ke instansi mana pun dan belum ada yang diberi tahu. Untuk melapor resmi, gunakan IASC di iasc.ojk.go.id atau layanan penipuan bank Anda.",
+      "privacy": "Jangan cantumkan kata sandi, OTP, atau nomor kartu. Semua yang Anda isi diperlakukan sebagai data kasus."
+    },
+    "limits": {
+      "eyebrow": "Apa ini, dan apa bukan",
+      "demo": "Versi ini menjawab dari indeks demonstrasi berisi {count} entitas, bukan registri nasional.",
+      "notSafe": "“Tidak ada di basis data kami” bukan surat keterangan bersih. Tidak adanya catatan bukan bukti sebuah rekening jujur.",
+      "notOfficial": "CekScam tidak memblokir rekening dan tidak menggantikan laporan resmi. Pemblokiran dilakukan bank Anda dan IASC."
+    }
   }
 }

@@ -1627,5 +1627,74 @@
       "missingCapability": "Your role cannot administer roles."
     },
     "noAccess": "no access"
+  },
+  "cekscam": {
+    "brand": "CekScam",
+    "brandSub": "by ITTU",
+    "demoBadge": "demo data",
+    "headline": "Check before you transfer.",
+    "subhead": "Paste a bank account, phone number, e-wallet or crypto address. We check it against accounts our honeypots and the public have already reported — not only against accounts someone has already lost money to.",
+    "inputLabel": "Account, number or address to check",
+    "inputPlaceholder": "e.g. 5271038462, 0812-8841-4471, or a TRON address",
+    "inputHint": "We work out the type ourselves. Dashes and spaces are fine.",
+    "check": "Check",
+    "checking": "Checking…",
+    "confidenceLabel": "confidence",
+    "whatToDo": "What to do",
+    "kind": {
+      "bank_account": "Bank account",
+      "phone": "Phone number",
+      "ewallet": "E-wallet",
+      "crypto_wallet": "Crypto address",
+      "url": "Website",
+      "unknown": "Unrecognised"
+    },
+    "verdict": {
+      "flagged": {
+        "title": "Reported as a scam account",
+        "body": "This one is in our database with corroborating evidence, not a single complaint.",
+        "advice": "Do not transfer. If you already have, contact your bank immediately and ask them to attempt a block — the first hour matters most — then report it through IASC at iasc.ojk.go.id."
+      },
+      "caution": {
+        "title": "Be careful",
+        "body": "There is something on this one, but not enough to call it a scam: a single report, or partial signals.",
+        "advice": "Do not send money you cannot afford to lose. Ask for a video call, check the account name against the person, and start with a small amount if you must proceed."
+      },
+      "unknown": {
+        "title": "Not in our database",
+        "body": "That does NOT mean it is safe. Most scam accounts are new, and ours is a young database — a clean result here is the absence of a record, not a clearance.",
+        "advice": "Judge it on the deal, not on this result. Check the account name matches the person, be wary of pressure to hurry, and treat a promised return that sounds too good as the warning it is."
+      }
+    },
+    "signals": {
+      "honeypotDisclosed": "Given out by a scammer to one of our honeypot personas on {channel}",
+      "publicReports": "{count, plural, one {# public report} other {# public reports}} from people who were approached",
+      "syndicateLinked": "Linked to syndicate {syndicate}, alongside other accounts",
+      "onRampToCrypto": "Money from this account was converted to {chain}",
+      "exchangeDeposit": "Funds moved on to a {exchange} deposit address",
+      "seenInFlow": "Seen moving money in a mule-account pattern",
+      "firstSeen": "First reported {when}"
+    },
+    "report": {
+      "eyebrow": "Help someone else",
+      "title": "Report a scammer",
+      "lead": "Every report goes into the same database this page checks against — and into the honeypot intelligence investigators work from. You do not need to have lost money to report.",
+      "valuePlaceholder": "Account, number or address they gave you",
+      "storyPlaceholder": "What happened? How did they approach you, and what did they ask for?",
+      "amountPlaceholder": "Amount lost, if any (Rp)",
+      "contactPlaceholder": "Your contact, optional",
+      "submit": "Send report",
+      "sending": "Sending…",
+      "thanksTitle": "Report recorded",
+      "refLine": "Your reference is {ref}. Keep it if you go on to file with your bank or IASC.",
+      "notDelivered": "This is a prototype: the report was NOT transmitted to any agency and no one has been notified. To file for real, use IASC at iasc.ojk.go.id or your bank’s fraud line.",
+      "privacy": "Do not include passwords, OTPs or card numbers. Anything you enter here is handled as case data."
+    },
+    "limits": {
+      "eyebrow": "What this is, and what it is not",
+      "demo": "This build answers from a demonstration index of {count} entities, not a national registry.",
+      "notSafe": "“Not in our database” is not a clean bill of health. Absence of a record is not evidence an account is honest.",
+      "notOfficial": "CekScam does not block accounts or replace an official report. Blocking is done by your bank and by IASC."
+    }
   }
 }
