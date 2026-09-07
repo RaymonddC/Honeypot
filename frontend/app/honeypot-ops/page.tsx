@@ -204,7 +204,7 @@ function NumbersTab() {
             placeholder={t("numbersTab.phonePlaceholder")}
             spellCheck={false}
             onChange={(e) => setPhone(e.target.value)}
-            className={`${INPUT_CLS} font-mono ${phoneBad ? "border-risk-high" : ""}`}
+            className={`${INPUT_CLS} ${phoneBad ? "border-risk-high" : ""}`}
           />
         </label>
         <label className="grid gap-1">
@@ -215,7 +215,7 @@ function NumbersTab() {
             placeholder={t("numbersTab.sidPlaceholder")}
             spellCheck={false}
             onChange={(e) => setSid(e.target.value)}
-            className={`${INPUT_CLS} font-mono`}
+            className={`${INPUT_CLS}`}
           />
         </label>
         <label className="grid gap-1">
@@ -262,7 +262,7 @@ function NumbersTab() {
               className="flex items-center justify-between gap-2 rounded-lg bg-elevated px-2.5 py-1.5 text-[12px]"
             >
               <div className="min-w-0">
-                <span className="font-mono text-fg">{n.phone_number}</span>
+                <span className="text-fg">{n.phone_number}</span>
                 <span className="ml-2 text-muted">
                   {n.label || t("numbersTab.noLabel")} ·{" "}
                   <span className={NUMBER_STATUS_STYLE[n.status] ?? "text-muted"}>
@@ -477,7 +477,7 @@ function CampaignDetail({
           rows={4}
           spellCheck={false}
           placeholder={t("campaignDetail.pastePlaceholder")}
-          className="rounded-lg border border-line bg-elevated px-2.5 py-2 font-mono text-[12px] text-fg outline-none transition-colors placeholder:text-[#666] focus:border-[#0099ff]/60"
+          className="rounded-lg border border-line bg-elevated px-2.5 py-2 text-[12px] text-fg outline-none transition-colors placeholder:text-[#666] focus:border-[#0099ff]/60"
         />
       </label>
       <div className="mt-1.5 flex items-center gap-2.5">
@@ -507,7 +507,7 @@ function CampaignDetail({
             <ul className="mt-1 space-y-0.5">
               {result.rejected.map((r, i) => (
                 <li key={`${r.value}-${i}`} className="text-risk-high">
-                  ✗ <span className="font-mono">{r.value || "(blank)"}</span> —{" "}
+                  ✗ <span >{r.value || "(blank)"}</span> —{" "}
                   {rejectCopy(r.reason, t)}
                 </li>
               ))}
@@ -579,7 +579,7 @@ function TargetRow({ target }: { target: DialTarget }) {
         onClick={() => void toggle()}
         className="flex w-full items-center justify-between gap-2 px-2.5 py-1 text-left transition-colors hover:text-accent-bright"
       >
-        <span className="font-mono text-fg">
+        <span className="text-fg">
           <span className="mr-1 inline-block w-2 text-muted">
             {open ? "▾" : "▸"}
           </span>
@@ -606,7 +606,7 @@ function TargetRow({ target }: { target: DialTarget }) {
             <ul className="space-y-0.5">
               {attempts.map((a) => (
                 <li key={a.id} className="flex items-baseline gap-2 text-[12px]">
-                  <span className="w-8 shrink-0 font-mono text-muted">
+                  <span className="w-8 shrink-0 text-muted">
                     #{a.attempt_no}
                   </span>
                   <span
@@ -830,7 +830,7 @@ function TriageRow({
   return (
     <li className="rounded-lg bg-elevated px-2.5 py-2">
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[12px]">
-        <span className="font-mono text-fg">{row.channel_ref ?? (
+        <span className="text-fg">{row.channel_ref ?? (
                     <span className="font-sans">{t("triageRow.unknownNumber")}</span>
                   )}</span>
         <span className="text-muted">

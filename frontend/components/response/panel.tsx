@@ -105,7 +105,7 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
           {/* ── hero: response-time improvement vs manual ──────────── */}
           {data.improvement && (
             <div className="mb-3.5 flex items-center gap-3.5 rounded-card border border-accent/25 bg-accent/[.06] px-4 py-3">
-              <span className="font-mono text-[30px] font-extrabold leading-none tracking-tight tnum text-accent-bright">
+              <span className="text-[30px] font-extrabold leading-none tracking-tight tnum text-accent-bright">
                 {data.improvement}
               </span>
               <div className="min-w-0">
@@ -138,7 +138,7 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
                     </span>
                   </div>
                   <div
-                    className="mt-1.5 font-mono text-[20px] font-bold leading-none tnum"
+                    className="mt-1.5 text-[20px] font-bold leading-none tnum"
                     style={o.color ? { color: o.color } : undefined}
                   >
                     {o.value}

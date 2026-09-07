@@ -161,7 +161,7 @@ function UserMenu() {
               {name}
             </div>
             {me?.user.email && (
-              <div className="truncate font-mono text-[12px] text-muted">
+              <div className="truncate text-[12px] text-muted">
                 {me.user.email}
               </div>
             )}

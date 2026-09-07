@@ -22,7 +22,7 @@ export function ScreenPlaceholder({
       <div className="mt-6 rounded-card border border-line bg-card p-8">
         <div className="flex items-center gap-2">
           <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden />
-          <span className="font-mono text-[12px] text-accent-bright">
+          <span className="text-[12px] text-accent-bright">
             {t("comingIn", { phase })}
           </span>
         </div>

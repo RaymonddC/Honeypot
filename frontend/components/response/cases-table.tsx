@@ -44,7 +44,7 @@ export function CasesTable({ cases }: { cases: ActiveCase[] }) {
                 key={`${c.ref}-${i}`}
                 className="group border-b border-line last:border-b-0"
               >
-                <td className="px-3.5 py-[11px] font-mono text-muted group-hover:bg-fg/[.015]">
+                <td className="px-3.5 py-[11px] text-muted group-hover:bg-fg/[.015]">
                   <span className="flex items-center gap-1.5">
                     <span className="truncate">{c.ref}</span>
                     {/* Seeded demo rows carry a mark; real ones stay unmarked so
@@ -67,7 +67,7 @@ export function CasesTable({ cases }: { cases: ActiveCase[] }) {
                 <td className="px-3.5 py-[11px] text-muted group-hover:bg-fg/[.015]">
                   {c.type}
                 </td>
-                <td className="px-3.5 py-[11px] font-mono tnum text-muted group-hover:bg-fg/[.015]">
+                <td className="px-3.5 py-[11px] tnum text-muted group-hover:bg-fg/[.015]">
                   {c.atRisk}
                 </td>
                 <td className="px-3.5 py-[11px] group-hover:bg-fg/[.015]">

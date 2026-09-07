@@ -24,7 +24,7 @@ function Metric({ meta, stat }: { meta: MetricMeta; stat: StatValue }) {
         <div className="eyebrow">{meta.label}</div>
       </div>
       <div
-        className="mt-2 font-mono text-[24px] font-extrabold leading-none tracking-tight tnum"
+        className="mt-2 text-[24px] font-extrabold leading-none tracking-tight tnum"
         style={stat.color ? { color: stat.color } : undefined}
       >
         {stat.value}

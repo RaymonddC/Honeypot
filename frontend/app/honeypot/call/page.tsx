@@ -111,7 +111,7 @@ export default function HoneypotCallPage() {
 
           {source && (
             <span
-              className={`rounded-md border px-2 py-0.5 font-mono text-[12px] font-semibold ${
+              className={`rounded-md border px-2 py-0.5 text-[12px] font-semibold ${
                 source === "api"
                   ? "border-accent/30 bg-accent/10 text-accent-bright"
                   : "border-risk-med/30 bg-risk-med/10 text-risk-med"

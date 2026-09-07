@@ -183,7 +183,7 @@ export default function HomePage() {
               onChange={(e) => setWallet(e.target.value)}
               spellCheck={false}
               placeholder={t("walletPlaceholder")}
-              className="min-w-0 flex-1 bg-transparent font-mono text-[12.5px] text-fg outline-none placeholder:text-muted"
+              className="min-w-0 flex-1 bg-transparent text-[12.5px] text-fg outline-none placeholder:text-muted"
             />
           </div>
           <button

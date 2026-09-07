@@ -175,7 +175,7 @@ function SegmentedControl<T extends string>({
 /* ── Advanced voice (ElevenLabs) — overrides + "Check voices" ─────────────── */
 
 const VOICE_INPUT_CLS =
-  "h-8 rounded-lg border border-line bg-elevated px-3 font-mono text-[12px] text-fg outline-none transition-colors focus:border-[#0099ff]/60";
+  "h-8 rounded-lg border border-line bg-elevated px-3 text-[12px] text-fg outline-none transition-colors focus:border-[#0099ff]/60";
 
 function describeVoiceCheck(
   res: VoiceCheckResult,
@@ -705,7 +705,7 @@ function BackendStatus({
             {status.modules.map((m) => (
               <span
                 key={m.module}
-                className="rounded-md border border-line bg-elevated px-2 py-0.5 font-mono text-[12px] text-fg/80"
+                className="rounded-md border border-line bg-elevated px-2 py-0.5 text-[12px] text-fg/80"
                 title={m.adapters ? JSON.stringify(m.adapters) : undefined}
               >
                 {m.module} · <ModeChip mode={m.mode} />
@@ -742,7 +742,7 @@ function BackendStatus({
                     : "border-line bg-elevated text-muted"
                 }`}
               >
-                <span className="font-mono">{k.provider}</span>{" · "}
+                <span >{k.provider}</span>{" · "}
                 {k.present ? t("backendStatus.keyConfigured") : t("backendStatus.keyNotSet")}
               </span>
             ))}

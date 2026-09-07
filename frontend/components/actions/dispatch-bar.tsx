@@ -89,10 +89,9 @@ export function DispatchBar({
             b: (chunks) => <b className="text-fg">{chunks}</b>,
           })}
         </span>
-        {/* The label is prose; only the hash is data, so only it wears mono. */}
         <span className="ml-auto flex-none text-[12px]">
           {t("evidenceSha256")}{" "}
-          <b className="font-mono text-accent-bright">{bundle.evidenceHash}</b>
+          <b className="text-accent-bright">{bundle.evidenceHash}</b>
         </span>
       </div>
 

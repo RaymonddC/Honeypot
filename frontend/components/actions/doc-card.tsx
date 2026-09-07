@@ -2,7 +2,7 @@
 
 /**
  * Generated-document card (mockup .doc) — header (icon · title · subtitle)
- * over a mono "paper" preview of the document's key fields. Freeze request
+ * over a "paper" preview of the document's key fields. Freeze request
  * and LTKM/STR draft render through this; the multi-agency alert has its
  * own card (agency-alert-card.tsx).
  *
@@ -108,7 +108,7 @@ export function DocCard({
 
       {/* paper preview */}
       <div className="min-h-[200px] flex-1 p-3.5 text-[12px] text-muted">
-        <div className="rounded-lg border border-line bg-elevated p-[13px] font-mono text-[12px] leading-[1.7] text-muted">
+        <div className="rounded-lg border border-line bg-elevated p-[13px] text-[12px] leading-[1.7] text-muted">
           <h5 className="mb-2 font-sans text-[12px] font-bold uppercase tracking-[.04em] text-fg">
             {doc.paperTitle}
           </h5>

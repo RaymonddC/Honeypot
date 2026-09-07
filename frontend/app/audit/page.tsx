@@ -344,7 +344,7 @@ export default function AuditPage() {
                     }`}
                   >
                     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                      <span className="w-8 shrink-0 font-mono text-[12px] text-muted">
+                      <span className="w-8 shrink-0 text-[12px] text-muted">
                         #{e.seq}
                       </span>
                       <span className="shrink-0 text-muted">
@@ -375,7 +375,7 @@ export default function AuditPage() {
                       {detail && (
                         <span className="text-muted">— {detail}</span>
                       )}
-                      <span className="ml-auto shrink-0 font-mono text-[12px] text-muted">
+                      <span className="ml-auto shrink-0 text-[12px] text-muted">
                         {fmtTs(e.ts)}
                       </span>
                     </div>
@@ -409,7 +409,7 @@ export default function AuditPage() {
                         {/* The hash is what makes the entry verifiable; showing
                             a prefix lets a reviewer eyeball the chain without
                             drowning the row in 64 hex characters. */}
-                        <div className="flex flex-wrap gap-x-3 font-mono text-[12px] text-muted">
+                        <div className="flex flex-wrap gap-x-3 text-[12px] text-muted">
                           <span title={e.sha256}>sha {e.sha256.slice(0, 12)}…</span>
                           <span title={e.prev_sha256}>
                             prev {e.prev_sha256.slice(0, 12)}…
@@ -426,7 +426,7 @@ export default function AuditPage() {
                             <div className="text-[12px] uppercase tracking-wide text-muted/80">
                               {t("detailsRawLabel")}
                             </div>
-                            <pre className="mt-1 overflow-x-auto rounded-md border border-line bg-card px-2.5 py-2 font-mono text-[12px] leading-relaxed text-fg/80">
+                            <pre className="mt-1 overflow-x-auto rounded-md border border-line bg-card px-2.5 py-2 text-[12px] leading-relaxed text-fg/80">
                               {JSON.stringify(raw, null, 2)}
                             </pre>
                           </div>

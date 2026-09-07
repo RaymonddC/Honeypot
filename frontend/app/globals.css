@@ -49,10 +49,6 @@
      then render in their dark variants without each field opting in by hand. */
   color-scheme: dark;
   --font-ui: var(--font-ui-next, "Hanken Grotesk"), -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  /* Chain next/font's variable (see app/layout.tsx) rather than restating the
-     family: that keeps "JetBrains Mono Fallback", the metric-adjusted face
-     next/font generates so mono text does not reflow when the webfont lands. */
-  --font-mono: var(--font-mono-next, "JetBrains Mono"), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 html,

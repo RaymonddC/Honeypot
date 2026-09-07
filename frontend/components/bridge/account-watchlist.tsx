@@ -67,7 +67,7 @@ export function AccountWatchlist() {
                 className="flex items-center justify-between gap-2 rounded-lg bg-elevated px-2.5 py-1.5"
               >
                 <div className="min-w-0">
-                  <div className="truncate font-mono text-[12px] text-fg">
+                  <div className="truncate text-[12px] text-fg">
                     {a.bank_name} {a.account_number}
                   </div>
                   <div className="truncate text-[12px] text-muted">

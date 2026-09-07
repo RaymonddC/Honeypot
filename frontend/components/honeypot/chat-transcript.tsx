@@ -34,12 +34,11 @@ function Bubble({ msg }: { msg: HpMessage }) {
           key={`${msg.id}-${ex.label}-${i}`}
           className="mt-[7px] flex items-center gap-1.5 border-t border-dashed border-accent/[.22] pt-[7px] text-[12px] text-accent-bright"
         >
-          {/* "extracted" and "conf" are labels; the entity type and the score
-              are the data, so only those two wear the mono face. */}
+          {/* Tabular digits on the score so it lines up down the transcript. */}
           {t.rich("extractedBadge", {
             label: ex.label,
             confidence: formatConf(ex.confidence),
-            m: (chunks) => <span className="font-mono tnum">{chunks}</span>,
+            m: (chunks) => <span className="tnum">{chunks}</span>,
           })}
         </div>
       ))}

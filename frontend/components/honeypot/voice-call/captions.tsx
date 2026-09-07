@@ -59,7 +59,7 @@ function CaptionLine({
       {line.extractions.map((ex) => (
         <div
           key={`${line.id}-${ex.label}`}
-          className="mt-[7px] flex items-center gap-1.5 border-t border-dashed border-accent/[.22] pt-[7px] font-mono text-[12px] text-accent-bright"
+          className="mt-[7px] flex items-center gap-1.5 border-t border-dashed border-accent/[.22] pt-[7px] text-[12px] text-accent-bright"
         >
           {t("extractedBadge", { label: ex.label, confidence: formatConf(ex.confidence) })}
         </div>

@@ -82,7 +82,7 @@ function buildStyle(): any[] {
         "transition-duration": "0.2s",
         label: "data(label)",
         "font-size": 10,
-        "font-family": "var(--font-mono), ui-monospace, monospace",
+        "font-family": "var(--font-ui)",
         color: `rgba(${muted},.9)`,
         "text-valign": "bottom",
         "text-halign": "center",
@@ -333,7 +333,7 @@ export function WalletGraph({
           className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-[115%] rounded-lg border border-line bg-card/95 px-2.5 py-1.5 shadow-lg backdrop-blur-sm"
           style={{ left: tip.x, top: tip.y }}
         >
-          <div className="font-mono text-[12px] text-fg">{tip.address}</div>
+          <div className="text-[12px] text-fg">{tip.address}</div>
           <div className="mt-0.5 flex items-center gap-1.5 text-[12px] text-muted">
             <i
               className="inline-block h-[7px] w-[7px] rounded-full"

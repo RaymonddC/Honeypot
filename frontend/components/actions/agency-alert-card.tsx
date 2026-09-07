@@ -67,7 +67,7 @@ export function AgencyAlertCard({
         </div>
         <div className="min-w-0">
           <b className="block truncate text-[12.5px]">{meta.title}</b>
-          <small className="font-mono text-[12px] text-muted">
+          <small className="text-[12px] text-muted">
             {ref} ·{" "}
             {targets.length === 1
               ? t("agencyCountOne")
@@ -111,13 +111,11 @@ export function AgencyAlertCard({
                   <small className="mt-0.5 block truncate text-[12px] text-muted">
                     {target.action}
                   </small>
-                  {/* "via <channel>" is prose wrapping one identifier — only the
-                      identifier is data, so only it wears the mono face. */}
                   <span className="mt-1 inline-flex items-center gap-1 rounded border border-line bg-elevated px-1.5 py-px text-[12px] text-muted">
                     <span aria-hidden>↗</span>{" "}
                     {t.rich("viaChannel", {
                       channel: channelOf(target, t),
-                      c: (chunks) => <span className="font-mono">{chunks}</span>,
+                      c: (chunks) => <span >{chunks}</span>,
                     })}
                   </span>
                 </div>

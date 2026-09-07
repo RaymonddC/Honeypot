@@ -221,10 +221,10 @@ export function InvestigationPanel({
             spellCheck={false}
             aria-label={t("walletAddressLabel")}
             placeholder={t("walletAddressPlaceholder")}
-            className="min-w-0 flex-1 bg-transparent font-mono text-[12px] text-fg outline-none placeholder:text-muted"
+            className="min-w-0 flex-1 bg-transparent text-[12px] text-fg outline-none placeholder:text-muted"
           />
           <span
-            className="rounded border border-line bg-card px-1.5 py-0.5 font-mono text-[12px] text-muted"
+            className="rounded border border-line bg-card px-1.5 py-0.5 text-[12px] text-muted"
             title={t("walletInputHint")}
           >
             USDT-TRC20
@@ -262,7 +262,7 @@ export function InvestigationPanel({
                 void trace(w);
               }}
               title={t("traceWalletTitle", { address: w })}
-              className={`rounded-lg border px-2 py-1 font-mono text-[12px] transition-colors ${
+              className={`rounded-lg border px-2 py-1 text-[12px] transition-colors ${
                 address === w
                   ? "border-accent/50 bg-accent/15 text-accent-bright"
                   : "border-line bg-card text-muted hover:text-fg"
@@ -291,7 +291,7 @@ export function InvestigationPanel({
           />
           <div className="flex items-center gap-3 pl-1">
             <span
-              className="font-mono text-[34px] font-extrabold leading-none tnum"
+              className="text-[34px] font-extrabold leading-none tnum"
               style={{
                 color: RISK_COLORS[detail.risk],
                 textShadow: `0 0 14px ${RISK_COLORS[detail.risk]}55`,
@@ -306,7 +306,7 @@ export function InvestigationPanel({
               >
                 {detail.risk === "exchange" ? t("attributedExchange") : t("riskSuffix", { risk: RISK_LABELS[detail.risk] })}
               </div>
-              <div className="font-mono text-[12px] text-muted">
+              <div className="text-[12px] text-muted">
                 {detail.shortAddress} · conf {detail.confidence.toFixed(2)}
               </div>
             </div>

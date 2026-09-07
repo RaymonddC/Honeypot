@@ -27,7 +27,7 @@ export function MuleStatsCard({ mules }: { mules: MuleNetworkStats }) {
       <div className="grid grid-cols-2 gap-px bg-line">
         {tiles.map((t) => (
           <div key={t.label} className="bg-card px-3.5 py-2.5">
-            <div className="font-mono text-[19px] font-bold leading-none tnum text-fg">
+            <div className="text-[19px] font-bold leading-none tnum text-fg">
               {t.value}
             </div>
             <div className="mt-1 text-[12px] uppercase tracking-wide text-muted">

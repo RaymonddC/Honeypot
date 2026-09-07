@@ -201,17 +201,17 @@ export function BridgePanel({
                     {/* "conf" is a label, the score is the figure — same split
                         as the honeypot entity panel. */}
                     <span className="rounded-full border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[12px] font-semibold text-accent-bright">
-                      conf <span className="font-mono tnum">{caseBridge.confidence.toFixed(2)}</span>
+                      conf <span className="tnum">{caseBridge.confidence.toFixed(2)}</span>
                     </span>
                   </div>
                   <div className="px-3.5 py-3">
                     {/* fiat account → crypto wallet, the bridge the honeypot surfaced */}
                     <div className="flex items-center gap-2 text-[12px]">
-                      <span className="rounded-md bg-[#8b93a1]/15 px-1.5 py-0.5 font-mono text-[12px] text-[#8b93a1]">
+                      <span className="rounded-md bg-[#8b93a1]/15 px-1.5 py-0.5 text-[12px] text-[#8b93a1]">
                         {caseBridge.bankLabel}
                       </span>
                       <span className="text-muted" aria-hidden>→</span>
-                      <span className="min-w-0 flex-1 truncate rounded-md bg-[#0099ff]/15 px-1.5 py-0.5 font-mono text-[12px] text-[#33adff]">
+                      <span className="min-w-0 flex-1 truncate rounded-md bg-[#0099ff]/15 px-1.5 py-0.5 text-[12px] text-[#33adff]">
                         {caseBridge.wallet}
                       </span>
                     </div>
@@ -219,7 +219,7 @@ export function BridgePanel({
                       <div className="mt-1 text-[12px] text-muted">{t("bankHolderPrefix", { holder: caseBridge.bankHolder })}</div>
                     )}
                     {caseBridge.amountUsdt > 0 && (
-                      <div className="mt-2 font-mono text-[12px] text-fg">
+                      <div className="mt-2 text-[12px] text-fg">
                         {idrShort(caseBridge.amountIdr)}{" "}
                         <span className="text-muted">≈</span>{" "}
                         <b className="text-accent-bright">{usdtShort(caseBridge.amountUsdt)}</b>

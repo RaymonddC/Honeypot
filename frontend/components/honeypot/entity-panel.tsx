@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Extracted-entities side panel — icon · monospace value · context · confidence.
+ * Extracted-entities side panel — icon · value · context · confidence.
  *
  * Each extracted bank account / wallet can be PROMOTED into the active case, so
  * a honeypot lead flows onward like any other input:
@@ -181,7 +181,7 @@ export function EntityPanel({
               {entityIcon(e.type)}
             </div>
             <div className="min-w-0">
-              <div className="truncate font-mono text-[12px] text-fg">
+              <div className="truncate text-[12px] text-fg">
                 {e.value}
               </div>
               <small className="block truncate text-[12px] text-muted">
@@ -189,11 +189,10 @@ export function EntityPanel({
               </small>
             </div>
             <div className="ml-auto flex flex-none items-center gap-2">
-              {/* "conf" is a label, the score is the figure — only the figure
-                  needs the mono face and tabular digits. */}
+              {/* Tabular digits so the scores line up down the column. */}
               <span className="text-[12px] text-muted" title={t("confidenceTitle")}>
                 conf{" "}
-                <b className="font-mono font-bold tnum text-accent-bright">
+                <b className="font-bold tnum text-accent-bright">
                   {formatConf(e.confidence)}
                 </b>
               </span>

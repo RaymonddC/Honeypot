@@ -277,7 +277,7 @@ export default function UsersPage() {
                     >
                       {u.name}
                     </span>
-                    <span className="font-mono text-[12px] text-muted">{u.email}</span>
+                    <span className="text-[12px] text-muted">{u.email}</span>
                     {!u.is_active && (
                       <span className="rounded bg-risk-high/[.14] px-1.5 py-0.5 text-[12px] font-semibold uppercase tracking-wide text-risk-high">
                         {t("deactivatedChip")}

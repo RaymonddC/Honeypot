@@ -99,7 +99,7 @@ export default function GuidePage() {
               <Glyph>{m.glyph}</Glyph>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-[13px] font-semibold tracking-wide text-fg">
+                  <span className="text-[13px] font-semibold tracking-wide text-fg">
                     {t(`modules.${m.key}.name`)}
                   </span>
                   <a
@@ -127,7 +127,7 @@ export default function GuidePage() {
         <div className="flex flex-wrap items-center gap-2 text-[12px]">
           {MODULES.map((m, i) => (
             <span key={m.key} className="flex items-center gap-2">
-              <span className="rounded-md border border-line bg-elevated px-2.5 py-1 font-mono text-[12px] text-fg">
+              <span className="rounded-md border border-line bg-elevated px-2.5 py-1 text-[12px] text-fg">
                 {m.glyph} {t(`modules.${m.key}.name`)}
               </span>
               {i < MODULES.length - 1 && (
@@ -234,7 +234,7 @@ export default function GuidePage() {
                 {t(`scenarios.${key}.name`)}
               </div>
               <div className="text-[12px] text-muted">
-                <span className="font-mono text-fg/70">{t(`scenarios.${key}.persona`)}</span>
+                <span className="text-fg/70">{t(`scenarios.${key}.persona`)}</span>
                 <span className="mx-1.5 text-fg/30">·</span>
                 {t("discloses", { discloses: t(`scenarios.${key}.discloses`) })}
               </div>
@@ -252,7 +252,7 @@ export default function GuidePage() {
         </p>
         <p className="mt-2 text-[12px] text-muted">
           {t("riskModelApiNote")}{" "}
-          <code className="rounded bg-elevated px-1.5 py-0.5 font-mono text-[12px] text-fg/80">
+          <code className="rounded bg-elevated px-1.5 py-0.5 text-[12px] text-fg/80">
             GET /api/takedown/model-card
           </code>
           .

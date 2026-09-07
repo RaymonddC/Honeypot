@@ -23,7 +23,7 @@ function Tile({ tile }: { tile: MetricTile }) {
         {t(`${tile.key}.label`)}
       </div>
       <div
-        className="mt-[9px] font-mono text-[26px] font-extrabold leading-none tracking-tight tnum"
+        className="mt-[9px] text-[26px] font-extrabold leading-none tracking-tight tnum"
         style={tile.color ? { color: tile.color } : undefined}
       >
         {tile.value}

@@ -74,7 +74,7 @@ export function CallHeader({
           <PhoneIncomingIcon />
         </div>
         <div className="min-w-0">
-          <div className="truncate font-mono text-[13px] font-semibold text-fg">
+          <div className="truncate text-[13px] font-semibold text-fg">
             {callerId}
           </div>
           <small className="block truncate text-[12px] text-muted">
@@ -92,7 +92,7 @@ export function CallHeader({
         <span
           role="timer"
           aria-label={t("timerLabel", { timer })}
-          className={`rounded-md border border-line bg-elevated px-2.5 py-0.5 font-mono text-[13px] font-semibold tnum ${
+          className={`rounded-md border border-line bg-elevated px-2.5 py-0.5 text-[13px] font-semibold tnum ${
             onAir ? "text-accent-bright" : "text-muted"
           }`}
         >

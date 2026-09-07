@@ -30,7 +30,7 @@ export interface DeltaRef {
 
 export interface MetricTile {
   key: TileKey;
-  /** Big mono figure, e.g. "27". */
+  /** Big figure, e.g. "27". */
   value: string;
   /** Small dimmed unit suffix, e.g. "min" / "B" / "%". */
   suffix?: string;

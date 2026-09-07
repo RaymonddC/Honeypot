@@ -8,28 +8,25 @@
 import { useTranslations } from "next-intl";
 import type { CustodyInfo } from "@/lib/honeypot/types";
 
-/**
- * One key/value row. `mono` is opt-in per row rather than blanket: only the
- * identifier and the figure are technical data. The crime class and the
- * hand-off target are words, and setting them in the mono face made a
- * classification read like a database value.
- */
+/** One key/value row. `tabular` opts a row into tabular numerals so digits
+ *  line up down the card; word values (crime class, hand-off target) leave it
+ *  off. */
 function KV({
   label,
   value,
   accent,
-  mono,
+  tabular,
 }: {
   label: string;
   value: React.ReactNode;
   accent?: boolean;
-  mono?: boolean;
+  tabular?: boolean;
 }) {
   return (
     <div className="flex justify-between gap-3 px-3.5 py-[7px] text-[12px]">
       <span className="flex-none text-muted">{label}</span>
       <span
-        className={`min-w-0 truncate text-right ${mono ? "font-mono tnum" : ""} ${
+        className={`min-w-0 truncate text-right ${tabular ? "tnum" : ""} ${
           accent ? "text-accent-bright" : "text-fg"
         }`}
       >
@@ -73,18 +70,18 @@ export function CustodyCard({ custody }: { custody: CustodyInfo }) {
         <p className="mt-1 text-[12px] leading-snug text-muted">{t("subtitle")}</p>
       </div>
       <div className="pt-1">
-        {/* count = data (mono); "hash-chained" = a label, so it stays prose */}
+        {/* the count is the figure; "hash-chained" is a label beside it */}
         <KV
           label={t("messagesLogged")}
           value={
             <>
-              <span className="font-mono tnum">{custody.messagesLogged}</span>
+              <span className="tnum">{custody.messagesLogged}</span>
               {custody.intact && <span className="text-muted"> · {t("hashChained")}</span>}
             </>
           }
         />
         <KV label={t("crimeClass")} value={crimeClassLabel(custody.crimeClass, t)} />
-        <KV label={t("syndicateLink")} value={custody.syndicateLink} mono />
+        <KV label={t("syndicateLink")} value={custody.syndicateLink} tabular />
         <KV label={t("feedsLabel")} value={t("feedsValue")} accent />
       </div>
     </div>

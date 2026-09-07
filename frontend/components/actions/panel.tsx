@@ -192,7 +192,7 @@ export function ActionsPanel({
           {/* ── provenance banner ──────────────────────────────────── */}
           <div className="mb-4 flex items-center gap-2.5 rounded-[10px] border border-[#262626] bg-[#141414] px-3.5 py-[9px] text-[12px] text-[#999]">
             {t("generatedFromPrefix")}{" "}
-            <span className="font-mono">{bundle.caseRef}</span> ·{" "}
+            <span >{bundle.caseRef}</span> ·{" "}
             {bundle.summary} · {t("reasoningAttached")}
           </div>
 

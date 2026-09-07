@@ -67,7 +67,7 @@ export function LoginScreen() {
         {/* ── Left: brand / pillars (desktop only) ───────────────────────── */}
         <aside className="relative hidden w-[50%] flex-col justify-between p-10 lg:flex xl:p-12">
           <div className="login-rise relative flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#262626] bg-[#141414] font-mono text-sm font-bold text-white">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#262626] bg-[#141414] text-sm font-bold text-white">
               IT
             </span>
             <div>
@@ -91,7 +91,7 @@ export function LoginScreen() {
                   className="login-rise flex items-start gap-3"
                   style={{ animationDelay: `${200 + i * 80}ms` }}
                 >
-                  <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-md border border-[#262626] bg-[#141414] font-mono text-[12px] font-bold text-white">
+                  <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-md border border-[#262626] bg-[#141414] text-[12px] font-bold text-white">
                     {p.k}
                   </span>
                   <div>
@@ -119,7 +119,7 @@ export function LoginScreen() {
           <div className="w-full max-w-[380px]">
             {/* mobile brand */}
             <header className="login-rise mb-7 flex flex-col items-center gap-2 lg:hidden">
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#262626] bg-[#141414] font-mono text-sm font-bold text-white">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#262626] bg-[#141414] text-sm font-bold text-white">
                 IT
               </span>
               <div className="text-center">

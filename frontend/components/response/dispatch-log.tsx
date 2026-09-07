@@ -70,7 +70,7 @@ export function DispatchLog() {
         <div className="flex items-center gap-2">
           <span className="eyebrow">{t("eyebrow")}</span>
           <span
-            className={`rounded-md border px-1.5 py-0.5 font-mono text-[12px] font-semibold ${
+            className={`rounded-md border px-1.5 py-0.5 text-[12px] font-semibold ${
               source === "api"
                 ? "border-accent/30 bg-accent/10 text-accent-bright"
                 : "border-risk-med/30 bg-risk-med/10 text-risk-med"
@@ -113,7 +113,7 @@ export function DispatchLog() {
                       <span className="font-medium text-fg">{n.agency}</span>
                     </div>
                   </td>
-                  <td className="px-2 py-2 font-mono text-[12px] text-muted">
+                  <td className="px-2 py-2 text-[12px] text-muted">
                     {n.channel || "—"}
                   </td>
                   <td className="px-2 py-2">
@@ -127,7 +127,7 @@ export function DispatchLog() {
                       </span>
                     )}
                   </td>
-                  <td className="px-2 py-2 font-mono text-[12px] text-muted">{n.caseId}</td>
+                  <td className="px-2 py-2 text-[12px] text-muted">{n.caseId}</td>
                   <td className="px-3.5 py-2 text-right">
                     {n.status === "failed" ? (
                       <button
@@ -139,7 +139,7 @@ export function DispatchLog() {
                         {retrying === n.id ? t("retrying") : t("retry")}
                       </button>
                     ) : (
-                      <span className="font-mono text-[12px] text-muted">
+                      <span className="text-[12px] text-muted">
                         {n.attemptCount > 0 ? `${n.attemptCount}×` : "—"}
                       </span>
                     )}

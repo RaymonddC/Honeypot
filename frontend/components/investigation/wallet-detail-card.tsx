@@ -86,7 +86,7 @@ function RiskGauge({ detail }: { detail: WalletDetail }) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <div className="font-mono text-[30px] font-extrabold leading-none tracking-tight tnum" style={{ color }}>
+        <div className="text-[30px] font-extrabold leading-none tracking-tight tnum" style={{ color }}>
           {exchange ? "—" : pct.toFixed(2)}
         </div>
         <div className="mt-1 text-[12px] font-bold uppercase tracking-[.08em]" style={{ color }}>
@@ -101,7 +101,7 @@ function KV({ label, value, color }: { label: string; value: string; color?: str
   return (
     <div className="flex justify-between px-3.5 py-[7px] text-[12px]">
       <span className="text-muted">{label}</span>
-      <span className="font-mono tnum text-fg" style={color ? { color } : undefined}>
+      <span className="tnum text-fg" style={color ? { color } : undefined}>
         {value}
       </span>
     </div>
@@ -158,7 +158,7 @@ export function WalletDetailCard({
                 style={{ width: `${Math.round(detail.confidence * 100)}%` }}
               />
             </span>
-            <span className="font-mono text-[12px] tnum text-fg/80">
+            <span className="text-[12px] tnum text-fg/80">
               {detail.confidence.toFixed(2)}
             </span>
           </div>
@@ -274,7 +274,7 @@ export function WalletDetailCard({
                             style={{ width: `${f.percentile}%`, background: band }}
                           />
                         </span>
-                        <span className="w-6 flex-none text-right font-mono text-[12px] tnum" style={{ color: band }}>
+                        <span className="w-6 flex-none text-right text-[12px] tnum" style={{ color: band }}>
                           {f.percentile}
                         </span>
                       </div>
@@ -314,11 +314,11 @@ export function WalletDetailCard({
                 >
                   {t.direction}
                 </span>
-                <span className="font-mono font-semibold tnum">{t.amount}</span>
-                <span className="truncate font-mono text-[12px] text-muted">
+                <span className="font-semibold tnum">{t.amount}</span>
+                <span className="truncate text-[12px] text-muted">
                   {t.counterparty}
                 </span>
-                <span className="ml-auto font-mono text-[12px] tnum text-muted">
+                <span className="ml-auto text-[12px] tnum text-muted">
                   {t.time}
                 </span>
               </div>

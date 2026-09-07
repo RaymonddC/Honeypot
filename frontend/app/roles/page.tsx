@@ -309,11 +309,11 @@ export default function RolesPage() {
                                 <span className="text-[12px] text-fg">{cap.label}</span>
                                 {/* The raw key stays visible — audits and support
                                     tickets reference it directly — but as a small
-                                    muted mono gloss next to the plain-language
+                                    muted gloss next to the plain-language
                                     label, not the only thing shown. */}
                                 <span
                                   title={t("capabilityKeyLabel")}
-                                  className="rounded border border-line bg-elevated px-1 py-px font-mono text-[12px] text-muted"
+                                  className="rounded border border-line bg-elevated px-1 py-px text-[12px] text-muted"
                                 >
                                   {cap.key}
                                 </span>

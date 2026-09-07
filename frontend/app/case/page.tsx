@@ -266,7 +266,7 @@ function StageFlow({
                 }`}
               >
                 <span
-                  className={`flex h-4 w-4 items-center justify-center rounded-full font-mono text-[12px] ${
+                  className={`flex h-4 w-4 items-center justify-center rounded-full text-[12px] ${
                     past
                       ? "bg-accent/20 text-accent-bright"
                       : current
@@ -303,7 +303,7 @@ function StageFlow({
           }`}
         >
           <span
-            className={`flex h-4 w-4 items-center justify-center rounded-full font-mono text-[12px] ${
+            className={`flex h-4 w-4 items-center justify-center rounded-full text-[12px] ${
               isClosed ? "bg-accent/20 text-accent-bright" : "border border-line text-muted"
             }`}
           >
@@ -664,7 +664,7 @@ function CaseSessions({
                             {t("caseSessions.voiceCallBadge")}
                           </span>
                         )}
-                        <span className="font-mono text-fg">{s.channel_ref || s.channel}</span>
+                        <span className="text-fg">{s.channel_ref || s.channel}</span>
                       </span>
                       <span className="mt-px block text-muted">
                         {sessionWhen(s.started_at)} · {s.crime_type ?? "—"} ·{" "}
@@ -900,7 +900,7 @@ function IntakeStage({
                     placeholder={t("intake.amountPlaceholder")} value={amount}
                     onChange={(e) => setAmount(e.target.value)} />
                   {amountPretty && (
-                    <div className="mt-1 font-mono text-[12px] text-accent-bright">{amountPretty}</div>
+                    <div className="mt-1 text-[12px] text-accent-bright">{amountPretty}</div>
                   )}
                 </div>
                 <div>
@@ -974,7 +974,7 @@ function IntakeStage({
               ) : (
                 <ul className="space-y-1">
                   {banks.map((b) => (
-                    <li key={String(b.id)} className="rounded-lg bg-elevated px-2.5 py-1.5 font-mono text-[12px] text-fg">
+                    <li key={String(b.id)} className="rounded-lg bg-elevated px-2.5 py-1.5 text-[12px] text-fg">
                       {String(b.bank_name)} {String(b.account_number)}
                       <span className="ml-2 font-sans text-[12px] text-muted">{String(b.category)}</span>
                     </li>
@@ -1120,7 +1120,7 @@ function RecoveryStage({
                       key={d.id}
                       className="flex items-center justify-between rounded-lg bg-elevated px-2.5 py-1.5 text-[12px]"
                     >
-                      <span className="font-mono text-fg">{t("recovery.docsCount", { count: d.document_count })}</span>
+                      <span className="text-fg">{t("recovery.docsCount", { count: d.document_count })}</span>
                       <span className="text-[12px] text-accent-bright">
                         {d.crime_type} · {t("recovery.dispatchedLabel")}
                       </span>
@@ -1463,7 +1463,7 @@ export default function CaseFilePage() {
             <div className="flex flex-wrap items-center gap-2.5">
               <h1 className="text-xl font-bold tracking-tight">{activeCase.title}</h1>
               <span
-                className={`rounded-md border px-2 py-0.5 font-mono text-[12px] ${
+                className={`rounded-md border px-2 py-0.5 text-[12px] ${
                   activeCase.status === "closed"
                     ? "border-line bg-elevated text-muted"
                     : "border-accent/30 bg-accent/10 text-accent-bright"
@@ -1686,7 +1686,7 @@ export default function CaseFilePage() {
           ) : (
             <ul className="space-y-1">
               {banks.map((b) => (
-                <li key={String(b.id)} className="rounded-lg bg-elevated px-2.5 py-1.5 font-mono text-[12px] text-fg">
+                <li key={String(b.id)} className="rounded-lg bg-elevated px-2.5 py-1.5 text-[12px] text-fg">
                   {String(b.bank_name)} {String(b.account_number)}
                   <span className="ml-2 font-sans text-[12px] text-muted">{String(b.category)}</span>
                 </li>
@@ -1729,7 +1729,7 @@ export default function CaseFilePage() {
           ) : (
             <ul className="space-y-1">
               {txs.map((tx2) => (
-                <li key={String(tx2.id)} className="flex items-center justify-between gap-2 rounded-lg bg-elevated px-2.5 py-1.5 font-mono text-[12px] text-fg">
+                <li key={String(tx2.id)} className="flex items-center justify-between gap-2 rounded-lg bg-elevated px-2.5 py-1.5 text-[12px] text-fg">
                   <span className="min-w-0 truncate">
                     <span className="text-muted">{String(tx2.from_addr).slice(0, 8)}…</span>
                     {" → "}
@@ -1778,7 +1778,7 @@ export default function CaseFilePage() {
               <ul className="space-y-1">
                 {documents.map((d) => (
                   <li key={d.id} className="rounded-lg bg-elevated px-2.5 py-1.5 text-[12px]">
-                    <span className="font-mono text-fg">{t("recovery.docsCount", { count: d.document_count })}</span>
+                    <span className="text-fg">{t("recovery.docsCount", { count: d.document_count })}</span>
                     <span className="ml-2 text-muted">
                       {d.crime_type} ·{" "}
                       <span className={d.status === "dispatched" ? "text-accent-bright" : ""}>

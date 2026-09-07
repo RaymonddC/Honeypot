@@ -137,7 +137,7 @@ export function OnRampFeed({
                 <div className="flex items-start gap-2.5">
                   {/* rank + confidence */}
                   <div className="flex w-9 flex-none flex-col items-center">
-                    <div className="font-mono text-[13px] font-bold leading-none tnum" style={{ color: c }}>
+                    <div className="text-[13px] font-bold leading-none tnum" style={{ color: c }}>
                       {a.confidence.toFixed(2)}
                     </div>
                     <div className="mt-0.5 text-[8.5px] uppercase tracking-wide text-muted">

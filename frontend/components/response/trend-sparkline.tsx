@@ -91,7 +91,6 @@ export function TrendSparkline({
         fill="#0099ff"
         fontSize="11"
         fontWeight="700"
-        fontFamily="var(--font-mono)"
       >
         {nowLabel}
       </text>

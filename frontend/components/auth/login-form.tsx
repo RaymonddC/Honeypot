@@ -104,7 +104,7 @@ export function LoginForm() {
                 }`}
               >
                 <span
-                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md font-mono text-[12px] font-bold ${
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[12px] font-bold ${
                     active ? "bg-white/10 text-white" : "bg-white/[.05] text-[#999]"
                   }`}
                   aria-hidden
