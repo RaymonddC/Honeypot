@@ -17,10 +17,10 @@ import {
 import { STATUS_COLORS, STATUS_LABELS } from "@/lib/actions/types";
 
 const AGENCY_GLYPH: Record<string, string> = {
-  bank: "🏦",
-  exchange: "💱",
-  regulator: "🏛️",
-  police: "🚓",
+  bank: "▣",
+  exchange: "⇄",
+  regulator: "◎",
+  police: "⛊",
 };
 
 function StatusPill({ status }: { status: DispatchNotification["status"] }) {
@@ -109,7 +109,7 @@ export function DispatchLog() {
                 <tr key={n.id} className="border-t border-line/60 align-middle">
                   <td className="px-3.5 py-2">
                     <div className="flex items-center gap-1.5">
-                      <span aria-hidden>{AGENCY_GLYPH[n.agencyType] ?? "📡"}</span>
+                      <span aria-hidden>{AGENCY_GLYPH[n.agencyType] ?? "◇"}</span>
                       <span className="font-medium text-fg">{n.agency}</span>
                     </div>
                   </td>

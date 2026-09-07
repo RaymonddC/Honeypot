@@ -29,7 +29,7 @@ export function ProviderBadge({ provider }: { provider: string }) {
           : t("voicedByTitle", { provider })
       }
     >
-      🔊 {provider}
+      ◎ {provider}
     </span>
   );
 }

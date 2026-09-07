@@ -15,7 +15,7 @@ export const MOCK_OPS: OpsStat[] = [
   { key: "walletsScored", glyph: "◉", value: "42", color: ACCENT },
   { key: "documentsGenerated", glyph: "⚑", value: "9" },
   { key: "bundlesDispatched", glyph: "↗", value: "3/5", color: ACCENT_SOFT },
-  { key: "agencyNotifications", glyph: "📡", value: "8" },
+  { key: "agencyNotifications", glyph: "◈", value: "8" },
 ];
 
 export const MOCK_TILES: MetricTile[] = [

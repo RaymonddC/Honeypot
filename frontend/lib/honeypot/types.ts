@@ -121,13 +121,15 @@ export interface HoneypotData {
 
 /* ── Entity display helpers (mockup conventions) ───────────────────────── */
 
+// Geometric marks rather than emoji: these render inside a bordered well in
+// the UI face and must take the surrounding text colour.
 export const ENTITY_ICONS: Record<string, string> = {
-  bank_account: "🏦",
+  bank_account: "▣",
   crypto_wallet: "⛓",
-  phone: "📞",
-  url: "🔗",
-  person: "👤",
-  org: "🏢",
+  phone: "☎",
+  url: "↗",
+  person: "◍",
+  org: "▤",
   alias: "◇",
 };
 

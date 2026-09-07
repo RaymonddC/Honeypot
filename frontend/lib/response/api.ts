@@ -168,7 +168,7 @@ function buildOps(m: any): OpsStat[] {
       value: dispatched != null ? `${dispatched}${generated != null ? `/${generated}` : ""}` : "—",
       color: ACCENT_SOFT,
     },
-    { key: "agencyNotifications", glyph: "📡", value: intStr(a?.notifications_mock) },
+    { key: "agencyNotifications", glyph: "◈", value: intStr(a?.notifications_mock) },
   ];
 }
 

@@ -108,10 +108,15 @@ export const STATUS_LABELS: Record<DispatchStatus, string> = {
 
 /* ── Doc card chrome by kind (mockup #act cards) ───────────────────────── */
 
+// Monochrome geometric marks, not emoji. These sit in an accent-tinted well
+// and are styled `text-accent-bright`; a colour emoji ignores currentColor, so
+// the tint did nothing and a full-colour bitmap sat in the middle of otherwise
+// monochrome chrome. Glyphs also render identically across platforms, which
+// emoji do not.
 export const DOC_META: Record<DocKind, { icon: string; title: string; subtitle: string }> = {
-  freeze: { icon: "🧊", title: "Freeze Request", subtitle: "PDF · bank + exchange" },
-  ltkm: { icon: "📄", title: "LTKM / STR Draft", subtitle: "goAML · PPATK" },
-  alert: { icon: "📡", title: "Multi-agency Alert", subtitle: "bank · exchange · PPATK" },
+  freeze: { icon: "⊘", title: "Freeze Request", subtitle: "PDF · bank + exchange" },
+  ltkm: { icon: "▤", title: "LTKM / STR Draft", subtitle: "goAML · PPATK" },
+  alert: { icon: "◈", title: "Multi-agency Alert", subtitle: "bank · exchange · PPATK" },
 };
 
 export const AMBER = "#f5a524";
