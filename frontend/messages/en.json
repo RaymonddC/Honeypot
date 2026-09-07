@@ -1688,13 +1688,34 @@
       "thanksTitle": "Report recorded",
       "refLine": "Your reference is {ref}. Keep it if you go on to file with your bank or IASC.",
       "notDelivered": "This is a prototype: the report was NOT transmitted to any agency and no one has been notified. To file for real, use IASC at iasc.ojk.go.id or your bank’s fraud line.",
-      "privacy": "Do not include passwords, OTPs or card numbers. Anything you enter here is handled as case data."
+      "privacy": "Do not include passwords, OTPs or card numbers. Anything you enter here is handled as case data.",
+      "scamTypeLabel": "What kind of scam was it?",
+      "channelLabel": "How did they contact you?",
+      "moneyMoved": "Money already left my account"
     },
     "limits": {
       "eyebrow": "What this is, and what it is not",
       "demo": "This build answers from a demonstration index of {count} entities, not a national registry.",
       "notSafe": "“Not in our database” is not a clean bill of health. Absence of a record is not evidence an account is honest.",
       "notOfficial": "CekScam does not block accounts or replace an official report. Blocking is done by your bank and by IASC."
+    },
+    "scamTypes": {
+      "investment_scam": "Investment",
+      "judol_deposit": "Online gambling",
+      "crypto_phishing": "Crypto / phishing",
+      "romance_scam": "Romance",
+      "impersonation": "Impersonation",
+      "other": "Other"
+    },
+    "channels": {
+      "whatsapp": "WhatsApp",
+      "telegram": "Telegram",
+      "sms": "SMS",
+      "call": "Phone call",
+      "instagram": "Instagram",
+      "facebook": "Facebook",
+      "marketplace": "Marketplace",
+      "other": "Other"
     }
   }
 }

@@ -63,17 +63,77 @@ export interface CheckResult {
   source: DataSource;
 }
 
+/**
+ * Scam typology, matching the vocabulary the case file already uses so a public
+ * report and an investigator's case classify the same way. This is the field
+ * that makes a report honeypot TRAINING input rather than a comment: the agent
+ * picks a persona matched to the method (deck slide 04).
+ */
+export type ScamType =
+  | "investment_scam"
+  | "judol_deposit"
+  | "crypto_phishing"
+  | "romance_scam"
+  | "impersonation"
+  | "other";
+
+/**
+ * How they made contact. This is the SYNDICATE half — clustering reports by
+ * channel is how "operating hours and channels used" on slide 04 gets
+ * populated. A free-text story cannot be grouped; this can.
+ */
+export type ContactChannel =
+  | "whatsapp"
+  | "telegram"
+  | "sms"
+  | "call"
+  | "instagram"
+  | "facebook"
+  | "marketplace"
+  | "other";
+
 /** A public report — Layer 1's other half. This is what feeds INFILTRATE. */
 export interface ScamReport {
   kind: CheckKind;
   value: string;
+  /** What kind of scam. Drives persona selection downstream. */
+  scamType: ScamType;
+  /** Where they approached from. Drives syndicate clustering. */
+  channel: ContactChannel;
+  /**
+   * Whether money actually left the reporter. An attempt and a loss are
+   * different intelligence and the deck invites both ("You do not need to have
+   * lost money to report") — so it is asked rather than inferred from whether
+   * an amount was typed.
+   */
+  moneyMoved: boolean;
   /** Free text: what happened, in the reporter's own words. */
   story: string;
-  /** Rupiah, optional — many reports come before any money moves. */
+  /** Rupiah, only meaningful when moneyMoved. */
   amountIdr?: number;
   /** Optional contact so an investigator can follow up. */
   contact?: string;
 }
+
+export const SCAM_TYPES: ScamType[] = [
+  "investment_scam",
+  "judol_deposit",
+  "crypto_phishing",
+  "romance_scam",
+  "impersonation",
+  "other",
+];
+
+export const CONTACT_CHANNELS: ContactChannel[] = [
+  "whatsapp",
+  "telegram",
+  "sms",
+  "call",
+  "instagram",
+  "facebook",
+  "marketplace",
+  "other",
+];
 
 /** Verdict → the risk colour token the UI paints with. */
 export const VERDICT_TONE: Record<CheckVerdict, "high" | "med" | "muted"> = {

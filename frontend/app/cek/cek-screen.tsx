@@ -20,8 +20,13 @@ import { useTranslations } from "next-intl";
 import { Icon, type IconName } from "@/components/icon";
 import { checkValue, detectKind, submitReport } from "@/lib/cekscam/api";
 import { INDEX_SIZE } from "@/lib/cekscam/mock";
-import type { CheckKind, CheckResult } from "@/lib/cekscam/types";
-import { VERDICT_TONE } from "@/lib/cekscam/types";
+import type {
+  CheckKind,
+  CheckResult,
+  ContactChannel,
+  ScamType,
+} from "@/lib/cekscam/types";
+import { CONTACT_CHANNELS, SCAM_TYPES, VERDICT_TONE } from "@/lib/cekscam/types";
 
 const KIND_ICON: Record<CheckKind, IconName> = {
   bank_account: "bank",
@@ -126,9 +131,57 @@ function Verdict({ result }: { result: CheckResult }) {
 
 /* ── Report form ─────────────────────────────────────────────────────────── */
 
+/** Compact chip row — public forms lose people fast, so the taxonomy is one tap
+ *  rather than a dropdown, and everything has a sensible default. */
+function Chips<T extends string>({
+  options,
+  value,
+  onChange,
+  label,
+  labelFor,
+}: {
+  options: readonly T[];
+  value: T;
+  onChange: (v: T) => void;
+  label: string;
+  /** Resolver rather than a key prefix: next-intl types `t()` against the
+   *  message tree, and a key built from two dynamic halves cannot be narrowed.
+   *  The caller already has a translator bound to the right namespace. */
+  labelFor: (option: T) => string;
+}) {
+  return (
+    <fieldset>
+      <legend className="mb-1.5 text-[12px] font-medium text-muted">{label}</legend>
+      <div className="flex flex-wrap gap-1.5">
+        {options.map((o) => {
+          const on = o === value;
+          return (
+            <button
+              key={o}
+              type="button"
+              aria-pressed={on}
+              onClick={() => onChange(o)}
+              className={`rounded-full border px-3 py-1.5 text-[12px] transition-colors ${
+                on
+                  ? "border-white/25 bg-elevated font-semibold text-fg"
+                  : "border-line bg-card text-muted hover:text-fg"
+              }`}
+            >
+              {labelFor(o)}
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
 function ReportForm({ prefill }: { prefill?: string }) {
   const t = useTranslations("cekscam");
   const [value, setValue] = useState(prefill ?? "");
+  const [scamType, setScamType] = useState<ScamType>("investment_scam");
+  const [channel, setChannel] = useState<ContactChannel>("whatsapp");
+  const [moneyMoved, setMoneyMoved] = useState(false);
   const [story, setStory] = useState("");
   const [amount, setAmount] = useState("");
   const [contact, setContact] = useState("");
@@ -168,8 +221,11 @@ function ReportForm({ prefill }: { prefill?: string }) {
         const r = await submitReport({
           kind: detectKind(value),
           value: value.trim(),
+          scamType,
+          channel,
+          moneyMoved,
           story: story.trim(),
-          amountIdr: amount.trim() ? Number(amount) : undefined,
+          amountIdr: moneyMoved && amount.trim() ? Number(amount) : undefined,
           contact: contact.trim() || undefined,
         });
         setBusy(false);
@@ -183,6 +239,24 @@ function ReportForm({ prefill }: { prefill?: string }) {
         value={value}
         onChange={(e) => setValue(e.target.value)}
       />
+
+      <div className="grid gap-3 pt-1 sm:grid-cols-2">
+        <Chips
+          options={SCAM_TYPES}
+          value={scamType}
+          onChange={setScamType}
+          label={t("report.scamTypeLabel")}
+          labelFor={(o) => t(`scamTypes.${o}`)}
+        />
+        <Chips
+          options={CONTACT_CHANNELS}
+          value={channel}
+          onChange={setChannel}
+          label={t("report.channelLabel")}
+          labelFor={(o) => t(`channels.${o}`)}
+        />
+      </div>
+
       <textarea
         required
         className={`${field} min-h-[88px] py-2.5 leading-relaxed`}
@@ -190,16 +264,31 @@ function ReportForm({ prefill }: { prefill?: string }) {
         value={story}
         onChange={(e) => setStory(e.target.value)}
       />
-      <div className="grid gap-2.5 sm:grid-cols-2">
+
+      {/* An attempt and a loss are different intelligence — asked, not guessed
+          from whether an amount happens to be filled in. */}
+      <label className="flex cursor-pointer items-center gap-2.5 rounded-[10px] border border-line bg-elevated px-3 py-2.5">
         <input
-          className={field}
-          type="number"
-          min="0"
-          inputMode="numeric"
-          placeholder={t("report.amountPlaceholder")}
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
+          type="checkbox"
+          checked={moneyMoved}
+          onChange={(e) => setMoneyMoved(e.target.checked)}
+          className="h-4 w-4 accent-[#0099ff]"
         />
+        <span className="text-[12.5px] text-fg">{t("report.moneyMoved")}</span>
+      </label>
+
+      <div className="grid gap-2.5 sm:grid-cols-2">
+        {moneyMoved && (
+          <input
+            className={field}
+            type="number"
+            min="0"
+            inputMode="numeric"
+            placeholder={t("report.amountPlaceholder")}
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+          />
+        )}
         <input
           className={field}
           placeholder={t("report.contactPlaceholder")}

@@ -1688,13 +1688,34 @@
       "thanksTitle": "Laporan tercatat",
       "refLine": "Nomor referensi Anda {ref}. Simpan jika Anda melanjutkan ke bank atau IASC.",
       "notDelivered": "Ini prototipe: laporan TIDAK dikirim ke instansi mana pun dan belum ada yang diberi tahu. Untuk melapor resmi, gunakan IASC di iasc.ojk.go.id atau layanan penipuan bank Anda.",
-      "privacy": "Jangan cantumkan kata sandi, OTP, atau nomor kartu. Semua yang Anda isi diperlakukan sebagai data kasus."
+      "privacy": "Jangan cantumkan kata sandi, OTP, atau nomor kartu. Semua yang Anda isi diperlakukan sebagai data kasus.",
+      "scamTypeLabel": "Penipuan jenis apa?",
+      "channelLabel": "Lewat mana mereka menghubungi?",
+      "moneyMoved": "Uang sudah keluar dari rekening saya"
     },
     "limits": {
       "eyebrow": "Apa ini, dan apa bukan",
       "demo": "Versi ini menjawab dari indeks demonstrasi berisi {count} entitas, bukan registri nasional.",
       "notSafe": "“Tidak ada di basis data kami” bukan surat keterangan bersih. Tidak adanya catatan bukan bukti sebuah rekening jujur.",
       "notOfficial": "CekScam tidak memblokir rekening dan tidak menggantikan laporan resmi. Pemblokiran dilakukan bank Anda dan IASC."
+    },
+    "scamTypes": {
+      "investment_scam": "Investasi",
+      "judol_deposit": "Judi online",
+      "crypto_phishing": "Kripto / phishing",
+      "romance_scam": "Asmara",
+      "impersonation": "Mengaku pihak resmi",
+      "other": "Lainnya"
+    },
+    "channels": {
+      "whatsapp": "WhatsApp",
+      "telegram": "Telegram",
+      "sms": "SMS",
+      "call": "Telepon",
+      "instagram": "Instagram",
+      "facebook": "Facebook",
+      "marketplace": "Marketplace",
+      "other": "Lainnya"
     }
   }
 }
