@@ -7,6 +7,8 @@
  * approved mockup's Action Panel (#act) section.
  */
 
+import type { IconName } from "@/components/icon";
+
 export type DataSource = "api" | "mock";
 
 /* ── Generated documents ───────────────────────────────────────────────── */
@@ -29,8 +31,8 @@ export interface ActionDocument {
   title: string;
   /** Card subtitle, e.g. "PDF · bank + exchange". */
   subtitle: string;
-  /** Icon glyph for the card header. */
-  icon: string;
+  /** Icon for the card header — a name from components/icon.tsx. */
+  icon: IconName;
   /** In-paper document heading, e.g. "Permintaan Pemblokiran". */
   paperTitle: string;
   fields: DocField[];
@@ -108,15 +110,15 @@ export const STATUS_LABELS: Record<DispatchStatus, string> = {
 
 /* ── Doc card chrome by kind (mockup #act cards) ───────────────────────── */
 
-// Monochrome geometric marks, not emoji. These sit in an accent-tinted well
-// and are styled `text-accent-bright`; a colour emoji ignores currentColor, so
-// the tint did nothing and a full-colour bitmap sat in the middle of otherwise
-// monochrome chrome. Glyphs also render identically across platforms, which
-// emoji do not.
-export const DOC_META: Record<DocKind, { icon: string; title: string; subtitle: string }> = {
-  freeze: { icon: "⊘", title: "Freeze Request", subtitle: "PDF · bank + exchange" },
-  ltkm: { icon: "▤", title: "LTKM / STR Draft", subtitle: "goAML · PPATK" },
-  alert: { icon: "◈", title: "Multi-agency Alert", subtitle: "bank · exchange · PPATK" },
+// Icon NAMES (components/icon.tsx), not glyphs: these render in an
+// accent-tinted well and must take currentColor and look the same on every OS.
+export const DOC_META: Record<
+  DocKind,
+  { icon: IconName; title: string; subtitle: string }
+> = {
+  freeze: { icon: "freeze", title: "Freeze Request", subtitle: "PDF · bank + exchange" },
+  ltkm: { icon: "document", title: "LTKM / STR Draft", subtitle: "goAML · PPATK" },
+  alert: { icon: "alert", title: "Multi-agency Alert", subtitle: "bank · exchange · PPATK" },
 };
 
 export const AMBER = "#f5a524";

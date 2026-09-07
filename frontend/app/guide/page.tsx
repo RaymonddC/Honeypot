@@ -9,34 +9,35 @@
  */
 
 import { useTranslations } from "next-intl";
+import { Icon, type IconName } from "@/components/icon";
 
 type Module = {
   key: "infiltrate" | "trace" | "takedown" | "uncover";
-  glyph: string;
+  icon: IconName;
   href: string;
 };
 
 const MODULES: Module[] = [
-  { key: "infiltrate", glyph: "⬡", href: "/honeypot" },
-  { key: "trace", glyph: "⇌", href: "/bridge" },
-  { key: "takedown", glyph: "◉", href: "/investigation" },
-  { key: "uncover", glyph: "⚑", href: "/actions" },
+  { key: "infiltrate", icon: "infiltrate", href: "/honeypot" },
+  { key: "trace", icon: "trace", href: "/bridge" },
+  { key: "takedown", icon: "takedown", href: "/investigation" },
+  { key: "uncover", icon: "uncover", href: "/actions" },
 ];
 
 type Screen = {
   key: "caseFile" | "infiltrate" | "trace" | "takedown" | "uncover" | "commandCenter" | "controlPanel";
-  glyph: string;
+  icon: IconName;
   href: string;
 };
 
 const SCREENS: Screen[] = [
-  { key: "caseFile", glyph: "▤", href: "/case" },
-  { key: "infiltrate", glyph: "⬡", href: "/honeypot" },
-  { key: "trace", glyph: "⇌", href: "/bridge" },
-  { key: "takedown", glyph: "◉", href: "/investigation" },
-  { key: "uncover", glyph: "⚑", href: "/actions" },
-  { key: "commandCenter", glyph: "▦", href: "/response" },
-  { key: "controlPanel", glyph: "⚙", href: "/settings" },
+  { key: "caseFile", icon: "case", href: "/case" },
+  { key: "infiltrate", icon: "infiltrate", href: "/honeypot" },
+  { key: "trace", icon: "trace", href: "/bridge" },
+  { key: "takedown", icon: "takedown", href: "/investigation" },
+  { key: "uncover", icon: "uncover", href: "/actions" },
+  { key: "commandCenter", icon: "commandCenter", href: "/response" },
+  { key: "controlPanel", icon: "settings", href: "/settings" },
 ];
 
 const SCENARIOS = ["investmentScam", "judolDeposit", "cryptoPhishing"] as const;
@@ -60,13 +61,10 @@ function Card({
   );
 }
 
-function Glyph({ children }: { children: React.ReactNode }) {
+function Glyph({ name }: { name: IconName }) {
   return (
-    <span
-      className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-accent/10 text-sm text-accent-bright"
-      aria-hidden
-    >
-      {children}
+    <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-accent/10 text-accent-bright">
+      <Icon name={name} size={15} />
     </span>
   );
 }
@@ -96,7 +94,7 @@ export default function GuidePage() {
         <ul className="space-y-3">
           {MODULES.map((m) => (
             <li key={m.key} className="flex gap-3">
-              <Glyph>{m.glyph}</Glyph>
+              <Glyph name={m.icon} />
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-[13px] font-semibold tracking-wide text-fg">
@@ -127,8 +125,9 @@ export default function GuidePage() {
         <div className="flex flex-wrap items-center gap-2 text-[12px]">
           {MODULES.map((m, i) => (
             <span key={m.key} className="flex items-center gap-2">
-              <span className="rounded-md border border-line bg-elevated px-2.5 py-1 text-[12px] text-fg">
-                {m.glyph} {t(`modules.${m.key}.name`)}
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-line bg-elevated px-2.5 py-1 text-[12px] text-fg">
+                <Icon name={m.icon} size={13} />
+                {t(`modules.${m.key}.name`)}
               </span>
               {i < MODULES.length - 1 && (
                 <span className="text-muted" aria-hidden>
@@ -164,7 +163,7 @@ export default function GuidePage() {
               key={s.key}
               className="flex gap-3 rounded-lg border border-line bg-elevated px-3 py-2.5"
             >
-              <Glyph>{s.glyph}</Glyph>
+              <Glyph name={s.icon} />
               <div className="min-w-0 flex-1">
                 <a
                   href={s.href}

@@ -1,3 +1,5 @@
+import type { IconName } from "@/components/icon";
+
 /**
  * INFILTRATE / Honeypot console — frontend-canonical types.
  *
@@ -121,20 +123,20 @@ export interface HoneypotData {
 
 /* ── Entity display helpers (mockup conventions) ───────────────────────── */
 
-// Geometric marks rather than emoji: these render inside a bordered well in
-// the UI face and must take the surrounding text colour.
-export const ENTITY_ICONS: Record<string, string> = {
-  bank_account: "▣",
-  crypto_wallet: "⛓",
-  phone: "☎",
-  url: "↗",
-  person: "◍",
-  org: "▤",
-  alias: "◇",
+// Icon names (components/icon.tsx) so every entity badge renders the same
+// shape on every OS and inherits the surrounding text colour.
+export const ENTITY_ICONS: Record<string, IconName> = {
+  bank_account: "bank",
+  crypto_wallet: "wallet",
+  phone: "phone",
+  url: "link",
+  person: "person",
+  org: "org",
+  alias: "entity",
 };
 
-export const entityIcon = (type: string): string =>
-  ENTITY_ICONS[type] ?? "◇";
+export const entityIcon = (type: string): IconName =>
+  ENTITY_ICONS[type] ?? "entity";
 
 /** Truncate long values (wallet addresses) mockup-style: "TХ9dQp…aQ4pJ6". */
 export function truncateValue(v: string, head = 6, tail = 6): string {

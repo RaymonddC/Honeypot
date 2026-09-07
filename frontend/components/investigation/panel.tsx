@@ -29,6 +29,7 @@ import type {
   WalletGraph as WalletGraphData,
 } from "@/lib/investigation/types";
 import { RISK_COLORS, RISK_LABELS, shortAddr } from "@/lib/investigation/types";
+import { Icon } from "@/components/icon";
 
 // Status → search-bar badge classnames. LIVE states are honest (no "mock"
 // unless POC/offline). Labels/titles come from i18n (see `statusBadge` below).
@@ -212,9 +213,7 @@ export function InvestigationPanel({
         }}
       >
         <div className="flex h-9 flex-1 items-center gap-2 rounded-lg border border-line bg-elevated px-3">
-          <span className="text-muted" aria-hidden>
-            ⌕
-          </span>
+          <Icon name="search" size={14} className="flex-none text-muted" />
           <input
             value={address}
             onChange={(e) => setAddress(e.target.value)}

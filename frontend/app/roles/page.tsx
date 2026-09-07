@@ -34,6 +34,7 @@ import {
   listRoles,
   setRoleCapabilities,
 } from "@/lib/roles/api";
+import { Icon } from "@/components/icon";
 
 function explain(err: unknown, t: ReturnType<typeof useTranslations>): string {
   if (!(err instanceof RolesApiError)) {
@@ -164,7 +165,7 @@ export default function RolesPage() {
           className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-accent/10 text-2xl text-accent-bright"
           aria-hidden
         >
-          ⛊
+          <Icon name="roles" size={16} />
         </span>
         <h1 className="text-xl font-bold tracking-tight">{t("gateTitle")}</h1>
         <p className="mx-auto mt-1.5 max-w-[46ch] text-[13px] leading-relaxed text-muted">
@@ -184,12 +185,12 @@ export default function RolesPage() {
 
       {error && (
         <p role="alert" className="mb-3 text-[12px] leading-relaxed text-risk-high">
-          ✗ {error}
+          <Icon name="cross" size={11} className="mr-1 inline-block align-[-1px]" />{error}
         </p>
       )}
       {notice && (
         <p role="status" className="mb-3 text-[12px] text-accent-bright">
-          ✓ {notice}
+          <Icon name="check" size={11} className="mr-1 inline-block align-[-1px]" />{notice}
         </p>
       )}
 
@@ -246,7 +247,7 @@ export default function RolesPage() {
                   className="w-3 flex-none text-[12px] text-muted transition-transform group-open:rotate-90"
                   aria-hidden
                 >
-                  ▸
+                  <Icon name="dispatch" size={11} className="transition-transform group-open:rotate-90" />
                 </span>
                 <span className="text-sm font-medium text-fg">{role.name}</span>
                 {role.builtin && (

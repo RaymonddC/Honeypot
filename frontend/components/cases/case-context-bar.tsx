@@ -13,6 +13,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCases } from "@/components/cases/case-provider";
 import { isNavActive } from "@/lib/nav";
+import { Icon } from "@/components/icon";
 
 // Routes that are NOT part of a case workflow → no bar.
 const HIDDEN = ["/home", "/case", "/settings", "/guide", "/login"];
@@ -43,7 +44,7 @@ export function CaseContextBar() {
         className="flex items-center gap-1.5 font-medium text-fg hover:text-accent-bright"
         title={t("backToCaseFile")}
       >
-        <span aria-hidden className="text-muted">▤</span>
+        <Icon name="case" size={13} className="flex-none text-muted" />
         <span className="max-w-[16rem] truncate">{activeCase.title}</span>
       </Link>
       <span

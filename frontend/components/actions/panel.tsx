@@ -22,6 +22,7 @@ import { useCases } from "@/components/cases/case-provider";
 import { dispatchActions, generateActions } from "@/lib/actions/api";
 import { fetchRollup } from "@/lib/cases/api";
 import type { ActionBundle } from "@/lib/actions/types";
+import { Icon } from "@/components/icon";
 
 /** Assemble action entities from a case's tracked accounts + wallets. */
 async function entitiesForCase(
@@ -178,6 +179,7 @@ export function ActionsPanel({
             title={t("regenerateTitle")}
             className="h-8 rounded-full bg-accent px-3.5 text-[12px] font-semibold text-[#090909] transition-colors hover:bg-accent-bright disabled:opacity-50"
           >
+            <Icon name="reset" size={13} />
             {loading
               ? t("generating")
               : freezeOnly

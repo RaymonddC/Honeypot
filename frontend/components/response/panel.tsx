@@ -18,6 +18,7 @@ import { DispatchLog } from "@/components/response/dispatch-log";
 import { MetricTiles } from "@/components/response/metric-tiles";
 import { TrendSparkline } from "@/components/response/trend-sparkline";
 import { fetchResponseMetrics } from "@/lib/response/api";
+import { Icon } from "@/components/icon";
 import type { RangeKey, ResponseMetrics } from "@/lib/response/types";
 
 const RANGES: RangeKey[] = ["7d", "30d", "all"];
@@ -132,7 +133,7 @@ export function ResponsePanel({ embedded = false }: { embedded?: boolean }) {
               {data.ops.map((o) => (
                 <div key={o.key} className="rounded-card border border-line bg-card p-3">
                   <div className="flex items-center gap-1.5 text-muted">
-                    <span className="text-[12px]" aria-hidden>{o.glyph}</span>
+                    {o.icon && <Icon name={o.icon} size={13} className="flex-none" />}
                     <span className="text-[12px] uppercase tracking-wide">
                       {tOps(`${o.key}.label`)}
                     </span>

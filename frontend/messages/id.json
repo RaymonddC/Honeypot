@@ -108,7 +108,7 @@
     "chatTranscript": {
       "sessionEyebrow": "Sesi · {channel} · persona \"{persona}\"",
       "transcriptLogLabel": "Transkrip sesi penipuan · {channel}",
-      "extractedBadge": "◇ terekstrak · <m>{label}</m> · conf <m>{confidence}</m>",
+      "extractedBadge": "terekstrak · <m>{label}</m> · conf <m>{confidence}</m>",
       "composerNote": {
         "drafting": "agen menyusun balasan · pengawasan manusia siap untuk giliran pengungkapan…",
         "escalated": "dieskalasi · diambil alih analis — pengawasan manusia aktif",
@@ -140,7 +140,7 @@
       "trace": "Lacak →",
       "traceTitle": "Lacak wallet ini di Takedown",
       "traceAttachTitle": "Lampirkan ke kasus & lacak wallet ini di Takedown",
-      "inCase": "✓ dalam kasus",
+      "inCase": "dalam kasus",
       "inCaseTitle": "Ditambahkan ke kasus → BridgeWatch",
       "addCase": "+ Kasus",
       "retry": "coba lagi",
@@ -336,7 +336,7 @@
       "dialogLabel": "Pratinjau laporan pelacakan",
       "eyebrow": "Laporan pelacakan",
       "previewNote": "Pratinjau — inilah yang akan diunduh persis seperti ini",
-      "downloadReport": "⬇ Unduh laporan",
+      "downloadReport": "Unduh laporan",
       "close": "Tutup",
       "iframeTitle": "Pratinjau laporan pelacakan"
     },
@@ -489,12 +489,12 @@
       }
     },
     "walletGraph": {
-      "hint": "◦ arahkan kursor untuk pratinjau · klik untuk memeriksa · seret / gulir untuk navigasi",
+      "hint": "arahkan kursor untuk pratinjau · klik untuk memeriksa · seret / gulir untuk navigasi",
       "zoomIn": "Perbesar",
       "zoomOut": "Perkecil",
       "fitGraph": "Sesuaikan tampilan",
       "resetView": "Atur ulang tampilan",
-      "peelingChain": "◆ peeling chain → exchange",
+      "peelingChain": "peeling chain → exchange",
       "exchange": "Exchange"
     },
     "riskPill": {
@@ -512,8 +512,8 @@
       "offlineMock": "● offline · mock",
       "regenerateTitle": "Buat ulang dari rekening & wallet terkini pada kasus ini",
       "generating": "Membuat…",
-      "regenerateFreeze": "⎙ Buat ulang permohonan pemblokiran",
-      "regenerateAll": "⎙ Buat ulang semua dokumen",
+      "regenerateFreeze": "Buat ulang permohonan pemblokiran",
+      "regenerateAll": "Buat ulang semua dokumen",
       "generatedFromPrefix": "Dibuat dari",
       "reasoningAttached": "penalaran terlampir pada setiap artefak",
       "assemblingFreeze": "Menyusun permohonan pemblokiran rekening…",
@@ -554,7 +554,7 @@
       "viewTitle": "Lihat surat yang telah diformat — cetak atau simpan sebagai PDF",
       "view": "Lihat",
       "downloadPdfTitle": "Unduh PDF resmi — berkas rantai-hash SHA-256 yang menjadi arsip resmi yang dikirim ke instansi",
-      "pdfShort": "↓ PDF",
+      "pdfShort": "PDF",
       "humanFilledBeforeDispatch": "Diisi manusia sebelum dikirim"
     },
     "documentView": {
@@ -626,12 +626,12 @@
       "reverifying": "…",
       "errorFallback": "jejak audit tidak dapat dimuat",
       "chainVerified": {
-        "title": "✓ Rantai terverifikasi — setiap entri tertaut ke entri sebelumnya.",
+        "title": "Rantai terverifikasi — setiap entri tertaut ke entri sebelumnya.",
         "body": "Setiap catatan di-hash bersama dengan pendahulunya, sehingga mengubah atau menghapus entri mana pun akan merusak semua hash setelahnya. Baru saja diperiksa ulang.",
         "caveat": "Yang <b>tidak</b> dibuktikan oleh ini: bahwa setiap tindakan tercatat sejak awal. Rantai ini menunjukkan tidak ada yang diubah atau dihapus di sini — entri yang tidak pernah dituliskan tidak meninggalkan jejak untuk diputus. Kegagalan penulisan tersebut dihitung dan dipantau secara terpisah, sehingga catatan yang hilang terdeteksi oleh pemantauan, bukan oleh pemeriksaan ini."
       },
       "chainFailed": {
-        "title": "✗ Verifikasi rantai GAGAL",
+        "title": "Verifikasi rantai GAGAL",
         "titleAtEntry": "✗ Verifikasi rantai GAGAL pada entri #{seq}",
         "body": "Log telah diubah sejak dituliskan, atau ada entri yang hilang. Semua yang berasal dari titik itu dan seterusnya harus dianggap tidak dapat diandalkan dan perlu diselidiki — jangan mengandalkan jejak ini sebagai bukti sampai dijelaskan."
       },
@@ -732,7 +732,7 @@
       "opening": "Membuka…",
       "startNewInvestigation": "Mulai investigasi baru",
       "startNewInvestigationDesc": "Sebagian besar kasus dimulai dari laporan korban — catat laporannya, dan aplikasi akan membuka kasus, mencatat rekening, dan dapat memblokirnya dalam satu langkah.",
-      "newReportCta": "✎ Laporan baru (Intake) →",
+      "newReportCta": "Laporan baru (Intake) →",
       "recentCases": "Kasus terbaru",
       "section2Label": "2 · Alat cepat",
       "section2Hint": "— jalankan tugas secara mandiri, tanpa perlu kasus",
@@ -943,7 +943,7 @@
       "colCase": "Kasus",
       "colDelivery": "Pengiriman",
       "retrying": "mencoba lagi…",
-      "retry": "↻ coba lagi"
+      "retry": "coba lagi"
     },
     "trendSparkline": {
       "empty": "Belum cukup peristiwa pemblokiran — tren akan muncul setelah kasus pertama.",
@@ -1132,7 +1132,7 @@
       },
       "nextAction": {
         "now": "Sekarang: {stage}",
-        "freezeNow": "⚡ Blokir sekarang →"
+        "freezeNow": "Blokir sekarang →"
       },
       "cardShell": {
         "cancel": "Batal",
@@ -1144,16 +1144,16 @@
         "honeypotLink": "Honeypot →",
         "empty": "Belum ada — mulai panggilan dari Honeypot dengan kasus ini aktif.",
         "voiceCallTitle": "Panggilan suara",
-        "voiceCallBadge": "☎ panggilan",
+        "voiceCallBadge": "panggilan",
         "loadingTranscript": "Memuat transkrip…",
         "transcriptErrorFallback": "transkrip tidak dapat dimuat",
         "transcriptErrorSuffix": "— buka di konsol Honeypot sebagai gantinya."
       },
       "intake": {
         "howDidThisComeIn": "Bagaimana kasus ini masuk?",
-        "modeReportTitle": "① Laporan korban — kasus diajukan",
+        "modeReportTitle": "1 · Laporan korban — kasus diajukan",
         "modeReportSub": "Reaktif: laporan dari IASC, bank, atau polisi. Catat rekening penerima dan blokir dengan cepat.",
-        "modeHoneypotTitle": "② Honeypot — proaktif",
+        "modeHoneypotTitle": "2 · Honeypot — proaktif",
         "modeHoneypotSub": "Persona AI kami memancing pelaku penipuan dan mengekstrak rekening & wallet penerima.",
         "theReport": "Laporan",
         "scamType": "Jenis penipuan",
@@ -1393,7 +1393,7 @@
       "serverDefaultWithFallback": "bawaan server ({fallback})",
       "testTitle": "Putar contoh singkat suara ini",
       "testTitleWithCheck": "Putar contoh singkat suara ini (memeriksa kunci + kuota)",
-      "testButton": "▶ Test",
+      "testButton": "Test",
       "testBusy": "…",
       "revertHint": "✗ bukan suara yang tersedia — kembali ke semula saat Anda beralih fokus"
     },

@@ -8,6 +8,7 @@
  */
 
 import { useTranslations } from "next-intl";
+import { Icon } from "@/components/icon";
 
 const PROVIDER_COLOR: Record<string, string> = {
   elevenlabs: "#0099ff", // accent blue — real natural voice
@@ -29,7 +30,7 @@ export function ProviderBadge({ provider }: { provider: string }) {
           : t("voicedByTitle", { provider })
       }
     >
-      ◎ {provider}
+      <Icon name="regulator" size={11} className="mr-1 inline-block align-[-1px]" />{provider}
     </span>
   );
 }

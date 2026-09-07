@@ -24,27 +24,28 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { fetchAuditFeed, type AuditEntry, type AuditFeed } from "@/lib/cases/api";
+import { Icon, type IconName } from "@/components/icon";
 
 /** Plain-language labels — `case.updated` is a key, not something to show a user.
  *  `attempt` is the phrasing used when the action was REFUSED; entries without
  *  one fall back to "attempted <label>", which reads acceptably for all of them.
  *  Labels/attempts come from i18n (see `actionCopy` in the audit namespace) —
- *  this map only carries the glyph, keyed by the same backend action code. */
-const ACTION_GLYPH: Record<string, string> = {
-  "auth.login": "→",
-  "case.created": "▤",
-  "case.updated": "✎",
-  "entity.reviewed": "◇",
-  "dispatch.sent": "⚑",
-  "triage.attached": "☎",
-  "triage.promoted": "☎",
-  "action.bundle.generated": "▦",
-  "evidence.exported": "↧",
-  "user.created": "＋",
-  "user.role_changed": "◎",
-  "user.deactivated": "⊘",
-  "user.reactivated": "⊙",
-  "access.forbidden": "⊗",
+ *  this map only carries the icon, keyed by the same backend action code. */
+const ACTION_ICON: Record<string, IconName> = {
+  "auth.login": "dispatch",
+  "case.created": "case",
+  "case.updated": "edit",
+  "entity.reviewed": "reviewed",
+  "dispatch.sent": "uncover",
+  "triage.attached": "phone",
+  "triage.promoted": "phone",
+  "action.bundle.generated": "commandCenter",
+  "evidence.exported": "download",
+  "user.created": "plus",
+  "user.role_changed": "regulator",
+  "user.deactivated": "freeze",
+  "user.reactivated": "reviewed",
+  "access.forbidden": "cross",
 };
 
 /** Backend action code → i18n leaf-key slug. next-intl reserves "." for
@@ -219,7 +220,8 @@ function ChainBanner({ feed }: { feed: AuditFeed }) {
   if (feed.chain_ok) {
     return (
       <div className="mb-4 rounded-card border border-accent/[.22] bg-accent/[.06] px-4 py-3.5">
-        <p className="text-[13px] font-semibold text-accent-bright">
+        <p className="flex items-center gap-2 text-[13px] font-semibold text-accent-bright">
+          <Icon name="check" size={14} />
           {t("chainVerified.title")}
         </p>
         <p className="mt-1.5 text-[12px] leading-relaxed text-muted">
@@ -242,7 +244,8 @@ function ChainBanner({ feed }: { feed: AuditFeed }) {
   }
   return (
     <div className="mb-4 rounded-card border border-risk-high/40 bg-risk-high/[.08] px-4 py-3.5">
-      <p className="text-[13px] font-semibold text-risk-high">
+      <p className="flex items-center gap-2 text-[13px] font-semibold text-risk-high">
+        <Icon name="cross" size={14} />
         {feed.broken_at_seq != null
           ? t("chainFailed.titleAtEntry", { seq: feed.broken_at_seq })
           : t("chainFailed.title")}
@@ -303,7 +306,7 @@ export default function AuditPage() {
       </div>
 
       {error && (
-        <p className="mb-3 text-[12px] text-risk-high">✗ {error}</p>
+        <p className="mb-3 flex items-center gap-1.5 text-[12px] text-risk-high"><Icon name="cross" size={12} />{error}</p>
       )}
       {feed && <ChainBanner feed={feed} />}
 
@@ -321,10 +324,10 @@ export default function AuditPage() {
           ) : (
             <ul className="space-y-1">
               {entries.map((e) => {
-                const hasCopy = e.action in ACTION_GLYPH;
+                const hasCopy = e.action in ACTION_ICON;
                 const slug = ACTION_SLUG[e.action];
                 const label = hasCopy ? t(`actionCopy.${slug}.label`) : e.action;
-                const glyph = ACTION_GLYPH[e.action] ?? "·";
+                const icon = ACTION_ICON[e.action] ?? "entity";
                 const detail = summarize(e, t);
                 const raw = rawDetail(e);
                 const hasRaw = Object.keys(raw).length > 0;
@@ -347,9 +350,11 @@ export default function AuditPage() {
                       <span className="w-8 shrink-0 text-[12px] text-muted">
                         #{e.seq}
                       </span>
-                      <span className="shrink-0 text-muted">
-                        {denied ? "⊘" : glyph}
-                      </span>
+                      <Icon
+                        name={denied ? "cross" : icon}
+                        size={13}
+                        className={`mt-[2px] shrink-0 ${denied ? "text-risk-high" : "text-muted"}`}
+                      />
                       {/* The chip comes before the sentence on purpose: a reader
                           skimming the column must not read half a row and
                           conclude the thing happened. */}
@@ -399,9 +404,11 @@ export default function AuditPage() {
                         verify rather than just skim. */}
                     <details className="group mt-1.5">
                       <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[12px] text-muted transition-colors hover:text-fg [&::-webkit-details-marker]:hidden">
-                        <span className="inline-block w-2.5 transition-transform group-open:rotate-90" aria-hidden>
-                          ▸
-                        </span>
+                        <Icon
+                          name="dispatch"
+                          size={11}
+                          className="transition-transform group-open:rotate-90"
+                        />
                         <span className="group-open:hidden">{t("showDetails")}</span>
                         <span className="hidden group-open:inline">{t("hideDetails")}</span>
                       </summary>

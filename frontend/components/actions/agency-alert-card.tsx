@@ -10,6 +10,7 @@
 import { useTranslations } from "next-intl";
 import type { DispatchTarget } from "@/lib/actions/types";
 import { DOC_META, STATUS_COLORS, STATUS_LABELS } from "@/lib/actions/types";
+import { Icon } from "@/components/icon";
 
 // Distinct category hues drawn from the Framer accent + gradient family.
 const TYPE_COLOR: Record<string, string> = {
@@ -62,8 +63,8 @@ export function AgencyAlertCard({
     <div className="flex flex-col rounded-card border border-line bg-card">
       {/* header */}
       <div className="flex items-center gap-2.5 border-b border-line px-3.5 py-2.5">
-        <div className="grid h-7 w-7 flex-none place-items-center rounded-full bg-accent/10 text-sm text-accent-bright">
-          <span aria-hidden>{meta.icon}</span>
+        <div className="grid h-7 w-7 flex-none place-items-center rounded-full bg-accent/10 text-accent-bright">
+          <Icon name={meta.icon} size={15} />
         </div>
         <div className="min-w-0">
           <b className="block truncate text-[12.5px]">{meta.title}</b>
@@ -75,7 +76,7 @@ export function AgencyAlertCard({
           </small>
         </div>
         <span className="ml-auto flex-none rounded-md border border-risk-high/40 bg-risk-high/10 px-1.5 py-0.5 text-[12px] font-bold uppercase tracking-wide text-risk-high">
-          ⚠ {t("urgent")}
+          <Icon name="warning" size={11} className="mr-1 inline-block align-[-1px]" />{t("urgent")}
         </span>
       </div>
 
@@ -112,7 +113,7 @@ export function AgencyAlertCard({
                     {target.action}
                   </small>
                   <span className="mt-1 inline-flex items-center gap-1 rounded border border-line bg-elevated px-1.5 py-px text-[12px] text-muted">
-                    <span aria-hidden>↗</span>{" "}
+                    <Icon name="dispatch" size={12} className="flex-none" />{" "}
                     {t.rich("viaChannel", {
                       channel: channelOf(target, t),
                       c: (chunks) => <span >{chunks}</span>,

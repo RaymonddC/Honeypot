@@ -2,13 +2,14 @@
 
 /**
  * Honeypot chat transcript — scammer vs persona bubbles with inline
- * `◇ extracted · <type> · conf 0.xx` badges (mockup .chat / .msg / .extract),
+ * `extracted · <type> · conf 0.xx` badges (mockup .chat / .msg / .extract),
  * session header eyebrow + mode tag, composer status line.
  */
 
 import { useTranslations } from "next-intl";
 import type { ComposerNoteKey, HpMessage, HpSession } from "@/lib/honeypot/types";
 import { formatConf } from "@/lib/honeypot/types";
+import { Icon } from "@/components/icon";
 
 function Bubble({ msg }: { msg: HpMessage }) {
   const t = useTranslations("honeypot.chatTranscript");
@@ -34,6 +35,7 @@ function Bubble({ msg }: { msg: HpMessage }) {
           key={`${msg.id}-${ex.label}-${i}`}
           className="mt-[7px] flex items-center gap-1.5 border-t border-dashed border-accent/[.22] pt-[7px] text-[12px] text-accent-bright"
         >
+          <Icon name="entity" size={11} className="flex-none" />
           {/* Tabular digits on the score so it lines up down the transcript. */}
           {t.rich("extractedBadge", {
             label: ex.label,
@@ -87,7 +89,8 @@ export function ChatTranscript({
       {/* composer status line (live console only — omitted on read-only embeds) */}
       {composerNote && (
         <div className="flex items-center gap-2.5 border-t border-line px-3.5 py-[11px] text-[12px] text-muted">
-          <span className="text-accent-bright">◇</span> {t(`composerNote.${composerNote}`)}
+          <Icon name="entity" size={11} className="flex-none text-accent-bright" />{" "}
+          {t(`composerNote.${composerNote}`)}
         </div>
       )}
     </div>

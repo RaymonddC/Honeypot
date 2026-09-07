@@ -8,6 +8,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { CaseSwitcher } from "@/components/cases/case-switcher";
 import { CaseContextBar } from "@/components/cases/case-context-bar";
 import { CAP, can, initialsOf, roleLabel } from "@/lib/auth/types";
+import { Icon, type IconName } from "@/components/icon";
 import { isNavActive } from "@/lib/nav";
 
 // Admin destinations, each shown only to someone who holds the CAPABILITY it
@@ -35,7 +36,7 @@ type NavItem = {
   href: string;
   labelKey: string;
   subKey?: string;
-  glyph: string;
+  icon: IconName;
   step?: number;
   /** Omitted = visible to everyone signed in. */
   capability?: string;
@@ -52,9 +53,9 @@ const ADMIN_NAV: NavItem[] = [
   // tamper-evident log that only administrators can see is a weaker control —
   // the people best placed to notice something wrong in the record are the ones
   // who did the work it describes.
-  { href: "/audit", labelKey: "auditTrail", glyph: "⛓" },
-  { href: "/users", labelKey: "users", glyph: "◫", capability: CAP.usersAdmin },
-  { href: "/roles", labelKey: "roles", glyph: "⛊", capability: CAP.rolesAdmin },
+  { href: "/audit", labelKey: "auditTrail", icon: "audit" },
+  { href: "/users", labelKey: "users", icon: "users", capability: CAP.usersAdmin },
+  { href: "/roles", labelKey: "roles", icon: "roles", capability: CAP.rolesAdmin },
 ];
 
 // Two clear groups: the guided case flow vs standalone tools. Labels are
@@ -66,19 +67,19 @@ const ADMIN_NAV: NavItem[] = [
 const NAV_GROUPS: { groupKey: string; items: NavItem[] }[] = [
   {
     groupKey: "caseWorkflow",
-    items: [{ href: "/case", labelKey: "caseFile", glyph: "▤" }],
+    items: [{ href: "/case", labelKey: "caseFile", icon: "case" }],
   },
   {
     groupKey: "operations",
     items: [
-      { href: "/honeypot", labelKey: "infiltrate", subKey: "infiltrateSub", glyph: "①", step: 1 },
+      { href: "/honeypot", labelKey: "infiltrate", subKey: "infiltrateSub", icon: "infiltrate", step: 1 },
       // TRACE keeps its FIAT half (mule bank accounts) when crypto is off,
       // so it is NOT hidden. TAKEDOWN is crypto in its entirety.
-      { href: "/bridge", labelKey: "trace", subKey: "traceSub", glyph: "②", step: 2 },
-      { href: "/investigation", labelKey: "takedown", subKey: "takedownSub", glyph: "③", step: 3, crypto: true },
-      { href: "/actions", labelKey: "uncover", subKey: "uncoverSub", glyph: "④", step: 4 },
-      { href: "/honeypot-ops", labelKey: "honeypotOps", subKey: "honeypotOpsSub", glyph: "☎" },
-      { href: "/response", labelKey: "commandCenter", glyph: "▦" },
+      { href: "/bridge", labelKey: "trace", subKey: "traceSub", icon: "trace", step: 2 },
+      { href: "/investigation", labelKey: "takedown", subKey: "takedownSub", icon: "takedown", step: 3, crypto: true },
+      { href: "/actions", labelKey: "uncover", subKey: "uncoverSub", icon: "uncover", step: 4 },
+      { href: "/honeypot-ops", labelKey: "honeypotOps", subKey: "honeypotOpsSub", icon: "honeypotOps" },
+      { href: "/response", labelKey: "commandCenter", icon: "commandCenter" },
     ],
   },
 ];
@@ -192,9 +193,7 @@ function UserMenu() {
             onClick={logout}
             className="mt-1 flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-[13px] text-muted transition-colors hover:bg-fg/[.04] hover:text-fg"
           >
-            <span aria-hidden className="text-[12px]">
-              ⏻
-            </span>
+            <Icon name="dispatch" size={13} className="flex-none rotate-90" />
             {t("signOut")}
           </button>
         </div>
@@ -245,7 +244,7 @@ function SidebarNav({
               : "text-white/70 hover:bg-white/[.04] hover:text-white"
           }`}
         >
-          <span className="w-4 text-center text-[15px]" aria-hidden>⌂</span>
+          <Icon name="home" size={16} className="flex-none" />
           {t("home")}
         </Link>
 
@@ -293,7 +292,7 @@ function SidebarNav({
                           } ${displayStep ? "" : "text-[15px]"}`}
                           aria-hidden
                         >
-                          {displayStep ?? item.glyph}
+                          {displayStep ?? <Icon name={item.icon} size={15} />}
                         </span>
                         <span className="min-w-0">
                           <span
@@ -330,9 +329,7 @@ function SidebarNav({
               : "text-white/70 hover:bg-white/[.04] hover:text-white"
           }`}
         >
-          <span className="w-4 text-center text-[12px]" aria-hidden>
-            ?
-          </span>
+          <Icon name="guide" size={15} className="flex-none" />
           {t("guide")}
         </Link>
         <Link
@@ -345,9 +342,7 @@ function SidebarNav({
               : "text-white/70 hover:bg-white/[.04] hover:text-white"
           }`}
         >
-          <span className="w-4 text-center text-[12px]" aria-hidden>
-            ⚙
-          </span>
+          <Icon name="settings" size={15} className="flex-none" />
           {t("controlPanel")}
         </Link>
       </div>
@@ -418,7 +413,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             aria-expanded={mobileNavOpen}
             className="flex h-8 w-8 flex-none items-center justify-center rounded-md border border-line bg-elevated text-fg md:hidden"
           >
-            <span aria-hidden>☰</span>
+            <Icon name="menu" size={16} />
           </button>
 
           {/* Case switcher — the active-case selector (case-centric flow) */}

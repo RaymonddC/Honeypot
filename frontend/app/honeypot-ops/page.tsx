@@ -56,6 +56,7 @@ import {
   type TriageSession,
   type UploadTargetsResult,
 } from "@/lib/honeypot-ops/api";
+import { Icon } from "@/components/icon";
 
 type Tab = "numbers" | "campaigns" | "triage";
 type OpsT = ReturnType<typeof useTranslations>;
@@ -110,7 +111,7 @@ function Card({
 
 function ErrorLine({ msg }: { msg: string | null }) {
   if (!msg) return null;
-  return <p className="mt-2 text-[12px] text-risk-high">✗ {msg}</p>;
+  return <p className="mt-2 text-[12px] text-risk-high"><Icon name="cross" size={11} className="mr-1 inline-block align-[-1px]" />{msg}</p>;
 }
 
 /* ── Numbers tab ─────────────────────────────────────────────────────────── */
@@ -507,7 +508,7 @@ function CampaignDetail({
             <ul className="mt-1 space-y-0.5">
               {result.rejected.map((r, i) => (
                 <li key={`${r.value}-${i}`} className="text-risk-high">
-                  ✗ <span >{r.value || "(blank)"}</span> —{" "}
+                  <Icon name="cross" size={11} className="mr-1 inline-block align-[-1px]" /><span>{r.value || "(blank)"}</span> —{" "}
                   {rejectCopy(r.reason, t)}
                 </li>
               ))}
@@ -581,7 +582,7 @@ function TargetRow({ target }: { target: DialTarget }) {
       >
         <span className="text-fg">
           <span className="mr-1 inline-block w-2 text-muted">
-            {open ? "▾" : "▸"}
+            <Icon name="dispatch" size={11} className={`flex-none text-muted transition-transform ${open ? "rotate-90" : ""}`} />
           </span>
           {target.phone_number}
         </span>
@@ -595,7 +596,7 @@ function TargetRow({ target }: { target: DialTarget }) {
       {open && (
         <div className="border-t border-line px-2.5 py-1.5">
           {error ? (
-            <p className="text-[12px] text-risk-high">✗ {error}</p>
+            <p className="text-[12px] text-risk-high"><Icon name="cross" size={11} className="mr-1 inline-block align-[-1px]" />{error}</p>
           ) : attempts === null ? (
             <p className="text-[12px] text-muted">{t("targetRow.loadingCallLog")}</p>
           ) : attempts.length === 0 ? (
@@ -777,7 +778,7 @@ function CampaignsTab() {
                     </span>
                   </span>
                   <span className="shrink-0 text-[12px] text-muted">
-                    {isOpen ? "▾" : "▸"}
+                    <Icon name="dispatch" size={11} className={`flex-none text-muted transition-transform ${isOpen ? "rotate-90" : ""}`} />
                   </span>
                 </button>
                 {isOpen && <CampaignDetail campaign={c} onChanged={() => void load()} />}

@@ -15,12 +15,13 @@ import {
   type DispatchNotification,
 } from "@/lib/actions/notifications";
 import { STATUS_COLORS, STATUS_LABELS } from "@/lib/actions/types";
+import { Icon, type IconName } from "@/components/icon";
 
-const AGENCY_GLYPH: Record<string, string> = {
-  bank: "▣",
-  exchange: "⇄",
-  regulator: "◎",
-  police: "⛊",
+const AGENCY_ICON: Record<string, IconName> = {
+  bank: "bank",
+  exchange: "exchange",
+  regulator: "regulator",
+  police: "police",
 };
 
 function StatusPill({ status }: { status: DispatchNotification["status"] }) {
@@ -109,7 +110,7 @@ export function DispatchLog() {
                 <tr key={n.id} className="border-t border-line/60 align-middle">
                   <td className="px-3.5 py-2">
                     <div className="flex items-center gap-1.5">
-                      <span aria-hidden>{AGENCY_GLYPH[n.agencyType] ?? "◇"}</span>
+                      <Icon name={AGENCY_ICON[n.agencyType] ?? "entity"} size={14} className="flex-none text-muted" />
                       <span className="font-medium text-fg">{n.agency}</span>
                     </div>
                   </td>
@@ -136,6 +137,7 @@ export function DispatchLog() {
                         onClick={() => onRetry(n.id)}
                         className="rounded-md border border-line bg-elevated px-2 py-0.5 text-[12px] font-semibold text-accent-bright transition-colors hover:bg-fg/[.04] disabled:opacity-50"
                       >
+                        <Icon name="reset" size={11} />
                         {retrying === n.id ? t("retrying") : t("retry")}
                       </button>
                     ) : (

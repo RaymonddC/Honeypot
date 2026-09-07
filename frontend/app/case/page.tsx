@@ -29,6 +29,7 @@ import { HoneypotPanel } from "@/components/honeypot/panel";
 import { BridgePanel } from "@/components/bridge/panel";
 import { InvestigationPanel } from "@/components/investigation/panel";
 import { ActionsPanel } from "@/components/actions/panel";
+import { Icon } from "@/components/icon";
 
 const CATEGORIES = ["unknown", "scam", "mule", "victim", "suspect", "exchange"];
 
@@ -229,7 +230,7 @@ function StageFlow({
               : "border-line bg-card text-muted hover:text-fg"
           }`}
         >
-          <span aria-hidden>▤</span>
+          <Icon name="case" size={13} />
           {t("stageFlow.overview")}
         </button>
         <span className="mx-1 h-5 w-px bg-line" aria-hidden />
@@ -274,7 +275,7 @@ function StageFlow({
                         : "border border-line text-muted"
                   }`}
                 >
-                  {past ? "✓" : i + 1}
+                  {past ? <Icon name="check" size={11} /> : i + 1}
                 </span>
                 {t(`stageLabel.${s}`)}
                 {current && (
@@ -307,7 +308,7 @@ function StageFlow({
               isClosed ? "bg-accent/20 text-accent-bright" : "border border-line text-muted"
             }`}
           >
-            {isClosed ? "✓" : "•"}
+            {isClosed ? <Icon name="check" size={11} /> : "•"}
           </span>
           {t("stageFlow.closed")}
         </div>
@@ -354,7 +355,7 @@ function StageNav({
           <ul className="space-y-0.5">
             {missing.map((m) => (
               <li key={m.label} className="flex items-center gap-1.5 text-fg/80">
-                <span aria-hidden className="text-risk-med">○</span>
+                <Icon name="freeze" size={11} className="flex-none text-risk-med" />
                 {m.label}
               </li>
             ))}
@@ -401,7 +402,7 @@ function StageNav({
                 : "border border-accent/40 bg-accent/10 text-accent-bright hover:bg-accent/20"
             }`}
           >
-            {allDone && <span aria-hidden>✓</span>}
+            {allDone && <Icon name="check" size={12} />}
             {t("stageNav.next", { stage: t(`stageLabel.${nextStage}`) })}
           </button>
         ) : (
@@ -472,7 +473,7 @@ function NextAction({
                     : "border-line text-muted"
                 }`}
               >
-                {c.done ? "✓" : ""}
+                {c.done ? <Icon name="check" size={11} /> : ""}
               </span>
               <span className={c.done ? "text-fg/80" : "text-muted"}>{c.label}</span>
             </li>
@@ -651,9 +652,11 @@ function CaseSessions({
                     aria-expanded={open}
                     className="flex w-full items-start gap-2 px-2.5 py-1.5 text-left text-[12px] transition-colors hover:bg-fg/[.04]"
                   >
-                    <span className="mt-[1px] flex-none text-[12px] text-muted">
-                      {open ? "▾" : "▸"}
-                    </span>
+                    <Icon
+                      name="dispatch"
+                      size={11}
+                      className={`mt-[3px] flex-none text-muted transition-transform ${open ? "rotate-90" : ""}`}
+                    />
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-center gap-x-1.5">
                         {voice && (
@@ -679,7 +682,7 @@ function CaseSessions({
                         <p className="px-1.5 py-2 text-[12px] text-muted">{t("caseSessions.loadingTranscript")}</p>
                       ) : tr.status === "error" ? (
                         <p className="px-1.5 py-2 text-[12px] text-risk-high">
-                          ✗ {tr.message} {t("caseSessions.transcriptErrorSuffix")}
+                          <Icon name="cross" size={11} className="mr-1 inline-block align-[-1px]" />{tr.message} {t("caseSessions.transcriptErrorSuffix")}
                         </p>
                       ) : (
                         <ChatTranscript
@@ -1101,7 +1104,7 @@ function RecoveryStage({
                       : "border-line text-muted"
                   }`}
                 >
-                  {c.done ? "✓" : ""}
+                  {c.done ? <Icon name="check" size={11} /> : ""}
                 </span>
                 <span className={c.done ? "text-fg/80" : "text-muted"}>{c.label}</span>
               </li>

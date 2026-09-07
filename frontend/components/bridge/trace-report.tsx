@@ -14,6 +14,7 @@ import {
   downloadHtml,
   traceReportFilename,
 } from "@/lib/bridge/report";
+import { Icon } from "@/components/icon";
 
 export function TraceReport({
   data,
@@ -63,7 +64,7 @@ export function TraceReport({
               onClick={() => downloadHtml(html, traceReportFilename())}
               className="h-8 rounded-full bg-accent px-3.5 text-[12px] font-semibold text-[#090909] transition-colors hover:bg-accent-bright"
             >
-              {t("downloadReport")}
+              <Icon name="download" size={13} />{t("downloadReport")}
             </button>
             <button
               type="button"

@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCases } from "@/components/cases/case-provider";
 import { CASE_STAGES } from "@/lib/cases/api";
+import { Icon } from "@/components/icon";
 
 function stageColor(stage: string): string {
   if (stage === "closed") return "text-muted";
@@ -83,7 +84,7 @@ export function CaseSwitcher() {
           </span>
         )}
         <span className="text-muted" aria-hidden>
-          ▾
+          <Icon name="dispatch" size={10} className="rotate-90 opacity-70" />
         </span>
       </button>
 
@@ -182,7 +183,7 @@ export function CaseSwitcher() {
               onClick={() => setCreating(true)}
               className="mb-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-[12.5px] text-accent-bright transition-colors hover:bg-fg/[.04]"
             >
-              <span aria-hidden>＋</span> {t("newCase")}
+              <Icon name="plus" size={12} /> {t("newCase")}
             </button>
           )}
         </div>

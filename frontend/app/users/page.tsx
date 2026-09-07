@@ -30,6 +30,7 @@ import {
   updateUser,
   type AdminUser,
 } from "@/lib/users/api";
+import { Icon } from "@/components/icon";
 
 const INPUT =
   "h-8 rounded-lg border border-line bg-elevated px-2.5 text-[12px] text-fg outline-none transition-colors placeholder:text-[#666] focus:border-[#0099ff]/60";
@@ -154,7 +155,7 @@ export default function UsersPage() {
           className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-accent/10 text-2xl text-accent-bright"
           aria-hidden
         >
-          ◫
+          <Icon name="users" size={16} />
         </span>
         <h1 className="text-xl font-bold tracking-tight">{t("gateTitle")}</h1>
         <p className="mx-auto mt-1.5 max-w-[46ch] text-[13px] leading-relaxed text-muted">
@@ -188,8 +189,8 @@ export default function UsersPage() {
         </p>
       </div>
 
-      {error && <p className="mb-3 text-[12px] text-risk-high">✗ {error}</p>}
-      {notice && <p className="mb-3 text-[12px] text-accent-bright">✓ {notice}</p>}
+      {error && <p className="mb-3 text-[12px] text-risk-high"><Icon name="cross" size={11} className="mr-1 inline-block align-[-1px]" />{error}</p>}
+      {notice && <p className="mb-3 text-[12px] text-accent-bright"><Icon name="check" size={11} className="mr-1 inline-block align-[-1px]" />{notice}</p>}
 
       <div className="mb-3.5 rounded-card border border-line bg-card">
         <div className="border-b border-line px-3.5 py-2.5">

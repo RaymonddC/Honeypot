@@ -20,6 +20,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { roleLabel } from "@/lib/auth/types";
 import { DocumentView } from "@/components/actions/document-view";
 import type { LetterContext } from "@/lib/actions/letter";
+import { Icon } from "@/components/icon";
 
 export function DocCard({
   doc,
@@ -68,8 +69,8 @@ export function DocCard({
     <div className="flex flex-col rounded-card border border-line bg-card">
       {/* header */}
       <div className="flex items-center gap-2.5 border-b border-line px-3.5 py-[13px]">
-        <div className="grid h-7 w-7 flex-none place-items-center rounded-full bg-accent/10 text-sm text-accent-bright">
-          <span aria-hidden>{doc.icon}</span>
+        <div className="grid h-7 w-7 flex-none place-items-center rounded-full bg-accent/10 text-accent-bright">
+          <Icon name={doc.icon} size={15} />
         </div>
         <div className="min-w-0">
           <b className="block truncate text-[12.5px]">{doc.title}</b>
@@ -94,7 +95,7 @@ export function DocCard({
               title={t("downloadPdfTitle")}
               className="cursor-pointer rounded-md border border-line bg-elevated px-2 py-0.5 text-[12px] text-muted transition-colors hover:border-accent/30 hover:text-accent-bright disabled:cursor-default disabled:opacity-50"
             >
-              {downloading ? "…" : t("pdfShort")}
+              {downloading ? "…" : <><Icon name="download" size={12} />{t("pdfShort")}</>}
             </button>
           )}
         </div>

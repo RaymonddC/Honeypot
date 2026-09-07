@@ -10,12 +10,12 @@ import { ACCENT_SOFT, ACCENT } from "./types";
 // Keys only, like the API layer — the components resolve the wording, so the
 // offline fallback speaks the chosen language too.
 export const MOCK_OPS: OpsStat[] = [
-  { key: "honeypotSessions", glyph: "⬡", value: "3" },
-  { key: "entitiesConfirmed", glyph: "◇", value: "17" },
-  { key: "walletsScored", glyph: "◉", value: "42", color: ACCENT },
-  { key: "documentsGenerated", glyph: "⚑", value: "9" },
-  { key: "bundlesDispatched", glyph: "↗", value: "3/5", color: ACCENT_SOFT },
-  { key: "agencyNotifications", glyph: "◈", value: "8" },
+  { key: "honeypotSessions", icon: "infiltrate", value: "3" },
+  { key: "entitiesConfirmed", icon: "entity", value: "17" },
+  { key: "walletsScored", icon: "takedown", value: "42", color: ACCENT },
+  { key: "documentsGenerated", icon: "uncover", value: "9" },
+  { key: "bundlesDispatched", icon: "dispatch", value: "3/5", color: ACCENT_SOFT },
+  { key: "agencyNotifications", icon: "alert", value: "8" },
 ];
 
 export const MOCK_TILES: MetricTile[] = [

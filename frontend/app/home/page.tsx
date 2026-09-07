@@ -15,28 +15,26 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCases } from "@/components/cases/case-provider";
+import { Icon, type IconName } from "@/components/icon";
 
 type Tool = {
   key: "honeypot" | "bridge" | "investigation" | "actions" | "response";
-  glyph: string;
+  icon: IconName;
   href: string;
 };
 
 const TOOLS: Tool[] = [
-  { key: "honeypot", glyph: "⬡", href: "/honeypot" },
-  { key: "bridge", glyph: "⇌", href: "/bridge" },
-  { key: "investigation", glyph: "◉", href: "/investigation" },
-  { key: "actions", glyph: "⚑", href: "/actions" },
-  { key: "response", glyph: "▦", href: "/response" },
+  { key: "honeypot", icon: "infiltrate", href: "/honeypot" },
+  { key: "bridge", icon: "trace", href: "/bridge" },
+  { key: "investigation", icon: "takedown", href: "/investigation" },
+  { key: "actions", icon: "uncover", href: "/actions" },
+  { key: "response", icon: "commandCenter", href: "/response" },
 ];
 
-function Glyph({ children }: { children: React.ReactNode }) {
+function Glyph({ name }: { name: IconName }) {
   return (
-    <span
-      className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-accent/10 text-base text-accent-bright"
-      aria-hidden
-    >
-      {children}
+    <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-accent/10 text-accent-bright">
+      <Icon name={name} size={16} />
     </span>
   );
 }
@@ -129,6 +127,7 @@ export default function HomePage() {
                 disabled={creating}
                 className="h-9 rounded-full bg-accent px-4 text-[12px] font-semibold text-[#090909] transition-colors hover:bg-accent-bright disabled:opacity-60"
               >
+                <Icon name="edit" size={13} />
                 {creating ? t("opening") : t("newReportCta")}
               </button>
             </div>
@@ -177,7 +176,7 @@ export default function HomePage() {
           className="mb-3 flex gap-2"
         >
           <div className="flex h-[38px] flex-1 items-center gap-2 rounded-lg border border-line bg-card px-3">
-            <span className="text-muted" aria-hidden>⌕</span>
+            <Icon name="search" size={15} className="flex-none text-muted" />
             <input
               value={wallet}
               onChange={(e) => setWallet(e.target.value)}
@@ -201,7 +200,7 @@ export default function HomePage() {
               href={tool.href}
               className="group flex gap-3 rounded-card border border-line bg-card p-3.5 transition-colors hover:border-fg/15"
             >
-              <Glyph>{tool.glyph}</Glyph>
+              <Glyph name={tool.icon} />
               <div className="min-w-0">
                 <div className="text-[13px] font-semibold text-fg group-hover:text-accent-bright">
                   {t(`tools.${tool.key}.title`)}

@@ -19,6 +19,7 @@ import { addBankAccount, addCryptoTransfer } from "@/lib/casedata/api";
 import { GOLDEN, ONRAMP_CATEGORY } from "@/lib/demo/golden-thread";
 import type { HpEntity } from "@/lib/honeypot/types";
 import { entityIcon, formatConf } from "@/lib/honeypot/types";
+import { Icon } from "@/components/icon";
 
 function PromoteControl({
   e,
@@ -96,7 +97,11 @@ function PromoteControl({
     // control resets to "+ Case" and a second click files a duplicate account.
     if (state === "done" || alreadyTracked)
       return (
-        <span className="flex-none text-[12px] font-semibold text-accent-bright" title={t("inCaseTitle")}>
+        <span
+          className="flex flex-none items-center gap-1 text-[12px] font-semibold text-accent-bright"
+          title={t("inCaseTitle")}
+        >
+          <Icon name="check" size={12} />
           {t("inCase")}
         </span>
       );
@@ -173,12 +178,12 @@ export function EntityPanel({
             key={e.id}
             className="flex items-center gap-2.5 border-b border-line px-3.5 py-[9px] last:border-b-0"
           >
-            <div
-              aria-label={e.type.replace(/_/g, " ")}
-              role="img"
-              className="grid h-6 w-6 flex-none place-items-center rounded-md border border-line bg-elevated text-[12px]"
-            >
-              {entityIcon(e.type)}
+            <div className="grid h-6 w-6 flex-none place-items-center rounded-md border border-line bg-elevated text-muted">
+              <Icon
+                name={entityIcon(e.type)}
+                size={13}
+                label={e.type.replace(/_/g, " ")}
+              />
             </div>
             <div className="min-w-0">
               <div className="truncate text-[12px] text-fg">

@@ -10,6 +10,7 @@ import { useTranslations } from "next-intl";
 import type { WalletDetail } from "@/lib/investigation/types";
 import { RISK_COLORS, RISK_LABELS } from "@/lib/investigation/types";
 import { RiskPill } from "./risk-pill";
+import { Icon } from "@/components/icon";
 
 type Tab = "overview" | "transactions";
 
@@ -225,7 +226,7 @@ export function WalletDetailCard({
                   }`}
                   aria-hidden
                 >
-                  {p.icon ?? "◆"}
+                  {p.icon ?? <Icon name="entity" size={11} />}
                 </div>
                 <div className="min-w-0">
                   <b className="block text-[12px]">{p.name}</b>

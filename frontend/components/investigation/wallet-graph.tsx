@@ -10,6 +10,7 @@ import cytoscape, { type Core, type EventObject } from "cytoscape";
 import dagre from "cytoscape-dagre";
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { Icon } from "@/components/icon";
 import type { RiskLevel, WalletGraph as WalletGraphData } from "@/lib/investigation/types";
 import { RISK_COLORS, RISK_LABELS } from "@/lib/investigation/types";
 
@@ -284,27 +285,27 @@ export function WalletGraph({
       <div className="absolute right-3 top-3 flex flex-col gap-1.5">
         {(
           [
-            ["＋", t("zoomIn"), () => zoom(1.25)],
-            ["－", t("zoomOut"), () => zoom(0.8)],
-            ["⤢", t("fitGraph"), () => cyRef.current?.fit(undefined, 36)],
+            ["zoomIn", t("zoomIn"), () => zoom(1.25)],
+            ["zoomOut", t("zoomOut"), () => zoom(0.8)],
+            ["fit", t("fitGraph"), () => cyRef.current?.fit(undefined, 36)],
             [
-              "⟳",
+              "reset",
               t("resetView"),
               () => {
                 cyRef.current?.fit(undefined, 36);
               },
             ],
           ] as const
-        ).map(([glyph, label, fn]) => (
+        ).map(([icon, label, fn]) => (
           <button
             key={label}
             type="button"
             title={label}
             aria-label={label}
             onClick={fn}
-            className="grid h-[30px] w-[30px] place-items-center rounded-lg border border-line bg-card/90 text-sm text-muted backdrop-blur-sm transition-colors hover:border-accent/30 hover:text-accent-bright"
+            className="grid h-[30px] w-[30px] place-items-center rounded-lg border border-line bg-card/90 text-muted backdrop-blur-sm transition-colors hover:border-accent/30 hover:text-accent-bright"
           >
-            {glyph}
+            <Icon name={icon} size={15} />
           </button>
         ))}
       </div>
@@ -324,7 +325,10 @@ export function WalletGraph({
 
       {/* peeling-chain callout */}
       <div className="pointer-events-none absolute bottom-3 right-3 rounded-lg border border-risk-high/20 bg-card/90 px-2.5 py-1.5 text-[12px] font-bold text-risk-high backdrop-blur-sm">
-        {t("peelingChain")}
+        <span className="flex items-center gap-1.5">
+          <Icon name="warning" size={12} />
+          {t("peelingChain")}
+        </span>
       </div>
 
       {/* hover tooltip */}

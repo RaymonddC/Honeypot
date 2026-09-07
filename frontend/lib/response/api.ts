@@ -158,17 +158,17 @@ function buildOps(m: any): OpsStat[] {
   const generated = num(a?.bundles_generated);
   const dispatched = num(a?.bundles_dispatched);
   return [
-    { key: "honeypotSessions", glyph: "⬡", value: intStr(first(hp?.active_sessions, hp?.sessions)) },
-    { key: "entitiesConfirmed", glyph: "◇", value: intStr(hp?.entities_confirmed) },
-    { key: "walletsScored", glyph: "◉", value: intStr(m?.wallets_scored), color: ACCENT },
-    { key: "documentsGenerated", glyph: "⚑", value: intStr(a?.documents_generated) },
+    { key: "honeypotSessions", icon: "infiltrate", value: intStr(first(hp?.active_sessions, hp?.sessions)) },
+    { key: "entitiesConfirmed", icon: "entity", value: intStr(hp?.entities_confirmed) },
+    { key: "walletsScored", icon: "takedown", value: intStr(m?.wallets_scored), color: ACCENT },
+    { key: "documentsGenerated", icon: "uncover", value: intStr(a?.documents_generated) },
     {
       key: "bundlesDispatched",
-      glyph: "↗",
+      icon: "dispatch",
       value: dispatched != null ? `${dispatched}${generated != null ? `/${generated}` : ""}` : "—",
       color: ACCENT_SOFT,
     },
-    { key: "agencyNotifications", glyph: "◈", value: intStr(a?.notifications_mock) },
+    { key: "agencyNotifications", icon: "alert", value: intStr(a?.notifications_mock) },
   ];
 }
 

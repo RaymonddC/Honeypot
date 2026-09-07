@@ -108,7 +108,7 @@
     "chatTranscript": {
       "sessionEyebrow": "Session · {channel} · persona \"{persona}\"",
       "transcriptLogLabel": "Scam session transcript · {channel}",
-      "extractedBadge": "◇ extracted · <m>{label}</m> · conf <m>{confidence}</m>",
+      "extractedBadge": "extracted · <m>{label}</m> · conf <m>{confidence}</m>",
       "composerNote": {
         "drafting": "agent drafting reply · human-in-the-loop armed for the disclosure turn…",
         "escalated": "escalated · analyst takeover — human-in-the-loop engaged",
@@ -140,7 +140,7 @@
       "trace": "Trace →",
       "traceTitle": "Trace this wallet in Takedown",
       "traceAttachTitle": "Attach to case & trace this wallet in Takedown",
-      "inCase": "✓ in case",
+      "inCase": "in case",
       "inCaseTitle": "Added to case → BridgeWatch",
       "addCase": "+ Case",
       "retry": "retry",
@@ -336,7 +336,7 @@
       "dialogLabel": "Trace report preview",
       "eyebrow": "Trace report",
       "previewNote": "Preview — this is exactly what downloads",
-      "downloadReport": "⬇ Download report",
+      "downloadReport": "Download report",
       "close": "Close",
       "iframeTitle": "Trace report preview"
     },
@@ -489,12 +489,12 @@
       }
     },
     "walletGraph": {
-      "hint": "◦ hover to preview · click to inspect · drag / scroll to navigate",
+      "hint": "hover to preview · click to inspect · drag / scroll to navigate",
       "zoomIn": "Zoom in",
       "zoomOut": "Zoom out",
       "fitGraph": "Fit graph",
       "resetView": "Reset view",
-      "peelingChain": "◆ peeling chain → exchange",
+      "peelingChain": "peeling chain → exchange",
       "exchange": "Exchange"
     },
     "riskPill": {
@@ -512,8 +512,8 @@
       "offlineMock": "● offline · mock",
       "regenerateTitle": "Regenerate from the case's current accounts & wallets",
       "generating": "Generating…",
-      "regenerateFreeze": "⎙ Regenerate freeze request",
-      "regenerateAll": "⎙ Regenerate all documents",
+      "regenerateFreeze": "Regenerate freeze request",
+      "regenerateAll": "Regenerate all documents",
       "generatedFromPrefix": "Generated from",
       "reasoningAttached": "reasoning attached to each artifact",
       "assemblingFreeze": "Assembling the account-blocking freeze request…",
@@ -554,7 +554,7 @@
       "viewTitle": "View the formatted letter — print or save it as PDF",
       "view": "View",
       "downloadPdfTitle": "Download the official PDF — the SHA-256 hash-chained file of record dispatched to agencies",
-      "pdfShort": "↓ PDF",
+      "pdfShort": "PDF",
       "humanFilledBeforeDispatch": "Human-filled before dispatch"
     },
     "documentView": {
@@ -626,12 +626,12 @@
       "reverifying": "…",
       "errorFallback": "could not load the audit trail",
       "chainVerified": {
-        "title": "✓ Chain verified — every entry links to the one before it.",
+        "title": "Chain verified — every entry links to the one before it.",
         "body": "Each record is hashed together with its predecessor, so editing or removing any entry breaks every hash after it. Re-checked just now.",
         "caveat": "What this does <b>not</b> prove: that every action was recorded in the first place. The chain shows nothing here was altered or removed — an entry that was never written leaves no trace to break. Those write failures are counted and alerted on separately, so a missing record is caught by monitoring rather than by this check."
       },
       "chainFailed": {
-        "title": "✗ Chain verification FAILED",
+        "title": "Chain verification FAILED",
         "titleAtEntry": "✗ Chain verification FAILED at entry #{seq}",
         "body": "The log has been altered since it was written, or entries are missing. Everything from that point on should be treated as unreliable and investigated — do not rely on this trail as evidence until it is explained."
       },
@@ -732,7 +732,7 @@
       "opening": "Opening…",
       "startNewInvestigation": "Start a new investigation",
       "startNewInvestigationDesc": "Most cases begin with a victim report — log it, and the app opens the case, records the account, and can freeze it in one step.",
-      "newReportCta": "✎ New report (Intake) →",
+      "newReportCta": "New report (Intake) →",
       "recentCases": "Recent cases",
       "section2Label": "2 · Quick tools",
       "section2Hint": "— run a task standalone, no case needed",
@@ -943,7 +943,7 @@
       "colCase": "Case",
       "colDelivery": "Delivery",
       "retrying": "retrying…",
-      "retry": "↻ retry"
+      "retry": "retry"
     },
     "trendSparkline": {
       "empty": "Not enough freeze events yet — trend appears after the first cases.",
@@ -1132,7 +1132,7 @@
       },
       "nextAction": {
         "now": "Now: {stage}",
-        "freezeNow": "⚡ Freeze now →"
+        "freezeNow": "Freeze now →"
       },
       "cardShell": {
         "cancel": "Cancel",
@@ -1144,16 +1144,16 @@
         "honeypotLink": "Honeypot →",
         "empty": "None yet — start a call from the Honeypot with this case active.",
         "voiceCallTitle": "Voice call",
-        "voiceCallBadge": "☎ call",
+        "voiceCallBadge": "call",
         "loadingTranscript": "Loading transcript…",
         "transcriptErrorFallback": "could not load transcript",
         "transcriptErrorSuffix": "— open it in the Honeypot console instead."
       },
       "intake": {
         "howDidThisComeIn": "How did this case come in?",
-        "modeReportTitle": "① Victim report — case submitted",
+        "modeReportTitle": "1 · Victim report — case submitted",
         "modeReportSub": "Reactive: a report from IASC, a bank, or police. Log the receiving account and freeze fast.",
-        "modeHoneypotTitle": "② Honeypot — proactive",
+        "modeHoneypotTitle": "2 · Honeypot — proactive",
         "modeHoneypotSub": "Our AI persona baits the scammer and extracts the receiving accounts & wallets.",
         "theReport": "The report",
         "scamType": "Scam type",
@@ -1393,7 +1393,7 @@
       "serverDefaultWithFallback": "server default ({fallback})",
       "testTitle": "Play a short sample in this voice",
       "testTitleWithCheck": "Play a short sample in this voice (checks key + quota)",
-      "testButton": "▶ Test",
+      "testButton": "Test",
       "testBusy": "…",
       "revertHint": "✗ not an available voice — reverts when you click away"
     },

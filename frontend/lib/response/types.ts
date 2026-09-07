@@ -1,3 +1,5 @@
+import type { IconName } from "@/components/icon";
+
 /**
  * Response Dashboard screen — frontend-canonical types.
  *
@@ -91,8 +93,8 @@ export type OpsKey =
 export interface OpsStat {
   key: OpsKey;
   value: string;
-  /** Glyph for the tile. */
-  glyph?: string;
+  /** Icon for the tile — a name from components/icon.tsx. */
+  icon?: IconName;
   /** Accent color for the figure. */
   color?: string;
 }
