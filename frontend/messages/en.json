@@ -889,7 +889,7 @@
     "panel": {
       "title": "Command Center",
       "titleModule": "metrics",
-      "subtitle": "Agency-wide operational impact across all cases — from days to minutes, on real data.",
+      "subtitle": "Agency-wide operational impact across all cases — from days to minutes.",
       "liveApi": "● live api",
       "offlineMock": "● offline · mock",
       "liveApiTitle": "Live backend API",
@@ -904,7 +904,7 @@
       "opsPipelineEyebrow": "Operations pipeline · {range}",
       "trendEyebrow": "Time-to-freeze · trend",
       "loadingState": "Aggregating case · freeze · notification read-model…",
-      "footerNote": "All figures are computed from real <b>cases · action_documents · notifications</b> rows — no vanity numbers. POC data flows through the same pipeline, so the demo run populates this dashboard itself. Recovery rate is benchmarked against the <b>4.76% IASC baseline</b>; time-to-freeze against the >12h manual workflow."
+      "footerNote": "Figures come from this deployment’s own <b>cases · action_documents · notifications</b> rows, through the same pipeline a real case would take. Rows marked <b>demo</b> are seeded fixtures shipped with the build — not work this agency did. Time-to-freeze is shown against an assumed manual workflow of <b>over 12 hours</b>."
     },
     "casesTable": {
       "activeCases": "Active cases",
@@ -921,6 +921,13 @@
         "med": "Med",
         "low": "Low",
         "active": "Active"
+      },
+      "crimeTypes": {
+        "investment_scam": "Investment scam",
+        "judol_deposit": "Judol relay",
+        "crypto_phishing": "Phishing",
+        "romance": "Romance scam",
+        "mule_network": "Mule network"
       }
     },
     "dispatchLog": {

@@ -889,7 +889,7 @@
     "panel": {
       "title": "Command Center",
       "titleModule": "metrik",
-      "subtitle": "Dampak operasional di seluruh instansi pada semua kasus — dari hitungan hari menjadi menit, berdasarkan data nyata.",
+      "subtitle": "Dampak operasional di seluruh instansi pada semua kasus — dari hitungan hari menjadi menit.",
       "liveApi": "● live api",
       "offlineMock": "● offline · mock",
       "liveApiTitle": "API backend live",
@@ -904,7 +904,7 @@
       "opsPipelineEyebrow": "Pipeline operasi · {range}",
       "trendEyebrow": "Waktu-ke-pemblokiran · tren",
       "loadingState": "Mengagregasi read-model kasus · pemblokiran · notifikasi…",
-      "footerNote": "Semua angka dihitung dari data <b>cases · action_documents · notifications</b> yang nyata — tanpa angka kosmetik. Data POC mengalir melalui pipeline yang sama, sehingga proses demo mengisi dasbor ini sendiri. Tingkat pemulihan dibandingkan terhadap <b>baseline IASC 4,76%</b>; waktu-ke-pemblokiran terhadap alur kerja manual >12 jam."
+      "footerNote": "Angka berasal dari data <b>cases · action_documents · notifications</b> milik deployment ini, melalui pipeline yang sama seperti kasus sungguhan. Baris bertanda <b>demo</b> adalah data contoh bawaan build — bukan pekerjaan instansi ini. Waktu-ke-pemblokiran ditampilkan terhadap asumsi alur kerja manual <b>lebih dari 12 jam</b>."
     },
     "casesTable": {
       "activeCases": "Kasus aktif",
@@ -921,6 +921,13 @@
         "med": "Sedang",
         "low": "Rendah",
         "active": "Aktif"
+      },
+      "crimeTypes": {
+        "investment_scam": "Penipuan investasi",
+        "judol_deposit": "Relai judol",
+        "crypto_phishing": "Phishing",
+        "romance": "Penipuan asmara",
+        "mule_network": "Jaringan mule"
       }
     },
     "dispatchLog": {

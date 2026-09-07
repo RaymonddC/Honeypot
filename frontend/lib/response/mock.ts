@@ -65,10 +65,10 @@ export const MOCK_TREND = [
 // Every row here is fixture data by definition — this whole module is the
 // offline fallback — so they are all marked seeded.
 export const MOCK_CASES: ActiveCase[] = [
-  { ref: "ITU-0417", type: "Judol relay", atRisk: "Rp 48M", risk: "high", statusKey: "high", source: "baseline" },
-  { ref: "ITU-0416", type: "Invest. scam", atRisk: "Rp 31M", risk: "high", statusKey: "high", source: "baseline" },
-  { ref: "ITU-0412", type: "Phishing", atRisk: "Rp 9M", risk: "med", statusKey: "med", source: "baseline" },
-  { ref: "ITU-0409", type: "Mule net", atRisk: "Rp 15M", risk: "low", statusKey: "frozen", source: "baseline" },
+  { ref: "ITU-0417", type: "judol_deposit", atRisk: "Rp 48M", risk: "high", statusKey: "high", source: "baseline" },
+  { ref: "ITU-0416", type: "investment_scam", atRisk: "Rp 31M", risk: "high", statusKey: "high", source: "baseline" },
+  { ref: "ITU-0412", type: "crypto_phishing", atRisk: "Rp 9M", risk: "med", statusKey: "med", source: "baseline" },
+  { ref: "ITU-0409", type: "mule_network", atRisk: "Rp 15M", risk: "low", statusKey: "frozen", source: "baseline" },
 ];
 
 export function buildMockMetrics(range: RangeKey = "30d"): ResponseMetrics {

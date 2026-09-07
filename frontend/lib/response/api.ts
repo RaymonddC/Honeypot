@@ -214,12 +214,6 @@ function normalizeCaseStatus(
   };
 }
 
-/** "judol_deposit" → "Judol deposit". */
-const humanize = (s: string): string => {
-  const t = s.replace(/[_-]+/g, " ").trim();
-  return t ? t[0].toUpperCase() + t.slice(1) : "—";
-};
-
 function normalizeCases(m: any): ActiveCase[] {
   const items: any[] = first(m?.cases, m?.active_cases, m?.items, []) ?? [];
   return items.map((c, i): ActiveCase => {
@@ -233,7 +227,7 @@ function normalizeCases(m: any): ActiveCase[] {
     ).replace(/^CASE-/i, "");
     return {
       ref: ref.length > 12 ? `${ref.slice(0, 9)}…` : ref,
-      type: humanize(String(first(c?.crime_type, c?.type, "—"))),
+      type: String(first(c?.crime_type, c?.type, "—")),
       atRisk: atRisk != null ? formatIDRShort(atRisk) : "—",
       risk,
       statusKey,

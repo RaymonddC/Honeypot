@@ -14,6 +14,26 @@ const PILL_STYLES: Record<CaseRisk, string> = {
   low: "bg-risk-low/[.12] text-risk-low",
 };
 
+/** Crime typology key → label. Anything the UI doesn't recognise is shown
+ *  humanised ("mule_network" → "Mule network") rather than dropped: a typology
+ *  we have no wording for is still information about the case. */
+function crimeTypeLabel(
+  key: string,
+  t: ReturnType<typeof useTranslations>,
+): string {
+  const known = [
+    "investment_scam",
+    "judol_deposit",
+    "crypto_phishing",
+    "romance",
+    "mule_network",
+  ];
+  if (!key || key === "—") return "—";
+  if (known.includes(key)) return t(`crimeTypes.${key}`);
+  const s = key.replace(/[_-]+/g, " ").trim();
+  return s ? s[0].toUpperCase() + s.slice(1) : "—";
+}
+
 export function CasesTable({ cases }: { cases: ActiveCase[] }) {
   const t = useTranslations("response.casesTable");
   const columns = [t("colCase"), t("colType"), t("colAtRisk"), t("colStatus")];
@@ -65,7 +85,7 @@ export function CasesTable({ cases }: { cases: ActiveCase[] }) {
                   </span>
                 </td>
                 <td className="px-3.5 py-[11px] text-muted group-hover:bg-fg/[.015]">
-                  {c.type}
+                  {crimeTypeLabel(c.type, t)}
                 </td>
                 <td className="px-3.5 py-[11px] tnum text-muted group-hover:bg-fg/[.015]">
                   {c.atRisk}

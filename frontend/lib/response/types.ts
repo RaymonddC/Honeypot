@@ -53,7 +53,12 @@ export type CaseStatusKey = "frozen" | "high" | "med" | "low" | "active" | "unkn
 export interface ActiveCase {
   /** Short case ref, e.g. "ITU-0417". */
   ref: string;
-  /** Crime type, e.g. "Judol relay". */
+  /**
+   * Crime typology as the backend spells it (e.g. "judol_deposit"). CasesTable
+   * resolves known values against i18n and shows anything else humanised, so an
+   * unrecognised typology still reads rather than being dropped. Carrying a
+   * finished English label here is what left this column untranslated.
+   */
   type: string;
   /** Funds at risk, formatted, e.g. "Rp 48M". */
   atRisk: string;
