@@ -13,7 +13,7 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -38,10 +38,17 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          # MUST stay in the same major as the Node that generates
+          # package-lock.json locally. npm 11 (Node 22+) hoists differently
+          # from npm 10 (Node 20) — a lock written by npm 11 drops the nested
+          # `next-intl/node_modules/@swc/helpers` entry that npm 10 still
+          # expects, and `npm ci` then fails with "Missing: @swc/helpers from
+          # lock file" while the same lock installs fine locally. Node 20 is
+          # also deprecated on GitHub runners.
+          node-version: "24"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Install deps
