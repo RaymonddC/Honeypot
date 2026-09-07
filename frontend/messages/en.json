@@ -1691,7 +1691,8 @@
       "privacy": "Do not include passwords, OTPs or card numbers. Anything you enter here is handled as case data.",
       "scamTypeLabel": "What kind of scam was it?",
       "channelLabel": "How did they contact you?",
-      "moneyMoved": "Money already left my account"
+      "moneyMoved": "Money already left my account",
+      "another": "Report another"
     },
     "limits": {
       "eyebrow": "What this is, and what it is not",
@@ -1716,6 +1717,25 @@
       "facebook": "Facebook",
       "marketplace": "Marketplace",
       "other": "Other"
+    },
+    "nav": {
+      "ariaLabel": "CekScam sections",
+      "check": "Check an account",
+      "report": "Report a scammer"
+    },
+    "samples": {
+      "label": "Try:",
+      "bank": "a reported bank account",
+      "ewallet": "a reported e-wallet",
+      "wallet": "a crypto address",
+      "caution": "one with a single report",
+      "unknown": "one we have no record of"
+    },
+    "crossLink": {
+      "cta": "Report this",
+      "flagged": "Were you approached by this one too? A report adds what happened to what we already hold.",
+      "caution": "If this one approached you, a second report is often what turns a maybe into a confirmed scam account.",
+      "unknown": "Nothing on this one yet — if it approached you, your report is what puts it on the map for the next person."
     }
   }
 }

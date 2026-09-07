@@ -1691,7 +1691,8 @@
       "privacy": "Jangan cantumkan kata sandi, OTP, atau nomor kartu. Semua yang Anda isi diperlakukan sebagai data kasus.",
       "scamTypeLabel": "Penipuan jenis apa?",
       "channelLabel": "Lewat mana mereka menghubungi?",
-      "moneyMoved": "Uang sudah keluar dari rekening saya"
+      "moneyMoved": "Uang sudah keluar dari rekening saya",
+      "another": "Laporkan lagi"
     },
     "limits": {
       "eyebrow": "Apa ini, dan apa bukan",
@@ -1716,6 +1717,25 @@
       "facebook": "Facebook",
       "marketplace": "Marketplace",
       "other": "Lainnya"
+    },
+    "nav": {
+      "ariaLabel": "Bagian CekScam",
+      "check": "Cek rekening",
+      "report": "Laporkan penipu"
+    },
+    "samples": {
+      "label": "Coba:",
+      "bank": "rekening bank dilaporkan",
+      "ewallet": "e-wallet dilaporkan",
+      "wallet": "alamat kripto",
+      "caution": "baru satu laporan",
+      "unknown": "belum ada catatannya"
+    },
+    "crossLink": {
+      "cta": "Laporkan ini",
+      "flagged": "Anda juga dihubungi yang satu ini? Laporan Anda menambah kejadiannya ke catatan yang sudah ada.",
+      "caution": "Kalau yang ini menghubungi Anda, laporan kedua sering jadi penentu antara dugaan dan rekening penipu yang terkonfirmasi.",
+      "unknown": "Belum ada catatan untuk yang ini — kalau ia menghubungi Anda, laporan Anda yang membuatnya terdeteksi untuk orang berikutnya."
     }
   }
 }

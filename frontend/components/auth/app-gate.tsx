@@ -31,7 +31,7 @@ function Splash() {
 // redirect to fire — and /cek, the public CekScam check page, which is for
 // members of the public who have no account and must never be bounced to a
 // login. Everything else requires a session.
-const PUBLIC_ROUTES = new Set(["/", "/login", "/cek"]);
+const PUBLIC_ROUTES = new Set(["/", "/login", "/cek", "/lapor"]);
 
 export function AppGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
