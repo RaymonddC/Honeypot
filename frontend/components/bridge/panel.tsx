@@ -198,8 +198,10 @@ export function BridgePanel({
                 <div className="mb-3.5 rounded-card border border-accent/30 bg-accent/[.06]">
                   <div className="flex items-center justify-between border-b border-accent/20 px-3.5 py-2.5">
                     <span className="eyebrow text-accent-bright">{t("caseOnRamp")}</span>
-                    <span className="rounded-full border border-accent/30 bg-accent/10 px-1.5 py-0.5 font-mono text-[12px] font-semibold text-accent-bright">
-                      conf {caseBridge.confidence.toFixed(2)}
+                    {/* "conf" is a label, the score is the figure — same split
+                        as the honeypot entity panel. */}
+                    <span className="rounded-full border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[12px] font-semibold text-accent-bright">
+                      conf <span className="font-mono tnum">{caseBridge.confidence.toFixed(2)}</span>
                     </span>
                   </div>
                   <div className="px-3.5 py-3">
