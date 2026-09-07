@@ -316,7 +316,9 @@
       "addCase": "+ kasus",
       "traceTitle": "Lacak {address} di Takedown",
       "trace": "lacak →",
-      "empty": "Belum ada on-ramp yang terkorelasi — jalankan simulasi."
+      "empty": "Belum ada on-ramp yang terkorelasi — jalankan simulasi.",
+      "amountMatch": "kecocokan nilai {pct}%",
+      "correlatedFallback": "on-ramp terkorelasi"
     },
     "sankeyChart": {
       "ariaLabel": "Aliran dana fiat ke crypto: merchant QRIS melalui rekening mule dan deposit exchange menuju wallet USDT dan tujuan luar negeri",
@@ -337,6 +339,21 @@
       "downloadReport": "⬇ Unduh laporan",
       "close": "Tutup",
       "iframeTitle": "Pratinjau laporan pelacakan"
+    },
+    "sankeyNodes": {
+      "qrisA": "Merchant QRIS · klaster A",
+      "qrisB": "Merchant QRIS · klaster B",
+      "qrisC": "Merchant QRIS · klaster C",
+      "qrisShort": "Merchant QRIS",
+      "muleA": "Rekening mule · M-07 / M-03",
+      "muleB": "Rekening mule · M-11 / M-04",
+      "muleShort": "Rekening mule",
+      "exchange": "Setoran exchange · Indodax / Tokocrypto / Reku",
+      "exchangeShort": "Setoran exchange",
+      "usdt": "Wallet USDT-TRC20",
+      "usdtShort": "Wallet USDT",
+      "foreign": "Tujuan luar negeri",
+      "foreignShort": "Luar negeri"
     }
   },
   "investigation": {

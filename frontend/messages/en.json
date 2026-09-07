@@ -316,7 +316,9 @@
       "addCase": "+ case",
       "traceTitle": "Trace {address} in Takedown",
       "trace": "trace →",
-      "empty": "No correlated on-ramps yet — run the simulation."
+      "empty": "No correlated on-ramps yet — run the simulation.",
+      "amountMatch": "amount match {pct}%",
+      "correlatedFallback": "correlated on-ramp"
     },
     "sankeyChart": {
       "ariaLabel": "Fiat-to-crypto fund flow: QRIS merchants through mule accounts and exchange deposits to USDT wallets and foreign destinations",
@@ -337,6 +339,21 @@
       "downloadReport": "⬇ Download report",
       "close": "Close",
       "iframeTitle": "Trace report preview"
+    },
+    "sankeyNodes": {
+      "qrisA": "QRIS merchants · cluster A",
+      "qrisB": "QRIS merchants · cluster B",
+      "qrisC": "QRIS merchants · cluster C",
+      "qrisShort": "QRIS merchants",
+      "muleA": "Mule accounts · M-07 / M-03",
+      "muleB": "Mule accounts · M-11 / M-04",
+      "muleShort": "Mule accounts",
+      "exchange": "Exchange deposits · Indodax / Tokocrypto / Reku",
+      "exchangeShort": "Exchange deposits",
+      "usdt": "USDT-TRC20 wallets",
+      "usdtShort": "USDT wallets",
+      "foreign": "Foreign destinations",
+      "foreignShort": "Foreign"
     }
   },
   "investigation": {

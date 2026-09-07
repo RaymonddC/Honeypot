@@ -14,7 +14,7 @@ import { useTranslations } from "next-intl";
 import { useCases } from "@/components/cases/case-provider";
 import { addCryptoTransfer } from "@/lib/casedata/api";
 import type { OnRampAlert } from "@/lib/bridge/types";
-import { confidenceColor } from "@/lib/bridge/types";
+import { confidenceColor, formatIDR, formatMinutes } from "@/lib/bridge/types";
 
 function AlertActions({
   a,
@@ -92,6 +92,22 @@ export function OnRampFeed({
   onTrace?: (addr: string) => void;
 }) {
   const t = useTranslations("bridge.onrampFeed");
+
+  /**
+   * The evidence line: amount · time gap · amount match. Composed HERE from
+   * numbers rather than arriving as a finished string, so "amount match" is
+   * translated like everything around it. Falls back to a generic label when
+   * a correlation carries none of the three.
+   */
+  const metaOf = (a: OnRampAlert): string => {
+    const parts: string[] = [];
+    if (a.amountIdr != null) parts.push(formatIDR(a.amountIdr));
+    if (a.deltaSeconds != null) parts.push(formatMinutes(a.deltaSeconds));
+    if (a.amountMatchPct != null)
+      parts.push(t("amountMatch", { pct: a.amountMatchPct.toFixed(1) }));
+    return parts.join(" · ") || t("correlatedFallback");
+  };
+
   return (
     <div className="mb-3.5 rounded-card border border-line bg-card">
       {/* The "ranked by confidence" chip used to sit here. In Indonesian it is
@@ -132,8 +148,8 @@ export function OnRampFeed({
                     <b className="mb-0.5 block truncate text-[12px]" title={a.title}>
                       {a.title}
                     </b>
-                    <small className="block truncate text-[12px] text-muted" title={a.meta}>
-                      {a.meta}
+                    <small className="block truncate text-[12px] text-muted" title={metaOf(a)}>
+                      {metaOf(a)}
                     </small>
                   </div>
                 </div>

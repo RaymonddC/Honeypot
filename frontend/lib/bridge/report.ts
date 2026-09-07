@@ -5,8 +5,23 @@
  * exactly what you save. No backend endpoint needed.
  */
 
-import type { BridgeData } from "./types";
-import { confidenceColor } from "./types";
+import type { BridgeData, OnRampAlert } from "./types";
+import { confidenceColor, formatIDR, formatMinutes } from "./types";
+
+/**
+ * The correlation evidence line, composed here rather than read off the alert.
+ * OnRampAlert now carries the numbers so the on-screen feed can translate this
+ * line; this document is deliberately English throughout (like the freeze
+ * letter and dispatch receipt, it is a standalone artefact), so it composes its
+ * own copy instead of reaching for a locale it has no access to.
+ */
+function alertMeta(a: OnRampAlert): string {
+  const parts: string[] = [];
+  if (a.amountIdr != null) parts.push(formatIDR(a.amountIdr));
+  if (a.deltaSeconds != null) parts.push(formatMinutes(a.deltaSeconds));
+  if (a.amountMatchPct != null) parts.push(`amount match ${a.amountMatchPct.toFixed(1)}%`);
+  return parts.join(" · ") || "correlated on-ramp";
+}
 
 const esc = (s: unknown): string =>
   String(s ?? "").replace(/[&<>"]/g, (c) =>
@@ -74,7 +89,7 @@ export function buildTraceReportHtml(
       <tr>
         <td><span class="dot" style="background:${confidenceColor(a.confidence)}"></span>${a.confidence.toFixed(2)}</td>
         <td>${esc(a.title)}</td>
-        <td class="muted">${esc(a.meta)}</td>
+        <td class="muted">${esc(alertMeta(a))}</td>
       </tr>`,
     )
     .join("");

@@ -46,10 +46,18 @@ function compact(v: number): string {
 
 const fmtFull = (v: number) => v.toLocaleString("en-US");
 
-/** Inline label: drop a trailing wallet-address tag "(TBQg…Sw3d)", clip length. */
+/**
+ * Inline label: drop a trailing wallet-address tag "(TBQg…Sw3d)", clip length.
+ *
+ * The clip is 28, not 22: each label owns a ~218px column lane, so 22 was
+ * needlessly tight — and it cost information. The three QRIS nodes differ only
+ * by their "· cluster A/B/C" suffix, and in Indonesian ("Merchant QRIS ·
+ * klaster A") 22 chars cut exactly that suffix off, rendering all three
+ * identically. The full name is still on hover either way.
+ */
 function displayName(name: string): string {
   let s = name.replace(/\s*\((?:0x)?[A-Za-z0-9]*…[A-Za-z0-9]*\)\s*$/u, "").trim();
-  if (s.length > 22) s = `${s.slice(0, 21).trimEnd()}…`;
+  if (s.length > 28) s = `${s.slice(0, 27).trimEnd()}…`;
   return s;
 }
 
@@ -58,6 +66,8 @@ const RIGHT_PAD = 150;
 
 export function SankeyChart({ data }: { data: BridgeSankeyData }) {
   const t = useTranslations("bridge.sankeyChart");
+  // Node wording for the demo (mock) dataset — see BridgeSankeyNode.nameKey.
+  const tNodes = useTranslations("bridge.sankeyNodes");
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const [hoverNode, setHoverNode] = useState<string | null>(null);
   const [hoverLink, setHoverLink] = useState<number | null>(null);
@@ -181,7 +191,10 @@ export function SankeyChart({ data }: { data: BridgeSankeyData }) {
         // into the reserved right margin.
         const labelX = x1 + 8;
         const showValue = h >= 13;
-        const name = displayName(n.name);
+        // Prefer the localised name when the source supplied a key; the live
+        // backend composes its own names, so those still render verbatim.
+        const fullName = n.nameKey ? tNodes(n.nameKey) : n.name;
+        const name = displayName(fullName);
         return (
           <g
             key={n.id}
@@ -197,7 +210,7 @@ export function SankeyChart({ data }: { data: BridgeSankeyData }) {
               rx={3}
               fill={nodeColor(n)}
             >
-              <title>{`${n.name} · ${fmtFull(n.value ?? 0)}`}</title>
+              <title>{`${fullName} · ${fmtFull(n.value ?? 0)}`}</title>
             </rect>
             <text
               x={labelX}

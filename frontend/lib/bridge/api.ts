@@ -153,18 +153,13 @@ function normalizeCorrelations(raw: any): OnRampAlert[] {
           ? String(c.title)
           : `${from != null ? String(from) : "Mule account"}${to != null ? ` → ${to}` : ""}`;
 
-      const parts: string[] = [];
       const idr = num(
         first(fiat.amount_idr, c?.fiat_amount_idr, c?.amount_idr, c?.fiat_amount),
       );
-      if (idr != null) parts.push(formatIDR(idr));
       const dt = num(first(c?.time_delta_seconds, c?.delta_seconds));
-      if (dt != null) parts.push(formatMinutes(dt));
-      const match = num(first(c?.amount_match, c?.amount_match_pct));
-      if (match != null)
-        parts.push(
-          `amount match ${(match <= 1 ? match * 100 : match).toFixed(1)}%`,
-        );
+      const matchRaw = num(first(c?.amount_match, c?.amount_match_pct));
+      // Normalise fraction-or-percent to percent once, here.
+      const match = matchRaw == null ? null : matchRaw <= 1 ? matchRaw * 100 : matchRaw;
 
       // The depositing wallet (launderer feeding the exchange) — the Takedown
       // target. Do NOT fall back to crypto.to_addr: that's the exchange hot
@@ -185,7 +180,9 @@ function normalizeCorrelations(raw: any): OnRampAlert[] {
         id: String(first(c?.id, `corr-${i}`)),
         confidence,
         title,
-        meta: parts.join(" · ") || "correlated on-ramp",
+        amountIdr: idr ?? undefined,
+        deltaSeconds: dt ?? undefined,
+        amountMatchPct: match ?? undefined,
         wallet,
         toAddr,
         valueUsdt: valueUsdt ?? undefined,
@@ -266,7 +263,10 @@ function deriveStats(
     alerts.length; // 0 is a real count — `alerts.length || null` rendered it as "—"
 
   const idr = inflow != null ? formatIDR(inflow) : "—";
-  const m = idr.match(/^(.*) (T|M)$/); // split unit suffix for styling
+  // Split the unit suffix so the tile can dim it. MUST list every suffix
+  // formatIDR can emit — "B" was missing, so a miliar figure fell through to
+  // the unsplit branch and rendered its unit at full size.
+  const m = idr.match(/^(.*) (T|B|M)$/);
 
   return {
     qrisInflow: m
