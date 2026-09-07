@@ -42,6 +42,19 @@ type NavItem = {
   capability?: string;
   /** Hidden when the deployment does not offer the crypto surface. */
   crypto?: boolean;
+  /**
+   * Kept out of the menu, but NOT removed from these tables.
+   *
+   * Hiding a link has never been the access control here — the route still
+   * resolves and the server still decides who may read it. The entry stays
+   * because things other than the menu read these tables: the case context bar
+   * suppresses itself on every ADMIN_NAV route, and dropping /audit from the
+   * list would put a case banner over the agency-wide audit trail, implying the
+   * log only covers that one case.
+   *
+   * Un-hiding is deleting the flag.
+   */
+  hidden?: boolean;
 };
 
 const ADMIN_NAV: NavItem[] = [
@@ -53,7 +66,7 @@ const ADMIN_NAV: NavItem[] = [
   // tamper-evident log that only administrators can see is a weaker control —
   // the people best placed to notice something wrong in the record are the ones
   // who did the work it describes.
-  { href: "/audit", labelKey: "auditTrail", icon: "audit" },
+  { href: "/audit", labelKey: "auditTrail", icon: "audit", hidden: true },
   { href: "/users", labelKey: "users", icon: "users", capability: CAP.usersAdmin },
   { href: "/roles", labelKey: "roles", icon: "roles", capability: CAP.rolesAdmin },
 ];
@@ -78,7 +91,7 @@ const NAV_GROUPS: { groupKey: string; items: NavItem[] }[] = [
       { href: "/bridge", labelKey: "trace", subKey: "traceSub", icon: "trace", step: 2 },
       { href: "/investigation", labelKey: "takedown", subKey: "takedownSub", icon: "takedown", step: 3, crypto: true },
       { href: "/actions", labelKey: "uncover", subKey: "uncoverSub", icon: "uncover", step: 4 },
-      { href: "/honeypot-ops", labelKey: "honeypotOps", subKey: "honeypotOpsSub", icon: "honeypotOps" },
+      { href: "/honeypot-ops", labelKey: "honeypotOps", subKey: "honeypotOpsSub", icon: "honeypotOps", hidden: true },
       { href: "/response", labelKey: "commandCenter", icon: "commandCenter" },
     ],
   },
@@ -218,10 +231,10 @@ function SidebarNav({
   const t = useTranslations("appShell.nav");
   const tCommon = useTranslations("common");
   const adminItems = ADMIN_NAV.filter(
-    (item) => !item.capability || can(me, item.capability),
+    (item) => !item.hidden && (!item.capability || can(me, item.capability)),
   );
   const visible = (items: NavItem[]): NavItem[] =>
-    items.filter((item) => !item.crypto || cryptoEnabled);
+    items.filter((item) => !item.hidden && (!item.crypto || cryptoEnabled));
 
   return (
     <>
