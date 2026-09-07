@@ -976,7 +976,7 @@ function IntakeStage({
                   {banks.map((b) => (
                     <li key={String(b.id)} className="rounded-lg bg-elevated px-2.5 py-1.5 font-mono text-[12px] text-fg">
                       {String(b.bank_name)} {String(b.account_number)}
-                      <span className="ml-2 text-[12px] text-muted">{String(b.category)}</span>
+                      <span className="ml-2 font-sans text-[12px] text-muted">{String(b.category)}</span>
                     </li>
                   ))}
                 </ul>
@@ -1688,7 +1688,7 @@ export default function CaseFilePage() {
               {banks.map((b) => (
                 <li key={String(b.id)} className="rounded-lg bg-elevated px-2.5 py-1.5 font-mono text-[12px] text-fg">
                   {String(b.bank_name)} {String(b.account_number)}
-                  <span className="ml-2 text-[12px] text-muted">{String(b.category)}</span>
+                  <span className="ml-2 font-sans text-[12px] text-muted">{String(b.category)}</span>
                 </li>
               ))}
             </ul>

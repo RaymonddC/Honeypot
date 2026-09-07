@@ -57,7 +57,7 @@ export function CasesTable({ cases }: { cases: ActiveCase[] }) {
                     {c.source === "baseline" && (
                       <span
                         title={t("seededTitle")}
-                        className="flex-none rounded border border-line bg-elevated px-1 py-px text-[12px] uppercase tracking-wide text-muted"
+                        className="flex-none rounded border border-line bg-elevated px-1 py-px font-sans text-[12px] uppercase tracking-wide text-muted"
                       >
                         {t("seededBadge")}
                       </span>

@@ -323,7 +323,7 @@ export function WalletGraph({
       </div>
 
       {/* peeling-chain callout */}
-      <div className="pointer-events-none absolute bottom-3 right-3 rounded-lg border border-risk-high/20 bg-card/90 px-2.5 py-1.5 font-mono text-[12px] font-bold text-risk-high backdrop-blur-sm">
+      <div className="pointer-events-none absolute bottom-3 right-3 rounded-lg border border-risk-high/20 bg-card/90 px-2.5 py-1.5 text-[12px] font-bold text-risk-high backdrop-blur-sm">
         {t("peelingChain")}
       </div>
 

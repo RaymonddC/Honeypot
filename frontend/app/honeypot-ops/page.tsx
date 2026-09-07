@@ -830,7 +830,9 @@ function TriageRow({
   return (
     <li className="rounded-lg bg-elevated px-2.5 py-2">
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[12px]">
-        <span className="font-mono text-fg">{row.channel_ref ?? t("triageRow.unknownNumber")}</span>
+        <span className="font-mono text-fg">{row.channel_ref ?? (
+                    <span className="font-sans">{t("triageRow.unknownNumber")}</span>
+                  )}</span>
         <span className="text-muted">
           {fmtDate(row.started_at)}
           {row.duration_seconds ? ` · ${row.duration_seconds}s` : ""}

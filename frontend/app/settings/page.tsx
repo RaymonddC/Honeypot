@@ -655,7 +655,7 @@ function AdvancedGoogle({
 function ModeChip({ mode }: { mode: "POC" | "LIVE" }) {
   return (
     <span
-      className={`rounded-md border px-2 py-0.5 font-mono text-[12px] font-bold tracking-widest ${
+      className={`rounded-md border px-2 py-0.5 text-[12px] font-bold tracking-widest ${
         mode === "LIVE"
           ? "border-accent/40 bg-accent/10 text-accent-bright"
           : "border-risk-med/40 bg-risk-med/10 text-risk-med"
@@ -736,13 +736,14 @@ function BackendStatus({
             {status.keys.map((k) => (
               <span
                 key={k.provider}
-                className={`rounded-md border px-2 py-0.5 font-mono text-[12px] ${
+                className={`rounded-md border px-2 py-0.5 text-[12px] ${
                   k.present
                     ? "border-accent/30 bg-accent/10 text-accent-bright"
                     : "border-line bg-elevated text-muted"
                 }`}
               >
-                {k.provider} · {k.present ? t("backendStatus.keyConfigured") : t("backendStatus.keyNotSet")}
+                <span className="font-mono">{k.provider}</span>{" · "}
+                {k.present ? t("backendStatus.keyConfigured") : t("backendStatus.keyNotSet")}
               </span>
             ))}
           </div>
