@@ -106,6 +106,29 @@ def build_stream_twiml(ws_url: str, *, greeting: str | None = None) -> str:
     )
 
 
+def build_play_and_hangup_twiml(audio_url: str) -> str:
+    """TwiML that plays a synthesized audio file and hangs up.
+
+    The same shape as ``build_say_and_hangup_twiml`` but with OUR voice instead
+    of Twilio's built-in one. ``<Say>`` is a generic telephony voice; a honeypot
+    persona that sounds like an IVR announces itself as a machine in the first
+    two seconds, which is the one thing it cannot afford to do.
+
+    ``audio_url`` must be publicly fetchable — Twilio pulls it over the internet
+    with no credentials, so it points at our unauthenticated audio route rather
+    than anything behind the JWT. https is required for the same reason the
+    media stream is wss: call audio is evidence.
+    """
+    if not audio_url.startswith("https://"):
+        raise ValueError(
+            f"audio URL must be https:// and publicly reachable, got {audio_url!r}"
+        )
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        f"<Response><Play>{_escape(audio_url)}</Play><Hangup/></Response>"
+    )
+
+
 def build_say_and_hangup_twiml(message: str, *, language: str = "id-ID") -> str:
     """TwiML that speaks one line and hangs up.
 

@@ -169,6 +169,157 @@ def test_webhook_rejects_forged_and_unsigned_requests(twilio_client):
     assert _signed(client, url, params, "wrong-token").status_code == 403
 
 
+def test_webhook_says_the_line_when_no_live_tts_is_configured(twilio_client):
+    """The <Say> branch, stated explicitly rather than relied on by accident.
+
+    ``test_webhook_accepts_a_correctly_signed_call`` above also lands here (the
+    suite runs with the default ``browser`` provider), so without this test the
+    fallback would be covered only as a side effect of a fixture default.
+    """
+    from app.core.config import get_settings
+
+    client, url, token = twilio_client
+    s = get_settings()
+    prior = s.tts_provider
+    s.tts_provider = "browser"
+    try:
+        r = _signed(client, url, {"CallSid": "CA1", "To": "+62822"}, token)
+        assert "<Say" in r.text and "<Play>" not in r.text
+    finally:
+        s.tts_provider = prior
+
+
+def test_webhook_plays_our_own_voice_when_a_live_tts_provider_is_configured(twilio_client):
+    """A persona that sounds like an IVR gives itself away in two seconds, so a
+    configured provider must actually change the TwiML."""
+    from app.core.config import get_settings
+
+    client, url, token = twilio_client
+    s = get_settings()
+    prior = (s.tts_provider, s.google_tts_api_key)
+    s.tts_provider, s.google_tts_api_key = "google", "test-key"
+    try:
+        r = _signed(client, url, {"CallSid": "CA1", "To": "+62822"}, token)
+        assert r.status_code == 200
+        assert "<Play>https://ittu.example/api/telephony/audio/greeting.mp3</Play>" in r.text
+        assert "<Say" not in r.text
+        assert "<Hangup/>" in r.text
+    finally:
+        s.tts_provider, s.google_tts_api_key = prior
+
+
+def test_webhook_falls_back_to_say_when_the_provider_has_no_key(twilio_client):
+    """A provider NAME without its key would emit <Play> for audio we cannot
+    synthesize — the caller would hear silence, which is worse than a generic
+    voice. Knowing the name is not the same as being able to speak."""
+    from app.core.config import get_settings
+
+    client, url, token = twilio_client
+    s = get_settings()
+    prior = (s.tts_provider, s.google_tts_api_key)
+    s.tts_provider, s.google_tts_api_key = "google", ""
+    try:
+        r = _signed(client, url, {"CallSid": "CA1", "To": "+62822"}, token)
+        assert "<Say" in r.text and "<Play>" not in r.text
+    finally:
+        s.tts_provider, s.google_tts_api_key = prior
+
+
+# --- The audio route (GET /api/telephony/audio/{line}.mp3) --------------------
+
+
+def test_audio_route_refuses_a_line_it_does_not_know():
+    """The security boundary. This route MUST be unauthenticated — Twilio fetches
+    <Play> URLs with no credentials and does not sign media requests — so the
+    fixed vocabulary is what stops it being a free public text-to-speech proxy
+    billed to our provider account. An unknown key must 404 BEFORE any provider
+    call, not synthesize whatever was in the URL."""
+    from fastapi.testclient import TestClient
+
+    from app.core.config import get_settings
+    from app.main import app
+
+    s = get_settings()
+    prior = (s.tts_provider, s.google_tts_api_key)
+    s.tts_provider, s.google_tts_api_key = "google", "test-key"
+    try:
+        r = TestClient(app).get("/api/telephony/audio/anything-i-like.mp3")
+        assert r.status_code == 404
+        # The app wraps HTTPException detail as {"error": {...}} with a request_id.
+        assert r.json()["error"]["code"] == "unknown_line"
+    finally:
+        s.tts_provider, s.google_tts_api_key = prior
+
+
+def test_audio_route_says_so_when_no_provider_is_configured():
+    """503 rather than a silent empty body: Twilio would play the empty body as
+    nothing at all, and 'the caller heard silence' is the hardest failure to
+    diagnose after the fact."""
+    from fastapi.testclient import TestClient
+
+    from app.core.config import get_settings
+    from app.main import app
+
+    s = get_settings()
+    prior = s.tts_provider
+    s.tts_provider = "browser"
+    try:
+        r = TestClient(app).get("/api/telephony/audio/greeting.mp3")
+        assert r.status_code == 503
+        assert r.json()["error"]["code"] == "tts_unavailable"
+    finally:
+        s.tts_provider = prior
+
+
+def test_audio_route_serves_and_then_caches_synthesized_audio(monkeypatch):
+    """One provider call per line, not one per call. Twilio holds a live caller
+    while it fetches this, and the greeting never changes."""
+    from fastapi.testclient import TestClient
+
+    from app.core.config import get_settings
+    from app.infiltrate import router as infiltrate_router
+    from app.infiltrate.voice import TTSResult
+    from app.main import app
+
+    calls = {"n": 0}
+
+    class _FakeTTS:
+        provider = "google"
+
+        def __init__(self, settings=None):
+            pass
+
+        async def synthesize(self, text, voice="persona"):
+            calls["n"] += 1
+            return TTSResult(
+                provider="google", voice=voice, text=text, duration_seconds=1.0,
+                audio_bytes=b"\xff\xf3ID3-fake-mp3", mime_type="audio/mpeg",
+            )
+
+    monkeypatch.setitem(
+        __import__("app.infiltrate.voice", fromlist=["LIVE_TTS_PROVIDERS"]).LIVE_TTS_PROVIDERS,
+        "google", _FakeTTS,
+    )
+    infiltrate_router._audio_cache.clear()
+
+    s = get_settings()
+    prior = (s.tts_provider, s.google_tts_api_key)
+    s.tts_provider, s.google_tts_api_key = "google", "test-key"
+    try:
+        client = TestClient(app)
+        first = client.get("/api/telephony/audio/greeting.mp3")
+        assert first.status_code == 200
+        assert first.headers["content-type"] == "audio/mpeg"
+        assert first.content == b"\xff\xf3ID3-fake-mp3"
+
+        second = client.get("/api/telephony/audio/greeting.mp3")
+        assert second.content == first.content
+        assert calls["n"] == 1, "second fetch must come from cache, not the provider"
+    finally:
+        s.tts_provider, s.google_tts_api_key = prior
+        infiltrate_router._audio_cache.clear()
+
+
 def test_webhook_fails_closed_when_twilio_is_not_configured():
     """No auth token must mean NOTHING is accepted — the endpoint is otherwise
     unauthenticated, so an empty token waving requests through would leave it

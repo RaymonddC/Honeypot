@@ -62,6 +62,7 @@ from app.infiltrate.service import (
 import secrets
 
 from app.infiltrate.telephony import (
+    build_play_and_hangup_twiml,
     build_say_and_hangup_twiml,
     build_stream_twiml,
     verify_twilio_signature,
@@ -487,6 +488,107 @@ async def get_syndicates(
     return await service.list_syndicates(repo=repo)
 
 
+# Lines the honeypot can speak on a call, addressed by KEY rather than by text.
+#
+# This is the security boundary for the audio route below. That route has to be
+# unauthenticated — Twilio fetches <Play> URLs over the open internet with no
+# credentials — so if it synthesized whatever text a caller put in the URL, it
+# would be a free public text-to-speech proxy billed to our provider account.
+# A fixed vocabulary makes the cost bounded and the output predictable.
+VOICE_LINES: dict[str, str] = {
+    "greeting": "Halo, terima kasih sudah menghubungi. Sampai jumpa.",
+}
+
+# Synthesized bytes, kept per (line, provider). These lines never change, so the
+# first call pays for synthesis and every later one is free and instant — which
+# also matters on the call itself: Twilio is holding a live caller while it
+# fetches this URL.
+_audio_cache: dict[tuple[str, str], bytes] = {}
+
+
+def _live_tts_provider(settings) -> str | None:
+    """The configured LIVE TTS provider, or None if we should fall back to <Say>.
+
+    Deliberately conservative: it checks the provider is one we know AND that
+    its key is present, because emitting <Play> for audio we cannot produce
+    gives the caller silence — strictly worse than Twilio's generic voice.
+    """
+    from app.infiltrate.voice import LIVE_TTS_PROVIDERS
+
+    provider = (settings.tts_provider or "").strip().lower()
+    if provider not in LIVE_TTS_PROVIDERS:
+        return None
+    key_for = {
+        "elevenlabs": settings.elevenlabs_api_key,
+        "google": settings.google_tts_api_key,
+        "gemini": settings.gemini_api_key,
+    }
+    # A provider we know but whose key we cannot see: treat as unavailable.
+    return provider if key_for.get(provider, "") else None
+
+
+@router.get("/telephony/audio/{line_key}.mp3")
+async def get_telephony_audio(line_key: str) -> Response:
+    """Synthesized audio for one named line — what Twilio's <Play> fetches.
+
+    **Unauthenticated by necessity**: Twilio pulls this URL with no credentials,
+    exactly as it posts the answer webhook without our JWT. Unlike the webhook
+    there is no signature to check — Twilio does not sign media fetches — so the
+    protection is the fixed VOICE_LINES vocabulary above: an unknown key is a
+    404 before any provider is called, and no request body reaches the provider.
+    """
+    text = VOICE_LINES.get(line_key)
+    if text is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "unknown_line", "message": f"No voice line {line_key!r}."},
+        )
+
+    settings = get_settings()
+    provider = _live_tts_provider(settings)
+    if provider is None:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "tts_unavailable",
+                "message": (
+                    "No LIVE TTS provider is configured (ITTU_TTS_PROVIDER plus "
+                    "its API key), so there is no audio to play."
+                ),
+            },
+        )
+
+    cached = _audio_cache.get((line_key, provider))
+    if cached is None:
+        from app.infiltrate.voice import LIVE_TTS_PROVIDERS
+
+        try:
+            adapter = LIVE_TTS_PROVIDERS[provider](settings)
+            spoken = await adapter.synthesize(text)
+        except Exception as exc:  # noqa: BLE001 - provider errors are operational
+            # Never leak the provider's response (it can echo the API key back in
+            # an error body); log the type and give the caller a clean 502.
+            logger.error("telephony: TTS provider %s failed: %s", provider, type(exc).__name__)
+            raise HTTPException(
+                status_code=502,
+                detail={"code": "tts_failed", "message": "Voice synthesis failed."},
+            ) from exc
+        cached = spoken.audio_bytes or b""
+        if not cached:
+            raise HTTPException(
+                status_code=502,
+                detail={"code": "tts_empty", "message": "Voice synthesis returned no audio."},
+            )
+        _audio_cache[(line_key, provider)] = cached
+
+    # Twilio re-fetches per call; caching lets its edge hold it instead.
+    return Response(
+        content=cached,
+        media_type="audio/mpeg",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
 @router.post("/telephony/voice")
 async def post_telephony_voice(request: Request) -> Response:
     """Twilio's answer webhook — the URL a honeypot number points at.
@@ -562,10 +664,25 @@ async def post_telephony_voice(request: Request) -> Response:
             # misconfigured base URL must not silently degrade to a dead socket.
             logger.error("telephony: cannot build a stream URL (%s) — saying goodbye", exc)
 
+    # Speak in OUR voice when a LIVE TTS provider is configured: an id-ID
+    # WaveNet/ElevenLabs line is the difference between a persona and an IVR,
+    # and a caller decides which they are hearing in about two seconds.
+    # Falls back to <Say> — Twilio's own voice — when no provider is available,
+    # because a generic voice is still a working call and <Play> pointing at
+    # audio we cannot synthesize is silence.
+    if base and _live_tts_provider(settings):
+        try:
+            return Response(
+                content=build_play_and_hangup_twiml(f"{base}/api/telephony/audio/greeting.mp3"),
+                media_type="application/xml",
+            )
+        except ValueError as exc:
+            # build_play_and_hangup_twiml refuses a non-https URL — Twilio would
+            # not fetch it anyway, so fall through rather than answer with silence.
+            logger.error("telephony: cannot build a <Play> URL (%s) — using <Say>", exc)
+
     return Response(
-        content=build_say_and_hangup_twiml(
-            "Halo, terima kasih sudah menghubungi. Sampai jumpa."
-        ),
+        content=build_say_and_hangup_twiml(VOICE_LINES["greeting"]),
         media_type="application/xml",
     )
 
