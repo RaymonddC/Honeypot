@@ -73,11 +73,13 @@ GATED: tuple[GatedFeature, ...] = (
         what=(
             "Wallet risk scoring, the transaction graph, and fiat→crypto bridge "
             "views. The underlying data is a PUBLIC ledger, so nothing external "
-            "gates it — this is off by product decision only, and is one of the "
-            "few capabilities that needs nobody's permission at all."
+            "gates it — this is a product decision only, and is one of the few "
+            "capabilities that needs nobody's permission at all. ON by default "
+            "since 2026-09-10; a deployment withholds it with "
+            "ITTU_CRYPTO_ENABLED=false."
         ),
         blocker=Blocker.PRODUCT,
-        lifted_by="us — set ITTU_CRYPTO_ENABLED=true",
+        lifted_by="us — on by default; ITTU_CRYPTO_ENABLED=false withholds it",
         flag="ITTU_CRYPTO_ENABLED",
     ),
     GatedFeature(

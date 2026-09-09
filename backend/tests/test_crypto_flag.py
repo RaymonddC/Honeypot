@@ -118,9 +118,27 @@ def test_the_config_endpoint_tells_the_ui_which_way_it_is_set():
         assert c.get("/api/config").json()["crypto_enabled"] is True
 
 
-def test_the_default_is_off():
-    """A deployment that says nothing does not offer crypto. The safe direction
-    for a feature that is deliberately withheld."""
+def test_the_default_is_on():
+    """A deployment that says nothing DOES offer crypto (2026-09-10).
+
+    This inverted deliberately. The deployed service is redeployed through a
+    Render Deploy Hook, which ships code and never re-reads render.yaml — so
+    with a default of False the flag could not be lifted by anything in this
+    repository, only by a dashboard edit. The default is the lever that works;
+    withholding crypto is now the thing a deployment states explicitly.
+    """
     os.environ.pop("ITTU_CRYPTO_ENABLED", None)
     get_settings.cache_clear()
-    assert get_settings().crypto_enabled is False
+    assert get_settings().crypto_enabled is True
+
+
+def test_withholding_it_still_takes_one_env_var():
+    """The gate is still real in the other direction — the point of inverting
+    the default was reachability, not removing the ability to withhold."""
+    os.environ["ITTU_CRYPTO_ENABLED"] = "false"
+    get_settings.cache_clear()
+    try:
+        assert get_settings().crypto_enabled is False
+    finally:
+        os.environ.pop("ITTU_CRYPTO_ENABLED", None)
+        get_settings.cache_clear()

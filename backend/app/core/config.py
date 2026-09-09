@@ -187,17 +187,25 @@ class Settings(BaseSettings):
     # ITTU_LLM_API_BASE to force any custom endpoint.
     llm_api_base: str = ""                # ITTU_LLM_API_BASE
 
-    # --- Crypto surface (product decision, 2026-09-05) --------------------------
+    # --- Crypto surface (off 2026-09-05, back on 2026-09-10) --------------------
     # Whether the crypto-facing product is exposed at all: TAKEDOWN in full
     # (wallet graph, risk scoring, investigations) and the crypto half of TRACE.
     #
-    # OFF by default, deliberately. This hides a CAPABILITY, not a permission —
-    # a role holding every capability still gets 404 from these routes while it
-    # is off, because the honest answer is "this product does not offer that
-    # here" rather than "you may not". 404 also avoids advertising that a crypto
-    # feature exists but is withheld.
+    # ON by default. This gates a CAPABILITY, not a permission — with it off, a
+    # role holding every capability still gets 404 from these routes, because
+    # the honest answer is "this product does not offer that here" rather than
+    # "you may not". 404 also avoids advertising that a crypto feature exists
+    # but is withheld.
     #
-    # ⚠️ Turning this off has a STRATEGY consequence recorded in
+    # Why the default rather than an env var: the deployed service is redeployed
+    # through a Render Deploy Hook (.github/workflows/render-deploy.yml), which
+    # ships CODE and does not re-read render.yaml. Env vars there apply only on
+    # a blueprint sync, and the live service was not created from that blueprint
+    # anyway. So a default of False could not be lifted by anything in this
+    # repository — it needed a dashboard edit nobody would remember. The default
+    # is where the decision actually takes effect.
+    #
+    # ⚠️ Turning it back OFF has a STRATEGY consequence recorded in
     # docs/Ecosystem-Strategy.md §5.1: crypto checking was the lower-risk way to
     # launch the public layer, because a wallet address is not a person and
     # publishing a score for one accuses nobody. With it hidden, the public
@@ -205,10 +213,13 @@ class Settings(BaseSettings):
     # path under UU ITE 27A / UU PDP. Hiding crypto is a decision about the
     # product, not a way to reduce legal risk.
     #
-    # Nothing here stops the honeypot EXTRACTING wallet addresses — that
-    # intelligence keeps accruing, so switching this on later has data behind it
-    # rather than starting cold.
-    crypto_enabled: bool = False          # ITTU_CRYPTO_ENABLED
+    # This is the INVESTIGATOR CONSOLE only. CekScam (/cek, /lapor) takes bank
+    # accounts and phone numbers whichever way this is set — publishing a wallet
+    # score to the public is a separate decision (§7.5), not a consequence of
+    # this flag.
+    #
+    # A deployment that wants to withhold crypto sets ITTU_CRYPTO_ENABLED=false.
+    crypto_enabled: bool = True           # ITTU_CRYPTO_ENABLED
 
     # --- Auth (P5) — we always mint OUR OWN JWT {sub, agency_id, role, exp} ---
     # Dev-only default (≥32 bytes for HS256); override via ITTU_JWT_SECRET in prod.

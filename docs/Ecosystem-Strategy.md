@@ -273,14 +273,25 @@ Crypto was hidden on 2026-09-05 (`ITTU_CRYPTO_ENABLED=false`), which **overrode
 the recommendation in §5.1** — §5.1 argued for leading with crypto because a
 wallet address is not a person.
 
-**Settled 2026-09-10: `ITTU_CRYPTO_ENABLED=true` on the console (dev `.env` and
-`render.yaml`), still off for the public layer.** This is the split the previous
-recommendation asked for, not a reversal of it: TAKEDOWN is switched on for the
-B2G/B2B audience, where the defamation exposure does not apply, while CekScam
-stays bank accounts and phone numbers. The app default in
-`backend/app/core/config.py` remains `False`, so "accounts only" is still what a
-fresh deployment comes up with — the two environments that matter opt in
-explicitly.
+**Settled 2026-09-10: crypto is ON by default for the console, still off for the
+public layer.** This is the split the previous recommendation asked for, not a
+reversal of it: TAKEDOWN is switched on for the B2G/B2B audience, where the
+defamation exposure does not apply, while CekScam stays bank accounts and phone
+numbers.
+
+It is the **default in `backend/app/core/config.py`** that changed, not just an
+env var, and that detail is the lesson. The first attempt set
+`ITTU_CRYPTO_ENABLED=true` in `render.yaml` and pushed — prod kept answering
+`404 feature_disabled`, because deploys run through the Deploy Hook in
+`.github/workflows/render-deploy.yml`, which ships code and never re-reads
+`render.yaml`; env vars there apply on a blueprint sync, and the live service was
+not created from that blueprint. **A default that only a dashboard edit can lift
+is not a switch, it is a wall.** A deployment that wants to withhold crypto now
+states so with `ITTU_CRYPTO_ENABLED=false`.
+
+What this does **not** settle: whether a wallet score is ever published to the
+public layer. That needs its own decision, and §5.1's argument (a wallet address
+accuses nobody) is the strongest case for it whenever it is taken up.
 
 What this does **not** settle: whether a wallet score is ever published to the
 public layer. That needs its own decision, and §5.1's argument (a wallet address
