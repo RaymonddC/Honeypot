@@ -46,6 +46,16 @@ services:
       - key: ITTU_CORS_ORIGINS
         # The deployed frontend origin(s) allowed to call the API.
         value: '["https://honeypot-brown.vercel.app"]'
+      # ── Crypto surface ─────────────────────────────────────────────────────
+      # TAKEDOWN in full plus the crypto half of TRACE. The app default is OFF
+      # ("accounts only"), so this is what makes the module reachable on the
+      # deployed demo — without it those routes answer 404 `feature_disabled`
+      # and the frontend hides the nav item. Only the API needs it; the worker
+      # below serves no routes, so the flag would be inert there.
+      # This is the investigator console. The public layer (/cek, /lapor) is
+      # bank accounts and phone numbers either way — docs/Ecosystem-Strategy.md §7.5.
+      - key: ITTU_CRYPTO_ENABLED
+        value: "true"
       # ── Persistence ────────────────────────────────────────────────────────
       # These were previously set ONLY in the Render dashboard, and this file
       # said nothing about them. The result: a blueprint re-apply, or any new

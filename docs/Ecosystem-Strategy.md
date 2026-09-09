@@ -196,8 +196,10 @@ concrete proposal is faster than composing one from scratch.
 
 ### 7.1 What does CekScam offer in month one?
 
-**Recommendation: do not launch consumer checking first.** With crypto now hidden
-(`ITTU_CRYPTO_ENABLED=false`), the cold-start problem is unavoidable — a checking
+**Recommendation: do not launch consumer checking first.** With the public layer
+fiat-only — CekScam takes bank accounts and phone numbers, and re-enabling
+TAKEDOWN for the console (§7.5) did not change that — the cold-start problem is
+unavoidable: a checking
 service is only as good as its database, and on day one there is no database.
 CekRekening has years of reports; matching it from zero, without Kominfo's legal
 cover, is the weakest possible opening.
@@ -265,21 +267,30 @@ none of the exposure.
 > is the whole value, the tier needs a lawful basis designed in from the start —
 > not a retrofit.
 
-### 7.5 Now that crypto is hidden, is §5.1 still the plan?
+### 7.5 Crypto was hidden, then re-enabled for the console. Is §5.1 still the plan?
 
-Hiding crypto (`ITTU_CRYPTO_ENABLED=false`, 2026-09-05) **overrides the
-recommendation in §5.1**, which argued for leading with crypto because a wallet
-address is not a person.
+Crypto was hidden on 2026-09-05 (`ITTU_CRYPTO_ENABLED=false`), which **overrode
+the recommendation in §5.1** — §5.1 argued for leading with crypto because a
+wallet address is not a person.
 
-**Recommendation: keep crypto hidden for the public layer, but keep building it
-behind the flag.** The honeypot continues extracting wallet addresses either way,
-so the data accrues while the surface stays closed — and TAKEDOWN can be switched
-on for a B2G or B2B audience, where the defamation exposure does not apply,
-without waiting for a consumer decision.
+**Settled 2026-09-10: `ITTU_CRYPTO_ENABLED=true` on the console (dev `.env` and
+`render.yaml`), still off for the public layer.** This is the split the previous
+recommendation asked for, not a reversal of it: TAKEDOWN is switched on for the
+B2G/B2B audience, where the defamation exposure does not apply, while CekScam
+stays bank accounts and phone numbers. The app default in
+`backend/app/core/config.py` remains `False`, so "accounts only" is still what a
+fresh deployment comes up with — the two environments that matter opt in
+explicitly.
 
-> **Question:** is crypto hidden because of regulatory uncertainty, because the
-> demo audience does not care, or because the data is not ready? Each implies a
-> different re-enable trigger, and without one the flag stays off by inertia.
+What this does **not** settle: whether a wallet score is ever published to the
+public layer. That needs its own decision, and §5.1's argument (a wallet address
+accuses nobody) is the strongest case for it whenever it is taken up.
+
+> **Question that would reopen this:** does the console audience actually work
+> wallet cases? If the answer after the first pilot is "they only ever pull the
+> fiat trail", the flag is carrying an unused module and should go back off
+> rather than stay on by inertia — the same trap the 2026-09-05 note warned about
+> in the other direction.
 
 ## 8. What this changes in the codebase
 
