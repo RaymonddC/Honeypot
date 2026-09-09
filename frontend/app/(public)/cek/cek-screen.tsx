@@ -28,6 +28,7 @@ const KIND_ICON: Record<CheckKind, IconName> = {
   phone: "phone",
   // An e-wallet IS a phone number here, so it carries the phone mark.
   ewallet: "phone",
+  crypto_wallet: "wallet",
   unknown: "entity",
 };
 
@@ -40,6 +41,29 @@ const TONE_CLASS = {
 function Verdict({ result }: { result: CheckResult }) {
   const t = useTranslations("cekscam");
   const tone = TONE_CLASS[VERDICT_TONE[result.verdict]];
+
+  /*
+   * Wallets read from their own copy tree. Not a cosmetic split: the shared
+   * advice tells a reader who has already sent money to call their bank and ask
+   * for a block, which for an on-chain transfer is an hour spent on a call that
+   * cannot help. What can work — reporting the address to the exchange before
+   * the funds are withdrawn — is wallet-specific and absent from the bank copy.
+   *
+   * Branching on the whole key rather than interpolating a `.${leaf}` tail:
+   * next-intl narrows t() against the message tree, and a key assembled from
+   * two dynamic halves cannot be narrowed.
+   */
+  const isWallet = result.kind === "crypto_wallet";
+  const title = isWallet
+    ? t(`walletVerdict.${result.verdict}.title`)
+    : t(`verdict.${result.verdict}.title`);
+  const body = isWallet
+    ? t(`walletVerdict.${result.verdict}.body`)
+    : t(`verdict.${result.verdict}.body`);
+  const advice = isWallet
+    ? t(`walletVerdict.${result.verdict}.advice`)
+    : t(`verdict.${result.verdict}.advice`);
+
   return (
     <div className={`rounded-card border p-4 sm:p-5 ${tone.ring}`}>
       <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
@@ -57,12 +81,8 @@ function Verdict({ result }: { result: CheckResult }) {
             />
           </span>
           <div className="min-w-0">
-            <div className={`text-[17px] font-semibold ${tone.text}`}>
-              {t(`verdict.${result.verdict}.title`)}
-            </div>
-            <p className="mt-1 max-w-[52ch] text-[13px] leading-relaxed text-muted">
-              {t(`verdict.${result.verdict}.body`)}
-            </p>
+            <div className={`text-[17px] font-semibold ${tone.text}`}>{title}</div>
+            <p className="mt-1 max-w-[52ch] text-[13px] leading-relaxed text-muted">{body}</p>
           </div>
         </div>
         {result.confidence != null && (
@@ -83,6 +103,15 @@ function Verdict({ result }: { result: CheckResult }) {
           <Icon name={KIND_ICON[result.kind]} size={12} />
           {t(`kind.${result.kind}`)}
         </span>
+        {/* The chain, where there is one. An address is meaningless to most
+            readers, and sending on the wrong chain is its own way to lose the
+            money — so which ledger it is gets the same weight as the kind. */}
+        {result.chain && (
+          <span className="flex items-center gap-1.5 rounded-md border border-line bg-card px-2 py-1 text-muted">
+            <Icon name="link" size={12} />
+            {result.chain}
+          </span>
+        )}
         <span className="break-all font-semibold text-fg">{result.value}</span>
         {result.label && <span className="text-muted">· {result.label}</span>}
       </div>
@@ -98,11 +127,19 @@ function Verdict({ result }: { result: CheckResult }) {
         </ul>
       )}
 
+      {/* Said on the result, not in the page's small print, because this is the
+          claim a reader is most likely to over-read: a wallet verdict here is
+          reports plus traced fixtures, NOT the Isolation Forest the console
+          runs. The public page has no token and cannot call it. */}
+      {result.kind === "crypto_wallet" && (
+        <p className="mt-3 max-w-[62ch] text-[12px] leading-relaxed text-muted">
+          {t("walletNote")}
+        </p>
+      )}
+
       <div className="mt-4 border-t border-fg/10 pt-3.5">
         <div className="eyebrow mb-1.5">{t("whatToDo")}</div>
-        <p className="max-w-[62ch] text-[12.5px] leading-relaxed text-muted">
-          {t(`verdict.${result.verdict}.advice`)}
-        </p>
+        <p className="max-w-[62ch] text-[12.5px] leading-relaxed text-muted">{advice}</p>
       </div>
 
       {/* The hand-off to the other page. Strongest exactly where the database

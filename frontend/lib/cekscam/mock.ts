@@ -1,15 +1,16 @@
 /**
  * The demo intelligence index CekScam answers from.
  *
- * Bank accounts, phone numbers and e-wallets only — what a member of the public
- * is actually about to transfer to. Crypto addresses are the investigator
- * console's job (TAKEDOWN scores them against the chain); offering them here
- * would imply a check this surface cannot honestly make.
+ * Bank accounts, phone numbers, e-wallets and crypto wallets — what a member of
+ * the public is actually about to send money to. TAKEDOWN still owns the real
+ * chain analysis (this page has no token and cannot call it), so a wallet is
+ * answered from reports and traced fixtures here, never from a live score.
  *
- * The golden-thread BCA account is first and deliberately: a check here and the
- * investigator console are looking at one database, which is the whole claim of
- * slide 05's three layers. The rest are additional fixtures so every input type
- * and both verdict grades can actually be exercised.
+ * The golden-thread BCA account is first and deliberately, and GOLDEN.wallet is
+ * the same story one hop later: a check here and the investigator console are
+ * looking at one database, which is the whole claim of slide 05's three layers.
+ * The rest are additional fixtures so every input type and both verdict grades
+ * can actually be exercised.
  *
  * Everything here is fixture data. lib/cekscam/api.ts decides whether to use it
  * and the screen says so on the result.
@@ -172,13 +173,67 @@ export const INDEX: IndexEntry[] = [
       { key: "firstSeen", values: { when: "6 hari lalu" } },
     ],
   },
+
+  /* ── crypto wallets ────────────────────────────────────────────────────────
+     The golden thread continues onto the ledger: the BCA account at the top of
+     this list is the fiat leg, and GOLDEN.wallet is where it lands. Checking
+     either one here reaches the same story the console traces, which is the
+     point of slide 05's three layers.
+
+     `chainTraced` is only claimed for the two addresses the TAKEDOWN graph
+     fixture actually contains (backend/app/chain/fixtures/transfers.json) —
+     this page cannot run the real scorer, so it must not imply one everywhere. */
+  {
+    kind: "crypto_wallet",
+    value: GOLDEN.wallet,
+    label: "dompet pengumpul",
+    confidence: 0.97,
+    signals: [
+      { key: "honeypotDisclosed", values: { channel: "Telegram" } },
+      { key: "chainTraced", values: { hops: 3 } },
+      { key: "seenInFlow" },
+      { key: "syndicateLinked", values: { syndicate: "SYN-14" } },
+    ],
+  },
+  {
+    kind: "crypto_wallet",
+    value: GOLDEN.exit,
+    label: "dompet setoran bursa",
+    confidence: 0.64,
+    signals: [
+      { key: "chainTraced", values: { hops: 1 } },
+      { key: "publicReports", values: { count: 2 } },
+    ],
+  },
+  {
+    kind: "crypto_wallet",
+    // Checksummed on purpose: EIP-55 mixed case is what an explorer copies out,
+    // and the lookup folds case for 0x… so pasting it lowercase still matches.
+    value: "0x9F2a7C4b1E83D5a06B4fC7e21D8a3B5C6e0F1a2D",
+    label: "USDT (ERC-20)",
+    confidence: 0.81,
+    signals: [
+      { key: "publicReports", values: { count: 8 } },
+      { key: "syndicateLinked", values: { syndicate: "SYN-07" } },
+    ],
+  },
+  {
+    kind: "crypto_wallet",
+    value: "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq",
+    label: "dompet donasi palsu",
+    confidence: 0.31,
+    signals: [
+      { key: "publicReports", values: { count: 1 } },
+      { key: "firstSeen", values: { when: "4 hari lalu" } },
+    ],
+  },
 ];
 
 /** How many entities the demo index actually holds. Shown on the page so the
  *  claim is the real number, not an invented national figure. */
 export const INDEX_SIZE = INDEX.length;
 
-export type SampleKey = "bank" | "phone" | "ewallet" | "caution" | "unknown";
+export type SampleKey = "bank" | "phone" | "ewallet" | "wallet" | "caution" | "unknown";
 
 /**
  * Values offered on the page as one-tap examples.
@@ -192,6 +247,7 @@ export const SAMPLES: Array<{ value: string; labelKey: SampleKey }> = [
   { value: GOLDEN.bank.accountNumber, labelKey: "bank" },
   { value: "081130092255", labelKey: "phone" },
   { value: "081355720194", labelKey: "ewallet" },
+  { value: GOLDEN.wallet, labelKey: "wallet" },
   { value: "3320981145", labelKey: "caution" },
   { value: "1234567890", labelKey: "unknown" },
 ];

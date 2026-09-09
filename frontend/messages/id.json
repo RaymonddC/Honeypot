@@ -1633,9 +1633,9 @@
     "brandSub": "dari ITTU",
     "demoBadge": "data demo",
     "headline": "Cek dulu sebelum transfer.",
-    "subhead": "Tempel nomor rekening, nomor telepon, atau e-wallet. Kami cocokkan dengan rekening yang sudah dilaporkan honeypot kami dan masyarakat — bukan hanya rekening yang sudah memakan korban.",
-    "inputLabel": "Rekening atau nomor yang ingin dicek",
-    "inputPlaceholder": "mis. 5271038462 atau 0812-8841-4471",
+    "subhead": "Tempel nomor rekening, nomor telepon, e-wallet, atau alamat dompet kripto. Kami cek ke rekening yang sudah dilaporkan honeypot kami dan masyarakat — bukan cuma rekening yang sudah memakan korban.",
+    "inputLabel": "Rekening, nomor, atau dompet yang ingin dicek",
+    "inputPlaceholder": "mis. 5271038462, 0812-8841-4471, atau TXtR9dQ…",
     "inputHint": "Jenisnya kami kenali sendiri. Tanda hubung dan spasi tidak masalah.",
     "check": "Cek",
     "checking": "Mengecek…",
@@ -1645,7 +1645,8 @@
       "bank_account": "Rekening bank",
       "phone": "Nomor telepon",
       "ewallet": "E-wallet",
-      "unknown": "Tidak dikenali"
+      "unknown": "Tidak dikenali",
+      "crypto_wallet": "Dompet kripto"
     },
     "verdict": {
       "flagged": {
@@ -1669,13 +1670,14 @@
       "publicReports": "{count} laporan dari masyarakat yang pernah dihubungi",
       "syndicateLinked": "Terhubung ke sindikat {syndicate}, bersama rekening lain",
       "seenInFlow": "Terlihat memindahkan dana dengan pola rekening mule",
-      "firstSeen": "Pertama dilaporkan {when}"
+      "firstSeen": "Pertama dilaporkan {when}",
+      "chainTraced": "Terlacak di blockchain {hops, plural, other {# lompatan}} dari uang yang dilaporkan hilang"
     },
     "report": {
       "eyebrow": "Bantu orang lain",
       "title": "Laporkan penipu",
       "lead": "Setiap laporan masuk ke basis data yang sama dengan yang dicek halaman ini — dan ke intelijen honeypot yang dipakai penyidik. Anda tidak perlu sampai kehilangan uang untuk melapor.",
-      "valuePlaceholder": "Rekening atau nomor yang mereka berikan",
+      "valuePlaceholder": "Rekening, nomor, atau dompet yang mereka berikan",
       "storyPlaceholder": "Apa yang terjadi? Bagaimana mereka menghubungi Anda, dan apa yang mereka minta?",
       "amountPlaceholder": "Jumlah kerugian, jika ada (Rp)",
       "contactPlaceholder": "Kontak Anda, opsional",
@@ -1725,13 +1727,32 @@
       "phone": "nomor telepon dilaporkan",
       "ewallet": "e-wallet dilaporkan",
       "caution": "baru satu laporan",
-      "unknown": "belum ada catatannya"
+      "unknown": "belum ada catatannya",
+      "wallet": "dompet kripto dilaporkan"
     },
     "crossLink": {
       "cta": "Laporkan ini",
       "flagged": "Anda juga dihubungi yang satu ini? Laporan Anda menambah kejadiannya ke catatan yang sudah ada.",
-      "caution": "Kalau yang ini menghubungi Anda, laporan kedua sering jadi penentu antara dugaan dan rekening penipu yang terkonfirmasi.",
+      "caution": "Kalau yang ini menghubungi Anda, laporan kedua sering jadi penentu antara dugaan dan penipuan yang terkonfirmasi.",
       "unknown": "Belum ada catatan untuk yang ini — kalau ia menghubungi Anda, laporan Anda yang membuatnya terdeteksi untuk orang berikutnya."
+    },
+    "walletNote": "Untuk dompet kripto, yang dicek adalah laporan dan aliran dana yang sudah terlacak. Ini bukan analisis blockchain langsung — itu dijalankan penyidik di konsol.",
+    "walletVerdict": {
+      "flagged": {
+        "title": "Dilaporkan sebagai dompet penipu",
+        "body": "Alamat ini ada di basis data kami dengan bukti pendukung, bukan sekadar satu keluhan.",
+        "advice": "Jangan kirim apa pun. Transfer kripto tidak bisa diblokir atau dibatalkan — tidak oleh kami, tidak oleh bank Anda, tidak oleh jaringannya — jadi kalau sudah terlanjur, langkahnya berbeda: kalau Anda membelinya lewat bursa, segera laporkan alamat ini ke bursa tersebut, karena mereka bisa membekukan dana selama masih ada di platform mereka. Setelah itu laporkan lewat IASC di iasc.ojk.go.id. Abaikan siapa pun yang menawarkan jasa pengembalian dana dengan bayaran — itu penipuan kedua, dan sasarannya justru orang yang baru saja tertipu."
+      },
+      "caution": {
+        "title": "Hati-hati",
+        "body": "Ada catatan pada alamat ini, tetapi belum cukup untuk menyebutnya penipuan: baru satu laporan, atau sinyalnya belum lengkap.",
+        "advice": "Jangan kirim yang Anda tidak siap kehilangan, dan ingat alamat kripto tidak punya nama pemilik yang bisa dicocokkan. Pastikan jaringannya sesuai yang diminta, dan anggap desakan untuk buru-buru sebagai peringatan."
+      },
+      "unknown": {
+        "title": "Tidak ada di basis data kami",
+        "body": "Itu BUKAN berarti aman. Membuat alamat baru tidak perlu biaya dan hanya butuh beberapa detik, jadi penipu bisa memberi alamat baru ke tiap korban — hasil kosong di sini berarti tidak ada catatan, bukan tanda lolos verifikasi.",
+        "advice": "Nilai dari tawarannya, bukan dari hasil ini. Janji untung yang terlalu manis itu peringatannya, dan alamat tanpa riwayat justru wajar pada penipuan — bukan hal yang menenangkan."
+      }
     }
   }
 }

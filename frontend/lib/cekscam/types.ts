@@ -19,14 +19,31 @@ export type DataSource = "api" | "mock";
  * What the user pasted. Detected from the value itself — they should not have
  * to classify it before they can ask.
  *
- * Deliberately narrow: a bank account, a phone number, or an e-wallet (which
- * in Indonesia IS a phone number — DANA, OVO, GoPay, ShopeePay all key on one).
- * That is what a member of the public is actually about to transfer to. Crypto
- * addresses live in the investigator console, where TAKEDOWN scores them
- * properly; asking the public to paste one implies a check this surface cannot
- * honestly make.
+ * A bank account, a phone number, an e-wallet (which in Indonesia IS a phone
+ * number — DANA, OVO, GoPay and ShopeePay all key on one), or a crypto wallet.
+ *
+ * Wallets were held back while the crypto surface was switched off and are
+ * back with it (2026-09-10). They are also the LEAST fraught thing on this
+ * list, which is easy to get backwards: flagging a bank account names an
+ * identifiable person and carries real UU ITE 27A exposure, whereas an address
+ * is a string on a public ledger and accuses nobody
+ * (docs/Ecosystem-Strategy.md §5.1).
+ *
+ * What this surface must NOT imply is a chain analysis it does not run. The
+ * public page has no token, and `/api/wallets/{address}/risk` — the real
+ * Isolation Forest — requires one. So a wallet is answered from the same
+ * reported-and-corroborated index as everything else here, and the result says
+ * `source` so the screen can show which it was.
  */
-export type CheckKind = "bank_account" | "phone" | "ewallet" | "unknown";
+export type CheckKind = "bank_account" | "phone" | "ewallet" | "crypto_wallet" | "unknown";
+
+/**
+ * Which ledger an address belongs to. Shown next to the verdict because "TRON"
+ * and "Ethereum" are the difference between two addresses that look equally
+ * meaningless to a non-technical reader, and because a wrong-chain transfer is
+ * its own way to lose money.
+ */
+export type Chain = "TRON" | "ETH" | "BTC";
 
 export type CheckVerdict =
   /** Reported and corroborated — treat as a scam account. */
@@ -45,7 +62,9 @@ export interface CheckSignal {
     | "publicReports"
     | "syndicateLinked"
     | "seenInFlow"
-    | "firstSeen";
+    | "firstSeen"
+    /** Wallets only: the address appears in a traced cash-out chain. */
+    | "chainTraced";
   /** Interpolated into the message (counts, dates, names). */
   values?: Record<string, string | number>;
 }
@@ -61,6 +80,8 @@ export interface CheckResult {
   signals: CheckSignal[];
   /** Holder / label where the database has one, e.g. "BCA · PT Maju Jaya". */
   label?: string;
+  /** Set only for `crypto_wallet` — which ledger the address is on. */
+  chain?: Chain;
   source: DataSource;
 }
 
