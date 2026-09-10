@@ -594,3 +594,46 @@ def test_webhook_fails_closed_when_twilio_is_not_configured():
         assert r.status_code == 403
     finally:
         s.twilio_auth_token, s.public_base_url = prior
+
+
+# --- Evidentiary clock -------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_a_live_session_is_stamped_with_real_time_not_the_replay_epoch():
+    """A record that cannot say WHEN is not evidence.
+
+    The scripted replay keeps the fixed _BASE_TS on purpose — its hashes must
+    reproduce byte for byte. A live call is a real event, and stamping it with
+    the same fictional July epoch as every seeded fixture meant real calls could
+    not even be put in order, let alone dated.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from app.infiltrate import service
+    from app.infiltrate.repository import _memory_repository
+    from app.infiltrate.service import StartSessionRequest, start_session
+
+    repo = _memory_repository()
+    before = datetime.now(timezone.utc)
+    out = await start_session(
+        StartSessionRequest(channel_type="voice", interactive=True),
+        channel=None, gateway=None, repo=repo,
+    )
+    after = datetime.now(timezone.utc)
+
+    assert before <= out.started_at <= after
+    assert out.started_at != service._BASE_TS
+    # And far from the replay epoch, so a regression to it is unmistakable.
+    assert abs(out.started_at - service._BASE_TS) > timedelta(days=1)
+
+    msgs = await repo.get_messages(out.id)
+    assert msgs and before <= msgs[0].ts <= after
+
+
+def test_the_scripted_replay_keeps_its_deterministic_epoch():
+    """The other half of the rule: fixture hashes must stay reproducible, so the
+    replay path must NOT drift onto the wall clock."""
+    from app.infiltrate import service
+
+    assert service._BASE_TS.year == 2026 and service._BASE_TS.month == 7

@@ -57,6 +57,21 @@ MODULE = "infiltrate"
 #: Output budget for ONE spoken turn. See run_one_turn.
 VOICE_TURN_MAX_TOKENS = 90
 
+
+def _live_now() -> datetime:
+    """Wall-clock for something that actually happened.
+
+    The scripted replay keeps ``_BASE_TS``: its determinism is the point, since
+    the fixture hashes must reproduce byte for byte. A LIVE session is a real
+    event, and stamping it with a fictional July epoch made the record unable to
+    answer the first question anyone asks of evidence — *when?* Twilio knew a
+    call ran at 02:43 for 47 seconds while the custody chain said July 7th, the
+    same instant as every seeded fixture. A chain proves nothing was altered; it
+    says nothing about when, and without a clock the calls cannot even be put in
+    order.
+    """
+    return datetime.now(timezone.utc)
+
 # Fixed, deterministic session epoch (no Date.now dependency in hash content).
 _BASE_TS = datetime(2026, 7, 7, 12, 0, 0, tzinfo=timezone.utc)
 
@@ -586,6 +601,8 @@ async def _start_interactive_session(
     conversation turn-by-turn from ``POST /sessions/{id}/turn``.
     """
     session_id = f"sess_{uuid.uuid4().hex[:12]}"
+    # An interactive session is a real conversation happening now, not a replay.
+    started = _live_now()
     is_voice = req.channel_type == "voice"
     channel = "voice" if is_voice else (req.channel or "telegram")
     # The caller's real number when we know it (an inbound call does),
@@ -601,7 +618,7 @@ async def _start_interactive_session(
         meta.update({"speaker": "persona", "duration_seconds": dur, "offset_seconds": 0.0})
         offset_seconds = dur
 
-    cm = chain.append("outbound", greeting, _BASE_TS, meta)
+    cm = chain.append("outbound", greeting, started, meta)
     msg_id = f"msg_{uuid.uuid4().hex[:12]}"
     message = MessageOut(
         id=msg_id, session_id=session_id, seq=cm.seq, direction="outbound",
@@ -623,7 +640,7 @@ async def _start_interactive_session(
         crime_type=None,
         classification=None,
         data_mode="poc",
-        started_at=_BASE_TS,
+        started_at=started,
         ended_at=None,
         message_count=1,
         entity_count=0,
@@ -691,7 +708,10 @@ async def append_persona_line(
     if state is None or session is None or not (text or "").strip():
         return False
 
-    ts = _BASE_TS + timedelta(seconds=(state.next_turn + 1) * 2 + 1)
+    ts = (
+        _live_now() if state.interactive
+        else _BASE_TS + timedelta(seconds=(state.next_turn + 1) * 2 + 1)
+    )
     meta: dict = {"turn": state.next_turn + 1, "model": "scripted-line"}
     if state.is_voice:
         dur = estimate_duration(text)
@@ -742,8 +762,15 @@ async def run_one_turn(
     if state.is_voice and isinstance(gateway, LiteLLMGateway):
         gateway.max_tokens = VOICE_TURN_MAX_TOKENS
     turn = state.next_turn
-    ts_in = _BASE_TS + timedelta(seconds=(turn + 1) * 2)
-    ts_out = ts_in + timedelta(seconds=1)
+    # Real time for a live turn; the deterministic ladder only for a replay whose
+    # hashes must reproduce exactly. ts_out is taken AFTER the model answers, so
+    # the gap between the two is the latency the caller actually waited through.
+    if state.interactive:
+        ts_in = _live_now()
+        ts_out = None  # set once the reply exists
+    else:
+        ts_in = _BASE_TS + timedelta(seconds=(turn + 1) * 2)
+        ts_out = ts_in + timedelta(seconds=1)
 
     # --- inbound (scammer/operator utterance) — custody + extraction --------
     in_meta: dict = {"turn": turn}
@@ -819,6 +846,8 @@ async def run_one_turn(
             "offset_seconds": round(state.offset_seconds, 1),
         })
         state.offset_seconds += out_dur
+    if ts_out is None:
+        ts_out = _live_now()
     cm_out = state.chain.append("outbound", resp.content, ts_out, out_meta)
     out_id = f"msg_{uuid.uuid4().hex[:12]}"
     outbound_msg = MessageOut(
