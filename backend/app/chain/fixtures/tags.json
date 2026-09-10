@@ -14,5 +14,13 @@
     "category": "scam",
     "source": "chainabuse",
     "confidence": 0.9
+  },
+  {
+    "address": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+    "chain": "tron",
+    "tag": "Indodax",
+    "category": "exchange",
+    "source": "demo-label",
+    "confidence": 0.0
   }
 ]
