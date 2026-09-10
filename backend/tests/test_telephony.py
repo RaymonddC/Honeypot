@@ -225,6 +225,209 @@ def test_webhook_falls_back_to_say_when_the_provider_has_no_key(twilio_client):
         s.tts_provider, s.google_tts_api_key = prior
 
 
+# --- The conversation loop (POST /api/telephony/gather) ----------------------
+
+
+@pytest.fixture
+def talking_client(monkeypatch):
+    """Twilio configured, plus a stub voice and a stub brain.
+
+    Both providers are stubbed rather than reached: a test that needs Google and
+    Gemini to be up is a test that fails for reasons that have nothing to do with
+    the code under test.
+    """
+    from fastapi.testclient import TestClient
+
+    from app.core.config import get_settings
+    from app.infiltrate import router as ir
+    from app.infiltrate.voice import TTSResult
+    from app.main import app
+
+    spoken: list[str] = []
+
+    class _FakeTTS:
+        provider = "google"
+
+        def __init__(self, settings=None):
+            pass
+
+        async def synthesize(self, text, voice="persona"):
+            spoken.append(text)
+            return TTSResult(
+                provider="google", voice=voice, text=text, duration_seconds=1.0,
+                audio_bytes=b"\xff\xf3fake", mime_type="audio/mpeg",
+            )
+
+    class _FakeGateway:
+        def __init__(self, settings=None):
+            pass
+
+        async def complete(self, messages, tools=None, turn=0, max_tokens=1024):
+            from app.infiltrate.gateway import LLMResponse
+
+            heard = messages[-1]["content"]
+            return LLMResponse(content=f"jawaban untuk: {heard[:20]}", model="fake")
+
+    monkeypatch.setitem(
+        __import__("app.infiltrate.voice", fromlist=["LIVE_TTS_PROVIDERS"]).LIVE_TTS_PROVIDERS,
+        "google", _FakeTTS,
+    )
+    monkeypatch.setattr("app.infiltrate.gateway.LiteLLMGateway", _FakeGateway)
+
+    s = get_settings()
+    prior = (s.twilio_auth_token, s.public_base_url, s.tts_provider,
+             s.google_tts_api_key, s.llm_api_key)
+    s.twilio_auth_token = "test-token"
+    s.public_base_url = "https://ittu.example"
+    s.tts_provider, s.google_tts_api_key = "google", "test-key"
+    s.llm_api_key = "test-llm-key"
+    ir._conversations.clear()
+    ir._dynamic_audio.clear()
+    ir._audio_cache.clear()
+    try:
+        yield TestClient(app), "https://ittu.example", "test-token", spoken
+    finally:
+        (s.twilio_auth_token, s.public_base_url, s.tts_provider,
+         s.google_tts_api_key, s.llm_api_key) = prior
+        ir._conversations.clear()
+        ir._dynamic_audio.clear()
+        ir._audio_cache.clear()
+
+
+def _gather(client, base, params, token):
+    import base64
+    import hashlib
+    import hmac
+
+    url = f"{base}/api/telephony/gather"
+    payload = url + "".join(f"{k}{v}" for k, v in sorted(params.items()))
+    sig = base64.b64encode(
+        hmac.new(token.encode(), payload.encode(), hashlib.sha1).digest()
+    ).decode()
+    return client.post(
+        "/api/telephony/gather", data=params, headers={"X-Twilio-Signature": sig}
+    )
+
+
+def test_answering_opens_a_conversation_when_there_is_a_voice_and_a_brain(talking_client):
+    """With both, the call must LISTEN. Greeting-then-hangup is a doorbell."""
+    client, base, token, _ = talking_client
+    r = _signed(client, f"{base}/api/telephony/voice",
+                {"CallSid": "CA1", "To": "+18143771198"}, token)
+    assert r.status_code == 200
+    assert '<Gather input="speech"' in r.text
+    assert 'language="id-ID"' in r.text
+    assert f"{base}/api/telephony/gather" in r.text
+    # The <Redirect> is what catches a caller who says nothing at all.
+    assert "<Redirect" in r.text
+    assert "<Hangup/>" not in r.text
+
+
+def test_answering_falls_back_to_one_line_without_a_brain(talking_client):
+    """A voice with no LLM must NOT gather: asking a question we cannot answer
+    leaves the caller talking into silence."""
+    from app.core.config import get_settings
+
+    client, base, token, _ = talking_client
+    s = get_settings()
+    prior = s.llm_api_key
+    s.llm_api_key = ""
+    try:
+        r = _signed(client, f"{base}/api/telephony/voice",
+                    {"CallSid": "CA1", "To": "+1"}, token)
+        assert "<Gather" not in r.text
+        assert "<Play>" in r.text and "<Hangup/>" in r.text
+    finally:
+        s.llm_api_key = prior
+
+
+def test_a_spoken_turn_is_answered_and_the_reply_audio_is_served(talking_client):
+    client, base, token, spoken = talking_client
+    _signed(client, f"{base}/api/telephony/voice", {"CallSid": "CA9"}, token)
+    r = _gather(client, base, {"CallSid": "CA9", "SpeechResult": "halo bu ada investasi"}, token)
+    assert r.status_code == 200
+    assert '<Gather input="speech"' in r.text  # keeps listening
+
+    import re
+
+    url = re.search(r"<Play>([^<]+)</Play>", r.text).group(1)
+    key = url.rsplit("/", 1)[-1].removesuffix(".mp3")
+    assert key.startswith("r_"), "reply audio must live under a minted token"
+
+    audio = client.get(f"/api/telephony/audio/{key}.mp3")
+    assert audio.status_code == 200
+    assert audio.headers["content-type"] == "audio/mpeg"
+    # Single-use and unique per call — must not be cached anywhere.
+    assert audio.headers["cache-control"] == "no-store"
+    assert any("jawaban untuk" in t for t in spoken)
+
+
+def test_reply_tokens_are_not_guessable_text(talking_client):
+    """The whole security model of the audio route: it serves a minted token or a
+    fixed line, and NEVER synthesizes text lifted from the URL."""
+    client, _, _, spoken = talking_client
+    before = len(spoken)
+    r = client.get("/api/telephony/audio/r_kalimat-yang-saya-mau.mp3")
+    assert r.status_code == 404
+    assert len(spoken) == before, "a 404 must not reach the TTS provider"
+
+
+def test_one_silence_re_prompts_and_two_ends_the_call(talking_client):
+    """One silence is a caller thinking; two is a dead line."""
+    client, base, token, _ = talking_client
+    _signed(client, f"{base}/api/telephony/voice", {"CallSid": "CA7"}, token)
+    _gather(client, base, {"CallSid": "CA7", "SpeechResult": "halo"}, token)
+
+    first = _gather(client, base, {"CallSid": "CA7", "SpeechResult": ""}, token)
+    assert "<Gather" in first.text and "<Hangup/>" not in first.text
+
+    second = _gather(client, base, {"CallSid": "CA7", "SpeechResult": ""}, token)
+    assert "<Hangup/>" in second.text and "<Gather" not in second.text
+
+
+def test_the_turn_cap_ends_the_call(talking_client):
+    """Bounds the LLM spend and how long one caller can hold a worker."""
+    from app.infiltrate import router as ir
+
+    client, base, token, _ = talking_client
+    _signed(client, f"{base}/api/telephony/voice", {"CallSid": "CA8"}, token)
+    _gather(client, base, {"CallSid": "CA8", "SpeechResult": "halo"}, token)
+    ir._conversations["CA8"]["turns"] = ir.MAX_TURNS
+
+    r = _gather(client, base, {"CallSid": "CA8", "SpeechResult": "masih ada?"}, token)
+    assert "<Hangup/>" in r.text
+    assert "CA8" not in ir._conversations, "ended calls must not leak state"
+
+
+def test_gather_rejects_an_unsigned_callback(talking_client):
+    """This endpoint drives an LLM and a TTS provider — an unsigned caller who
+    found the URL could run up a bill and fabricate a conversation."""
+    client, _, _, spoken = talking_client
+    before = len(spoken)
+    r = client.post(
+        "/api/telephony/gather",
+        data={"CallSid": "CA1", "SpeechResult": "halo"},
+        headers={"X-Twilio-Signature": "forged"},
+    )
+    assert r.status_code == 403
+    assert len(spoken) == before, "a rejected request must not reach a provider"
+
+
+def test_conversation_and_audio_stores_are_bounded(talking_client):
+    """One entry per inbound call, from the open internet. A honeypot is exactly
+    the service someone might call ten thousand times."""
+    from app.infiltrate import router as ir
+
+    for i in range(ir.MAX_CONVERSATIONS + 25):
+        ir._remember(ir._conversations, f"CA{i}", {"turns": 0, "silences": 0, "messages": []})
+    assert len(ir._conversations) == ir.MAX_CONVERSATIONS
+    assert "CA0" not in ir._conversations, "eviction must drop the OLDEST"
+
+    for i in range(ir.MAX_DYNAMIC_AUDIO + 25):
+        ir._remember(ir._dynamic_audio, f"r_{i}", b"x")
+    assert len(ir._dynamic_audio) == ir.MAX_DYNAMIC_AUDIO
+
+
 # --- The audio route (GET /api/telephony/audio/{line}.mp3) --------------------
 
 

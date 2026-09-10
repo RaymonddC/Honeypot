@@ -171,15 +171,26 @@ class LiteLLMGateway:
             )
 
     async def complete(
-        self, messages: list[dict], tools: list[dict] | None = None, turn: int = 0
+        self,
+        messages: list[dict],
+        tools: list[dict] | None = None,
+        turn: int = 0,
+        max_tokens: int = 1024,
     ) -> LLMResponse:
+        """``max_tokens`` is a parameter because a chat turn and a spoken turn
+        want very different budgets. 1024 is right for a WhatsApp exchange the
+        analyst reads; on a phone call it is a monologue nobody can interrupt,
+        and on a *thinking* model a large budget spent on reasoning can return
+        content=None — which on a live call is silence. Telephony passes ~90.
+        Kept off the ``LLMGateway`` protocol: only this adapter can honour it,
+        and the scripted one has no budget to spend."""
         resp = await _litellm_complete(
             model=self._model,
             messages=messages,
             tools=tools or None,
             api_key=self._api_key,
             api_base=self._api_base,  # None unless ITTU_LLM_API_BASE is set
-            max_tokens=1024,
+            max_tokens=max_tokens,
             temperature=0.8,
         )
         message = resp.choices[0].message

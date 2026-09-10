@@ -106,6 +106,50 @@ def build_stream_twiml(ws_url: str, *, greeting: str | None = None) -> str:
     )
 
 
+def build_gather_twiml(
+    audio_url: str,
+    action_url: str,
+    *,
+    language: str = "id-ID",
+    speech_timeout: str = "auto",
+) -> str:
+    """Play a line, then listen for the caller's reply. One conversational turn.
+
+    ``<Gather input="speech">`` makes TWILIO do the speech-to-text and POST the
+    transcript to ``action_url``. That is the whole reason this path exists: the
+    media-stream bridge needs a streaming STT provider we do not have wired
+    (``WhisperSTTAdapter`` raises), whereas this needs no provider account at all.
+
+    What it costs is barge-in. ``<Gather>`` is strictly turn-based — the caller
+    cannot interrupt the persona mid-sentence the way ``TurnTaker`` allows on the
+    media bridge. For a scammer who talks over people that is a real tell, so
+    this is the demo-grade path, not the production one.
+
+    ``speech_timeout="auto"`` lets Twilio decide the utterance has ended from the
+    audio rather than a fixed silence window; a fixed window either clips people
+    who pause to think or leaves dead air after short answers.
+
+    The ``<Redirect>`` after the gather is what happens when the caller says
+    NOTHING: Twilio falls through to the next verb. Without it the call would
+    simply end on the first silence, which is exactly what a hesitant victim
+    sounds like.
+    """
+    for url, label in ((audio_url, "audio"), (action_url, "action")):
+        if not url.startswith("https://"):
+            raise ValueError(f"{label} URL must be https://, got {url!r}")
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        "<Response>"
+        f'<Gather input="speech" language="{_escape(language)}" '
+        f'speechTimeout="{_escape(speech_timeout)}" '
+        f'action="{_escape(action_url)}" method="POST">'
+        f"<Play>{_escape(audio_url)}</Play>"
+        "</Gather>"
+        f'<Redirect method="POST">{_escape(action_url)}</Redirect>'
+        "</Response>"
+    )
+
+
 def build_play_and_hangup_twiml(audio_url: str) -> str:
     """TwiML that plays a synthesized audio file and hangs up.
 

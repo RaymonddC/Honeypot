@@ -17,6 +17,7 @@ mirrors P1–P3). LIVE channel/LLM adapters fail loudly — never silent network
 """
 
 import logging
+from collections import OrderedDict
 from typing import Literal
 from urllib.parse import parse_qsl
 
@@ -62,6 +63,7 @@ from app.infiltrate.service import (
 import secrets
 
 from app.infiltrate.telephony import (
+    build_gather_twiml,
     build_play_and_hangup_twiml,
     build_say_and_hangup_twiml,
     build_stream_twiml,
@@ -496,7 +498,15 @@ async def get_syndicates(
 # would be a free public text-to-speech proxy billed to our provider account.
 # A fixed vocabulary makes the cost bounded and the output predictable.
 VOICE_LINES: dict[str, str] = {
-    "greeting": "Halo, terima kasih sudah menghubungi. Sampai jumpa.",
+    # Answering line. Deliberately NOT "thank you for calling, goodbye" once the
+    # conversation loop is on — a persona that says goodbye in its first breath
+    # invites a hangup. Bu Sari answers her phone like a 54-year-old in Bandung.
+    "greeting": "Halo, selamat siang. Ini dengan siapa ya?",
+    # Said when the caller has gone quiet twice, or the turn cap is reached.
+    "goodbye": "Maaf ya, saya tanya anak saya dulu. Nanti telepon lagi ya.",
+    # Said when the persona cannot answer (LLM error). Stalling is in character,
+    # so a failure sounds like hesitation rather than a broken line.
+    "stall": "Aduh, maaf ya, suaranya putus-putus. Bisa diulang?",
 }
 
 # Synthesized bytes, kept per (line, provider). These lines never change, so the
@@ -504,6 +514,47 @@ VOICE_LINES: dict[str, str] = {
 # also matters on the call itself: Twilio is holding a live caller while it
 # fetches this URL.
 _audio_cache: dict[tuple[str, str], bytes] = {}
+
+# --- The live conversation (<Gather> loop) -----------------------------------
+#
+# Everything below is DEMO-GRADE and in-process on purpose. It creates no
+# INFILTRATE session and writes nothing to Postgres, which is what lets the
+# persona run LIVE while the deployment stays ITTU_MODE=poc: the mode-coherence
+# guard (config.assert_modes_are_coherent) exists to stop rows being stamped
+# with a mode that is not theirs, and a call that persists no rows has no stamp
+# to get wrong. The cost is that the transcript and any disclosed accounts do
+# NOT reach the case file — wiring that needs the number->agency resolution the
+# media-stream handler documents and deliberately refuses.
+
+#: Spoken replies are short. See LiteLLMGateway.complete's max_tokens note.
+VOICE_MAX_TOKENS = 90
+#: Hard stop on one call. Bounds both the LLM spend and how long a caller can
+#: hold a worker; a honeypot wants a long call, but not an unbounded one.
+MAX_TURNS = 14
+#: Two silences ends it. One is a caller thinking; two is a dead line.
+MAX_SILENCES = 2
+#: Bounds on the in-process stores. Eviction is oldest-first (insertion order).
+MAX_CONVERSATIONS = 200
+MAX_DYNAMIC_AUDIO = 256
+
+#: CallSid -> {"messages": [...], "turns": int, "silences": int}
+_conversations: "OrderedDict[str, dict]" = OrderedDict()
+
+#: token -> synthesized MP3 for ONE reply. Keys are minted by us
+#: (secrets.token_urlsafe), never taken from a URL, so the public audio route
+#: still only ever serves audio this process generated.
+_dynamic_audio: "OrderedDict[str, bytes]" = OrderedDict()
+
+
+def _remember(store: OrderedDict, key: str, value) -> None:
+    """Insert with oldest-first eviction. These are unbounded inputs from the
+    outside world (one entry per inbound call), so they need a ceiling: a
+    honeypot is exactly the service someone might call ten thousand times."""
+    store[key] = value
+    store.move_to_end(key)
+    cap = MAX_CONVERSATIONS if store is _conversations else MAX_DYNAMIC_AUDIO
+    while len(store) > cap:
+        store.popitem(last=False)
 
 
 def _live_tts_provider(settings) -> str | None:
@@ -527,24 +578,8 @@ def _live_tts_provider(settings) -> str | None:
     return provider if key_for.get(provider, "") else None
 
 
-@router.get("/telephony/audio/{line_key}.mp3")
-async def get_telephony_audio(line_key: str) -> Response:
-    """Synthesized audio for one named line — what Twilio's <Play> fetches.
-
-    **Unauthenticated by necessity**: Twilio pulls this URL with no credentials,
-    exactly as it posts the answer webhook without our JWT. Unlike the webhook
-    there is no signature to check — Twilio does not sign media fetches — so the
-    protection is the fixed VOICE_LINES vocabulary above: an unknown key is a
-    404 before any provider is called, and no request body reaches the provider.
-    """
-    text = VOICE_LINES.get(line_key)
-    if text is None:
-        raise HTTPException(
-            status_code=404,
-            detail={"code": "unknown_line", "message": f"No voice line {line_key!r}."},
-        )
-
-    settings = get_settings()
+async def _synthesize(text: str, settings) -> bytes:
+    """Speak one line with the configured provider. Raises HTTPException on failure."""
     provider = _live_tts_provider(settings)
     if provider is None:
         raise HTTPException(
@@ -557,35 +592,224 @@ async def get_telephony_audio(line_key: str) -> Response:
                 ),
             },
         )
+    from app.infiltrate.voice import LIVE_TTS_PROVIDERS
 
-    cached = _audio_cache.get((line_key, provider))
+    try:
+        adapter = LIVE_TTS_PROVIDERS[provider](settings)
+        spoken = await adapter.synthesize(text)
+    except Exception as exc:  # noqa: BLE001 - provider errors are operational
+        # Never surface the provider's response body: it can echo the API key
+        # back in an error. Log the type, return a clean 502.
+        logger.error("telephony: TTS provider %s failed: %s", provider, type(exc).__name__)
+        raise HTTPException(
+            status_code=502,
+            detail={"code": "tts_failed", "message": "Voice synthesis failed."},
+        ) from exc
+    audio = spoken.audio_bytes or b""
+    if not audio:
+        raise HTTPException(
+            status_code=502,
+            detail={"code": "tts_empty", "message": "Voice synthesis returned no audio."},
+        )
+    return audio
+
+
+@router.get("/telephony/audio/{line_key}.mp3")
+async def get_telephony_audio(line_key: str) -> Response:
+    """Synthesized audio for one line — what Twilio's <Play> fetches.
+
+    **Unauthenticated by necessity**: Twilio pulls this URL with no credentials,
+    exactly as it posts the answer webhook without our JWT. Unlike the webhook
+    there is no signature to check — Twilio does not sign media fetches.
+
+    So the protection is that this route NEVER synthesizes text taken from the
+    URL. It serves exactly two things: a line from the fixed VOICE_LINES
+    vocabulary, or a reply this process already generated and filed under a
+    random token. Anything else is a 404 before a provider is touched.
+    Without that, a public endpoint that speaks arbitrary text is a free
+    text-to-speech proxy billed to our provider account.
+    """
+    dynamic = _dynamic_audio.get(line_key)
+    if dynamic is not None:
+        # A persona reply: unique per call, so it must not be cached by Twilio's
+        # edge or by anything between us — and it is genuinely single-use.
+        return Response(
+            content=dynamic,
+            media_type="audio/mpeg",
+            headers={"Cache-Control": "no-store"},
+        )
+
+    text = VOICE_LINES.get(line_key)
+    if text is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "unknown_line", "message": f"No voice line {line_key!r}."},
+        )
+
+    settings = get_settings()
+    provider = _live_tts_provider(settings)
+    cached = _audio_cache.get((line_key, provider)) if provider else None
     if cached is None:
-        from app.infiltrate.voice import LIVE_TTS_PROVIDERS
-
-        try:
-            adapter = LIVE_TTS_PROVIDERS[provider](settings)
-            spoken = await adapter.synthesize(text)
-        except Exception as exc:  # noqa: BLE001 - provider errors are operational
-            # Never leak the provider's response (it can echo the API key back in
-            # an error body); log the type and give the caller a clean 502.
-            logger.error("telephony: TTS provider %s failed: %s", provider, type(exc).__name__)
-            raise HTTPException(
-                status_code=502,
-                detail={"code": "tts_failed", "message": "Voice synthesis failed."},
-            ) from exc
-        cached = spoken.audio_bytes or b""
-        if not cached:
-            raise HTTPException(
-                status_code=502,
-                detail={"code": "tts_empty", "message": "Voice synthesis returned no audio."},
-            )
+        cached = await _synthesize(text, settings)
         _audio_cache[(line_key, provider)] = cached
 
-    # Twilio re-fetches per call; caching lets its edge hold it instead.
+    # A fixed line never changes, so let Twilio's edge hold it.
     return Response(
         content=cached,
         media_type="audio/mpeg",
         headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
+def _conversation_enabled(settings) -> bool:
+    """Can the persona actually hold a conversation?
+
+    Needs a voice (TTS) and a brain (an LLM key). Twilio supplies the ears via
+    <Gather input="speech">, so there is no STT requirement. Without a brain the
+    call falls back to the single-line answer rather than gathering speech we
+    have nothing to answer with — silence after a question is worse than a short
+    honest call.
+    """
+    return bool(_live_tts_provider(settings)) and bool(settings.effective_llm_api_key)
+
+
+async def _persona_reply(call_sid: str, heard: str, settings) -> str:
+    """One persona turn. Returns the line to speak."""
+    from app.infiltrate.gateway import LiteLLMGateway
+    from app.infiltrate.personas import get_persona
+
+    state = _conversations.get(call_sid)
+    if state is None:
+        persona = get_persona(None)  # Bu Sari — the investment-scam persona
+        state = {
+            "messages": [
+                {"role": "system", "content": persona.system_prompt()},
+                # The persona pool is written for WhatsApp/Telegram, where the
+                # register is lowercase shorthand. Spoken aloud that register
+                # produces text-message artefacts ("wkwk", emoji names) read out
+                # by a TTS voice, so the channel is restated here.
+                {
+                    "role": "system",
+                    "content": (
+                        "This is a PHONE CALL, not a chat. Reply with ONE or TWO "
+                        "short spoken sentences in Bahasa Indonesia — no emoji, no "
+                        "abbreviations, no chat shorthand, nothing that only makes "
+                        "sense written down. Speak the way this person would speak "
+                        "out loud."
+                    ),
+                },
+            ],
+            "turns": 0,
+            "silences": 0,
+        }
+        _remember(_conversations, call_sid, state)
+
+    state["messages"].append({"role": "user", "content": heard})
+    state["turns"] += 1
+
+    try:
+        gateway = LiteLLMGateway(settings)
+        out = await gateway.complete(
+            messages=state["messages"], max_tokens=VOICE_MAX_TOKENS
+        )
+        reply = (out.content or "").strip()
+    except Exception as exc:  # noqa: BLE001 - provider errors are operational
+        logger.error("telephony: persona LLM failed: %s", type(exc).__name__)
+        reply = ""
+
+    if not reply:
+        # Stalling is IN CHARACTER for this persona, so a model failure sounds
+        # like a bad line rather than a broken system. It is also not recorded
+        # as a persona turn — otherwise a flapping provider would silently eat
+        # the turn budget.
+        state["turns"] -= 1
+        return VOICE_LINES["stall"]
+
+    state["messages"].append({"role": "assistant", "content": reply})
+    return reply
+
+
+@router.post("/telephony/gather")
+async def post_telephony_gather(request: Request) -> Response:
+    """One conversational turn: what the caller said in, the persona's reply out.
+
+    Twilio does the speech-to-text (``<Gather input="speech">``) and POSTs the
+    transcript here as ``SpeechResult``. Same signature check as the answer
+    webhook — this endpoint drives an LLM and a TTS provider, so an unsigned
+    caller who found the URL could run up a bill and fabricate a conversation.
+    """
+    settings = get_settings()
+    body = (await request.body()).decode("utf-8", errors="replace")
+    params = dict(parse_qsl(body, keep_blank_values=True))
+
+    base = settings.public_base_url.rstrip("/")
+    url = f"{base}{request.url.path}" if base else str(request.url)
+    if not verify_twilio_signature(
+        settings.twilio_auth_token,
+        url,
+        params,
+        request.headers.get("X-Twilio-Signature", ""),
+    ):
+        logger.warning("telephony: rejected an unsigned gather callback for %s", url)
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "invalid_twilio_signature",
+                "message": "Request is not a validly signed Twilio webhook.",
+            },
+        )
+
+    call_sid = params.get("CallSid", "")
+    heard = (params.get("SpeechResult") or "").strip()
+    state = _conversations.get(call_sid)
+
+    def _end(line_key: str) -> Response:
+        _conversations.pop(call_sid, None)
+        return Response(
+            content=build_play_and_hangup_twiml(
+                f"{base}/api/telephony/audio/{line_key}.mp3"
+            ),
+            media_type="application/xml",
+        )
+
+    # Silence. Twilio reaches the <Redirect> after the gather with no
+    # SpeechResult — one is a caller thinking, two is a dead line.
+    if not heard:
+        silences = (state or {}).get("silences", 0) + 1
+        if state is not None:
+            state["silences"] = silences
+        if silences >= MAX_SILENCES or state is None:
+            logger.info("telephony: call %s ended on silence", call_sid)
+            return _end("goodbye")
+        return Response(
+            content=build_gather_twiml(
+                f"{base}/api/telephony/audio/stall.mp3",
+                f"{base}/api/telephony/gather",
+            ),
+            media_type="application/xml",
+        )
+
+    if state is not None and state["turns"] >= MAX_TURNS:
+        logger.info("telephony: call %s hit the turn cap", call_sid)
+        return _end("goodbye")
+
+    logger.info("telephony: call %s heard %r", call_sid, heard[:120])
+    reply = await _persona_reply(call_sid, heard, settings)
+
+    # Synthesize THIS reply and file it under a token we mint. The audio route
+    # serves it by that token and never re-synthesizes from the URL.
+    token = f"r_{secrets.token_urlsafe(12)}"
+    try:
+        _remember(_dynamic_audio, token, await _synthesize(reply, settings))
+    except HTTPException:
+        return _end("goodbye")
+
+    return Response(
+        content=build_gather_twiml(
+            f"{base}/api/telephony/audio/{token}.mp3",
+            f"{base}/api/telephony/gather",
+        ),
+        media_type="application/xml",
     )
 
 
@@ -671,9 +895,18 @@ async def post_telephony_voice(request: Request) -> Response:
     # because a generic voice is still a working call and <Play> pointing at
     # audio we cannot synthesize is silence.
     if base and _live_tts_provider(settings):
+        greeting = f"{base}/api/telephony/audio/greeting.mp3"
         try:
+            # A brain as well as a voice: answer and LISTEN. Otherwise the
+            # persona greets the caller and hangs up, which is a doorbell.
+            if _conversation_enabled(settings):
+                _conversations.pop(params.get("CallSid", ""), None)  # fresh call
+                return Response(
+                    content=build_gather_twiml(greeting, f"{base}/api/telephony/gather"),
+                    media_type="application/xml",
+                )
             return Response(
-                content=build_play_and_hangup_twiml(f"{base}/api/telephony/audio/greeting.mp3"),
+                content=build_play_and_hangup_twiml(greeting),
                 media_type="application/xml",
             )
         except ValueError as exc:
