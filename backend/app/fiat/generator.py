@@ -94,10 +94,33 @@ def _uid(*parts: object) -> uuid.UUID:
     return uuid.uuid5(_NS, ":".join(str(p) for p in parts))
 
 
+def _b58encode(raw: bytes) -> str:
+    n = int.from_bytes(raw, "big")
+    out = ""
+    while n:
+        n, rem = divmod(n, 58)
+        out = _B58[rem] + out
+    return "1" * (len(raw) - len(raw.lstrip(b"\x00"))) + out
+
+
 def _tron_addr(seed_str: str) -> str:
-    """Deterministic, base58-shaped TRON address for synthetic deposit senders."""
-    digest = hashlib.sha256(seed_str.encode()).digest()
-    return "T" + "".join(_B58[b % 58] for b in digest[:33])
+    """Deterministic, VALID base58check TRON address for a synthetic sender.
+
+    This used to emit "T" plus base58 characters — the right shape and a failing
+    checksum. That is not a cosmetic difference: the on-ramp row's trace target
+    is the sender, so "lacak →" handed TAKEDOWN a malformed address, the live
+    adapter short-circuited it without a network call (correctly), and the
+    operator saw an empty graph with nothing explaining why.
+
+    0x41 + hash160 + the first 4 bytes of a double SHA-256, base58-encoded —
+    the real construction, so the result survives any checksum validator it
+    meets. It still has no chain history, being synthetic: valid means
+    checkable, not real.
+    """
+    h160 = hashlib.sha256(f"ittu:tron:{seed_str}".encode()).digest()[:20]
+    payload = b"\x41" + h160
+    checksum = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
+    return _b58encode(payload + checksum)
 
 
 def _tx_hash(seed_str: str) -> str:
