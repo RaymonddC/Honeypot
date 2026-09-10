@@ -227,6 +227,10 @@ class StartSessionRequest(BaseModel):
     # Tier-B live call: start an OPEN session (persona greets, then waits for
     # POST /sessions/{id}/turn) instead of running the scripted replay.
     interactive: bool = False
+    # Who is on the other end. For an inbound phone call this is the number that
+    # actually dialled in, which is evidence — without it the session records the
+    # VOICE_CALLER_NUMBER fixture, i.e. a number nobody called from.
+    channel_ref: str | None = None
 
 
 class ScenarioOut(BaseModel):
@@ -584,7 +588,9 @@ async def _start_interactive_session(
     session_id = f"sess_{uuid.uuid4().hex[:12]}"
     is_voice = req.channel_type == "voice"
     channel = "voice" if is_voice else (req.channel or "telegram")
-    channel_ref = VOICE_CALLER_NUMBER if is_voice else ""
+    # The caller's real number when we know it (an inbound call does),
+    # falling back to the demo fixture for the browser/mic session.
+    channel_ref = req.channel_ref or (VOICE_CALLER_NUMBER if is_voice else "")
     greeting = VOICE_GREETING if is_voice else "halo, ini dengan siapa ya?"
 
     chain = MessageChain(session_id)
@@ -660,6 +666,59 @@ def _resolve_turn_gateway(settings) -> LLMGateway:
         except NotImplementedError:
             pass  # fall through to the keyless persona
     return InteractiveScriptedGateway(settings)
+
+
+async def append_persona_line(
+    session_id: str, text: str, repo: InfiltrateRepository,
+) -> bool:
+    """Append a line the persona SPOKE but that no agent turn produced.
+
+    The telephony path plays fixed lines the conversation loop never generates —
+    the goodbye when a caller goes quiet, the stall when a provider fails. They
+    reached the caller's ear and were absent from the custody chain, which left
+    a record that was truthful about what it contained and silent about the rest.
+
+    Custody-only by design: these are our own scripted words, so there is nothing
+    to extract from them and no turn to classify. It appends to the SAME chain,
+    so the hashes stay continuous — writing them any other way would produce a
+    record that fails its own verification.
+
+    Returns False when the session has no live state (already ended, or never
+    recorded), so callers can ignore it and keep going.
+    """
+    state = _LIVE_STATES.get(session_id)
+    session = await repo.get_session(session_id)
+    if state is None or session is None or not (text or "").strip():
+        return False
+
+    ts = _BASE_TS + timedelta(seconds=(state.next_turn + 1) * 2 + 1)
+    meta: dict = {"turn": state.next_turn + 1, "model": "scripted-line"}
+    if state.is_voice:
+        dur = estimate_duration(text)
+        meta.update({
+            "speaker": "persona", "duration_seconds": dur,
+            "offset_seconds": round(state.offset_seconds, 1),
+        })
+        state.offset_seconds += dur
+
+    cm = state.chain.append("outbound", text, ts, meta)
+    msg = MessageOut(
+        id=f"msg_{uuid.uuid4().hex[:12]}", session_id=session_id, seq=cm.seq,
+        direction="outbound", content=cm.content, ts=cm.ts, sha256=cm.sha256,
+        prev_sha256=cm.prev_sha256, meta=cm.meta, entities=[],
+    )
+    state.conversation.append({"role": "assistant", "content": text})
+    await repo.append_messages(session_id, [msg])
+
+    all_msgs = await repo.get_messages(session_id) or []
+    session.message_count = len(all_msgs)
+    session.custody = CustodyOut(
+        messages_logged=len(state.chain.messages()),
+        chain_intact=state.chain.verify(),
+        head_sha256=state.chain.head,
+    )
+    await repo.save_session(session)
+    return True
 
 
 async def run_one_turn(

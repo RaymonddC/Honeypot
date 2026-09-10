@@ -762,7 +762,14 @@ async def _open_case_session(call_sid: str, from_number: str) -> str | None:
             if repo is None:
                 return None
             out = await start_session(
-                StartSessionRequest(channel_type="voice", interactive=True),
+                StartSessionRequest(
+                    channel_type="voice",
+                    interactive=True,
+                    # The number that actually dialled in. Without it the session
+                    # records the VOICE_CALLER_NUMBER fixture — a number nobody
+                    # called from — on a record meant to be evidence.
+                    channel_ref=from_number or None,
+                ),
                 channel=None, gateway=None, repo=repo,
             )
             logger.info(
@@ -776,6 +783,26 @@ async def _open_case_session(call_sid: str, from_number: str) -> str | None:
             "unrecorded", call_sid, type(exc).__name__,
         )
         return None
+
+
+async def _record_spoken_line(session_id: str | None, text: str) -> None:
+    """Put a line we PLAY but never generate into the custody chain.
+
+    The goodbye and the stall reach the caller's ear like any other line; a
+    record that omits them is a record of a different, shorter call. Silent on
+    failure — this runs while the caller is being said goodbye to, and losing a
+    line is better than raising at hangup.
+    """
+    if not session_id:
+        return
+    from app.infiltrate.service import append_persona_line
+
+    try:
+        async with _telephony_repo() as repo:
+            if repo is not None:
+                await append_persona_line(session_id, text, repo)
+    except Exception as exc:  # noqa: BLE001 - best effort, never at the call's expense
+        logger.error("telephony: could not record a spoken line (%s)", type(exc).__name__)
 
 
 async def _recorded_turn(session_id: str, heard: str) -> str | None:
@@ -940,7 +967,10 @@ async def post_telephony_gather(request: Request) -> Response:
     heard = (params.get("SpeechResult") or "").strip()
     state = _conversations.get(call_sid)
 
-    def _end(line_key: str) -> Response:
+    async def _end(line_key: str) -> Response:
+        # Record what she is about to say before dropping the call state — after
+        # the pop there is no session id left to attach it to.
+        await _record_spoken_line((state or {}).get("session_id"), VOICE_LINES[line_key])
         _conversations.pop(call_sid, None)
         return Response(
             content=build_play_and_hangup_twiml(
@@ -957,7 +987,8 @@ async def post_telephony_gather(request: Request) -> Response:
             state["silences"] = silences
         if silences >= MAX_SILENCES or state is None:
             logger.info("telephony: call %s ended on silence", call_sid)
-            return _end("goodbye")
+            return await _end("goodbye")
+        await _record_spoken_line(state.get("session_id"), VOICE_LINES["stall"])
         return Response(
             content=build_gather_twiml(
                 f"{base}/api/telephony/audio/stall.mp3",
@@ -968,7 +999,7 @@ async def post_telephony_gather(request: Request) -> Response:
 
     if state is not None and state["turns"] >= MAX_TURNS:
         logger.info("telephony: call %s hit the turn cap", call_sid)
-        return _end("goodbye")
+        return await _end("goodbye")
 
     logger.info("telephony: call %s heard %r", call_sid, heard[:120])
     reply = await _persona_reply(call_sid, heard, settings)
@@ -979,7 +1010,7 @@ async def post_telephony_gather(request: Request) -> Response:
     try:
         _remember(_dynamic_audio, token, await _synthesize(reply, settings))
     except HTTPException:
-        return _end("goodbye")
+        return await _end("goodbye")
 
     return Response(
         content=build_gather_twiml(
