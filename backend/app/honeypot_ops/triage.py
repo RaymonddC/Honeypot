@@ -25,6 +25,7 @@ from fastapi import Depends
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.casedata.schemas import AddBankAccountRequest
 from app.core.auth import AuthContext
 from app.core.auth import get_optional_current_user as _get_optional_current_user
 from app.core.config import get_settings
@@ -213,3 +214,78 @@ async def get_triage_repository(
     if session is None or auth is None:  # pragma: no cover - tenant session 401s first
         raise RuntimeError("postgres persistence requires an authenticated, RLS-scoped session")
     return PostgresTriageRepository(session, agency_id=auth.agency.id)
+
+
+# --------------------------------------------------------------------------- #
+# Carrying a call's findings onto the case it is placed into
+# --------------------------------------------------------------------------- #
+
+
+async def copy_entities_to_case(
+    session_id: str,
+    case_id: str,
+    *,
+    infiltrate_repo,
+    casedata_repo,
+) -> int:
+    """Copy a call's extracted bank accounts onto the case, as tracked accounts.
+
+    Placing a call used to set ``session.case_id`` and nothing else. The account
+    a scammer read out on the line stayed on ``intel.entities``, attached to the
+    SESSION — while every downstream module reads ``casedata.bank_accounts``:
+    TRACE's mule watchlist, the case view, and the freeze request UNCOVER
+    renders into a PDF. So a real call produced a real entity and an empty case,
+    and the golden thread broke at exactly the seam between INFILTRATE and
+    everything after it.
+
+    ``review_status`` is carried into the note rather than dropped. Extractions
+    arrive ``unverified`` — a mis-transcribed digit is one wrong account — and a
+    case that cannot show which of its accounts a human has confirmed invites
+    someone to freeze the wrong one. The officer sees the account immediately;
+    the record never claims more certainty than it has.
+
+    Category is ``mule``: an account a scammer gives out to receive a victim's
+    transfer is a receiving account, which is what that literal means here and
+    what the rest of the demo data already uses (see ONRAMP_CATEGORY).
+
+    Crypto wallets are deliberately NOT copied. ``casedata`` stores transfers —
+    ``from_addr → to_addr`` for a value at a time — and a disclosed address is a
+    node, not an edge. Writing one would mean inventing a transaction that
+    nobody observed, which is worse than leaving the wallet on the session where
+    it honestly sits.
+
+    Returns how many accounts were added. Idempotent: attaching the same call
+    twice, or two calls that disclosed the same account, will not duplicate it.
+    """
+    entities = await infiltrate_repo.list_entities(session_id)
+    if not entities:
+        return 0
+
+    existing = {
+        a.account_number for a in await casedata_repo.list_bank_accounts(case_id)
+    }
+    added = 0
+    for e in entities:
+        if e.type != "bank_account":
+            continue
+        number = (e.normalized_value or e.value or "").strip()
+        if not number or number in existing:
+            continue
+        note = (
+            f"Disclosed on honeypot call {session_id}"
+            f" · extraction {e.method} conf {e.confidence:.2f}"
+            f" · review: {e.review_status}"
+        )
+        await casedata_repo.add_bank_account(
+            AddBankAccountRequest(
+                bank_name=e.bank_name or "Unknown",
+                account_number=number,
+                holder_name=None,
+                category="mule",
+                note=note[:500],
+                case_id=case_id,
+            )
+        )
+        existing.add(number)
+        added += 1
+    return added

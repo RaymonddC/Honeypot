@@ -44,6 +44,7 @@ from app.honeypot_ops.repository import (
     HoneypotOpsRepository,
     get_honeypot_ops_repository,
 )
+from app.honeypot_ops.triage import copy_entities_to_case
 from app.honeypot_ops.schemas import (
     AddNumberRequest,
     AttachSessionRequest,
@@ -64,6 +65,16 @@ from app.honeypot_ops.schemas import (
 from app.honeypot_ops.triage import TriageRepository, get_triage_repository
 
 logger = logging.getLogger("uvicorn.error")
+
+# Repositories the "place this call" handlers need to carry a call's findings
+# onto the case. Declared here rather than imported inline so both handlers get
+# the same RLS-scoped, per-request instances every other route uses.
+from app.casedata.repository import get_casedata_repository
+from app.infiltrate.repository import get_infiltrate_repository
+
+CaseDataDep = Depends(get_casedata_repository)
+InfiltrateDep = Depends(get_infiltrate_repository)
+
 
 router = APIRouter(tags=["honeypot-ops"])
 
@@ -406,6 +417,8 @@ async def attach_triage_session(
     body: AttachSessionRequest,
     repo: TriageRepository = TriageDep,
     case_repo: CaseRepository = CaseDep,
+    infiltrate_repo=InfiltrateDep,
+    casedata_repo=CaseDataDep,
     auth: AuthContext = Depends(require_capability(HONEYPOT_DIAL)),
     audit_session=Depends(get_optional_tenant_session),
     request: Request = None,  # audit origin (ip/user-agent)
@@ -416,6 +429,13 @@ async def attach_triage_session(
     attached = await repo.attach(session_id, body.case_id)
     if attached is None:
         raise _not_found("session", session_id)
+    # Carry what the call disclosed onto the case, so TRACE's watchlist and the
+    # freeze-request PDF have something to work from. Without this the case is
+    # an empty shell pointing at a session nothing downstream reads.
+    copied = await copy_entities_to_case(
+        session_id, body.case_id,
+        infiltrate_repo=infiltrate_repo, casedata_repo=casedata_repo,
+    )
     # Filing a call into a case is an evidentiary decision — auto-linking is
     # exact-match only precisely so a human owns the ambiguous ones (§5/§9).
     await record_action(
@@ -428,7 +448,8 @@ async def attach_triage_session(
         target_type="session",
         target_id=session_id,
         target_label=f"call {attached.channel_ref or session_id}",
-        detail={"case_id": body.case_id, "session_id": session_id},
+        detail={"case_id": body.case_id, "session_id": session_id,
+                "accounts_copied": copied},
     )
     return attached
 
@@ -443,6 +464,8 @@ async def promote_triage_session(
     body: PromoteSessionRequest | None = None,
     repo: TriageRepository = TriageDep,
     case_repo: CaseRepository = CaseDep,
+    infiltrate_repo=InfiltrateDep,
+    casedata_repo=CaseDataDep,
     auth: AuthContext = Depends(require_capability(HONEYPOT_DIAL)),
     audit_session=Depends(get_optional_tenant_session),
     request: Request = None,  # audit origin (ip/user-agent)
@@ -469,6 +492,11 @@ async def promote_triage_session(
     attached = await repo.attach(session_id, created.id)
     if attached is None:  # pragma: no cover - existence checked above
         raise _not_found("session", session_id)
+    # The new case starts with what the call actually produced, not just a title.
+    await copy_entities_to_case(
+        session_id, created.id,
+        infiltrate_repo=infiltrate_repo, casedata_repo=casedata_repo,
+    )
     # One entry, not two: this opened a case AND filed a call into it as a
     # single operator decision, and `overrides` records where the human
     # disagreed with the prefill — which is the interesting part on review.
