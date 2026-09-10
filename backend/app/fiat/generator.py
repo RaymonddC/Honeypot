@@ -123,6 +123,44 @@ def _tron_addr(seed_str: str) -> str:
     return _b58encode(payload + checksum)
 
 
+# Real TRON wallets that have transferred into the exchange hot wallet, each
+# with a chain of its own deep enough to render (41-155 nodes when traced).
+#
+# Harvested from the hot wallet's actual counterparties rather than invented, so
+# the sender → exchange edge the simulator draws is a transfer that really
+# happened. The FIAT side, the names, the amounts and the scam framing remain
+# synthetic, and every row the simulator emits carries data_mode="poc" — the
+# marker that separates the demo universe from evidence.
+#
+# Why not synthesise these too: a generated address is valid but has never
+# transacted, so TAKEDOWN answers every trace with an empty graph and nothing on
+# screen explains why. An operator reads that as broken software.
+LIVE_SENDERS: tuple[str, ...] = (
+    "TGqhWamTeVJqXs3asU1fWbCtjg7L2beyfc",   # 332 transfers, 155 nodes
+    "TFUcu2cBvhg3vj5ANSphHLNwdCx8WSaQgs",   #  99 transfers,  60 nodes
+    "TG2CMGxnTPgQ6V58kiKd7wbyN8ewtAmY76",   #  99 transfers,  46 nodes
+    "TD5sCpPBXsLLjZc4tYXsWNvtcsUfeeX2uA",   #  50 transfers,  50 nodes
+    "TUG7frUwqAQVyUF4ApBGMifq7GcJv3AHiz",   # 100 transfers,  88 nodes
+    "TQJ8pfbWGfn2fkTqByNkfRR5Xy2k6eD9m3",   #  94 transfers,  63 nodes
+    "TJhTMU1LxLPKp3ov9VgmXTNx5mKHRcFH6m",   #  95 transfers,  80 nodes
+    "TWgoxoF9h9KyNLN6i5hsGzLEYfdNouvPHC",   #  99 transfers,  51 nodes
+    "TU4vEruvZwLLkSfV9bNw12EJTPvNr7Pvaa",   # 313 transfers,  85 nodes
+    "TM2XkBNvwPd4E4JE4suhVTB18udgm3Uq9j",   #  50 transfers,  41 nodes
+    "TQBvR1avb3XjQF3CcY593wg1ZuYoFkvCaj",   #  99 transfers,  76 nodes
+    "TQEWvKfc2PMFKcf2CoxBUdfPSpBU3vQgL5",   # 140 transfers,  71 nodes
+)
+
+
+def _sender_addr(seed_str: str) -> str:
+    """Pick one live sender, deterministically from the seed.
+
+    Deterministic so a given simulator seed always produces the same on-ramp,
+    which is what makes the demo reproducible and the correlation ids stable.
+    """
+    digest = hashlib.sha256(f"ittu:sender:{seed_str}".encode()).digest()
+    return LIVE_SENDERS[digest[0] % len(LIVE_SENDERS)]
+
+
 def _tx_hash(seed_str: str) -> str:
     return hashlib.sha256(seed_str.encode()).hexdigest()
 
@@ -253,7 +291,7 @@ def _generate(seed: int, n_merchants: int, n_clusters: int, n_payers: int) -> Fi
                 fee = rng.uniform(0.004, 0.009)
                 deposits.append(Transfer(
                     tx_hash=_tx_hash(f"bridge:{seed}:{bulk.id}"),
-                    from_addr=_tron_addr(f"bridge:{seed}:{c}"),
+                    from_addr=_sender_addr(f"bridge:{seed}:{c}"),
                     to_addr=hot_wallet(),
                     value=round(bulk.amount / IDR_PER_USDT * (1 - fee), 2),
                     token_symbol="USDT",
