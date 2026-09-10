@@ -37,6 +37,19 @@ IDR_PER_USDT = 16_300.0  # fixed demo rate (docs/TRACE-Design open Q2 — POC co
 # Indodax USDT-TRC20 hot wallet (chain fixtures, tagged category='exchange').
 HOT_WALLET = "TCUVQF2ZvcJiKivzGVRimiKxW9jSukbD65"
 
+
+def hot_wallet() -> str:
+    """The address the on-ramp converges on.
+
+    ITTU_TRACE_HOT_WALLET overrides the fixture, so a deployment can point
+    "lacak →" at an address that actually has chain history and see a real
+    TAKEDOWN graph. Read per call rather than captured at import, so the
+    override applies without a restart in tests.
+    """
+    from app.core.config import get_settings
+
+    return get_settings().trace_hot_wallet.strip() or HOT_WALLET
+
 CASE_FRAMING = {
     "case_ref": "PT A2Z / Oei Hengky Wiryo pattern",
     "full_case": "4,656 accounts · 22 banks · Rp 530B",
@@ -218,7 +231,7 @@ def _generate(seed: int, n_merchants: int, n_clusters: int, n_payers: int) -> Fi
                 deposits.append(Transfer(
                     tx_hash=_tx_hash(f"bridge:{seed}:{bulk.id}"),
                     from_addr=_tron_addr(f"bridge:{seed}:{c}"),
-                    to_addr=HOT_WALLET,
+                    to_addr=hot_wallet(),
                     value=round(bulk.amount / IDR_PER_USDT * (1 - fee), 2),
                     token_symbol="USDT",
                     ts=bulk.ts + timedelta(seconds=rng.uniform(360, 1440)),
@@ -243,7 +256,7 @@ def _generate(seed: int, n_merchants: int, n_clusters: int, n_payers: int) -> Fi
         transactions=txs,
         crypto_deposits=deposits,
         idr_per_usdt=IDR_PER_USDT,
-        hot_wallet=HOT_WALLET,
+        hot_wallet=hot_wallet(),
         case_framing=CASE_FRAMING,
     )
 

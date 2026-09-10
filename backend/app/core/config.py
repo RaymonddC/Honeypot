@@ -138,6 +138,18 @@ class Settings(BaseSettings):
     # needs the lookup; a single-agency one never did.
     telephony_agency: str = ""            # ITTU_TELEPHONY_AGENCY
 
+    # TRACE's fiat→crypto on-ramp ends at an exchange hot wallet, and "lacak →"
+    # carries that address into TAKEDOWN. Empty = the demo fixture address,
+    # which is valid but has no chain history — so with TAKEDOWN live the graph
+    # comes back empty and looks broken.
+    #
+    # Set this to a REAL address to demo the live chain path. It is a setting
+    # rather than a changed constant because the fixture address is tagged
+    # "Indodax" and carries fabricated edges in the POC graph: give that
+    # identity to a real wallet and one of the two modes starts asserting
+    # something the chain never showed.
+    trace_hot_wallet: str = ""            # ITTU_TRACE_HOT_WALLET
+
 
     # CORS: origins allowed to call the API. Kept as a STRING (not list[str]) so
     # pydantic-settings never tries to JSON-decode the env var and crash on deploy.

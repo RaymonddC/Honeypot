@@ -377,9 +377,12 @@ def _prefill(sess: TriageSessionOut) -> CreateCaseRequest:
     number and date, so an investigator confirming a judgement shouldn't retype
     any of it. Every field is overridable in the request body.
     """
+    # Date AND time: two calls from the same number on the same day used to
+    # produce two cases with an identical name, which is unusable in a list.
     when = sess.started_at.strftime("%d %b %Y")
+    when_exact = sess.started_at.strftime("%d %b %Y %H:%M")
     number = sess.channel_ref or "unknown number"
-    bits = [f"Honeypot voice call with {number} on {when}."]
+    bits = [f"Honeypot voice call with {number} on {when_exact} UTC."]
     if sess.duration_seconds:
         bits.append(f"Duration {sess.duration_seconds}s.")
     if sess.entity_count:
@@ -388,7 +391,7 @@ def _prefill(sess: TriageSessionOut) -> CreateCaseRequest:
         )
     bits.append(f"Promoted from triage (session {sess.id}).")
     return CreateCaseRequest(
-        title=f"Voice call {number} · {when}"[:160],
+        title=f"Voice call {number} · {when_exact}"[:160],
         crime_type=sess.crime_type,
         summary=" ".join(bits)[:2000],
     )
