@@ -545,6 +545,10 @@ _conversations: "OrderedDict[str, dict]" = OrderedDict()
 #: still only ever serves audio this process generated.
 _dynamic_audio: "OrderedDict[str, bytes]" = OrderedDict()
 
+#: Strong references to in-flight warm-up tasks. asyncio only holds weak ones,
+#: so a fire-and-forget task can be garbage-collected before it finishes.
+_warming: set = set()
+
 
 def _remember(store: OrderedDict, key: str, value) -> None:
     """Insert with oldest-first eviction. These are unbounded inputs from the
@@ -659,6 +663,33 @@ async def get_telephony_audio(line_key: str) -> Response:
         media_type="audio/mpeg",
         headers={"Cache-Control": "public, max-age=86400"},
     )
+
+
+async def _warm_llm() -> None:
+    """Import litellm off the critical path, while the greeting is still playing.
+
+    ``_litellm_complete`` imports litellm lazily, inside the call. That is right
+    for a POC deployment that never uses it, but it puts a heavy one-off import
+    on the FIRST spoken turn — measured at 35s on the deployed instance, against
+    Twilio's 15s action-URL timeout. The caller's first sentence would time out
+    and drop the call; every later turn was 1.5s.
+
+    Answering the call is the natural window: the greeting plays, the caller
+    speaks, Twilio transcribes — several seconds during which nothing else needs
+    the worker. Done in a THREAD because a synchronous 30-second import on the
+    event loop would freeze every other request in this process.
+
+    Warmed here rather than at startup: boot is already slow on this instance,
+    and a deployment that never takes a call should not pay for litellm at all.
+    """
+    import asyncio
+    import importlib
+
+    try:
+        await asyncio.to_thread(importlib.import_module, "litellm")
+    except Exception as exc:  # noqa: BLE001 - warming is best-effort by design
+        # Never fail the call over this: the turn will just pay the import.
+        logger.warning("telephony: LLM warm-up failed (%s)", type(exc).__name__)
 
 
 def _conversation_enabled(settings) -> bool:
@@ -901,6 +932,13 @@ async def post_telephony_voice(request: Request) -> Response:
             # persona greets the caller and hangs up, which is a doorbell.
             if _conversation_enabled(settings):
                 _conversations.pop(params.get("CallSid", ""), None)  # fresh call
+                # Fire-and-forget: pay litellm's import now, while the greeting
+                # plays, instead of on the caller's first sentence.
+                import asyncio
+
+                task = asyncio.create_task(_warm_llm())
+                _warming.add(task)  # hold a reference or it can be GC'd mid-flight
+                task.add_done_callback(_warming.discard)
                 return Response(
                     content=build_gather_twiml(greeting, f"{base}/api/telephony/gather"),
                     media_type="application/xml",
