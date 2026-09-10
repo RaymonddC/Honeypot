@@ -91,7 +91,14 @@ const NAV_GROUPS: { groupKey: string; items: NavItem[] }[] = [
       { href: "/bridge", labelKey: "trace", subKey: "traceSub", icon: "trace", step: 2 },
       { href: "/investigation", labelKey: "takedown", subKey: "takedownSub", icon: "takedown", step: 3, crypto: true },
       { href: "/actions", labelKey: "uncover", subKey: "uncoverSub", icon: "uncover", step: 4 },
-      { href: "/honeypot-ops", labelKey: "honeypotOps", subKey: "honeypotOpsSub", icon: "honeypotOps", hidden: true },
+      // Back in the menu: this is where the triage queue lives, and an inbound
+      // honeypot call now lands there. A connected call opens a SESSION, never a
+      // case — opening a case takes the `case.write` capability and a named
+      // human, because an investigation recorded with no accountable officer is
+      // the thing docs/Ecosystem-Strategy.md §3.2 warns about. Triage is where
+      // that human turns the call into one, so hiding it left the last step of
+      // the flow unreachable.
+      { href: "/honeypot-ops", labelKey: "honeypotOps", subKey: "honeypotOpsSub", icon: "honeypotOps" },
       { href: "/response", labelKey: "commandCenter", icon: "commandCenter" },
     ],
   },
