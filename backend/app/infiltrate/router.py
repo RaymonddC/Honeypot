@@ -732,20 +732,31 @@ async def _telephony_repo():
         return
 
     async with worker_session() as session:
-        exists = (
-            await session.execute(select(Agency.id).where(Agency.id == seed.id))
-        ).scalar_one_or_none()
-        if exists is None:
-            logger.error(
-                "telephony: agency %r (%s) is not in this database — answering "
-                "unrecorded rather than writing rows nothing owns",
-                slug, seed.id,
-            )
-            yield None
-            return
-        yield PostgresInfiltrateRepository(
-            session, agency_id=seed.id, data_mode=settings.mode
-        )
+        # ⚠️ worker_session yields a session and does NOT commit — the dialer
+        # opens its own `session.begin()` for the same reason. Without this the
+        # writes are rolled back when the session closes, and the failure is
+        # silent and total: the persona still talks, every request returns 200,
+        # and the call simply never appears. Which is exactly what happened.
+        #
+        # One transaction for the whole turn is also the right shape for the
+        # record: a turn's inbound message, the persona's reply and any entity
+        # extracted from it are written together or not at all, so the custody
+        # chain can never be left with half a turn in it.
+        async with session.begin():
+            exists = (
+                await session.execute(select(Agency.id).where(Agency.id == seed.id))
+            ).scalar_one_or_none()
+            if exists is None:
+                logger.error(
+                    "telephony: agency %r (%s) is not in this database — "
+                    "answering unrecorded rather than writing rows nothing owns",
+                    slug, seed.id,
+                )
+                yield None
+            else:
+                yield PostgresInfiltrateRepository(
+                    session, agency_id=seed.id, data_mode=settings.mode
+                )
 
 
 async def _open_case_session(call_sid: str, from_number: str) -> str | None:
