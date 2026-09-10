@@ -1,5 +1,6 @@
 """ITTU API — app factory + lifespan (P0 scaffold)."""
 
+import asyncio
 import logging
 import secrets
 from contextlib import asynccontextmanager
@@ -63,6 +64,24 @@ async def lifespan(app: FastAPI):
         s.llm_model,
         s.llm_api_base or "(provider default)",
     )
+    # Start litellm's import at boot, not on a caller's first sentence.
+    #
+    # `_litellm_complete` imports it lazily, which is right for a POC deployment
+    # that never uses it — but on a phone call the first turn then pays a ~30s
+    # import against Twilio's 15s action-URL timeout, and the caller's opening
+    # sentence drops the call. Warming when the call is ANSWERED was not enough:
+    # the greeting only buys a few seconds.
+    #
+    # A background task, so boot is not delayed; the import runs in a thread
+    # inside it, so it never blocks the event loop. Only when the telephony
+    # persona is actually configured — nothing else here needs litellm.
+    if s.effective_llm_api_key:
+        from app.infiltrate.router import _warm_llm, _warming
+
+        _boot_warm = asyncio.create_task(_warm_llm())
+        _warming.add(_boot_warm)
+        _boot_warm.add_done_callback(_warming.discard)
+
     if s.mode == "live" and s.persistence == "postgres":
         # A LIVE deployment reads ONLY live-stamped rows (migration 20260823_18),
         # and every row written before mode isolation existed is 'poc' by column
