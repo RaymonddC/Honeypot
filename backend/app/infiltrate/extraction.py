@@ -84,7 +84,11 @@ BANK_KEYWORDS_RE = re.compile(
     re.IGNORECASE,
 )
 # A run of 8–18 digits (Indonesian account numbers), separators tolerated.
-ACCOUNT_NUM_RE = re.compile(r"\b\d[\d\s.-]{7,20}\d\b")
+# 6..18 digits. The lower bound is deliberately below a real account length:
+# _extract_bank_accounts grades what it finds rather than discarding a short
+# run outright, because a fragment a scammer actually said is evidence and
+# silence is not.
+ACCOUNT_NUM_RE = re.compile(r"\b\d[\d\s.-]{4,20}\d\b")
 
 
 # --------------------------------------------------------------------------- #
@@ -229,15 +233,28 @@ def _extract_bank_accounts(text: str) -> list[ExtractedEntity]:
     seen: set[str] = set()
     for m in ACCOUNT_NUM_RE.finditer(text):
         digits = re.sub(r"\D", "", m.group(0))
-        if not (8 <= len(digits) <= 18) or digits in seen:
+        if not (6 <= len(digits) <= 18) or digits in seen:
             continue
         seen.add(digits)
-        # Context anchor present → confident; bank name known → more so.
-        conf = 0.9 if bank_name else 0.7
-        validators = ["bank_context_anchor"]
-        if bank_name:
-            validators.append("bank_name_match")
-        anchor = f"{bank_name} account" if bank_name else "Bank account"
+        # A real Indonesian account is 10+ digits (BCA 10, Mandiri 13, BRI 15).
+        # Anything shorter is kept — a number the scammer actually said is
+        # evidence — but graded so nothing downstream mistakes a fragment for a
+        # whole account: a freeze request built on six digits would name the
+        # wrong customer.
+        partial = len(digits) < 8
+        if partial:
+            conf = 0.35
+            validators = ["bank_context_anchor", "partial_account_number"]
+            anchor = f"Partial account number ({len(digits)} digits, incomplete)"
+            if bank_name:
+                anchor = f"{bank_name} — {anchor.lower()}"
+        else:
+            # Context anchor present → confident; bank name known → more so.
+            conf = 0.9 if bank_name else 0.7
+            validators = ["bank_context_anchor"]
+            if bank_name:
+                validators.append("bank_name_match")
+            anchor = f"{bank_name} account" if bank_name else "Bank account"
         # Capture an a.n. holder name if present for the subtitle.
         an = re.search(r"a\.?n\.?\s*([A-Z][A-Za-z ]{2,40})", text)
         if an:

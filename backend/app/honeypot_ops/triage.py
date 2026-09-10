@@ -278,7 +278,10 @@ async def copy_entities_to_case(
         )
         await casedata_repo.add_bank_account(
             AddBankAccountRequest(
-                bank_name=e.bank_name or "Unknown",
+                # "TBC" not "Unknown": the bank was never said on the call,
+                # so this is a field still to be confirmed rather than a
+                # fact nobody knows. An investigator reads the difference.
+                bank_name=e.bank_name or "TBC",
                 account_number=number,
                 holder_name=None,
                 category="mule",

@@ -79,3 +79,39 @@ def test_the_stored_message_is_never_rewritten():
     # The helper is pure — calling it does not mutate the caller's string, and
     # nothing in the pipeline writes its output back into the message.
     assert said == "rekening lima dua tujuh satu nol tiga delapan empat enam dua"
+
+
+# --- Partial account numbers -------------------------------------------------
+
+
+def test_a_short_number_is_recorded_as_partial_not_dropped():
+    """A scammer read out "123 1149" on a live call and the extractor returned
+    nothing, because no Indonesian account is seven digits. The transcript kept
+    it and the case did not, which leaves an operator unable to tell "he said
+    nothing" from "he said something we would not keep"."""
+    ents = extract_layer_a("Iya Bu bisa ditransfer ke rekening 123 1149")
+    assert [e.normalized_value for e in ents] == ["1231149"]
+    e = ents[0]
+    assert "partial_account_number" in e.validators_passed
+    assert "incomplete" in e.context.lower()
+    # Graded well below a full-length account so nothing downstream mistakes a
+    # fragment for something a freeze request could name.
+    assert e.confidence < 0.5
+
+
+def test_a_full_length_account_still_outranks_a_fragment():
+    full = extract_layer_a("transfer ke rekening BCA 5271038462 atas nama Rudi")[0]
+    part = extract_layer_a("Iya Bu bisa ditransfer ke rekening 123 1149")[0]
+    assert full.confidence > part.confidence
+    assert "partial_account_number" not in full.validators_passed
+
+
+@pytest.mark.parametrize("said", [
+    "rekening 1149",                 # 4 digits — noise, not a fragment
+    "harganya 12345 rupiah",         # no bank context anchor at all
+])
+def test_the_floor_still_holds(said):
+    """Below six digits a run is more likely a price, a year or a reference than
+    any part of an account. Inventing evidence out of noise is worse than
+    missing a fragment."""
+    assert [e for e in extract_layer_a(said) if e.type == "bank_account"] == []
