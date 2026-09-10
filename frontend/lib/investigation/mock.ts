@@ -43,7 +43,7 @@ const ADDR = [
   "TArgG3C2mcZuqsvXxW4H3yjsYVhdLEUoAL", //      3 · low
   "TWnFN1sPzFz6Sch2matVjcTgydk7noT4Pk", //      4 · low
   "TEzmHBPwZtVe1NJiZRVo3kJrMUwcRKMvxf", //      5 · high (peel hop)
-  "TWn4rQt7eKp2mXv9dJ5bLhS8wc02", //      6 · med (fan-out)
+  "THFQN4HS3VRiATfrJrEiqzGTYbvzo1PFag", //      6 · med (fan-out)
   "TRLvnFUnFu87N4bNU4GQzUGUWGAkjaD5pN", //       7 · low
   "TQrGvv1vah935jFoznzncnnySZrxnarvt2", //       8 · med
   "THirWzU8PP86KB75GcGUom46GPLKwr8ywY", //      9 · exchange (Indodax)

@@ -250,8 +250,82 @@ def _extract_bank_accounts(text: str) -> list[ExtractedEntity]:
     return out
 
 
+# Spoken Indonesian digits. "kosong" (literally "empty") is what people
+# actually say for zero when reading a number aloud, more often than "nol".
+_SPOKEN_DIGITS: dict[str, str] = {
+    "nol": "0", "kosong": "0", "satu": "1", "dua": "2", "tiga": "3",
+    "empat": "4", "lima": "5", "enam": "6", "tujuh": "7", "delapan": "8",
+    "sembilan": "9",
+}
+
+#: How many spoken digits in a row before we treat the run as a number being
+#: dictated. Six is comfortably past counting or a price ("dua juta") and short
+#: enough to catch a partial account number read back in pieces.
+_SPOKEN_RUN_MIN = 6
+
+#: What may sit BETWEEN two spoken digits without ending the run — the
+#: whitespace and punctuation a transcriber inserts while someone dictates.
+_SPOKEN_SEPARATORS = " \t\r\n-,."
+
+_SPOKEN_TOKEN_RE = re.compile(
+    r"\b(" + "|".join(sorted(_SPOKEN_DIGITS, key=len, reverse=True)) + r")\b",
+    re.IGNORECASE,
+)
+
+
+def spoken_digits_to_number(text: str) -> str:
+    """Rewrite dictated digit runs as digits, leaving everything else alone.
+
+    On a phone call this is the whole intake. A scammer reading out an account
+    says "lima dua tujuh satu nol tiga delapan empat enam dua", and every
+    Layer-A pattern looks for DIGITS — so the one artefact the call exists to
+    collect was invisible to the extractor. It was recovered only when the model
+    happened to fire a covert record_entity tool, which is a choice the model
+    makes, not a guarantee: two calls with the same disclosure produced an entity
+    and nothing at all.
+
+    Only runs of >= _SPOKEN_RUN_MIN consecutive number words are converted, so
+    ordinary speech survives untouched: "dua puluh persen" and "modal lima juta"
+    are not phone numbers and must not become 2, 20 or 5.
+
+    The original text is what gets stored in custody — this feeds the extractor
+    only, so the record still says what was said.
+    """
+    matches = list(_SPOKEN_TOKEN_RE.finditer(text))
+    if not matches:
+        return text
+
+    # Group into maximal runs: consecutive number words separated by nothing but
+    # the punctuation people speak numbers with.
+    runs: list[list[re.Match]] = []
+    current = [matches[0]]
+    for prev, m in zip(matches, matches[1:]):
+        if not text[prev.end():m.start()].strip(_SPOKEN_SEPARATORS):
+            current.append(m)
+        else:
+            runs.append(current)
+            current = [m]
+    runs.append(current)
+
+    out: list[str] = []
+    pos = 0
+    for run in runs:
+        if len(run) < _SPOKEN_RUN_MIN:
+            continue  # ordinary speech — left exactly as spoken
+        out.append(text[pos:run[0].start()])
+        out.append("".join(_SPOKEN_DIGITS[m.group(1).lower()] for m in run))
+        pos = run[-1].end()
+    out.append(text[pos:])
+    return "".join(out)
+
+
 def extract_layer_a(text: str) -> list[ExtractedEntity]:
-    """All Layer-A (regex + validator) entities in one message."""
+    """All Layer-A (regex + validator) entities in one message.
+
+    Dictated digits are normalised first: on a voice channel the account number
+    arrives as words, and every pattern below matches digits.
+    """
+    text = spoken_digits_to_number(text)
     return (
         _extract_crypto(text)
         + _extract_phones(text)
