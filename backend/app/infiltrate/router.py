@@ -703,24 +703,41 @@ async def _telephony_repo():
 
     from sqlalchemy import select
 
+    from app.core.auth import SEED_AGENCIES
     from app.core.db import worker_session
     from app.core.models import Agency
     from app.infiltrate.repository import PostgresInfiltrateRepository
 
+    # Slug -> id the same way the rest of auth does it: `core.agencies` has no
+    # slug column, the id is a deterministic uuid5 of the slug (auth._agency_id),
+    # and the seeded rows carry exactly those ids. Resolving through the seed
+    # table rather than recomputing the hash means an unknown slug is caught
+    # here instead of producing a well-formed id for an agency that never
+    # existed — which would fail later as a foreign-key error, mid-call.
+    seed = next((a for a in SEED_AGENCIES if a.slug == slug), None)
+    if seed is None:
+        logger.error(
+            "telephony: ITTU_TELEPHONY_AGENCY=%r is not a known agency slug (%s) "
+            "— the call will be answered but nothing recorded",
+            slug, ", ".join(a.slug for a in SEED_AGENCIES),
+        )
+        yield None
+        return
+
     async with worker_session() as session:
-        row = (
-            await session.execute(select(Agency).where(Agency.slug == slug))
+        exists = (
+            await session.execute(select(Agency.id).where(Agency.id == seed.id))
         ).scalar_one_or_none()
-        if row is None:
+        if exists is None:
             logger.error(
-                "telephony: ITTU_TELEPHONY_AGENCY=%r matches no agency — the call "
-                "will be answered but nothing recorded",
-                slug,
+                "telephony: agency %r (%s) is not in this database — answering "
+                "unrecorded rather than writing rows nothing owns",
+                slug, seed.id,
             )
             yield None
             return
         yield PostgresInfiltrateRepository(
-            session, agency_id=row.id, data_mode=settings.mode
+            session, agency_id=seed.id, data_mode=settings.mode
         )
 
 
