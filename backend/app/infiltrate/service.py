@@ -31,7 +31,12 @@ from app.infiltrate.gateway import (
     LLMGateway,
     ScriptedLLMGateway,
 )
-from app.infiltrate.personas import Persona, all_personas, get_persona
+from app.infiltrate.personas import (
+    VOICE_ADDENDUM,
+    Persona,
+    all_personas,
+    get_persona,
+)
 from app.infiltrate.scenarios import Scenario, all_scenarios, get_scenario
 from app.infiltrate.repository import (
     InfiltrateRepository,
@@ -622,7 +627,16 @@ async def _start_interactive_session(
     await repo.save_messages(session_id, [message])
     _LIVE_STATES[session_id] = _LiveState(
         persona=persona,
-        conversation=[{"role": "system", "content": persona.system_prompt()}],
+        # A voice session gets the spoken-channel rules too: the persona pool is
+        # written in a WhatsApp register, and on a call the artefacts we exist to
+        # collect only reach us if the other party SAYS them. See VOICE_ADDENDUM.
+        conversation=[
+            {
+                "role": "system",
+                "content": persona.system_prompt()
+                + (VOICE_ADDENDUM if is_voice else ""),
+            }
+        ],
         chain=chain,
         offset_seconds=offset_seconds,
         next_turn=0,

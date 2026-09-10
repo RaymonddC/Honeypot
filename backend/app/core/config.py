@@ -122,6 +122,21 @@ class Settings(BaseSettings):
     # LLM bill and a fabricated "call" in an evidentiary record — so an
     # unconfigured deployment refuses rather than accepting all comers.
     telephony_stream_token: str = ""      # ITTU_TELEPHONY_STREAM_TOKEN
+    # Agency SLUG that owns inbound honeypot calls (e.g. "bareskrim"). Empty =
+    # calls are answered but nothing is recorded: the persona still talks, and
+    # the transcript and any account disclosed on the line are discarded when
+    # the call ends.
+    #
+    # Why a declared slug rather than a lookup. An inbound call arrives with no
+    # JWT, so the request has no identity to scope storage to — the ordinary
+    # repository dependency 401s. `honeypot.numbers` does map a number to an
+    # agency, but reading it needs the agency we are trying to find, so it takes
+    # an RLS-bypassing owner-role read (see app/infiltrate/router.py, and
+    # worker_session in app/core/db.py). Naming the agency here is a
+    # DECLARATION, not a bypass: one value an operator sets deliberately, that
+    # cannot resolve to a tenant nobody intended. A multi-tenant deployment
+    # needs the lookup; a single-agency one never did.
+    telephony_agency: str = ""            # ITTU_TELEPHONY_AGENCY
 
 
     # CORS: origins allowed to call the API. Kept as a STRING (not list[str]) so

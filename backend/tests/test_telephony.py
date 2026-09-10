@@ -10,6 +10,8 @@ self-consistency check — a homegrown "sign then verify with the same code"
 test passes happily even if the algorithm is wrong in the same way twice.
 """
 
+from contextlib import asynccontextmanager
+
 import pytest
 
 from app.core.config import Settings
@@ -426,6 +428,52 @@ def test_conversation_and_audio_stores_are_bounded(talking_client):
     for i in range(ir.MAX_DYNAMIC_AUDIO + 25):
         ir._remember(ir._dynamic_audio, f"r_{i}", b"x")
     assert len(ir._dynamic_audio) == ir.MAX_DYNAMIC_AUDIO
+
+
+def test_a_call_is_not_recorded_without_a_declared_agency(talking_client):
+    """No ITTU_TELEPHONY_AGENCY means answer-but-discard, and it must be that
+    way round: an inbound call carries no JWT, so there is no identity to scope
+    storage to. Guessing one would file a real call under a tenant nobody chose."""
+    from app.core.config import get_settings
+    from app.infiltrate import router as ir
+
+    client, base, token, _ = talking_client
+    s = get_settings()
+    prior = s.telephony_agency
+    s.telephony_agency = ""
+    try:
+        r = _signed(client, f"{base}/api/telephony/voice", {"CallSid": "CAx"}, token)
+        assert "<Gather" in r.text, "the persona still answers"
+        assert ir._conversations.get("CAx", {}).get("session_id") is None
+    finally:
+        s.telephony_agency = prior
+
+
+def test_recording_failure_never_drops_the_call(talking_client, monkeypatch):
+    """Storage is worth a lot; it is not worth hanging up on a live scammer.
+    A repository that blows up must degrade to an unrecorded conversation."""
+    from app.core.config import get_settings
+    from app.infiltrate import router as ir
+
+    client, base, token, _ = talking_client
+
+    @asynccontextmanager
+    async def _broken():
+        raise RuntimeError("database is down")
+        yield  # pragma: no cover
+
+    monkeypatch.setattr(ir, "_telephony_repo", _broken)
+    s = get_settings()
+    prior = s.telephony_agency
+    s.telephony_agency = "bareskrim"
+    try:
+        answer = _signed(client, f"{base}/api/telephony/voice", {"CallSid": "CAy"}, token)
+        assert "<Gather" in answer.text, "the call is still answered"
+        turn = _gather(client, base, {"CallSid": "CAy", "SpeechResult": "halo bu"}, token)
+        assert turn.status_code == 200
+        assert "<Gather" in turn.text, "and the conversation continues"
+    finally:
+        s.telephony_agency = prior
 
 
 # --- The audio route (GET /api/telephony/audio/{line}.mp3) --------------------

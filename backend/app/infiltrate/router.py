@@ -18,6 +18,7 @@ mirrors P1–P3). LIVE channel/LLM adapters fail loudly — never silent network
 
 import logging
 from collections import OrderedDict
+from contextlib import asynccontextmanager
 from typing import Literal
 from urllib.parse import parse_qsl
 
@@ -665,6 +666,120 @@ async def get_telephony_audio(line_key: str) -> Response:
     )
 
 
+@asynccontextmanager
+async def _telephony_repo():
+    """A repository for a call that carries no JWT, scoped to the declared agency.
+
+    An inbound Twilio request has no identity, so ``get_infiltrate_repository``
+    cannot serve it — under Postgres its tenant session 401s by design. This
+    yields one anyway, scoped to ``ITTU_TELEPHONY_AGENCY``.
+
+    That connects through ``worker_session`` (the owning role), so **RLS is not
+    filtering these queries** and this code carries both obligations the policies
+    would otherwise discharge, exactly as ``honeypot_ops.dialer`` does:
+    ``agency_id`` is passed explicitly, and ``data_mode`` is the deployment's own
+    mode so a call cannot be written into the other evidentiary universe.
+
+    The agency is DECLARED in config, not looked up from the dialled number. A
+    lookup would have to read ``honeypot.numbers`` to find the agency it needs in
+    order to read ``honeypot.numbers``; a declared slug cannot resolve to a
+    tenant nobody intended.
+
+    Yields ``None`` when no agency is configured, or in memory persistence where
+    there is no tenant to scope to — callers fall back to the unrecorded path.
+    """
+    settings = get_settings()
+    slug = (settings.telephony_agency or "").strip()
+    if not slug:
+        yield None
+        return
+    if settings.persistence != "postgres":
+        # Memory mode has no agencies and no RLS; the process-wide singleton is
+        # the whole store, and start_session/run_one_turn work against it.
+        from app.infiltrate.repository import _memory_repository
+
+        yield _memory_repository()
+        return
+
+    from sqlalchemy import select
+
+    from app.core.db import worker_session
+    from app.core.models import Agency
+    from app.infiltrate.repository import PostgresInfiltrateRepository
+
+    async with worker_session() as session:
+        row = (
+            await session.execute(select(Agency).where(Agency.slug == slug))
+        ).scalar_one_or_none()
+        if row is None:
+            logger.error(
+                "telephony: ITTU_TELEPHONY_AGENCY=%r matches no agency — the call "
+                "will be answered but nothing recorded",
+                slug,
+            )
+            yield None
+            return
+        yield PostgresInfiltrateRepository(
+            session, agency_id=row.id, data_mode=settings.mode
+        )
+
+
+async def _open_case_session(call_sid: str, from_number: str) -> str | None:
+    """Open a recorded INFILTRATE session for this call, or None if unrecorded.
+
+    Best-effort on purpose. Recording is worth a lot, but not worth dropping a
+    live call for: if the database is unreachable the persona still answers, and
+    the conversation falls back to the in-process path.
+    """
+    from app.infiltrate.service import StartSessionRequest, start_session
+
+    try:
+        async with _telephony_repo() as repo:
+            if repo is None:
+                return None
+            out = await start_session(
+                StartSessionRequest(channel_type="voice", interactive=True),
+                channel=None, gateway=None, repo=repo,
+            )
+            logger.info(
+                "telephony: call %s recording into session %s (from %s)",
+                call_sid, out.id, from_number or "<unknown>",
+            )
+            return out.id
+    except Exception as exc:  # noqa: BLE001 - never drop a call over storage
+        logger.error(
+            "telephony: could not open a session for call %s (%s) — answering "
+            "unrecorded", call_sid, type(exc).__name__,
+        )
+        return None
+
+
+async def _recorded_turn(session_id: str, heard: str) -> str | None:
+    """One turn through the real pipeline: LLM + extraction + custody + reclassify.
+
+    Returns the persona's line, or None if the turn could not be recorded — the
+    caller then falls back so the conversation continues either way.
+    """
+    from app.infiltrate.service import run_one_turn
+
+    try:
+        async with _telephony_repo() as repo:
+            if repo is None:
+                return None
+            out = await run_one_turn(session_id, heard, repo)
+            if out is None:
+                return None
+            # TurnOut carries the pair [inbound, outbound persona] rather than a
+            # `reply` field; the persona's line is the outbound one.
+            for msg in reversed(out.messages or []):
+                if msg.direction == "outbound":
+                    return (msg.content or "").strip() or None
+            return None
+    except Exception as exc:  # noqa: BLE001 - never drop a call over storage
+        logger.error("telephony: recorded turn failed (%s)", type(exc).__name__)
+        return None
+
+
 async def _warm_llm() -> None:
     """Import litellm off the critical path, while the greeting is still playing.
 
@@ -704,68 +819,46 @@ def _conversation_enabled(settings) -> bool:
     return bool(_live_tts_provider(settings)) and bool(settings.effective_llm_api_key)
 
 
+def _new_call_state(session_id: str | None = None) -> dict:
+    """Blank per-call state. ``messages`` is filled in on the first turn, not
+    here: the answer webhook knows the session id but has no reason to build a
+    prompt for a caller who may never speak."""
+    return {"messages": None, "turns": 0, "silences": 0, "session_id": session_id}
+
+
 async def _persona_reply(call_sid: str, heard: str, settings) -> str:
     """One persona turn. Returns the line to speak."""
     from app.infiltrate.gateway import LiteLLMGateway
-    from app.infiltrate.personas import get_persona
+    from app.infiltrate.personas import VOICE_ADDENDUM, get_persona
 
     state = _conversations.get(call_sid)
     if state is None:
-        persona = get_persona(None)  # Bu Sari — the investment-scam persona
-        state = {
-            "messages": [
-                {"role": "system", "content": persona.system_prompt()},
-                # The persona pool is written for WhatsApp/Telegram, where the
-                # register is lowercase shorthand. Spoken aloud that register
-                # produces text-message artefacts ("wkwk", emoji names) read out
-                # by a TTS voice, so the channel is restated here.
-                {
-                    "role": "system",
-                    "content": (
-                        "This is a PHONE CALL, not a chat. Reply with ONE or TWO "
-                        "short spoken sentences in Bahasa Indonesia — no emoji, no "
-                        "abbreviations, no chat shorthand, nothing that only makes "
-                        "sense written down. Speak the way this person would speak "
-                        "out loud."
-                    ),
-                },
-                # The extraction rule, and the whole reason a VOICE honeypot can
-                # collect anything at all. Everything of forensic value — the
-                # account number, the wallet, the callback number — only exists
-                # if it is SPOKEN on this call. A persona who says "just text it
-                # to me" ends the engagement with nothing: no audio, no
-                # transcript, no entity.
-                #
-                # It is put in her mouth as helplessness rather than as an
-                # instruction, because that is both in character for someone
-                # whose tech-literacy is "low" and the most natural thing in the
-                # world to say. Asking for it twice is the same move a real
-                # confused victim makes, and it doubles the chance the
-                # transcriber catches every digit.
-                {
-                    "role": "system",
-                    "content": (
-                        "You are on the phone and you CANNOT read messages. Your "
-                        "phone is old, you never learned to open SMS or WhatsApp "
-                        "yourself, and your son is not home to do it for you. So "
-                        "if the other person offers to SEND you anything — an "
-                        "account number, a link, a code — you must say you cannot "
-                        "read it and ask them to say it out loud NOW, slowly, "
-                        "while you write it on paper. When money is mentioned but "
-                        "no account has been given, ask which account to send to "
-                        "and ask them to read the number out. After they read it, "
-                        "say the number back to them and ask if it is correct. "
-                        "Never ask for it by SMS, WhatsApp, or any message."
-                    ),
-                },
-            ],
-            "turns": 0,
-            "silences": 0,
-        }
+        state = _new_call_state()
         _remember(_conversations, call_sid, state)
+    if state["messages"] is None:
+        # Bu Sari — the investment-scam persona — plus the spoken-channel rules
+        # that make her ask for the account out loud instead of by message.
+        # Shared with the recorded path (service._start_interactive_session), so
+        # both routes run the same persona rather than drifting apart.
+        persona = get_persona(None)
+        state["messages"] = [
+            {"role": "system", "content": persona.system_prompt() + VOICE_ADDENDUM}
+        ]
 
     state["messages"].append({"role": "user", "content": heard})
     state["turns"] += 1
+
+    # Recorded path first: run_one_turn drives the SAME agent loop and then does
+    # Layer-A/B extraction, custody append and reclassification — so an account
+    # spoken on this call becomes an entity on a real session instead of being
+    # discarded when the caller hangs up. Falls through to the unrecorded reply
+    # below if storage is unavailable: recording is worth a lot, but not worth
+    # dropping a live call for.
+    if state.get("session_id"):
+        recorded = await _recorded_turn(state["session_id"], heard)
+        if recorded:
+            state["messages"].append({"role": "assistant", "content": recorded})
+            return recorded
 
     try:
         gateway = LiteLLMGateway(settings)
@@ -960,7 +1053,16 @@ async def post_telephony_voice(request: Request) -> Response:
             # A brain as well as a voice: answer and LISTEN. Otherwise the
             # persona greets the caller and hangs up, which is a doorbell.
             if _conversation_enabled(settings):
-                _conversations.pop(params.get("CallSid", ""), None)  # fresh call
+                call_sid = params.get("CallSid", "")
+                _conversations.pop(call_sid, None)  # fresh call
+                # Open the recorded session now, while the greeting plays, so the
+                # caller's first sentence already has somewhere to be filed.
+                session_id = await _open_case_session(call_sid, params.get("From", ""))
+                if session_id:
+                    _remember(_conversations, call_sid, {
+                        "messages": None,       # built lazily by _persona_reply
+                        "turns": 0, "silences": 0, "session_id": session_id,
+                    })
                 # Fire-and-forget: pay litellm's import now, while the greeting
                 # plays, instead of on the caller's first sentence.
                 import asyncio

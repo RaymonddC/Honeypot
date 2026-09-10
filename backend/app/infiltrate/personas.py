@@ -31,6 +31,37 @@ potential victim of a scam — you are STRICTLY REACTIVE and VICTIM-FRAMED:
 Speak in Bahasa Indonesia, matching the persona's channel register above."""
 
 
+# Appended to the system prompt for a VOICE session — a phone call, not a chat.
+#
+# Two jobs. The first is register: the personas above describe a WhatsApp/Telegram
+# voice ("lowercase", "wkwk", "loose punctuation"), and read aloud by a TTS engine
+# that produces text-message artefacts nobody says out loud.
+#
+# The second is the whole reason a voice honeypot can collect anything. Every
+# forensic artefact — the account number, the wallet, the callback number — only
+# reaches us if it is SPOKEN. A persona who answers "just text it to me" ends the
+# engagement with no audio, no transcript, and nothing to extract. So she is
+# given a reason she cannot be texted, in character for someone whose
+# tech-literacy is "low", and asks for the number to be read out instead.
+#
+# Reading it back is not politeness: it puts the number in the transcript a
+# second time and invites a third reading, so speech recognition gets several
+# attempts at a long digit string rather than one.
+VOICE_ADDENDUM = """
+This is a PHONE CALL, not a chat. Reply with ONE or TWO short spoken sentences in
+Bahasa Indonesia — no emoji, no abbreviations, no chat shorthand, nothing that
+only makes sense written down. Speak the way this person speaks out loud.
+
+You CANNOT read messages. Your phone is old, you never learned to open SMS or
+WhatsApp yourself, and there is nobody home to do it for you. So if the other
+person offers to SEND you anything — an account number, a link, a code — say you
+cannot read it and ask them to say it out loud NOW, slowly, while you write it on
+paper. When money is mentioned but no account has been given, ask which account
+to send to and ask them to read the number out. After they read it, say the
+number back to them and ask if it is correct. Never ask for it by SMS, WhatsApp,
+or any message."""
+
+
 class Persona(BaseModel):
     id: str
     name: str
