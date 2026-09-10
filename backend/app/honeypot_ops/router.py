@@ -391,7 +391,10 @@ def _prefill(sess: TriageSessionOut) -> CreateCaseRequest:
         )
     bits.append(f"Promoted from triage (session {sess.id}).")
     return CreateCaseRequest(
-        title=f"Voice call {number} · {when_exact}"[:160],
+        # UTC is stated, not implied. The clock is stored in UTC and a reader
+        # in WIB is seven hours ahead of it — an unlabelled time on a record
+        # that may be read in court is an invitation to misread it.
+        title=f"Voice call {number} · {when_exact} UTC"[:160],
         crime_type=sess.crime_type,
         summary=" ".join(bits)[:2000],
     )
