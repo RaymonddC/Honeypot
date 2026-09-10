@@ -729,6 +729,35 @@ async def _persona_reply(call_sid: str, heard: str, settings) -> str:
                         "out loud."
                     ),
                 },
+                # The extraction rule, and the whole reason a VOICE honeypot can
+                # collect anything at all. Everything of forensic value — the
+                # account number, the wallet, the callback number — only exists
+                # if it is SPOKEN on this call. A persona who says "just text it
+                # to me" ends the engagement with nothing: no audio, no
+                # transcript, no entity.
+                #
+                # It is put in her mouth as helplessness rather than as an
+                # instruction, because that is both in character for someone
+                # whose tech-literacy is "low" and the most natural thing in the
+                # world to say. Asking for it twice is the same move a real
+                # confused victim makes, and it doubles the chance the
+                # transcriber catches every digit.
+                {
+                    "role": "system",
+                    "content": (
+                        "You are on the phone and you CANNOT read messages. Your "
+                        "phone is old, you never learned to open SMS or WhatsApp "
+                        "yourself, and your son is not home to do it for you. So "
+                        "if the other person offers to SEND you anything — an "
+                        "account number, a link, a code — you must say you cannot "
+                        "read it and ask them to say it out loud NOW, slowly, "
+                        "while you write it on paper. When money is mentioned but "
+                        "no account has been given, ask which account to send to "
+                        "and ask them to read the number out. After they read it, "
+                        "say the number back to them and ask if it is correct. "
+                        "Never ask for it by SMS, WhatsApp, or any message."
+                    ),
+                },
             ],
             "turns": 0,
             "silences": 0,
