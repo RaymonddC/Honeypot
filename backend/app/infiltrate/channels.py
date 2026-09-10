@@ -8,7 +8,7 @@ POC (``ReplayChannelAdapter``): replays a **scripted, deterministic** scam
 conversation — a Telegram investment-scam operator working persona
 "Bu Sari, 54". Fully offline, no network, no credentials; the transcript
 doubles as the demo narrative + test fixture. It deliberately discloses the
-TRON wallet ``TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6`` (the P1 Investigation fixture
+TRON wallet ``TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn`` (the P1 Investigation fixture
 source) and a BCA mule account, so extracted honeypot intel links straight
 into the Investigation screen.
 
@@ -58,12 +58,12 @@ class ScriptTurn(BaseModel):
 #   url          https://profit-maxx-invest.com
 #   phones       0813-9988-7766 and +62 812-3344-5566  (→ E.164 +62…)
 #   bank account BCA 5271038462 a.n. Rudi Hartono
-#   TRON wallet  TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6  (P1 fixture source → links
+#   TRON wallet  TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn  (P1 fixture source → links
 #                honeypot intel to the Investigation graph)
 # The persona stays strictly reactive: never initiates, never sends funds.
 # --------------------------------------------------------------------------- #
 
-DEMO_TRON_WALLET = "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6"
+DEMO_TRON_WALLET = "TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn"
 DEMO_BCA_ACCOUNT = "5271038462"
 SCAMMER_HANDLE = "@ProfitMax_Andi"
 
@@ -185,7 +185,7 @@ REPLAY_SCRIPT: list[ScriptTurn] = [
     ScriptTurn(
         scammer=(
             "Bisa banget Bu, malah lebih cepat! Kirim USDT jaringan TRC20 ke wallet "
-            "resmi kami: TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6 — ingat ya Bu harus network "
+            "resmi kami: TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn — ingat ya Bu harus network "
             "TRON (TRC20), jangan salah pilih. Kurs sudah saya hitungkan nanti."
         ),
         persona_reply=(
@@ -197,7 +197,7 @@ REPLAY_SCRIPT: list[ScriptTurn] = [
                 "name": "record_entity",
                 "args": {
                     "type": "crypto_wallet",
-                    "value": "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6",
+                    "value": "TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn",
                     "chain": "tron",
                     "context": "USDT-TRC20 deposit wallet disclosed for 'investment'",
                 },

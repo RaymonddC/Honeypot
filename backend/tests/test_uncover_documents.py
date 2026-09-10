@@ -17,7 +17,7 @@ from app.uncover.documents import (
     generate_str_draft,
 )
 
-WALLET = "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6"
+WALLET = "TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn"
 TX_HASH = "ab12cd34" * 8
 FIXED_TS = datetime(2026, 7, 5, 8, 0, tzinfo=timezone.utc)
 

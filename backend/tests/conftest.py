@@ -34,12 +34,12 @@ _get_settings().persistence = "memory"
 # itself is still covered rather than assumed.
 _get_settings().crypto_enabled = True
 
-SOURCE = "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6"
-RELAY1 = "TLa8NqPv5RkXm3WdJc7YtB2sFhE9gUn6Kz"
-RELAY2 = "TKe2WmXr9NpQv4LdYc6JtB8sFhA3gUn5Mz"
-EXCHANGE = "TBGgUKGDdVWr52tsmSGYcFDkTeDoK5Sw3d"
+SOURCE = "TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn"
+RELAY1 = "TSbTWhoTf88NDoYp8egkEHNsBzjmvVuUYj"
+RELAY2 = "TLCvQzNiSVBjhR2KsGD1tBUQrgDHnpytA5"
+EXCHANGE = "TCUVQF2ZvcJiKivzGVRimiKxW9jSukbD65"
 MULE1 = "TMu01eA9kQvXr4NpLd8YcJt5BsFhG2aWn"[:34]
-VICTIM1 = "TN3xKp8VqYmWdR5tJcE2sLbHnG9aQfU4Zw"
+VICTIM1 = "TNLdu3Z16WNq1WBrPXEj12nErsGmgfMpXR"
 
 
 @pytest.fixture(autouse=True)

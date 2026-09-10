@@ -457,7 +457,7 @@ const DEMO_REQUEST = {
   entities: [
     {
       type: "crypto_wallet",
-      value: "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6",
+      value: "TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn",
       chain: "tron",
     },
     {

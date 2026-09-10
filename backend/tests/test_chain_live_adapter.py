@@ -29,8 +29,8 @@ PAYLOAD = {
             "amount": "5000000",
             "block_timestamp": 1783965300000,
             "block": 84431799,
-            "from": "TReverted1111111111111111111111111",
-            "to": "TReverted2222222222222222222222222",
+            "from": "TKiUCFRjCZ6azpa2GY8extrziTpZCwDxm3",
+            "to": "TSb4w2BJSXaw3zaxFw4P4PMFpSYypKCweT",
             "hash": "deadbeef",
             "contract_ret": "REVERT",
             "decimals": 6,
@@ -171,7 +171,10 @@ async def test_malformed_address_short_circuits_without_api_call():
     a network call — no wasted request, no rate-limited fallback."""
     adapter = _make_adapter()  # FakeHttpxClient records every .get()
 
-    page = await adapter.fetch_transfers("TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6")  # 29-char fixture id
+    # Deliberately not a real address: 29 chars where TRON is 34. Kept invalid
+    # on purpose — this test is the short-circuit, so a valid address here
+    # would quietly turn it into a test of the network path instead.
+    page = await adapter.fetch_transfers("TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6")
 
     assert page.items == []
     assert page.next_cursor is None

@@ -132,14 +132,14 @@ export function buildMockHoneypot(): HoneypotData {
 
 /* ══ P4b — voice-call fallback (phone-framed scam, spoken Bahasa cadence) ══
  *
- * Discloses the P1 fixture wallet TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6 + the BCA
+ * Discloses the P1 fixture wallet TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn + the BCA
  * mule account so the demo still links honeypot-call → Investigation, and
  * includes the persona's read-back confirmation turn (natural voice beat).
  */
 
 export const MOCK_VOICE_CALLER = "+62 812-8841-4471";
 
-const P1_WALLET = "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6";
+const P1_WALLET = "TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn";
 
 /** Raw beats: [speaker, text, durationSec, extractions, disclosure]. */
 const VOICE_BEATS: Array<

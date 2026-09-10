@@ -14,7 +14,7 @@ import type {
 import { shortAddr } from "./types";
 
 /** Backend POC fixture source wallet (P1-Backend demo dataset). */
-export const DEFAULT_ADDRESS = "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6";
+export const DEFAULT_ADDRESS = "TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn";
 
 /* ── Gary's canonical 12 features (docs/TAKEDOWN-Design.md) ───────────── */
 const FEATURE_NAMES = [
@@ -38,18 +38,18 @@ const feats = (v: number[]): FeatureBar[] =>
 /* ── Graph (13 nodes / 14 edges, peeling chain 0→2→5→9) ───────────────── */
 const ADDR = [
   DEFAULT_ADDRESS, //                     0 · main, high
-  "TB2mVx4cQpL8dR1nS7kYwE3fJ9hK", //      1 · med
-  "TKQb31FnWc8vXz5mP4dLrJqY8f2c", //      2 · high (peel hop)
-  "TAe5cN8bXk2wPq9dL4mRv7ZsU3tG", //      3 · low
-  "TCx7pW2eJm9kQ4vB8nT5rLgD1aF6", //      4 · low
-  "TF9Lm2WkVd6xRq8pJc4nBtE73aa1", //      5 · high (peel hop)
+  "TQ7smityuXUyaP3VTUoUyS4f6LMJmBBKam", //      1 · med
+  "TK3UJbdTPhJARN4Uv91YGAZ954R5ahehDt", //      2 · high (peel hop)
+  "TArgG3C2mcZuqsvXxW4H3yjsYVhdLEUoAL", //      3 · low
+  "TWnFN1sPzFz6Sch2matVjcTgydk7noT4Pk", //      4 · low
+  "TEzmHBPwZtVe1NJiZRVo3kJrMUwcRKMvxf", //      5 · high (peel hop)
   "TWn4rQt7eKp2mXv9dJ5bLhS8wc02", //      6 · med (fan-out)
-  "TDq3fY8vLp5wRn2kM7cX9eBjT4u", //       7 · low
-  "TEj6bK4nWm2xPv8qL3dR7cFyH5s", //       8 · med
-  "TNVQyKgdxDGrCPFf8dW2QmSbEnw9", //      9 · exchange (Indodax)
-  "TGu8dP3kXw6mQn1vB9rL4eJcZ7h", //      10 · low
-  "THy2eM7bVk4pXq9wN3dR8cLfA5j", //      11 · low
-  "TJs5cQ9nWv3kPm7xL2bR6dYeG8w", //      12 · low
+  "TRLvnFUnFu87N4bNU4GQzUGUWGAkjaD5pN", //       7 · low
+  "TQrGvv1vah935jFoznzncnnySZrxnarvt2", //       8 · med
+  "THirWzU8PP86KB75GcGUom46GPLKwr8ywY", //      9 · exchange (Indodax)
+  "THgWyWhdm6MA8ShDmoJK7aerYcbNJzd7Af", //      10 · low
+  "TPuJYmkCUnmrXeL4wDYwPxAT7iAdZ3Wr8b", //      11 · low
+  "TL3wK5rdzQ2wRdhwLaY83NkeRq7CVk6WeP", //      12 · low
 ];
 
 interface N {

@@ -658,7 +658,7 @@ def test_shared_wallet_links_to_the_case(owner_uri):
 
             agency_id = find_agency("bareskrim").id
             case_id = uuid.uuid4()
-            wallet = "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6"
+            wallet = "TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn"
             session_pid = f"sess_{uuid.uuid4().hex[:12]}"
 
             async with engine.begin() as conn:

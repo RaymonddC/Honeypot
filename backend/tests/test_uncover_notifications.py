@@ -10,7 +10,7 @@ from app.uncover.notifications import (
     route_targets,
 )
 
-WALLETS = [WalletTarget(address="TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6")]
+WALLETS = [WalletTarget(address="TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn")]
 ACCOUNTS = [
     AccountTarget(account_number="111", bank_name="BCA", role="mule"),
     AccountTarget(account_number="222", bank_name="BCA", role="mule"),

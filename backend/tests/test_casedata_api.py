@@ -139,7 +139,7 @@ def test_manual_transfer_makes_new_wallet_investigable():
 
 def test_manual_transfer_merges_into_existing_fixture_graph():
     """A manual edge off the existing fixture scam wallet joins its graph."""
-    source = "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6"  # P1 fixture scam wallet
+    source = "TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn"  # P1 fixture scam wallet
     new_cashout = "TManualCashoutWWWWWWWWWWWWWWWWWWWWW"
 
     with TestClient(app) as c:

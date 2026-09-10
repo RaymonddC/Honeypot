@@ -1585,7 +1585,15 @@
       "errors": {
         "loadFailed": "could not load the triage queue",
         "placeFailed": "could not place this call"
-      }
+      },
+      "filters": {
+        "all": "All ({count})",
+        "real": "Real calls ({count})",
+        "entities": "With entities",
+        "searchLabel": "Filter the queue",
+        "searchPlaceholder": "Number, or a phrase they said"
+      },
+      "noMatch": "No call matches that filter. The seeded demo sessions all carry the fixture date, so “Real calls” hides them."
     },
     "triageRow": {
       "unknownNumber": "unknown",

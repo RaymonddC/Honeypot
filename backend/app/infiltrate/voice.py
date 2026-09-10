@@ -8,7 +8,7 @@ syndicate clustering are reused verbatim.
 POC (all offline, deterministic, no keys):
 - ``VOICE_SCRIPT`` — a phone-call-framed scam transcript (spoken Bahasa
   cadence). The scammer calls from ``+62 858-7766-1122`` and voluntarily
-  discloses the P1 fixture TRON wallet ``TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6`` and
+  discloses the P1 fixture TRON wallet ``TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn`` and
   the BCA mule account, so voice intel links into the Investigation graph.
   Includes a **read-back confirmation** beat (the persona repeats the wallet /
   account back — natural on a call, and the demo moment).
@@ -66,7 +66,7 @@ def estimate_duration(text: str) -> float:
 # exchanges he discloses:
 #   phone        0812-7788-9900                     (admin WhatsApp)
 #   bank account BCA 5271038462 a.n. Rudi Hartono   (mule)
-#   TRON wallet  TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6      (P1 fixture source)
+#   TRON wallet  TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn      (P1 fixture source)
 # Turn 5 is the read-back confirmation: the persona repeats the wallet and
 # account back "so she doesn't mistype" — locking the disclosure on tape.
 # --------------------------------------------------------------------------- #
@@ -174,7 +174,7 @@ VOICE_SCRIPT: list[ScriptTurn] = [
         scammer=(
             "Bisa banget Bu, malah lebih cepat prosesnya! Ibu kirim USDT jaringan "
             "TRON ke wallet resmi kami. Alamatnya saya bacakan ya Bu, tulis baik- "
-            "baik: TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6. Huruf besar-kecilnya harus persis "
+            "baik: TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn. Huruf besar-kecilnya harus persis "
             "ya Bu, dan harus jaringan TRC20, jangan salah pilih."
         ),
         persona_reply=(
@@ -187,7 +187,7 @@ VOICE_SCRIPT: list[ScriptTurn] = [
                 "name": "record_entity",
                 "args": {
                     "type": "crypto_wallet",
-                    "value": "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6",
+                    "value": "TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn",
                     "chain": "tron",
                     "context": "USDT-TRC20 collection wallet dictated letter-by-letter on the call",
                 },
@@ -210,7 +210,7 @@ VOICE_SCRIPT: list[ScriptTurn] = [
         ),
         persona_reply=(
             "baik nak, ibu bacakan ya pelan-pelan: wallet-nya "
-            "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6, terus rekening BCA-nya 5271038462 atas "
+            "TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn, terus rekening BCA-nya 5271038462 atas "
             "nama Rudi Hartono. betul semua kan nak? maklum mata ibu sudah plus."
         ),
         tool_calls=[

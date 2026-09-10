@@ -35,7 +35,7 @@ from app.fiat.schemas import (
 IDR_PER_USDT = 16_300.0  # fixed demo rate (docs/TRACE-Design open Q2 — POC constant)
 
 # Indodax USDT-TRC20 hot wallet (chain fixtures, tagged category='exchange').
-HOT_WALLET = "TBGgUKGDdVWr52tsmSGYcFDkTeDoK5Sw3d"
+HOT_WALLET = "TCUVQF2ZvcJiKivzGVRimiKxW9jSukbD65"
 
 CASE_FRAMING = {
     "case_ref": "PT A2Z / Oei Hengky Wiryo pattern",

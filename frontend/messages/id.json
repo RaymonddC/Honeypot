@@ -1585,7 +1585,15 @@
       "errors": {
         "loadFailed": "gagal memuat antrean triase",
         "placeFailed": "gagal menempatkan panggilan ini"
-      }
+      },
+      "filters": {
+        "all": "Semua ({count})",
+        "real": "Panggilan nyata ({count})",
+        "entities": "Ada entitas",
+        "searchLabel": "Saring antrean",
+        "searchPlaceholder": "Nomor, atau kalimat yang diucapkan"
+      },
+      "noMatch": "Tidak ada panggilan yang cocok. Sesi demo bawaan memakai tanggal fixture, jadi “Panggilan nyata” menyembunyikannya."
     },
     "triageRow": {
       "unknownNumber": "tidak diketahui",

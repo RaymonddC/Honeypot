@@ -241,7 +241,7 @@ def test_dispatch_is_recorded_with_recipients():
             "entities": [
                 {
                     "type": "crypto_wallet",
-                    "value": "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6",
+                    "value": "TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn",
                     "chain": "tron",
                 }
             ],
@@ -282,7 +282,7 @@ def test_generated_evidence_is_recorded_durably_with_hashes():
             "entities": [
                 {
                     "type": "crypto_wallet",
-                    "value": "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6",
+                    "value": "TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn",
                     "chain": "tron",
                 }
             ],
@@ -373,7 +373,7 @@ def test_downloading_evidence_is_audited_with_its_hash():
             "case_id": "CASE-EXPORT-1",
             "crime_type": "investment",
             "entities": [
-                {"type": "crypto_wallet", "value": "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6", "chain": "tron"}
+                {"type": "crypto_wallet", "value": "TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn", "chain": "tron"}
             ],
             "outputs": ["freeze"],
         },

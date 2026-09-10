@@ -45,7 +45,7 @@ Live: frontend `honeypot-brown.vercel.app` · backend `honeypot-aa88.onrender.co
 **Your lines to say (as the scammer):**
 1. "Halo Bu, saya dari tim ProfitMax Investa, investasi dijamin untung 10 persen per hari."
 2. "Ibu cukup transfer 5 juta ke rekening BCA **5271038462** untuk aktivasi akun VIP."
-3. "Atau lebih cepat, kirim USDT ke wallet **TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6** sekarang ya Bu."
+3. "Atau lebih cepat, kirim USDT ke wallet **TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn** sekarang ya Bu."
 4. "Ayo Bu buruan, kesempatan terbatas, jangan sampai hangus!"
 
 > **The point to land:** "In 90 seconds, with zero human effort, we captured a crypto wallet and a mule bank account from a live scammer — evidence, hash-chained for court."

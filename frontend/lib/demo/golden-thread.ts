@@ -3,7 +3,7 @@
  * all four pillars so the end-to-end story is clickable:
  *
  *   INFILTRATE  the honeypot extracts a mule BANK ACCOUNT + a collection WALLET
- *        │      (BCA 5271038462 · TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6)
+ *        │      (BCA 5271038462 · TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn)
  *        ▼
  *   TRACE       the account is shown bridged to the wallet (fiat → USDT on-ramp)
  *        │
@@ -28,11 +28,11 @@ export const GOLDEN = {
   /** Mule receiving account the honeypot bait extracts. */
   bank: { bankName: "BCA", accountNumber: "5271038462", holder: "Rudi Hartono" },
   /** Collection wallet the fiat is converted into (P1 graph fixture root). */
-  wallet: "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6",
+  wallet: "TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn",
   /** On-ramp deposit sender → collection wallet (transfers.json, 09:00). */
-  onrampSender: "TN3xKp8VqYmWdR5tJcE2sLbHnG9aQfU4Zw",
+  onrampSender: "TNLdu3Z16WNq1WBrPXEj12nErsGmgfMpXR",
   /** Downstream peeling-chain exit = the exchange hot wallet. */
-  exit: "TBGgUKGDdVWr52tsmSGYcFDkTeDoK5Sw3d",
+  exit: "TCUVQF2ZvcJiKivzGVRimiKxW9jSukbD65",
   /** Representative on-ramp size (matches the 50,000 USDT deposit in the fixture). */
   amountUsdt: 50_000,
 } as const;

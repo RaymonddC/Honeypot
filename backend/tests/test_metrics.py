@@ -78,7 +78,7 @@ def test_labels_use_the_route_template_never_the_requested_path(scrapeable):
     boundary, and you cannot un-send them.
     """
     case_id = str(uuid.uuid4())
-    wallet = "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6"
+    wallet = "TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn"
     client.get(f"/api/cases/{case_id}")
     client.get(f"/api/trace/{wallet}")
 

@@ -25,7 +25,7 @@
  * than an error state.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { listCases, type Case } from "@/lib/cases/api";
 import { fetchBackendConfig } from "@/lib/settings";
@@ -892,12 +892,48 @@ function TriageRow({
   );
 }
 
+/**
+ * The seeded replay sessions all carry INFILTRATE's deterministic demo epoch
+ * (service._BASE_TS, 2026-07-07). A real call is stamped with the wall clock, so
+ * the date alone separates a call that happened from a fixture that did not.
+ *
+ * Calls taken BEFORE live sessions got a real clock also sit on this date and so
+ * read as demo here. That is honest rather than a bug: nothing recorded when
+ * they happened, and guessing a time for evidence would be worse than admitting
+ * the queue cannot place them.
+ */
+const REPLAY_EPOCH_DAY = "2026-07-07";
+
+function isRealCall(row: TriageSession): boolean {
+  return !row.started_at.startsWith(REPLAY_EPOCH_DAY);
+}
+
+type TriageFilter = "all" | "real" | "entities";
+
 function TriageTab() {
   const t = useTranslations("honeypotOps");
   const [rows, setRows] = useState<TriageSession[]>([]);
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<TriageFilter>("all");
+  const [query, setQuery] = useState("");
+
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (filter === "real" && !isRealCall(r)) return false;
+      if (filter === "entities" && r.entity_count === 0) return false;
+      if (!q) return true;
+      // Number first — it is what an investigator recognises a call by — then
+      // the opening line, so a half-remembered phrase finds the call too.
+      return `${r.channel_ref ?? ""} ${r.preview ?? ""} ${r.crime_type ?? ""}`
+        .toLowerCase()
+        .includes(q);
+    });
+  }, [rows, filter, query]);
+
+  const realCount = useMemo(() => rows.filter(isRealCall).length, [rows]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -923,15 +959,53 @@ function TriageTab() {
         {t("triageTab.intro")}
       </p>
 
+      {/* The queue mixes seeded fixtures with calls that actually came in, and
+          at this length the real ones are unfindable by eye. */}
+      {!loading && rows.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-1.5">
+          {(
+            [
+              ["all", t("triageTab.filters.all", { count: rows.length })],
+              ["real", t("triageTab.filters.real", { count: realCount })],
+              ["entities", t("triageTab.filters.entities")],
+            ] as [TriageFilter, string][]
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={filter === key}
+              onClick={() => setFilter(key)}
+              className={`rounded-full border px-2.5 py-1 text-[12px] transition-colors ${
+                filter === key
+                  ? "border-white/25 bg-elevated font-semibold text-fg"
+                  : "border-line text-muted hover:text-fg"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            spellCheck={false}
+            aria-label={t("triageTab.filters.searchLabel")}
+            placeholder={t("triageTab.filters.searchPlaceholder")}
+            className={`${INPUT_CLS} ml-auto min-w-0 flex-1 sm:max-w-[15rem]`}
+          />
+        </div>
+      )}
+
       {loading ? (
         <p className="text-[12px] text-muted">{t("triageTab.loading")}</p>
       ) : rows.length === 0 ? (
         <p className="text-[12px] text-muted">
           {t("triageTab.empty")}
         </p>
+      ) : shown.length === 0 ? (
+        <p className="text-[12px] text-muted">{t("triageTab.noMatch")}</p>
       ) : (
         <ul className="space-y-1.5">
-          {rows.map((r) => (
+          {shown.map((r) => (
             <TriageRow key={r.id} row={r} cases={cases} onPlaced={() => void load()} />
           ))}
         </ul>

@@ -1,6 +1,6 @@
 [
   {
-    "address": "TBGgUKGDdVWr52tsmSGYcFDkTeDoK5Sw3d",
+    "address": "TCUVQF2ZvcJiKivzGVRimiKxW9jSukbD65",
     "chain": "tron",
     "tag": "Indodax",
     "category": "exchange",
@@ -8,7 +8,7 @@
     "confidence": 0.95
   },
   {
-    "address": "TXtR9dQpR7mK2vN8fLbY3wZaQ4pJ6",
+    "address": "TLaJLQ1Aiqu8YpZLNG37vDCrFxiFL3JWmn",
     "chain": "tron",
     "tag": "Honeypot-reported scam wallet",
     "category": "scam",
