@@ -69,11 +69,16 @@ function AlertActions({
             {state === "busy" ? t("saving") : state === "err" ? t("retry") : t("addCase")}
           </button>
         ))}
-      {onTrace && a.wallet && (
+      {/* Trace the EXCHANGE end of the on-ramp edge, not the sender.
+          Both endpoints are investigable, but the sender here is a simulated
+          depositor: a valid address with no chain presence, so tracing it
+          returns an empty graph in LIVE mode however correct the request was.
+          The exchange wallet is the end that actually has a chain behind it. */}
+      {onTrace && (a.toAddr ?? a.wallet) && (
         <button
           type="button"
-          onClick={() => onTrace(a.wallet as string)}
-          title={t("traceTitle", { address: a.wallet })}
+          onClick={() => onTrace((a.toAddr ?? a.wallet) as string)}
+          title={t("traceTitle", { address: (a.toAddr ?? a.wallet) as string })}
           className="rounded-md border border-line px-1.5 py-0.5 text-[12px] font-semibold text-muted transition-colors hover:text-fg"
         >
           {t("trace")}
