@@ -54,6 +54,9 @@ from app.infiltrate.voice import (
 
 MODULE = "infiltrate"
 
+#: Output budget for ONE spoken turn. See run_one_turn.
+VOICE_TURN_MAX_TOKENS = 90
+
 # Fixed, deterministic session epoch (no Date.now dependency in hash content).
 _BASE_TS = datetime(2026, 7, 7, 12, 0, 0, tzinfo=timezone.utc)
 
@@ -673,6 +676,12 @@ async def run_one_turn(
 
     settings = get_settings()
     gateway = _resolve_turn_gateway(settings)
+    # A spoken turn is one or two sentences. The default 1024 produced
+    # four-paragraph answers on a live phone call — unlistenable, uninterruptible
+    # (<Gather> has no barge-in), and the reason a real transcript read as
+    # machine-generated rather than as a person talking.
+    if state.is_voice and isinstance(gateway, LiteLLMGateway):
+        gateway.max_tokens = VOICE_TURN_MAX_TOKENS
     turn = state.next_turn
     ts_in = _BASE_TS + timedelta(seconds=(turn + 1) * 2)
     ts_out = ts_in + timedelta(seconds=1)

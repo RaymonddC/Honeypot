@@ -71,6 +71,7 @@ from app.infiltrate.telephony import (
     verify_twilio_signature,
 )
 from app.infiltrate.voice import (
+    VOICE_GREETING,
     TTSAdapter,
     VoiceMarkOut,
     check_elevenlabs_voice,
@@ -499,10 +500,16 @@ async def get_syndicates(
 # would be a free public text-to-speech proxy billed to our provider account.
 # A fixed vocabulary makes the cost bounded and the output predictable.
 VOICE_LINES: dict[str, str] = {
-    # Answering line. Deliberately NOT "thank you for calling, goodbye" once the
-    # conversation loop is on — a persona that says goodbye in its first breath
-    # invites a hangup. Bu Sari answers her phone like a 54-year-old in Bandung.
-    "greeting": "Halo, selamat siang. Ini dengan siapa ya?",
+    # THE line the session's first custody message records
+    # (service._start_interactive_session writes VOICE_GREETING as message #1).
+    #
+    # It is imported rather than written out again because the two drifted, and
+    # the drift was the bug: the phone played "Halo, selamat siang. Ini dengan
+    # siapa ya?" while the transcript recorded "halo, selamat siang.. dengan ibu
+    # Sari di sini. ini siapa ya nak?". A hash-chained record of a call that
+    # says something the caller never heard is worse than no record — it is
+    # evidence of the wrong conversation.
+    "greeting": VOICE_GREETING,
     # Said when the caller has gone quiet twice, or the turn cap is reached.
     "goodbye": "Maaf ya, saya tanya anak saya dulu. Nanti telepon lagi ya.",
     # Said when the persona cannot answer (LLM error). Stalling is in character,

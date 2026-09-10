@@ -159,6 +159,11 @@ class LiteLLMGateway:
     def __init__(self, settings: Settings | None = None):
         settings = settings or get_settings()
         self._model = settings.llm_model
+        # Default output budget. Overridable per instance because a spoken turn
+        # and a chat turn want very different lengths, and the caller that knows
+        # which one this is (service.run_one_turn) is not the caller that builds
+        # the messages.
+        self.max_tokens = 1024
         self.model_version = self._model
         self._api_key = settings.effective_llm_api_key
         self._api_base = settings.llm_api_base or None
@@ -175,7 +180,7 @@ class LiteLLMGateway:
         messages: list[dict],
         tools: list[dict] | None = None,
         turn: int = 0,
-        max_tokens: int = 1024,
+        max_tokens: int | None = None,
     ) -> LLMResponse:
         """``max_tokens`` is a parameter because a chat turn and a spoken turn
         want very different budgets. 1024 is right for a WhatsApp exchange the
@@ -190,7 +195,7 @@ class LiteLLMGateway:
             tools=tools or None,
             api_key=self._api_key,
             api_base=self._api_base,  # None unless ITTU_LLM_API_BASE is set
-            max_tokens=max_tokens,
+            max_tokens=max_tokens if max_tokens is not None else self.max_tokens,
             temperature=0.8,
         )
         message = resp.choices[0].message
